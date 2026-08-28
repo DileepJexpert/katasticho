@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/sales_receipt_providers.dart';
@@ -195,9 +194,10 @@ class _ReceiptNumberCell extends StatelessWidget {
           Expanded(
             child: Text(
               receiptNumber,
-              style: KTypography.labelLarge.copyWith(
+              style: KTypography.mono(
+                size: 13,
+                weight: FontWeight.w700,
                 color: cs.onSurface,
-                fontWeight: FontWeight.w700,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -230,27 +230,9 @@ class _PaymentModeCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: cs.secondaryContainer,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(_paymentIconFor(mode), size: 14, color: cs.onSecondaryContainer),
-          const SizedBox(width: 5),
-          Text(
-            mode,
-            style: KTypography.labelSmall.copyWith(
-              color: cs.onSecondaryContainer,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
+    return KStatusChip(
+      status: mode,
+      dense: true,
     );
   }
 }
@@ -270,74 +252,57 @@ class _ReceiptCard extends StatelessWidget {
     final contactName = receipt['contactName']?.toString();
     final lineCount = (receipt['lines'] as List?)?.length;
 
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => context.push('/sales-receipts/$id'),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: cs.primary.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(_paymentIconFor(paymentMode),
-                    color: cs.primary, size: 20),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+    return KCard(
+      onTap: id.isEmpty ? null : () => context.push('/sales-receipts/$id'),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: cs.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(_paymentIconFor(paymentMode),
+                color: cs.primary, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        Text(receiptNumber, style: KTypography.labelMedium),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: cs.secondaryContainer,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            paymentMode,
-                            style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: cs.onSecondaryContainer),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
                     Text(
-                      contactName ?? 'Walk-in Customer',
-                      style: KTypography.bodySmall
-                          .copyWith(color: KColors.textSecondary),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      receiptNumber,
+                      style: KTypography.mono(size: 13, weight: FontWeight.w700),
                     ),
-                    if (lineCount != null)
-                      Text(
-                        '$lineCount item${lineCount == 1 ? '' : 's'} • $date',
-                        style: KTypography.labelSmall.copyWith(
-                            color: KColors.textSecondary, fontSize: 10),
-                      ),
+                    const SizedBox(width: 8),
+                    KStatusChip(
+                      status: paymentMode,
+                      dense: true,
+                    ),
                   ],
                 ),
-              ),
-              Text(
-                CurrencyFormatter.formatIndian(total),
-                style: KTypography.amountMedium,
-              ),
-            ],
+                const SizedBox(height: 4),
+                Text(
+                  contactName ?? 'Walk-in Customer',
+                  style: KTypography.bodySmall
+                      .copyWith(color: KColors.textSecondary),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (lineCount != null)
+                  Text(
+                    '$lineCount item${lineCount == 1 ? '' : 's'} • $date',
+                    style: KTypography.labelSmall.copyWith(
+                        color: KColors.textSecondary, fontSize: 10),
+                  ),
+              ],
+            ),
           ),
-        ),
+          KMoney(total, size: KMoneySize.medium),
+        ],
       ),
     );
   }

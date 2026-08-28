@@ -6,6 +6,7 @@ import '../../../core/api/api_config.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
+import '../../../core/widgets/widgets.dart';
 
 /// Searches the platform drug master and calls [onSelected] with the
 /// matched drug's data so the item form can auto-fill all pharma fields.
@@ -139,14 +140,7 @@ class _DrugMasterSearchWidgetState
             decoration: BoxDecoration(
               color: cs.surface,
               borderRadius: KSpacing.borderRadiusMd,
-              border: Border.all(color: cs.outline),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
-                ),
-              ],
+              border: Border.all(color: cs.outlineVariant),
             ),
             child: ListView.separated(
               shrinkWrap: true,
@@ -157,6 +151,7 @@ class _DrugMasterSearchWidgetState
                 final d = _results[i];
                 final schedule = d['drugSchedule'] as String? ?? '';
                 final rx = d['prescriptionRequired'] as bool? ?? false;
+                final mrp = (d['mrp'] as num?)?.toDouble();
                 return InkWell(
                   onTap: () => _select(d),
                   child: Padding(
@@ -210,12 +205,12 @@ class _DrugMasterSearchWidgetState
                             ],
                           ),
                         ),
-                        if ((d['mrp'] as num?) != null) ...[
+                        if (mrp != null) ...[
                           const SizedBox(width: 8),
-                          Text(
-                            '₹${d['mrp']}',
-                            style: KTypography.labelSmall
-                                .copyWith(color: KColors.textSecondary),
+                          KMoney(
+                            mrp,
+                            size: KMoneySize.small,
+                            style: const TextStyle(fontSize: 11),
                           ),
                         ],
                       ],

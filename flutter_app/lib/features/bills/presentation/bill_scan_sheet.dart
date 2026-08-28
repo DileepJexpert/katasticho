@@ -9,7 +9,6 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../ai_chat/data/ai_repository.dart';
 
@@ -724,12 +723,14 @@ class _BillScanSheetState extends ConsumerState<_BillScanSheet> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text('Line Total',
-                    style: KTypography.labelSmall
-                        .copyWith(color: KColors.textSecondary)),
-                Text(
-                  CurrencyFormatter.formatIndian(item.lineTotal),
-                  style:
-                      KTypography.labelLarge.copyWith(color: KColors.primary),
+                    style: KTypography.caption),
+                KMoney(
+                  item.lineTotal,
+                  size: KMoneySize.small,
+                  style: const TextStyle(
+                    color: KColors.primary,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ],
             ),
@@ -758,15 +759,16 @@ class _BillScanSheetState extends ConsumerState<_BillScanSheet> {
   }
 
   Widget _totalRow(String label, double value, {bool bold = false}) {
-    final style = bold ? KTypography.labelLarge : KTypography.bodyMedium;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: style.copyWith(color: KColors.textSecondary)),
-        Text(
-          CurrencyFormatter.formatIndian(value),
-          style: style.copyWith(
+        Text(label, style: bold ? KTypography.labelLarge : KTypography.bodyMedium),
+        KMoney(
+          value,
+          size: bold ? KMoneySize.medium : KMoneySize.small,
+          style: TextStyle(
             color: bold ? KColors.primary : null,
+            fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
           ),
         ),
       ],
@@ -791,7 +793,7 @@ class _BillScanSheetState extends ConsumerState<_BillScanSheet> {
         children: [
           SizedBox(
             width: double.infinity,
-            child: KButton(
+            child: KButton.primary(
               label: _posting ? 'Posting…' : 'Approve & Post',
               icon: Icons.task_alt,
               isLoading: _posting,
@@ -802,18 +804,16 @@ class _BillScanSheetState extends ConsumerState<_BillScanSheet> {
           Row(
             children: [
               Expanded(
-                child: KButton(
+                child: KButton.outlined(
                   label: 'Rescan',
-                  variant: KButtonVariant.outlined,
                   icon: Icons.refresh,
                   onPressed: _posting ? null : () => _resetToPhase(_Phase.picker),
                 ),
               ),
               KSpacing.hGapMd,
               Expanded(
-                child: KButton(
+                child: KButton.outlined(
                   label: 'Edit in form',
-                  variant: KButtonVariant.outlined,
                   icon: Icons.edit_outlined,
                   onPressed: _posting
                       ? null

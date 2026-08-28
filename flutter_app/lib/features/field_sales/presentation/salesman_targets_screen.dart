@@ -1,6 +1,5 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_client.dart';
@@ -100,7 +99,7 @@ class _SalesmanTargetsScreenState extends ConsumerState<SalesmanTargetsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Salesman Targets'),
+        title: const Text('Sales Targets & Quotas'),
         actions: [
           IconButton(
             tooltip: 'Refresh',
@@ -110,22 +109,23 @@ class _SalesmanTargetsScreenState extends ConsumerState<SalesmanTargetsScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: KColors.primary,
+        foregroundColor: Colors.white,
         onPressed: _users.isEmpty ? null : _openCreateSheet,
         icon: const Icon(Icons.add),
-        label: const Text('New target'),
+        label: const Text('New Target'),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: KLoading())
           : _error != null
               ? KErrorView(message: _error!, onRetry: _load)
               : _targets.isEmpty
                   ? KEmptyState(
                       icon: Icons.flag_outlined,
-                      title: 'No targets set',
+                      title: 'No sales targets configured',
                       subtitle:
-                          'Set monthly or quarterly goals for your field team '
-                          'and track achievement + incentives here.',
-                      actionLabel: 'New target',
+                          'Set monthly, quarterly or yearly revenue and visit goals for field representatives to track quotas and incentives.',
+                      actionLabel: 'New Target',
                       onAction: _users.isEmpty ? null : _openCreateSheet,
                     )
                   : RefreshIndicator(
@@ -155,6 +155,7 @@ class _SalesmanTargetsScreenState extends ConsumerState<SalesmanTargetsScreen> {
             : KColors.error;
 
     return KCard(
+      statusAccent: progressColor,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -162,7 +163,7 @@ class _SalesmanTargetsScreenState extends ConsumerState<SalesmanTargetsScreen> {
             children: [
               Expanded(
                 child: Text(_userName(t['salespersonId']?.toString()),
-                    style: KTypography.labelLarge),
+                    style: KTypography.titleMedium),
               ),
               KStatusChip(status: type.replaceAll('_', ' ')),
             ],
@@ -171,17 +172,30 @@ class _SalesmanTargetsScreenState extends ConsumerState<SalesmanTargetsScreen> {
           Text(
             '${t['periodType'] ?? 'MONTHLY'} · '
             '${_fmtDate(t['periodStart'])} – ${_fmtDate(t['periodEnd'])}',
-            style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+            style: KTypography.mono(fontSize: 12, color: KColors.textSecondary),
           ),
           KSpacing.vGapSm,
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Achieved ${_fmtValue(type, achieved)}',
-                  style: KTypography.bodyMedium),
-              Text('of ${_fmtValue(type, target)}',
-                  style: KTypography.bodySmall
-                      .copyWith(color: KColors.textSecondary)),
+              Row(
+                children: [
+                  Text('Achieved: ', style: KTypography.bodyMedium),
+                  if (type == 'REVENUE' || type == 'COLLECTIONS')
+                    KMoney(achieved.toDouble(), size: KMoneySize.small, style: const TextStyle(fontWeight: FontWeight.w700))
+                  else
+                    Text(_fmtValue(type, achieved), style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w700)),
+                ],
+              ),
+              Row(
+                children: [
+                  Text('of Target ', style: KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
+                  if (type == 'REVENUE' || type == 'COLLECTIONS')
+                    KMoney(target.toDouble(), size: KMoneySize.small)
+                  else
+                    Text(_fmtValue(type, target), style: KTypography.mono(fontSize: 12, color: KColors.textSecondary)),
+                ],
+              ),
             ],
           ),
           KSpacing.vGapXs,
@@ -189,8 +203,8 @@ class _SalesmanTargetsScreenState extends ConsumerState<SalesmanTargetsScreen> {
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
               value: progress,
-              minHeight: 7,
-              backgroundColor: KColors.divider,
+              minHeight: 6,
+              backgroundColor: progressColor.withValues(alpha: 0.15),
               color: progressColor,
             ),
           ),
@@ -199,24 +213,36 @@ class _SalesmanTargetsScreenState extends ConsumerState<SalesmanTargetsScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('${pct.toStringAsFixed(1)}%',
-                  style: KTypography.labelMedium
-                      .copyWith(color: progressColor)),
+                  style: KTypography.mono(
+                    fontSize: 13,
+                    color: progressColor,
+                    fontWeight: FontWeight.w700,
+                  )),
               if (incentiveRate > 0)
-                Text(
-                  'Incentive ${incentiveRate.toStringAsFixed(1)}% · '
-                  '${CurrencyFormatter.formatIndian(incentiveAmount)}',
-                  style: KTypography.bodySmall
-                      .copyWith(color: KColors.textSecondary),
+                Row(
+                  children: [
+                    Text(
+                      'Incentive (${incentiveRate.toStringAsFixed(1)}%): ',
+                      style: KTypography.bodySmall
+                          .copyWith(color: KColors.textSecondary),
+                    ),
+                    KMoney(
+                      incentiveAmount,
+                      size: KMoneySize.small,
+                      style: const TextStyle(color: KColors.success, fontWeight: FontWeight.w600),
+                    ),
+                  ],
                 ),
             ],
           ),
           KSpacing.vGapSm,
           Align(
             alignment: Alignment.centerRight,
-            child: OutlinedButton.icon(
+            child: KButton.outlined(
+              label: 'Update Achievement',
+              icon: Icons.trending_up,
+              size: KButtonSize.small,
               onPressed: () => _openAchievementDialog(t),
-              icon: const Icon(Icons.trending_up, size: 16),
-              label: const Text('Record achievement'),
             ),
           ),
         ],
@@ -237,27 +263,27 @@ class _SalesmanTargetsScreenState extends ConsumerState<SalesmanTargetsScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Record achievement — ${_userName(t['salespersonId']?.toString())}'),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          inputFormatters: [
-            FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-          ],
-          decoration: InputDecoration(
-            labelText: 'Achieved value',
-            helperText: 'Target ${_fmtValue(t['targetType']?.toString(), (t['targetValue'] as num?) ?? 0)}',
-            border: const OutlineInputBorder(),
+        title: Text('Update Achievement — ${_userName(t['salespersonId']?.toString())}'),
+        content: SizedBox(
+          width: 360,
+          child: KTextField.amount(
+            controller: ctrl,
+            label: 'Achieved value',
+            hint: 'Target is ${_fmtValue(t['targetType']?.toString(), (t['targetValue'] as num?) ?? 0)}',
           ),
         ),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
-          FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Save')),
+          KButton.outlined(
+            size: KButtonSize.small,
+            onPressed: () => Navigator.pop(ctx, false),
+            label: 'Cancel',
+          ),
+          KSpacing.hGapSm,
+          KButton.primary(
+            size: KButtonSize.small,
+            label: 'Save Achievement',
+            onPressed: () => Navigator.pop(ctx, true),
+          ),
         ],
       ),
     );
@@ -266,9 +292,10 @@ class _SalesmanTargetsScreenState extends ConsumerState<SalesmanTargetsScreen> {
     if (value == null) return;
     try {
       await _repo.updateTargetAchievement(t['id'].toString(), value);
+      _toast('Achievement updated');
       await _load();
     } catch (e) {
-      _toast('Could not update: ${e.toString().replaceAll('Exception: ', '')}');
+      _toast('Could not update: ${e.toString().replaceAll('Exception: ', '')}', isError: true);
     }
   }
 
@@ -320,19 +347,18 @@ class _SalesmanTargetsScreenState extends ConsumerState<SalesmanTargetsScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('New target', style: KTypography.h3),
+                    Text('New Target / Quota', style: KTypography.titleLarge),
                     KSpacing.vGapMd,
                     DropdownButtonFormField<String>(
                       initialValue: salespersonId,
                       isExpanded: true,
                       decoration: const InputDecoration(
-                        labelText: 'Salesperson',
+                        labelText: 'Salesperson *',
                         border: OutlineInputBorder(),
-                        isDense: true,
                       ),
                       items: _users.map((u) {
-                        final id = u['id']?.toString() ?? '';
-                        final name = (u['fullName'] ?? u['email'] ?? id).toString();
+                        final id = (u['userId'] ?? u['id'])?.toString() ?? '';
+                        final name = (u['fullName'] ?? u['displayName'] ?? u['email'] ?? id).toString();
                         final role = u['role']?.toString() ?? '';
                         return DropdownMenuItem(
                           value: id,
@@ -350,9 +376,8 @@ class _SalesmanTargetsScreenState extends ConsumerState<SalesmanTargetsScreen> {
                             initialValue: targetType,
                             isExpanded: true,
                             decoration: const InputDecoration(
-                              labelText: 'Target type',
+                              labelText: 'Target Metric Type',
                               border: OutlineInputBorder(),
-                              isDense: true,
                             ),
                             items: _targetTypes
                                 .map((t) => DropdownMenuItem(
@@ -369,9 +394,8 @@ class _SalesmanTargetsScreenState extends ConsumerState<SalesmanTargetsScreen> {
                             initialValue: periodType,
                             isExpanded: true,
                             decoration: const InputDecoration(
-                              labelText: 'Period',
+                              labelText: 'Frequency Period',
                               border: OutlineInputBorder(),
-                              isDense: true,
                             ),
                             items: _periodTypes
                                 .map((p) => DropdownMenuItem(
@@ -389,67 +413,50 @@ class _SalesmanTargetsScreenState extends ConsumerState<SalesmanTargetsScreen> {
                         Expanded(
                           child: OutlinedButton(
                             onPressed: () => pickDate(true),
-                            child: Text('From ${DateFormatter.short(periodStart)}'),
+                            child: Text('From: ${DateFormatter.short(periodStart)}'),
                           ),
                         ),
                         KSpacing.hGapMd,
                         Expanded(
                           child: OutlinedButton(
                             onPressed: () => pickDate(false),
-                            child: Text('To ${DateFormatter.short(periodEnd)}'),
+                            child: Text('To: ${DateFormatter.short(periodEnd)}'),
                           ),
                         ),
                       ],
                     ),
                     KSpacing.vGapMd,
-                    TextField(
+                    KTextField.amount(
                       controller: targetCtrl,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                      ],
-                      decoration: InputDecoration(
-                        labelText: targetType == 'REVENUE' ||
-                                targetType == 'COLLECTIONS'
-                            ? 'Target amount (₹)'
-                            : 'Target count',
-                        border: const OutlineInputBorder(),
-                        isDense: true,
-                      ),
+                      label: targetType == 'REVENUE' ||
+                              targetType == 'COLLECTIONS'
+                          ? 'Target Amount'
+                          : 'Target Count',
                     ),
-                    KSpacing.vGapMd,
-                    TextField(
+                    KSpacing.vGapSm,
+                    KTextField(
                       controller: incentiveCtrl,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                      ],
-                      decoration: const InputDecoration(
-                        labelText: 'Incentive rate % (optional)',
-                        helperText: 'Incentive = achieved × rate ÷ 100',
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                      ),
+                      label: 'Incentive Rate % (Optional)',
+                      hint: 'e.g. 2.5',
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     ),
                     KSpacing.vGapLg,
-                    KButton(
-                      label: 'Create target',
+                    KButton.primary(
+                      label: 'Create Target',
                       icon: Icons.check,
                       onPressed: () async {
                         if (salespersonId == null) {
-                          _toast('Pick a salesperson');
+                          _toast('Pick a salesperson', isError: true);
                           return;
                         }
                         final targetValue =
                             double.tryParse(targetCtrl.text.trim());
                         if (targetValue == null || targetValue <= 0) {
-                          _toast('Enter a target value');
+                          _toast('Enter a valid positive target value', isError: true);
                           return;
                         }
                         if (periodEnd.isBefore(periodStart)) {
-                          _toast('End date must be after start date');
+                          _toast('End date must be after start date', isError: true);
                           return;
                         }
                         try {
@@ -466,7 +473,7 @@ class _SalesmanTargetsScreenState extends ConsumerState<SalesmanTargetsScreen> {
                           if (ctx.mounted) Navigator.pop(ctx, true);
                         } catch (e) {
                           _toast(
-                              'Could not create: ${e.toString().replaceAll('Exception: ', '')}');
+                              'Could not create: ${e.toString().replaceAll('Exception: ', '')}', isError: true);
                         }
                       },
                     ),
@@ -481,8 +488,13 @@ class _SalesmanTargetsScreenState extends ConsumerState<SalesmanTargetsScreen> {
     if (created == true) await _load();
   }
 
-  void _toast(String msg) {
+  void _toast(String msg, {bool isError = false}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: isError ? KColors.error : KColors.success,
+      ),
+    );
   }
 }

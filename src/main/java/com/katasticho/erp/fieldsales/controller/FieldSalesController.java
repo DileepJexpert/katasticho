@@ -12,8 +12,9 @@ import com.katasticho.erp.fieldsales.entity.*;
 import com.katasticho.erp.fieldsales.dto.RouteBeatResponse;
 import com.katasticho.erp.fieldsales.service.FieldAllowanceService;
 import com.katasticho.erp.fieldsales.service.FieldSalesService;
-import com.katasticho.erp.fieldsales.service.FieldSampleService;
-import com.katasticho.erp.fieldsales.service.FieldTrackingService;
+import com.katasticho.erp.fieldsales.dto.*;
+import com.katasticho.erp.fieldsales.service.*;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -38,6 +39,7 @@ public class FieldSalesController {
     private final FieldTrackingService trackingService;
     private final FieldAllowanceService allowanceService;
     private final FieldSampleService sampleService;
+    private final StoreMerchandisingService merchandisingService;
 
     // ══════════════════════════════════════════════════════════════
     // Beat endpoints
@@ -325,26 +327,74 @@ public class FieldSalesController {
                 .effectiveFrom(LocalDate.parse((String) body.get("effectiveFrom")))
                 .effectiveTo(body.get("effectiveTo") != null
                         ? LocalDate.parse((String) body.get("effectiveTo")) : null)
+                .isActive(body.get("isActive") != null ? (Boolean) body.get("isActive") : true)
                 .build();
         return ResponseEntity.ok(ApiResponse.ok(
                 service.createAssignment(assignment), "Assignment created"));
     }
 
+    @PutMapping("/assignments/{id}")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<FieldSalesAssignment>> updateAssignment(
+            @PathVariable UUID id,
+            @RequestBody Map<String, Object> body) {
+        FieldSalesAssignment assignment = FieldSalesAssignment.builder()
+                .salespersonId(body.get("salespersonId") != null
+                        ? UUID.fromString((String) body.get("salespersonId")) : null)
+                .routeId(body.get("routeId") != null
+                        ? UUID.fromString((String) body.get("routeId")) : null)
+                .vanId(body.get("vanId") != null
+                        ? UUID.fromString((String) body.get("vanId")) : null)
+                .territory((String) body.get("territory"))
+                .effectiveFrom(body.get("effectiveFrom") != null
+                        ? LocalDate.parse((String) body.get("effectiveFrom")) : null)
+                .effectiveTo(body.get("effectiveTo") != null
+                        ? LocalDate.parse((String) body.get("effectiveTo")) : null)
+                // isActive is intentionally omitted — use POST /assignments/{id}/end or DELETE to change state
+                .build();
+        return ResponseEntity.ok(ApiResponse.ok(
+                service.updateAssignment(id, assignment), "Assignment updated"));
+    }
+
+    @PostMapping("/assignments/{id}/end")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<FieldSalesAssignment>> endAssignment(
+            @PathVariable UUID id,
+            @RequestBody(required = false) Map<String, Object> body) {
+        LocalDate endDate = body != null && body.get("endDate") != null
+                ? LocalDate.parse((String) body.get("endDate")) : LocalDate.now();
+        return ResponseEntity.ok(ApiResponse.ok(
+                service.endAssignment(id, endDate), "Assignment ended"));
+    }
+
+    @DeleteMapping("/assignments/{id}")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> deleteAssignment(@PathVariable UUID id) {
+        service.deleteAssignment(id);
+        return ResponseEntity.ok(ApiResponse.ok(null, "Assignment deleted"));
+    }
+
     @GetMapping("/assignments")
-    public ResponseEntity<ApiResponse<List<FieldSalesAssignment>>> getAllAssignments() {
-        return ResponseEntity.ok(ApiResponse.ok(service.getAllAssignments()));
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    public ResponseEntity<ApiResponse<List<FieldSalesAssignment>>> getAllAssignments(
+            @RequestParam(required = false, defaultValue = "false") boolean includeInactive,
+            @RequestParam(required = false) LocalDate effectiveOn) {
+        return ResponseEntity.ok(ApiResponse.ok(service.getAllAssignments(includeInactive, effectiveOn)));
     }
 
     @GetMapping("/assignments/salesperson/{id}")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
     public ResponseEntity<ApiResponse<List<FieldSalesAssignment>>> getAssignmentsForSalesperson(
             @PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(service.getAssignmentsForSalesperson(id)));
     }
 
     @GetMapping("/assignments/me")
-    public ResponseEntity<ApiResponse<List<FieldSalesAssignment>>> getMyAssignments() {
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','OPERATOR','VIEWER','ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<List<FieldSalesAssignment>>> getMyAssignments(
+            @RequestParam(required = false) LocalDate effectiveOn) {
         UUID userId = TenantContext.getCurrentUserId();
-        return ResponseEntity.ok(ApiResponse.ok(service.getAssignmentsForSalesperson(userId)));
+        return ResponseEntity.ok(ApiResponse.ok(service.getMyAssignments(userId, effectiveOn)));
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -395,10 +445,9 @@ public class FieldSalesController {
     }
 
     @GetMapping("/van-transfers/van/{vanId}")
-    public ResponseEntity<ApiResponse<Page<VanStockTransfer>>> listVanTransfers(
-            @PathVariable UUID vanId,
-            Pageable pageable) {
-        return ResponseEntity.ok(ApiResponse.ok(service.listVanTransfers(vanId, pageable)));
+    public ResponseEntity<ApiResponse<List<VanStockTransfer>>> getTransfersForVan(
+            @PathVariable UUID vanId) {
+        return ResponseEntity.ok(ApiResponse.ok(service.listVanTransfers(vanId, org.springframework.data.domain.Pageable.unpaged()).getContent()));
     }
 
     @GetMapping("/van-transfers/{id}/lines")
@@ -416,11 +465,12 @@ public class FieldSalesController {
             @RequestBody Map<String, Object> body) {
         UUID routeId = UUID.fromString((String) body.get("routeId"));
         UUID salespersonId = UUID.fromString((String) body.get("salespersonId"));
-        UUID vanId = body.get("vanId") != null
+        UUID vanId = body.get("vanId") != null && !((String) body.get("vanId")).isBlank()
                 ? UUID.fromString((String) body.get("vanId")) : null;
         LocalDate executionDate = LocalDate.parse((String) body.get("executionDate"));
+        String overrideReason = (String) body.get("overrideReason");
         return ResponseEntity.ok(ApiResponse.ok(
-                service.startExecution(routeId, salespersonId, vanId, executionDate),
+                service.startExecution(routeId, salespersonId, vanId, executionDate, overrideReason),
                 "Route execution created"));
     }
 
@@ -749,5 +799,49 @@ public class FieldSalesController {
             @RequestParam LocalDate from,
             @RequestParam LocalDate to) {
         return ResponseEntity.ok(ApiResponse.ok(service.getSecondaryDashboard(from, to)));
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // Store Shelf Merchandising & Photo Audits (Step 4.4)
+    // ══════════════════════════════════════════════════════════════
+
+    @PostMapping("/merchandising")
+    public ResponseEntity<ApiResponse<StoreMerchandisingAuditResponse>> recordMerchandisingAudit(
+            @Valid @RequestBody StoreMerchandisingAuditRequest req) {
+        StoreMerchandisingAuditResponse res = merchandisingService.recordAudit(req);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.ok(res, "Merchandising audit recorded"));
+    }
+
+    @GetMapping("/merchandising/visit/{visitId}")
+    public ResponseEntity<ApiResponse<List<StoreMerchandisingAuditResponse>>> getAuditsByVisit(
+            @PathVariable UUID visitId) {
+        return ResponseEntity.ok(ApiResponse.ok(merchandisingService.getAuditsByVisit(visitId)));
+    }
+
+    @GetMapping("/merchandising/execution/{executionId}")
+    public ResponseEntity<ApiResponse<List<StoreMerchandisingAuditResponse>>> getAuditsByExecution(
+            @PathVariable UUID executionId) {
+        return ResponseEntity.ok(ApiResponse.ok(merchandisingService.getAuditsByExecution(executionId)));
+    }
+
+    @GetMapping("/merchandising/customer/{contactId}")
+    public ResponseEntity<ApiResponse<List<StoreMerchandisingAuditResponse>>> getAuditsByCustomer(
+            @PathVariable UUID contactId) {
+        return ResponseEntity.ok(ApiResponse.ok(merchandisingService.getAuditsByContact(contactId)));
+    }
+
+    @GetMapping("/merchandising/recent")
+    public ResponseEntity<ApiResponse<List<StoreMerchandisingAuditResponse>>> getRecentAudits(
+            @RequestParam(required = false) Instant from,
+            @RequestParam(required = false) Instant to) {
+        return ResponseEntity.ok(ApiResponse.ok(merchandisingService.getRecentAudits(from, to)));
+    }
+
+    @GetMapping("/merchandising/summary")
+    public ResponseEntity<ApiResponse<MerchandisingSummaryResponse>> getMerchandisingSummary(
+            @RequestParam(required = false) Instant from,
+            @RequestParam(required = false) Instant to) {
+        return ResponseEntity.ok(ApiResponse.ok(merchandisingService.getSummary(from, to)));
     }
 }

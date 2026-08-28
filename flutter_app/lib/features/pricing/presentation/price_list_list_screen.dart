@@ -116,9 +116,10 @@ class _PriceListTable extends StatelessWidget {
               color: isDefault ? KColors.primary : KColors.textHint,
               size: 18,
             )),
-            DataCell(_Pill(
+            DataCell(KStatusChip(
+              status: active ? 'PAID' : 'CANCELLED',
               label: active ? 'Active' : 'Inactive',
-              color: active ? KColors.success : KColors.textSecondary,
+              dense: true,
             )),
             DataCell(KTableOpenActionCell(
               tooltip: 'Open price list',
@@ -172,11 +173,11 @@ class _PriceListCard extends StatelessWidget {
                     ),
                     if (isDefault) ...[
                       KSpacing.hGapSm,
-                      _Pill(label: 'Default', color: KColors.primary),
+                      const KStatusChip(status: 'DEFAULT', dense: true),
                     ],
                     if (!active) ...[
                       KSpacing.hGapSm,
-                      _Pill(label: 'Inactive', color: KColors.textSecondary),
+                      const KStatusChip(status: 'CANCELLED', label: 'Inactive', dense: true),
                     ],
                   ],
                 ),
@@ -194,30 +195,6 @@ class _PriceListCard extends StatelessWidget {
           ),
           const Icon(Icons.chevron_right, color: KColors.textHint),
         ],
-      ),
-    );
-  }
-}
-
-class _Pill extends StatelessWidget {
-  final String label;
-  final Color color;
-  const _Pill({required this.label, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: KTypography.labelSmall.copyWith(
-          color: color,
-          fontWeight: FontWeight.w700,
-        ),
       ),
     );
   }

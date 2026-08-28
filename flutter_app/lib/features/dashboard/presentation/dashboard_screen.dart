@@ -1166,10 +1166,18 @@ class _KpiGrid extends ConsumerWidget {
     final lowStockAsync = ref.watch(lowStockProvider);
 
     Widget buildTile(KpiConfig kpi) {
+      Widget placeholder(String val) => _buildKpiCard(
+            title: kpi.title,
+            value: val,
+            icon: kpi.icon,
+            iconColor: kpi.color,
+            trend: '--',
+          );
+
       if (kpi.id == 'payables') {
         return apSummaryAsync.when(
-          loading: () => _KpiPlaceholder(kpi: kpi, value: '...'),
-          error: (_, __) => _KpiPlaceholder(kpi: kpi, value: '—'),
+          loading: () => placeholder('...'),
+          error: (_, __) => placeholder('—'),
           data: (ap) {
             final value = CurrencyFormatter.formatCompact(ap.totalOutstanding);
             final String trend;
@@ -1202,8 +1210,8 @@ class _KpiGrid extends ConsumerWidget {
 
       if (kpi.id == 'receivables') {
         return arSummaryAsync.when(
-          loading: () => _KpiPlaceholder(kpi: kpi, value: '...'),
-          error: (_, __) => _KpiPlaceholder(kpi: kpi, value: '—'),
+          loading: () => placeholder('...'),
+          error: (_, __) => placeholder('—'),
           data: (ar) {
             final value = CurrencyFormatter.formatCompact(ar.totalOutstanding);
             final String trend;
@@ -1236,8 +1244,8 @@ class _KpiGrid extends ConsumerWidget {
 
       if (kpi.id == 'monthly_profit') {
         return monthlyProfitAsync.when(
-          loading: () => _KpiPlaceholder(kpi: kpi, value: '...'),
-          error: (_, __) => _KpiPlaceholder(kpi: kpi, value: '—'),
+          loading: () => placeholder('...'),
+          error: (_, __) => placeholder('—'),
           data: (mp) => _buildKpiCard(
             title: kpi.title,
             value: CurrencyFormatter.formatCompact(mp.grossProfit),
@@ -1250,8 +1258,8 @@ class _KpiGrid extends ConsumerWidget {
 
       if (kpi.id == 'monthly_revenue') {
         return monthlyProfitAsync.when(
-          loading: () => _KpiPlaceholder(kpi: kpi, value: '...'),
-          error: (_, __) => _KpiPlaceholder(kpi: kpi, value: '—'),
+          loading: () => placeholder('...'),
+          error: (_, __) => placeholder('—'),
           data: (mp) => _buildKpiCard(
             title: kpi.title,
             value: CurrencyFormatter.formatCompact(mp.revenue),
@@ -1264,8 +1272,8 @@ class _KpiGrid extends ConsumerWidget {
 
       if (kpi.id == 'expiring_stock') {
         return expiringSoonAsync.when(
-          loading: () => _KpiPlaceholder(kpi: kpi, value: '...'),
-          error: (_, __) => _KpiPlaceholder(kpi: kpi, value: '--'),
+          loading: () => placeholder('...'),
+          error: (_, __) => placeholder('--'),
           data: (items) => _buildKpiCard(
             title: kpi.title,
             value: '${items.length}',
@@ -1278,8 +1286,8 @@ class _KpiGrid extends ConsumerWidget {
 
       if (kpi.id == 'low_stock') {
         return lowStockAsync.when(
-          loading: () => _KpiPlaceholder(kpi: kpi, value: '...'),
-          error: (_, __) => _KpiPlaceholder(kpi: kpi, value: '--'),
+          loading: () => placeholder('...'),
+          error: (_, __) => placeholder('--'),
           data: (raw) {
             final content = raw['data'] ?? raw;
             final items = content is List
@@ -1297,8 +1305,8 @@ class _KpiGrid extends ConsumerWidget {
       }
 
       return todaySalesAsync.when(
-        loading: () => _KpiPlaceholder(kpi: kpi, value: '...'),
-        error: (_, __) => _KpiPlaceholder(kpi: kpi, value: '—'),
+        loading: () => placeholder('...'),
+        error: (_, __) => placeholder('—'),
         data: (data) {
           final (value, trend) = _valueFor(kpi.id, data);
           return _buildKpiCard(
@@ -1528,23 +1536,6 @@ class _AgingPanelCard extends ConsumerWidget {
                 ),
         ],
       ),
-    );
-  }
-}
-
-class _KpiPlaceholder extends StatelessWidget {
-  final KpiConfig kpi;
-  final String value;
-  const _KpiPlaceholder({required this.kpi, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return KKpiCard(
-      title: kpi.title,
-      value: value,
-      icon: kpi.icon,
-      iconColor: kpi.color,
-      trend: '--',
     );
   }
 }

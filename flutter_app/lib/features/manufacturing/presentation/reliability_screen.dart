@@ -3,17 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
+import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/api_error_parser.dart';
+import '../../../core/widgets/widgets.dart';
 
 /// Tracker #86: per-equipment reliability dashboard.
 ///
 /// MTBF (Mean Time Between Failures) + MTTR (Mean Time To Repair) +
-/// Availability% per workstation over a date range. The two metrics
-/// every reliability engineer asks about a machine: how long can we
-/// run it before the next breakdown, and how long does it take to come
-/// back online.
+/// Availability% per workstation over a date range.
 class ReliabilityScreen extends ConsumerStatefulWidget {
   const ReliabilityScreen({super.key});
 
@@ -113,12 +112,17 @@ class _ReliabilityScreenState extends ConsumerState<ReliabilityScreen> {
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: KLoading(message: 'Calculating equipment reliability...'))
           : _error != null
-              ? Center(child: Text(_error!,
-                  style: const TextStyle(color: Colors.red)))
+              ? Center(child: KErrorView(message: _error!, onRetry: _load))
               : _report == null
-                  ? const Center(child: Text('No data'))
+                  ? const Center(
+                      child: KEmptyState(
+                        icon: Icons.precision_manufacturing_outlined,
+                        title: 'No Data Available',
+                        subtitle: 'No equipment metrics recorded for the selected window.',
+                      ),
+                    )
                   : _buildBody(_report!),
     );
   }
@@ -128,28 +132,38 @@ class _ReliabilityScreenState extends ConsumerState<ReliabilityScreen> {
     return Column(
       children: [
         Container(
-          color: Colors.blueGrey.shade50,
-          padding: const EdgeInsets.all(KSpacing.md),
+          color: KColors.surface,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
-              Icon(Icons.calendar_today, size: 16,
-                  color: Colors.blueGrey.shade700),
-              const SizedBox(width: 8),
-              Text('${r['from']} → ${r['to']}',
-                  style: KTypography.bodyMedium),
+              const Icon(Icons.calendar_today, size: 16, color: KColors.primary),
+              KSpacing.hGapSm,
+              Text(
+                '${r['from']} → ${r['to']}',
+                style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
               const Spacer(),
-              Text('Window: ${_formatMinutes(r['windowMinutes'])}',
-                  style: KTypography.bodySmall),
+              Text(
+                'Window: ${_formatMinutes(r['windowMinutes'])}',
+                style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+              ),
             ],
           ),
         ),
+        const Divider(height: 1),
         Expanded(
           child: items.isEmpty
-              ? const Center(child: Text('No workstations configured'))
+              ? const Center(
+                  child: KEmptyState(
+                    icon: Icons.precision_manufacturing_outlined,
+                    title: 'No Workstations Configured',
+                    subtitle: 'Add workstations to track MTBF, MTTR, and availability.',
+                  ),
+                )
               : RefreshIndicator(
                   onRefresh: _load,
                   child: ListView.builder(
-                    padding: const EdgeInsets.all(KSpacing.md),
+                    padding: KSpacing.pagePadding,
                     itemCount: items.length,
                     itemBuilder: (ctx, i) {
                       final row = (items[i] as Map).cast<String, dynamic>();
@@ -166,59 +180,60 @@ class _ReliabilityScreenState extends ConsumerState<ReliabilityScreen> {
     final availability =
         double.tryParse(row['availabilityPct']?.toString() ?? '0') ?? 0;
     final color = availability >= 95
-        ? Colors.green
+        ? KColors.success
         : availability >= 85
-            ? Colors.orange
-            : Colors.red;
+            ? KColors.warning
+            : KColors.error;
     final breakdowns = row['breakdownCount']?.toString() ?? '0';
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      child: Padding(
-        padding: const EdgeInsets.all(KSpacing.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                      '${row['workstationCode']} — ${row['workstationName']}',
-                      style: KTypography.titleSmall),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: KCard(
+        child: Padding(
+          padding: const EdgeInsets.all(KSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    '${row['workstationCode']}',
+                    style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w700),
                   ),
-                  child: Text(
+                  KSpacing.hGapSm,
+                  Expanded(
+                    child: Text(
+                      '${row['workstationName']}',
+                      style: KTypography.labelLarge,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
                       '${availability.toStringAsFixed(1)}% available',
-                      style: TextStyle(
-                          color: color, fontWeight: FontWeight.bold)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 16,
-              runSpacing: 4,
-              children: [
-                _stat('MTBF', _formatMinutes(row['mtbfMinutes']),
-                    'Mean Time Between Failures'),
-                _stat('MTTR', _formatMinutes(row['mttrMinutes']),
-                    'Mean Time To Repair'),
-                _stat('Breakdowns', breakdowns,
-                    'In selected window'),
-                _stat('Preventive',
-                    row['preventiveCount']?.toString() ?? '0',
-                    'Scheduled maintenance'),
-                _stat('Downtime',
-                    _formatMinutes(row['totalDowntimeMinutes']),
-                    'Total in window'),
-              ],
-            ),
-          ],
+                      style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+              KSpacing.vGapSm,
+              Wrap(
+                spacing: 20,
+                runSpacing: 8,
+                children: [
+                  _stat('MTBF', _formatMinutes(row['mtbfMinutes']), 'Mean Time Between Failures'),
+                  _stat('MTTR', _formatMinutes(row['mttrMinutes']), 'Mean Time To Repair'),
+                  _stat('Breakdowns', breakdowns, 'In selected window'),
+                  _stat('Preventive', row['preventiveCount']?.toString() ?? '0', 'Scheduled maintenance'),
+                  _stat('Downtime', _formatMinutes(row['totalDowntimeMinutes']), 'Total in window'),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -229,9 +244,11 @@ class _ReliabilityScreenState extends ConsumerState<ReliabilityScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: KTypography.labelSmall),
-            Text(value, style: KTypography.bodyMedium.copyWith(
-                fontWeight: FontWeight.w600)),
+            Text(label, style: KTypography.labelSmall.copyWith(color: KColors.textSecondary)),
+            Text(
+              value,
+              style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
           ],
         ),
       );

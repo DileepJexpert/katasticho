@@ -341,19 +341,18 @@ class _CreditNoteCreateScreenState extends ConsumerState<CreditNoteCreateScreen>
                 children: [
                   _TotalRow(
                     label: 'Subtotal',
-                    value: CurrencyFormatter.formatIndian(_subtotal),
+                    amount: _subtotal,
                   ),
                   _TotalRow(
                     label: 'Tax (GST)',
-                    value: CurrencyFormatter.formatIndian(_taxTotal),
+                    amount: _taxTotal,
                   ),
                   const Divider(),
                   _TotalRow(
                     label: 'Total',
-                    value: CurrencyFormatter.formatIndian(_grandTotal),
-                    style: KTypography.amountMedium.copyWith(
-                      color: KColors.error,
-                    ),
+                    amount: _grandTotal,
+                    bold: true,
+                    color: KColors.error,
                   ),
                 ],
               ),
@@ -444,22 +443,22 @@ class _CreditNoteCreateScreenState extends ConsumerState<CreditNoteCreateScreen>
           ],
           _ImpactLine(
             icon: Icons.account_balance_wallet_outlined,
-            label: 'Customer balance',
-            value: '- ${CurrencyFormatter.formatIndian(_grandTotal)}',
+            label: 'Customer balance reduction',
+            valueWidget: KMoney(_grandTotal, size: KMoneySize.medium),
             color: KColors.success,
           ),
           KSpacing.vGapSm,
           _ImpactLine(
             icon: Icons.receipt_long_outlined,
             label: 'Revenue reversal',
-            value: CurrencyFormatter.formatIndian(_subtotal),
+            valueWidget: KMoney(_subtotal, size: KMoneySize.medium),
             color: KColors.error,
           ),
           KSpacing.vGapSm,
           _ImpactLine(
             icon: Icons.percent_rounded,
             label: 'GST reversal',
-            value: CurrencyFormatter.formatIndian(_taxTotal),
+            valueWidget: KMoney(_taxTotal, size: KMoneySize.medium),
             color: KColors.warning,
           ),
           KSpacing.vGapSm,
@@ -609,14 +608,14 @@ class _CreditNoteCreateScreenState extends ConsumerState<CreditNoteCreateScreen>
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(
-                  CurrencyFormatter.formatIndian(total),
-                  style: KTypography.amountSmall,
-                ),
+                KMoney(total, size: KMoneySize.small),
                 KSpacing.vGapXs,
-                Text(
-                  'Due ${CurrencyFormatter.formatIndian(balance)}',
-                  style: KTypography.bodySmall,
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Due ', style: KTypography.bodySmall),
+                    KMoney(balance, size: KMoneySize.small),
+                  ],
                 ),
               ],
             ),
@@ -804,13 +803,15 @@ class _StepPill extends StatelessWidget {
 class _ImpactLine extends StatelessWidget {
   final IconData icon;
   final String label;
-  final String value;
+  final String? value;
+  final Widget? valueWidget;
   final Color? color;
 
   const _ImpactLine({
     required this.icon,
     required this.label,
-    required this.value,
+    this.value,
+    this.valueWidget,
     this.color,
   });
 
@@ -840,13 +841,16 @@ class _ImpactLine extends StatelessWidget {
                   color: KColors.textSecondary,
                 ),
               ),
-              Text(
-                value,
-                style: KTypography.labelLarge.copyWith(
-                  color: KColors.textPrimary,
-                  fontWeight: FontWeight.w700,
+              if (valueWidget != null)
+                valueWidget!
+              else if (value != null)
+                Text(
+                  value!,
+                  style: KTypography.labelLarge.copyWith(
+                    color: KColors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
             ],
           ),
         ),
@@ -907,13 +911,15 @@ class _LineItem {
 
 class _TotalRow extends StatelessWidget {
   final String label;
-  final String value;
-  final TextStyle? style;
+  final num amount;
+  final bool bold;
+  final Color? color;
 
   const _TotalRow({
     required this.label,
-    required this.value,
-    this.style,
+    required this.amount,
+    this.bold = false,
+    this.color,
   });
 
   @override
@@ -923,8 +929,22 @@ class _TotalRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: KTypography.bodyMedium),
-          Text(value, style: style ?? KTypography.amountSmall),
+          Text(
+            label,
+            style: bold
+                ? KTypography.labelLarge.copyWith(fontWeight: FontWeight.w700)
+                : KTypography.bodyMedium,
+          ),
+          KMoney(
+            amount,
+            size: bold ? KMoneySize.medium : KMoneySize.small,
+            style: color != null
+                ? TextStyle(
+                    color: color,
+                    fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
+                  )
+                : (bold ? const TextStyle(fontWeight: FontWeight.w700) : null),
+          ),
         ],
       ),
     );

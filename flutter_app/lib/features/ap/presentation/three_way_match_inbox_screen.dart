@@ -597,7 +597,7 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
             ),
           ),
           SizedBox(height: KSpacing.lg),
-          KButton(
+          KButton.primary(
             label: 'Save settings',
             icon: Icons.save_outlined,
             isLoading: _saving,

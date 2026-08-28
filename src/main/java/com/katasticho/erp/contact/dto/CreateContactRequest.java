@@ -78,6 +78,10 @@ public record CreateContactRequest(
         String mrClass,
         Integer visitsPerMonth,
 
+        // MSME compliance
+        Boolean msmeRegistered,
+        String msmeRegistrationNo,
+
         // Procurement role projection
         Boolean supplierEnabled
 ) {}

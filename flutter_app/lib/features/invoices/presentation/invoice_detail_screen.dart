@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/api/api_client.dart';
@@ -47,6 +48,8 @@ class InvoiceDetailScreen extends ConsumerWidget {
                   value: 'wa_send', child: Text('Send via WhatsApp (PDF)')),
               const PopupMenuItem(
                   value: 'reminder', child: Text('Send Payment Reminder')),
+              const PopupMenuItem(
+                  value: 'payment_link', child: Text('Get Razorpay Payment Link')),
               const PopupMenuItem(value: 'pdf', child: Text('Download PDF')),
               const PopupMenuItem(
                 value: 'cancel',
@@ -224,6 +227,84 @@ class InvoiceDetailScreen extends ConsumerWidget {
           );
         }
         break;
+      case 'payment_link':
+        _createAndShowPaymentLink(context, ref);
+        break;
+    }
+  }
+
+  Future<void> _createAndShowPaymentLink(BuildContext context, WidgetRef ref) async {
+    final api = ref.read(apiClientProvider);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      messenger.showSnackBar(const SnackBar(content: Text('Generating Razorpay payment link...')));
+      final res = await api.post(ApiConfig.invoicePaymentLink(invoiceId));
+      final data = (res.data['data'] ?? res.data) as Map<String, dynamic>;
+      final shortUrl = data['shortUrl']?.toString() ?? data['paymentUrl']?.toString() ?? '';
+      final amt = (data['amount'] as num?)?.toDouble() ?? 0;
+
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Razorpay Payment Link'),
+            content: SizedBox(
+              width: 440,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text('Amount: ', style: KTypography.h4),
+                      KMoney(amt, size: KMoneySize.medium),
+                    ],
+                  ),
+                  KSpacing.vGapSm,
+                  TextField(
+                    controller: TextEditingController(text: shortUrl),
+                    readOnly: true,
+                    decoration: InputDecoration(
+                      labelText: 'Payment URL',
+                      border: const OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.copy),
+                        tooltip: 'Copy to Clipboard',
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: shortUrl));
+                          messenger.showSnackBar(const SnackBar(content: Text('Copied payment link to clipboard')));
+                        },
+                      ),
+                    ),
+                  ),
+                  KSpacing.vGapSm,
+                  Text(
+                    'Share this link directly with your customer. Once paid, the invoice will automatically settle in Katasticho via webhook.',
+                    style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+              KButton(
+                label: 'Copy Link',
+                icon: Icons.copy,
+                variant: KButtonVariant.primary,
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: shortUrl));
+                  Navigator.pop(ctx);
+                  messenger.showSnackBar(const SnackBar(content: Text('Copied payment link to clipboard')));
+                },
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        messenger.showSnackBar(SnackBar(content: Text('Failed to generate payment link: $e'), backgroundColor: KColors.error));
+      }
     }
   }
 
@@ -282,8 +363,6 @@ class _InvoiceDetailBody extends ConsumerWidget {
     final status = invoice['status'] as String? ?? 'DRAFT';
     final invoiceNumber = invoice['invoiceNumber'] as String? ?? '--';
     final customerName = invoice['contactName'] as String? ?? 'Customer';
-    // InvoiceResponse exposes totalAmount/taxAmount as the canonical fields.
-    // Keep the legacy keys as fallbacks for older cached payloads.
     final total = (invoice['totalAmount'] as num?)?.toDouble() ??
         (invoice['total'] as num?)?.toDouble() ??
         0;
@@ -324,48 +403,53 @@ class _InvoiceDetailBody extends ConsumerWidget {
                 // Details tab
                 SingleChildScrollView(
                   padding: KSpacing.pagePadding,
-                  child: KCard(
-                    child: Column(
-                      children: [
-                        KDetailRow(
-                          label: 'Invoice Number',
-                          value: invoiceNumber,
+                  child: Column(
+                    children: [
+                      KCard(
+                        child: Column(
+                          children: [
+                            KDetailRow(
+                              label: 'Invoice Number',
+                              valueWidget: Text(invoiceNumber, style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w600)),
+                            ),
+                            KDetailRow(
+                              label: 'Customer',
+                              value: customerName,
+                            ),
+                            KDetailRow(
+                              label: 'Invoice Date',
+                              value: invoice['invoiceDate'] as String? ?? '--',
+                            ),
+                            KDetailRow(
+                              label: 'Due Date',
+                              value: invoice['dueDate'] as String? ?? '--',
+                            ),
+                            KDetailRow(
+                              label: 'Subtotal',
+                              valueWidget: KMoney(subtotal),
+                            ),
+                            KDetailRow(
+                              label: 'Tax',
+                              valueWidget: KMoney(tax),
+                            ),
+                            const Divider(),
+                            KDetailRow(
+                              label: 'Total',
+                              valueWidget: KMoney(total, size: KMoneySize.medium, style: const TextStyle(fontWeight: FontWeight.w700)),
+                            ),
+                            KDetailRow(
+                              label: 'Amount Paid',
+                              valueWidget: KMoney(amountPaid, size: KMoneySize.small, style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w600)),
+                            ),
+                          ],
                         ),
-                        KDetailRow(
-                          label: 'Customer',
-                          value: customerName,
-                        ),
-                        KDetailRow(
-                          label: 'Invoice Date',
-                          value: invoice['invoiceDate'] as String? ?? '--',
-                        ),
-                        KDetailRow(
-                          label: 'Due Date',
-                          value: invoice['dueDate'] as String? ?? '--',
-                        ),
-                        KDetailRow(
-                          label: 'Subtotal',
-                          value: CurrencyFormatter.formatIndian(subtotal),
-                        ),
-                        KDetailRow(
-                          label: 'Tax',
-                          value: CurrencyFormatter.formatIndian(tax),
-                        ),
-                        const Divider(),
-                        KDetailRow(
-                          label: 'Total',
-                          value: CurrencyFormatter.formatIndian(total),
-                          valueStyle: KTypography.amountMedium,
-                        ),
-                        KDetailRow(
-                          label: 'Amount Paid',
-                          value: CurrencyFormatter.formatIndian(amountPaid),
-                          valueStyle: KTypography.amountSmall.copyWith(
-                            color: KColors.success,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                      KSpacing.vGapMd,
+                      KCustomFieldsCard(
+                        entityType: 'INVOICE',
+                        entityId: invoiceId,
+                      ),
+                    ],
                   ),
                 ),
 
@@ -402,46 +486,57 @@ class _InvoiceDetailBody extends ConsumerWidget {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      Text(desc, style: KTypography.bodyMedium),
-                                      Text(
-                                        '${qty.toStringAsFixed(0)} x ${CurrencyFormatter.formatIndian(price)}',
-                                        style: KTypography.bodySmall,
+                                      Text(desc, style: KTypography.bodyMedium.copyWith(fontWeight: FontWeight.w600)),
+                                      KSpacing.vGapXxs,
+                                      Row(
+                                        children: [
+                                          Text(
+                                            '${qty == qty.roundToDouble() ? qty.toInt() : qty.toStringAsFixed(2)} × ',
+                                            style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                                          ),
+                                          KMoney(price, size: KMoneySize.small, style: TextStyle(color: KColors.textSecondary)),
+                                        ],
                                       ),
                                       if (hsn != null && hsn.isNotEmpty)
-                                        Text(
-                                          'HSN $hsn',
-                                          style:
-                                              KTypography.labelSmall.copyWith(
-                                            fontSize: 10,
-                                            color: KColors.textHint,
+                                        Padding(
+                                          padding: const EdgeInsets.only(top: 3),
+                                          child: Text(
+                                            'HSN $hsn',
+                                            style: KTypography.mono(
+                                              fontSize: 11,
+                                              color: KColors.textHint,
+                                            ),
                                           ),
                                         ),
                                       if (itemMrp != null && itemMrp > 0)
-                                        Text(
-                                          'MRP ${CurrencyFormatter.formatIndian(itemMrp)}',
-                                          style:
-                                              KTypography.labelSmall.copyWith(
-                                            fontSize: 10,
-                                            color: KColors.textHint,
+                                        Padding(
+                                          padding: const EdgeInsets.only(top: 2),
+                                          child: Row(
+                                            children: [
+                                              Text('MRP ', style: KTypography.caption.copyWith(color: KColors.textHint)),
+                                              KMoney(itemMrp, size: KMoneySize.small, style: TextStyle(color: KColors.textHint)),
+                                            ],
                                           ),
                                         ),
                                       if (batchNum != null &&
                                           batchNum.isNotEmpty)
                                         Padding(
                                           padding:
-                                              const EdgeInsets.only(top: 2),
+                                              const EdgeInsets.only(top: 3),
                                           child: Row(
                                             children: [
-                                              Icon(
+                                              const Icon(
                                                 Icons.science_outlined,
-                                                size: 12,
-                                                color: KColors.textHint,
+                                                size: 13,
+                                                color: KColors.primary,
                                               ),
                                               const SizedBox(width: 4),
                                               Text(
                                                 'Batch: $batchNum${batchExp != null && batchExp.isNotEmpty ? ' · Exp: $batchExp' : ''}',
-                                                style: KTypography.bodySmall
-                                                    .copyWith(fontSize: 11),
+                                                style: KTypography.mono(
+                                                  fontSize: 11,
+                                                  color: KColors.textSecondary,
+                                                ),
                                               ),
                                             ],
                                           ),
@@ -449,9 +544,10 @@ class _InvoiceDetailBody extends ConsumerWidget {
                                     ],
                                   ),
                                 ),
-                                Text(
-                                  CurrencyFormatter.formatIndian(lineTotal),
-                                  style: KTypography.amountSmall,
+                                KMoney(
+                                  lineTotal,
+                                  size: KMoneySize.medium,
+                                  style: const TextStyle(fontWeight: FontWeight.w600),
                                 ),
                               ],
                             ),
@@ -544,11 +640,12 @@ class _PaymentsTab extends ConsumerWidget {
                   ),
                   KStatusChip(status: status),
                   KSpacing.hGapMd,
-                  Text(
-                    CurrencyFormatter.formatIndian(amount),
-                    style: KTypography.amountSmall.copyWith(
-                      color:
-                          isPendingApproval ? KColors.warning : KColors.success,
+                  KMoney(
+                    amount,
+                    size: KMoneySize.small,
+                    style: TextStyle(
+                      color: isPendingApproval ? KColors.warning : KColors.success,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],

@@ -7,6 +7,7 @@ import '../../../core/auth/auth_state.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
+import '../../../core/utils/api_error_parser.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/field_sales_repository.dart';
 
@@ -50,7 +51,10 @@ class _RouteListScreenState extends ConsumerState<RouteListScreen> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load routes: $error')),
+          SnackBar(
+            content: Text('Failed to load routes: ${ApiErrorParser.message(error)}'),
+            backgroundColor: KColors.error,
+          ),
         );
       }
     } finally {
@@ -69,7 +73,10 @@ class _RouteListScreenState extends ConsumerState<RouteListScreen> {
       } catch (error) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Could not load the route beat plan: $error')),
+            SnackBar(
+              content: Text('Could not load the route beat plan: ${ApiErrorParser.message(error)}'),
+              backgroundColor: KColors.error,
+            ),
           );
         }
         return;
@@ -106,7 +113,7 @@ class _RouteListScreenState extends ConsumerState<RouteListScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Could not save route: $error'),
+            content: Text('Could not save route: ${ApiErrorParser.message(error)}'),
             backgroundColor: KColors.error,
           ),
         );
@@ -152,6 +159,8 @@ class _RouteListScreenState extends ConsumerState<RouteListScreen> {
                   ),
         floatingActionButton: canManage
             ? FloatingActionButton.extended(
+                backgroundColor: KColors.primary,
+                foregroundColor: Colors.white,
                 onPressed: () => _openRouteEditor(),
                 icon: const Icon(Icons.add),
                 label: const Text('New Route'),
@@ -189,24 +198,33 @@ class _RouteCard extends StatelessWidget {
         : value[0] + value.substring(1).toLowerCase();
 
     return KCard(
+      statusAccent: active ? KColors.primary : null,
       leading: Icon(
         Icons.route_outlined,
-        color: active ? KColors.info : KColors.textSecondary,
+        color: active ? KColors.primary : KColors.textSecondary,
       ),
       title: name,
-      subtitle: code,
+      subtitleWidget: Text(
+        code,
+        style: KTypography.mono(
+          fontSize: 12,
+          color: KColors.textSecondary,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
       action: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (!active)
-            const KStatusChip(status: 'INACTIVE', label: 'Inactive'),
+            const KStatusChip(status: 'INACTIVE', label: 'Inactive')
+          else
+            const KStatusChip(status: 'ACTIVE', label: 'Active'),
           if (canManage) ...[
             KSpacing.hGapSm,
-            KButton(
+            KButton.outlined(
               label: 'Edit',
               icon: Icons.edit_outlined,
               size: KButtonSize.small,
-              variant: KButtonVariant.outlined,
               onPressed: onEdit,
             ),
           ],
@@ -464,15 +482,14 @@ class _RouteEditorDialogState extends State<_RouteEditorDialog> {
               Row(
                 children: [
                   Expanded(
-                    child: KButton(
+                    child: KButton.outlined(
                       label: 'Cancel',
-                      variant: KButtonVariant.outlined,
                       onPressed: () => Navigator.pop(context),
                     ),
                   ),
                   KSpacing.hGapSm,
                   Expanded(
-                    child: KButton(
+                    child: KButton.primary(
                       label: editing ? 'Save changes' : 'Create Route',
                       onPressed: _save,
                     ),

@@ -58,9 +58,10 @@ class CreditLedgerDetailScreen extends ConsumerWidget {
               children: [
                 Text('Total Outstanding', style: KTypography.bodySmall),
                 KSpacing.vGapXs,
-                Text(
-                  CurrencyFormatter.formatIndian(total),
-                  style: KTypography.amountLarge.copyWith(color: KColors.error),
+                KMoney(
+                  total,
+                  size: KMoneySize.large,
+                  style: const TextStyle(color: KColors.error, fontWeight: FontWeight.w700),
                 ),
                 KSpacing.vGapSm,
                 Text(
@@ -262,7 +263,7 @@ class _InvoiceRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(number, style: KTypography.labelLarge),
+                    Text(number, style: KTypography.mono(fontSize: 13, weight: FontWeight.w600)),
                     KSpacing.vGapXs,
                     Row(
                       children: [
@@ -271,9 +272,10 @@ class _InvoiceRow extends StatelessWidget {
                           const Text(' · ',
                               style: TextStyle(color: KColors.textHint)),
                           Text(
-                            'Total ${CurrencyFormatter.formatIndian(totalAmount)}',
+                            'Total ',
                             style: KTypography.bodySmall,
                           ),
+                          KMoney(totalAmount, size: KMoneySize.small),
                         ],
                       ],
                     ),
@@ -283,10 +285,12 @@ class _InvoiceRow extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(
-                    CurrencyFormatter.formatIndian(balanceDue),
-                    style: KTypography.amountSmall.copyWith(
+                  KMoney(
+                    balanceDue,
+                    size: KMoneySize.small,
+                    style: TextStyle(
                       color: _bucketColor(bucket),
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   KSpacing.vGapXs,

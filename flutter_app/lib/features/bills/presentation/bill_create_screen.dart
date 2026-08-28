@@ -6,6 +6,7 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/api_error_parser.dart';
+import '../../../core/utils/dual_uom_formatter.dart';
 import '../../../core/utils/form_error_handler.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
@@ -192,6 +193,7 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
     }
 
     // Match / create inventory items with a progress dialog
+    if (!mounted) return;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -514,6 +516,58 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
     if (_currentStep > 0) setState(() => _currentStep--);
   }
 
+  Future<void> _openBillDatePicker() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _billDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null && mounted) {
+      setState(() {
+        _billDate = picked;
+        if (_dueDate.isBefore(picked)) {
+          _dueDate = picked.add(const Duration(days: 30));
+        }
+      });
+    }
+  }
+
+  Future<void> _triggerItemPicker() async {
+    if (_currentStep != 1) {
+      setState(() => _currentStep = 1);
+    }
+    final picked = await showItemPicker(context);
+    if (picked == null || !mounted) return;
+    final item = _BillLineItem();
+    item.itemId = picked['id']?.toString();
+    item.description = picked['name']?.toString() ?? '';
+    item.unitPrice = (picked['purchasePrice'] as num?)?.toDouble() ?? 0;
+    item.purchaseUom =
+        picked['purchaseUom']?.toString() ?? picked['unit']?.toString();
+    item.baseUom = picked['unit']?.toString();
+    item.trackBatches = picked['trackBatches'] == true;
+    final pickedTaxGroupId = picked['defaultTaxGroupId']?.toString();
+    if (pickedTaxGroupId != null) {
+      item.taxGroupId = pickedTaxGroupId;
+      final pickedGst = (picked['gstRate'] as num?)?.toDouble();
+      item.taxRate = pickedGst ?? 0;
+    }
+    final secondary = picked['secondaryUnits'] as List?;
+    if (secondary != null) {
+      item.availableUnits = secondary.cast<Map<String, dynamic>>();
+    }
+    setState(() {
+      if (_lineItems.length == 1 &&
+          _lineItems.first.itemId == null &&
+          _lineItems.first.description.isEmpty) {
+        _lineItems[0] = item;
+      } else {
+        _lineItems.add(item);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return KKeyboardFormWrapper(
@@ -521,6 +575,11 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
       onNextStep: _nextStep,
       onPrevStep: _prevStep,
       onCancel: () => context.go(Routes.bills),
+      onDateJump: _openBillDatePicker,
+      onItemPicker: _triggerItemPicker,
+      onQuickCreate: _openVendorPicker,
+      onAddRow: () => setState(() => _lineItems.add(_BillLineItem())),
+      onSaveAndPrint: _handleSubmit,
       child: Scaffold(
       appBar: AppBar(
         title: const Text('Create Bill'),
@@ -741,6 +800,14 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        KBillingShortcutBar(
+          onDateJump: _openBillDatePicker,
+          onItemLookup: _triggerItemPicker,
+          onQuickCreate: _openVendorPicker,
+          onAddRow: () => setState(() => _lineItems.add(_BillLineItem())),
+          onSubmit: _handleSubmit,
+        ),
+        KSpacing.vGapMd,
         Row(
           children: [
             Expanded(child: Text('Line Items', style: KTypography.h2)),
@@ -758,6 +825,8 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
             key: ObjectKey(_lineItems[index]),
             item: _lineItems[index],
             index: index,
+            isLastRow: index == _lineItems.length - 1,
+            onAddRow: () => setState(() => _lineItems.add(_BillLineItem())),
             onRemove: _lineItems.length > 1
                 ? () => setState(() => _lineItems.removeAt(index))
                 : null,
@@ -944,6 +1013,8 @@ class _BillLineItem {
 class _BillLineItemCard extends StatefulWidget {
   final _BillLineItem item;
   final int index;
+  final bool isLastRow;
+  final VoidCallback? onAddRow;
   final VoidCallback? onRemove;
   final VoidCallback onChanged;
 
@@ -951,6 +1022,8 @@ class _BillLineItemCard extends StatefulWidget {
     super.key,
     required this.item,
     required this.index,
+    this.isLastRow = false,
+    this.onAddRow,
     this.onRemove,
     required this.onChanged,
   });
@@ -1253,24 +1326,97 @@ class _BillLineItemCardState extends State<_BillLineItemCard> {
                     ],
                   )
                 : KTextField(
-                    label: 'Qty',
+                    label: (widget.item.unitConversionFactor ??
+                                widget.item.purchaseUomConversion ??
+                                1.0) >
+                            1.0
+                        ? 'Qty (${_selectedUnitAbbr ?? widget.item.purchaseUom ?? 'BOX'}/${widget.item.baseUom ?? 'PCS'})'
+                        : 'Qty',
+                    hint: (widget.item.unitConversionFactor ??
+                                widget.item.purchaseUomConversion ??
+                                1.0) >
+                            1.0
+                        ? 'e.g. 10.5 or 10/5'
+                        : '1',
                     controller: _qtyCtl,
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
                     onChanged: (v) {
-                      widget.item.quantity = double.tryParse(v) ?? 1;
+                      final conv = widget.item.unitConversionFactor ??
+                          widget.item.purchaseUomConversion ??
+                          1.0;
+                      if (conv > 1.0) {
+                        final dual = DualUomParser.parse(
+                          v,
+                          conversionFactor: conv,
+                          mainUnit: _selectedUnitAbbr ??
+                              widget.item.purchaseUom ??
+                              'BOX',
+                          subUnit: widget.item.baseUom,
+                        );
+                        widget.item.quantity = dual.totalMainQty;
+                      } else {
+                        widget.item.quantity = double.tryParse(v) ?? 1;
+                      }
                       widget.onChanged();
                     },
                   ),
             KTextField.amount(
               label: widget.item.weightBasedBilling ? 'Rate/kg' : 'Price',
               controller: _priceCtl,
+              textInputAction: widget.isLastRow
+                  ? TextInputAction.done
+                  : TextInputAction.next,
+              onFieldSubmitted: (_) {
+                if (widget.isLastRow) {
+                  widget.onAddRow?.call();
+                } else {
+                  FocusScope.of(context).nextFocus();
+                }
+              },
               onChanged: (v) {
                 widget.item.unitPrice = double.tryParse(v) ?? 0;
                 widget.onChanged();
               },
             ),
           ]),
+          if (!widget.item.weightBasedBilling &&
+              (widget.item.unitConversionFactor ??
+                      widget.item.purchaseUomConversion ??
+                      1.0) >
+                  1.0 &&
+              widget.item.quantity > 0) ...[
+            Builder(builder: (context) {
+              final conv = widget.item.unitConversionFactor ??
+                  widget.item.purchaseUomConversion ??
+                  1.0;
+              final dual = DualUomParser.parse(
+                DualUomParser.formatInput(widget.item.quantity, conv),
+                conversionFactor: conv,
+                mainUnit: _selectedUnitAbbr ?? widget.item.purchaseUom ?? 'BOX',
+                subUnit: widget.item.baseUom ?? 'PCS',
+              );
+              return Padding(
+                padding: const EdgeInsets.only(top: 2, bottom: 4),
+                child: Row(
+                  children: [
+                    Icon(Icons.layers_outlined,
+                        size: 12,
+                        color: Theme.of(context).colorScheme.primary),
+                    const SizedBox(width: 4),
+                    Text(
+                      dual.displayText,
+                      style: KTypography.labelSmall.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
           KSpacing.vGapXs,
           Row(
             children: [

@@ -171,42 +171,65 @@ class _DetailsTab extends StatelessWidget {
     final email = contact['email'] as String?;
     final phone = contact['phone'] as String?;
     final mobile = contact['mobile'] as String?;
+    final website = contact['website'] as String?;
     final gstin = contact['gstin'] as String?;
     final pan = contact['pan'] as String?;
     final gstTreatment = contact['gstTreatment'] as String? ?? 'UNREGISTERED';
+    final msmeRegistered = contact['msmeRegistered'] as bool? ?? false;
+    final msmeRegNo = contact['msmeRegistrationNo'] as String?;
+    final tdsApplicable = contact['tdsApplicable'] as bool? ?? false;
+    final tdsSection = contact['tdsSection'] as String?;
+    final tdsRate = contact['tdsRate'] as num?;
+
+    final billingAddr1 = contact['billingAddressLine1'] as String?;
     final billingCity = contact['billingCity'] as String?;
     final billingState = contact['billingState'] as String?;
+    final billingPostal = contact['billingPostalCode'] as String?;
     final billingCountry = contact['billingCountry'] as String?;
-    final creditLimit = contact['creditLimit'] as num?;
-    final paymentTermsDays = contact['paymentTermsDays'] as num?;
 
-    return SingleChildScrollView(
-      padding: KSpacing.pagePadding,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header card
-          Center(
-            child: Column(
+    final shipAddr1 = contact['shippingAddressLine1'] as String?;
+    final shipCity = contact['shippingCity'] as String?;
+    final shipState = contact['shippingState'] as String?;
+    final shipPostal = contact['shippingPostalCode'] as String?;
+    final shipCountry = contact['shippingCountry'] as String?;
+
+    final bankName = contact['bankName'] as String?;
+    final bankAccountNo = contact['bankAccountNo'] as String?;
+    final bankIfsc = contact['bankIfsc'] as String?;
+    final upiId = contact['upiId'] as String?;
+
+    final creditLimit = (contact['creditLimit'] as num?)?.toDouble() ?? 0.0;
+    final outstandingAr = (contact['outstandingAr'] as num?)?.toDouble() ?? 0.0;
+    final outstandingAp = (contact['outstandingAp'] as num?)?.toDouble() ?? 0.0;
+    final openingBalance = (contact['openingBalance'] as num?)?.toDouble() ?? 0.0;
+    final paymentTermsDays = contact['paymentTermsDays'] as num?;
+    final notes = contact['notes'] as String?;
+
+    final leftColumnWidgets = [
+      // Header card
+      Center(
+        child: Column(
+          children: [
+            CircleAvatar(
+              radius: 36,
+              backgroundColor: typeColor.withValues(alpha: 0.15),
+              child: Text(
+                displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
+                style: KTypography.displayLarge.copyWith(color: typeColor),
+              ),
+            ),
+            KSpacing.vGapSm,
+            Text(displayName, style: KTypography.h2),
+            if (companyName != null && companyName.isNotEmpty) ...[
+              KSpacing.vGapXs,
+              Text(companyName, style: KTypography.bodyMedium),
+            ],
+            KSpacing.vGapSm,
+            Wrap(
+              spacing: 8,
               children: [
-                CircleAvatar(
-                  radius: 40,
-                  backgroundColor: typeColor.withValues(alpha: 0.15),
-                  child: Text(
-                    displayName[0].toUpperCase(),
-                    style: KTypography.displayLarge.copyWith(color: typeColor),
-                  ),
-                ),
-                KSpacing.vGapMd,
-                Text(displayName, style: KTypography.h2),
-                if (companyName != null && companyName.isNotEmpty) ...[
-                  KSpacing.vGapXs,
-                  Text(companyName, style: KTypography.bodyMedium),
-                ],
-                KSpacing.vGapSm,
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: typeColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
@@ -216,89 +239,213 @@ class _DetailsTab extends StatelessWidget {
                     style: KTypography.labelMedium.copyWith(color: typeColor),
                   ),
                 ),
+                if (msmeRegistered)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: KColors.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'MSME Reg.',
+                      style: KTypography.labelMedium.copyWith(color: KColors.primary),
+                    ),
+                  ),
               ],
             ),
-          ),
-          KSpacing.vGapLg,
-
-          // Contact info
-          if (email != null || phone != null || mobile != null) ...[
-            _SectionHeader('Contact'),
-            _InfoRow(Icons.email_outlined, 'Email', email),
-            _InfoRow(Icons.phone_outlined, 'Phone', phone),
-            _InfoRow(Icons.smartphone_outlined, 'Mobile', mobile),
-            KSpacing.vGapMd,
           ],
+        ),
+      ),
+      KSpacing.vGapLg,
 
-          // Tax info
-          if (gstin != null || pan != null) ...[
-            _SectionHeader('Tax'),
-            _InfoRow(Icons.receipt_long_outlined, taxLabel, gstin),
-            _InfoRow(Icons.credit_card_outlined, 'PAN', pan),
-            _InfoRow(
-                Icons.account_balance_outlined, 'GST Treatment', gstTreatment),
-            KSpacing.vGapMd,
-          ],
-
-          // Address
-          if (billingCity != null || billingState != null) ...[
-            _SectionHeader('Billing Address'),
-            _InfoRow(
-                Icons.location_on_outlined,
-                'Location',
-                [billingCity, billingState, billingCountry]
-                    .where((s) => s != null && s.isNotEmpty)
-                    .join(', ')),
-            KSpacing.vGapMd,
-          ],
-
-          // Financial
-          _SectionHeader('Financial Terms'),
-          _InfoRow(
-              Icons.account_balance_wallet_outlined,
-              'Credit Limit',
-              creditLimit != null
-                  ? '₹${creditLimit.toStringAsFixed(0)}'
-                  : '₹0'),
-          _InfoRow(
-              Icons.calendar_today_outlined,
-              'Payment Terms',
-              paymentTermsDays != null
-                  ? (paymentTermsDays == 0
-                      ? 'Due on Receipt'
-                      : 'Net ${paymentTermsDays.toInt()} days')
-                  : 'Net 30 days'),
-          if (onEnableSupplier != null) ...[
-            KSpacing.vGapLg,
-            KCard(
+      // Balances Overview Cards
+      Row(
+        children: [
+          Expanded(
+            child: KCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
-                    children: [
-                      Icon(Icons.local_shipping_outlined),
-                      SizedBox(width: KSpacing.md),
-                      Text('Procurement role'),
-                    ],
-                  ),
-                  KSpacing.vGapSm,
-                  const Text(
-                    'Enable this vendor in Purchase Orders and Goods Receipts.',
-                  ),
-                  KSpacing.vGapMd,
-                  KButton(
-                    label: 'Enable Supplier',
-                    variant: KButtonVariant.outlined,
-                    icon: Icons.add_business_outlined,
-                    onPressed: onEnableSupplier,
-                    fullWidth: true,
-                  ),
+                  const Text('Receivables (AR)', style: TextStyle(fontSize: 12, color: KColors.textSecondary)),
+                  KSpacing.vGapXs,
+                  KMoney(outstandingAr, size: KMoneySize.large),
                 ],
               ),
             ),
-          ],
-          KSpacing.vGapXl,
+          ),
+          KSpacing.hGapMd,
+          Expanded(
+            child: KCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Payables (AP)', style: TextStyle(fontSize: 12, color: KColors.textSecondary)),
+                  KSpacing.vGapXs,
+                  KMoney(outstandingAp, size: KMoneySize.large),
+                ],
+              ),
+            ),
+          ),
         ],
+      ),
+      KSpacing.vGapMd,
+
+      // Contact info
+      if (email != null || phone != null || mobile != null || website != null) ...[
+        _SectionHeader('Contact Information'),
+        _InfoRow(Icons.email_outlined, 'Email', email),
+        _InfoRow(Icons.phone_outlined, 'Phone', phone),
+        _InfoRow(Icons.smartphone_outlined, 'Mobile', mobile),
+        _InfoRow(Icons.language_outlined, 'Website', website),
+        KSpacing.vGapMd,
+      ],
+
+      // Addresses
+      _SectionHeader('Addresses'),
+      _InfoRow(
+        Icons.location_on_outlined,
+        'Billing Address',
+        [billingAddr1, billingCity, billingState, billingPostal, billingCountry]
+            .where((s) => s != null && s.isNotEmpty)
+            .join(', '),
+      ),
+      if (shipAddr1 != null && shipAddr1.isNotEmpty)
+        _InfoRow(
+          Icons.local_shipping_outlined,
+          'Shipping Address',
+          [shipAddr1, shipCity, shipState, shipPostal, shipCountry]
+              .where((s) => s != null && s.isNotEmpty)
+              .join(', '),
+        ),
+    ];
+
+    final contactId = contact['id']?.toString() ?? '';
+
+    final rightColumnWidgets = [
+      // Tax & Statutory info
+      _SectionHeader('Tax & Statutory'),
+      _InfoRow(Icons.receipt_long_outlined, taxLabel, gstin, isMono: true),
+      _InfoRow(Icons.credit_card_outlined, 'PAN', pan, isMono: true),
+      _InfoRow(Icons.account_balance_outlined, 'GST Treatment', gstTreatment),
+      if (msmeRegistered)
+        _InfoRow(Icons.verified_outlined, 'MSME Registration No', msmeRegNo ?? 'Registered', isMono: true),
+      if (tdsApplicable)
+        _InfoRow(Icons.percent_outlined, 'TDS Configuration',
+            'Section $tdsSection @ ${tdsRate ?? 1.0}%'),
+      KSpacing.vGapMd,
+
+      // Bank Details
+      if (bankName != null || bankAccountNo != null || bankIfsc != null || upiId != null) ...[
+        _SectionHeader('Bank & Payout Details'),
+        _InfoRow(Icons.account_balance_outlined, 'Bank Name', bankName),
+        _InfoRow(Icons.pin_outlined, 'Account Number', bankAccountNo, isMono: true),
+        _InfoRow(Icons.code_outlined, 'IFSC Code', bankIfsc, isMono: true),
+        _InfoRow(Icons.payment_outlined, 'UPI ID / VPA', upiId, isMono: true),
+        KSpacing.vGapMd,
+      ],
+
+      // Financial Terms
+      _SectionHeader('Financial Setup'),
+      _InfoRow(
+        Icons.account_balance_wallet_outlined,
+        'Opening Balance',
+        null,
+        valueWidget: KMoney(openingBalance, size: KMoneySize.small),
+      ),
+      _InfoRow(
+        Icons.security_outlined,
+        'Credit Limit',
+        null,
+        valueWidget: KMoney(creditLimit, size: KMoneySize.small),
+      ),
+      _InfoRow(
+        Icons.calendar_today_outlined,
+        'Payment Terms',
+        paymentTermsDays != null
+            ? (paymentTermsDays == 0
+                ? 'Due on Receipt'
+                : 'Net ${paymentTermsDays.toInt()} days')
+            : 'Net 30 days',
+      ),
+      if (notes != null && notes.isNotEmpty) ...[
+        KSpacing.vGapMd,
+        _SectionHeader('Notes'),
+        Text(notes, style: KTypography.bodyMedium),
+      ],
+      if (contactId.isNotEmpty) ...[
+        KSpacing.vGapMd,
+        KCustomFieldsCard(
+          entityType: 'CONTACT',
+          entityId: contactId,
+        ),
+      ],
+
+      if (onEnableSupplier != null) ...[
+        KSpacing.vGapLg,
+        KCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.local_shipping_outlined, color: KColors.primary),
+                  SizedBox(width: KSpacing.md),
+                  Text('Procurement Supplier Role', style: TextStyle(fontWeight: FontWeight.w600)),
+                ],
+              ),
+              KSpacing.vGapSm,
+              const Text(
+                'Enable this vendor in Purchase Orders and Goods Receipts.',
+                style: TextStyle(fontSize: 12, color: KColors.textSecondary),
+              ),
+              KSpacing.vGapMd,
+              KButton(
+                label: 'Enable Supplier',
+                variant: KButtonVariant.outlined,
+                icon: Icons.add_business_outlined,
+                onPressed: onEnableSupplier,
+                fullWidth: true,
+              ),
+            ],
+          ),
+        ),
+      ],
+    ];
+
+    return SingleChildScrollView(
+      padding: KSpacing.pagePadding,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth >= 960) {
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: leftColumnWidgets,
+                  ),
+                ),
+                KSpacing.hGapMd,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: rightColumnWidgets,
+                  ),
+                ),
+              ],
+            );
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ...leftColumnWidgets,
+              KSpacing.vGapMd,
+              ...rightColumnWidgets,
+            ],
+          );
+        },
       ),
     );
   }
@@ -343,8 +490,7 @@ class _PersonsTab extends StatelessWidget {
                 backgroundColor: KColors.primaryLight.withValues(alpha: 0.15),
                 child: Text(
                   fullName.isNotEmpty ? fullName[0].toUpperCase() : '?',
-                  style:
-                      KTypography.labelMedium.copyWith(color: KColors.primary),
+                  style: KTypography.labelMedium.copyWith(color: KColors.primary),
                 ),
               ),
               KSpacing.hGapMd,
@@ -407,12 +553,22 @@ class _InfoRow extends StatelessWidget {
   final IconData icon;
   final String label;
   final String? value;
+  final Widget? valueWidget;
+  final bool isMono;
 
-  const _InfoRow(this.icon, this.label, this.value);
+  const _InfoRow(
+    this.icon,
+    this.label,
+    this.value, {
+    this.valueWidget,
+    this.isMono = false,
+  });
 
   @override
   Widget build(BuildContext context) {
-    if (value == null || value!.isEmpty) return const SizedBox.shrink();
+    if (valueWidget == null && (value == null || value!.isEmpty)) {
+      return const SizedBox.shrink();
+    }
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -424,7 +580,15 @@ class _InfoRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(label, style: KTypography.labelSmall),
-                Text(value!, style: KTypography.bodyMedium),
+                if (valueWidget != null)
+                  valueWidget!
+                else
+                  Text(
+                    value!,
+                    style: isMono
+                        ? KTypography.mono(fontSize: 13)
+                        : KTypography.bodyMedium,
+                  ),
               ],
             ),
           ),

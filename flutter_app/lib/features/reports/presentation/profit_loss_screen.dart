@@ -4,7 +4,6 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../data/report_repository.dart';
 
@@ -149,87 +148,134 @@ class _ProfitLossScreenState extends ConsumerState<ProfitLossScreen> {
           KSpacing.vGapMd,
 
           // Revenue breakdown
-          Text('Revenue', style: KTypography.h4),
-          KSpacing.vGapSm,
-          if (revenueAccounts.isEmpty)
-            _EmptyReportLine(label: 'No revenue posted in this period')
-          else
-            ...revenueAccounts.map((acct) {
-              final a = acct as Map<String, dynamic>;
-              return _AccountLine(
-                code: a['accountCode'] as String? ?? '',
-                name: a['accountName'] as String? ?? '',
-                amount: (a['amount'] as num?)?.toDouble() ?? 0,
-                color: KColors.success,
-              );
-            }),
+          KCard(
+            statusAccent: KColors.success,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Revenue', style: KTypography.h4.copyWith(fontWeight: FontWeight.w700)),
+                    KMoney(
+                      totalRevenue,
+                      size: KMoneySize.medium,
+                      style: const TextStyle(color: KColors.success, fontWeight: FontWeight.w700),
+                    ),
+                  ],
+                ),
+                KSpacing.vGapSm,
+                if (revenueAccounts.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: _EmptyReportLine(label: 'No revenue posted in this period'),
+                  )
+                else
+                  KDataTable(
+                    columns: const [
+                      KTableColumn(label: 'Code'),
+                      KTableColumn(label: 'Account'),
+                      KTableColumn(label: 'Amount', numeric: true),
+                    ],
+                    rows: [
+                      ...revenueAccounts.map((acct) {
+                        final a = acct as Map<String, dynamic>;
+                        final amt = (a['amount'] as num?)?.toDouble() ?? 0;
+                        return [
+                          Text(
+                            a['accountCode'] as String? ?? '',
+                            style: KTypography.mono(
+                              size: 12,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          Text(
+                            a['accountName'] as String? ?? '',
+                            style: KTypography.bodySmall,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          KMoney(amt, size: KMoneySize.small),
+                        ];
+                      }),
+                      [
+                        Text('', style: KTypography.labelLarge),
+                        Text('TOTAL REVENUE', style: KTypography.labelLarge.copyWith(fontWeight: FontWeight.w700)),
+                        KMoney(totalRevenue, size: KMoneySize.medium, style: const TextStyle(fontWeight: FontWeight.w700)),
+                      ],
+                    ],
+                  ),
+              ],
+            ),
+          ),
           KSpacing.vGapMd,
 
           // Expense breakdown
-          Text('Expenses', style: KTypography.h4),
-          KSpacing.vGapSm,
-          if (expenseAccounts.isEmpty)
-            _EmptyReportLine(label: 'No expenses posted in this period')
-          else
-            ...expenseAccounts.map((acct) {
-              final a = acct as Map<String, dynamic>;
-              return _AccountLine(
-                code: a['accountCode'] as String? ?? '',
-                name: a['accountName'] as String? ?? '',
-                amount: (a['amount'] as num?)?.toDouble() ?? 0,
-                color: KColors.error,
-              );
-            }),
+          KCard(
+            statusAccent: KColors.error,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Expenses', style: KTypography.h4.copyWith(fontWeight: FontWeight.w700)),
+                    KMoney(
+                      totalExpenses,
+                      size: KMoneySize.medium,
+                      style: const TextStyle(color: KColors.error, fontWeight: FontWeight.w700),
+                    ),
+                  ],
+                ),
+                KSpacing.vGapSm,
+                if (expenseAccounts.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: _EmptyReportLine(label: 'No expenses posted in this period'),
+                  )
+                else
+                  KDataTable(
+                    columns: const [
+                      KTableColumn(label: 'Code'),
+                      KTableColumn(label: 'Account'),
+                      KTableColumn(label: 'Amount', numeric: true),
+                    ],
+                    rows: [
+                      ...expenseAccounts.map((acct) {
+                        final a = acct as Map<String, dynamic>;
+                        final amt = (a['amount'] as num?)?.toDouble() ?? 0;
+                        return [
+                          Text(
+                            a['accountCode'] as String? ?? '',
+                            style: KTypography.mono(
+                              size: 12,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          Text(
+                            a['accountName'] as String? ?? '',
+                            style: KTypography.bodySmall,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          KMoney(amt, size: KMoneySize.small),
+                        ];
+                      }),
+                      [
+                        Text('', style: KTypography.labelLarge),
+                        Text('TOTAL EXPENSES', style: KTypography.labelLarge.copyWith(fontWeight: FontWeight.w700)),
+                        KMoney(totalExpenses, size: KMoneySize.medium, style: const TextStyle(fontWeight: FontWeight.w700)),
+                      ],
+                    ],
+                  ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-class _AccountLine extends StatelessWidget {
-  final String code;
-  final String name;
-  final double amount;
-  final Color color;
 
-  const _AccountLine({
-    required this.code,
-    required this.name,
-    required this.amount,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 60,
-            child: Text(code, style: KTypography.bodySmall),
-          ),
-          Expanded(
-            child: Text(
-              name,
-              style: KTypography.bodySmall,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 160),
-            child: Text(
-              CurrencyFormatter.formatIndian(amount),
-              style: KTypography.amountSmall.copyWith(color: color),
-              textAlign: TextAlign.end,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _MetricItem {
   final String label;
@@ -252,66 +298,63 @@ class _MetricStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns = constraints.maxWidth >= KSpacing.tabletBreakpoint
-            ? items.length
-            : 1;
-        final itemWidth =
-            (constraints.maxWidth - ((columns - 1) * KSpacing.sm)) / columns;
+        final isWide = constraints.maxWidth >= KSpacing.tabletBreakpoint;
 
-        return Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Theme.of(context)
-                .colorScheme
-                .surfaceContainerHighest
-                .withValues(alpha: 0.28),
-            borderRadius: KSpacing.borderRadiusMd,
-            border: Border.all(
-              color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
-            ),
-          ),
-          child: Wrap(
-            spacing: KSpacing.sm,
-            runSpacing: KSpacing.sm,
-            children: items.map((item) {
-              return SizedBox(
-                width: itemWidth,
-                child: Container(
-                  constraints: const BoxConstraints(minHeight: 48),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .surface
-                        .withValues(alpha: 0.72),
-                    borderRadius: KSpacing.borderRadiusMd,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.label,
-                        style: KTypography.labelSmall.copyWith(
-                          color: KColors.textSecondary,
+        if (isWide) {
+          return Row(
+            children: [
+              for (int i = 0; i < items.length; i++) ...[
+                if (i > 0) KSpacing.hGapSm,
+                Expanded(
+                  child: KCard(
+                    statusAccent: items[i].color,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(items[i].label, style: KTypography.labelMedium),
+                        const SizedBox(height: 4),
+                        KMoney(
+                          items[i].amount,
+                          size: KMoneySize.medium,
+                          style: TextStyle(
+                            color: items[i].color,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        CurrencyFormatter.formatIndian(item.amount),
-                        style:
-                            KTypography.amountSmall.copyWith(color: item.color),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              );
-            }).toList(),
-          ),
+              ],
+            ],
+          );
+        }
+
+        return Column(
+          children: [
+            for (int i = 0; i < items.length; i++) ...[
+              if (i > 0) KSpacing.vGapSm,
+              KCard(
+                statusAccent: items[i].color,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(items[i].label, style: KTypography.labelMedium),
+                    KMoney(
+                      items[i].amount,
+                      size: KMoneySize.medium,
+                      style: TextStyle(
+                        color: items[i].color,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
         );
       },
     );

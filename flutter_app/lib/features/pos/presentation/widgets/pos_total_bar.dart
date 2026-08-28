@@ -4,6 +4,7 @@ import '../../../../core/theme/k_colors.dart';
 import '../../../../core/shortcuts/k_shortcuts.dart';
 import '../../../../core/theme/k_typography.dart';
 import '../../../../core/utils/currency_formatter.dart';
+import '../../../../core/widgets/widgets.dart';
 import '../../data/pos_cart_state.dart';
 import '../../data/pos_providers.dart';
 
@@ -127,15 +128,13 @@ class PosTotalBar extends ConsumerWidget {
                         _OverallMarginDot(cart: cart),
                         const SizedBox(width: 8),
                         Flexible(
-                          child: Text(
-                            CurrencyFormatter.formatIndian(cart.total),
-                            textAlign: TextAlign.right,
-                            style: KTypography.h3.copyWith(
+                          child: KMoney(
+                            cart.total,
+                            size: KMoneySize.large,
+                            style: TextStyle(
                               color: cs.primary,
                               fontWeight: FontWeight.w800,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
@@ -149,9 +148,10 @@ class PosTotalBar extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text('Total', style: KTypography.labelMedium),
-                  Text(
-                    CurrencyFormatter.formatIndian(cart.total),
-                    style: KTypography.h3.copyWith(
+                  KMoney(
+                    cart.total,
+                    size: KMoneySize.large,
+                    style: TextStyle(
                       color: cs.primary,
                       fontWeight: FontWeight.w800,
                     ),
@@ -248,11 +248,10 @@ class _InlineAmount extends StatelessWidget {
             fontSize: 10,
           ),
         ),
-        Text(
-          CurrencyFormatter.formatIndian(amount),
-          style: KTypography.labelSmall.copyWith(fontWeight: FontWeight.w700),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+        KMoney(
+          amount,
+          size: KMoneySize.small,
+          style: const TextStyle(fontWeight: FontWeight.w700),
         ),
       ],
     );

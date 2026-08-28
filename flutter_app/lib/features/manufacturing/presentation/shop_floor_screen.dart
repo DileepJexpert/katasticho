@@ -5,16 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
+import '../../../core/theme/k_colors.dart';
+import '../../../core/theme/k_spacing.dart';
+import '../../../core/theme/k_typography.dart';
+import '../../../core/widgets/widgets.dart';
 
 /// Mobile-first shop-floor screen for production operators.
-///
-/// Operator flow:
-///  1. Scan or type a WO number into the autofocused field (USB keyboard-
-///     wedge scanners just type → Enter). Or pick from "Active work orders".
-///  2. Tap a job card → big Start / Complete / Log Scrap buttons.
-///
-/// Designed so every interaction is one or two taps and works with a finger
-/// in gloves on a 5" phone. No popovers, no nested forms.
 class ShopFloorScreen extends ConsumerStatefulWidget {
   const ShopFloorScreen({super.key});
 
@@ -61,7 +57,6 @@ class _ShopFloorScreenState extends ConsumerState<ShopFloorScreen> {
         ApiConfig.manufacturingWorkOrders,
         queryParameters: {'status': 'IN_PROGRESS', 'pageSize': 50},
       );
-      // Endpoint returns a Page envelope: data: { content: [...] }
       final data = res.data['data'];
       List<Map<String, dynamic>> items;
       if (data is Map && data['content'] is List) {
@@ -72,7 +67,6 @@ class _ShopFloorScreenState extends ConsumerState<ShopFloorScreen> {
       if (!mounted) return;
       setState(() => _activeWos = items);
     } catch (_) {
-      // non-fatal
     } finally {
       if (mounted) setState(() => _loadingActive = false);
     }
@@ -85,9 +79,7 @@ class _ShopFloorScreenState extends ConsumerState<ShopFloorScreen> {
           .get(ApiConfig.manufacturingScrapReasonCodes);
       if (!mounted) return;
       setState(() => _reasonCodes = _list(res.data['data']));
-    } catch (_) {
-      // non-fatal
-    }
+    } catch (_) {}
   }
 
   Future<void> _lookup() async {
@@ -102,7 +94,6 @@ class _ShopFloorScreenState extends ConsumerState<ShopFloorScreen> {
       final api = ref.read(apiClientProvider);
       final res = await api.get(ApiConfig.manufacturingWorkOrderByNumber(raw));
       final wo = (res.data['data'] as Map).cast<String, dynamic>();
-      // Job cards live on a separate endpoint.
       final id = wo['id'] as String;
       final jcRes = await api.get(ApiConfig.manufacturingWorkOrderJobCards(id));
       if (!mounted) return;
@@ -110,7 +101,6 @@ class _ShopFloorScreenState extends ConsumerState<ShopFloorScreen> {
         _wo = wo;
         _jobCards = _list(jcRes.data['data']);
       });
-      // Clear so the next scan refocuses the input.
       _scanCtrl.clear();
       _scanFocus.requestFocus();
     } on DioException catch (e) {
@@ -205,7 +195,7 @@ class _ShopFloorScreenState extends ConsumerState<ShopFloorScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Shop floor'),
+        title: const Text('Shop Floor'),
         actions: [
           IconButton(
             tooltip: 'Refresh',
@@ -221,7 +211,7 @@ class _ShopFloorScreenState extends ConsumerState<ShopFloorScreen> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(KSpacing.md),
               child: TextField(
                 controller: _scanCtrl,
                 focusNode: _scanFocus,
@@ -247,11 +237,10 @@ class _ShopFloorScreenState extends ConsumerState<ShopFloorScreen> {
                 ),
                 textCapitalization: TextCapitalization.characters,
                 inputFormatters: [
-                  // Avoid weirdness from scanners that prepend tab/newline.
                   FilteringTextInputFormatter.deny(RegExp(r'[\t\n\r]')),
                 ],
                 onSubmitted: (_) => _lookup(),
-                style: Theme.of(context).textTheme.titleLarge,
+                style: KTypography.h3,
               ),
             ),
             Expanded(
@@ -265,38 +254,55 @@ class _ShopFloorScreenState extends ConsumerState<ShopFloorScreen> {
 
   Widget _activeWosView() {
     if (_loadingActive) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: KLoading(message: 'Loading active orders...'));
     }
     if (_activeWos.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Text(
-            'No work orders in progress.\nScan a WO above to start.',
-            textAlign: TextAlign.center,
-          ),
-        ),
+      return const KEmptyState(
+        icon: Icons.precision_manufacturing_outlined,
+        title: 'No work orders in progress',
+        subtitle: 'Scan a WO number above to start operations.',
       );
     }
     return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: KSpacing.pagePadding,
       itemCount: _activeWos.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      separatorBuilder: (_, __) => KSpacing.vGapSm,
       itemBuilder: (_, i) {
         final wo = _activeWos[i];
-        return Card(
-          child: ListTile(
-            title: Text(
-              '${wo['workOrderNumber']} · ${wo['priority'] ?? 'NORMAL'}',
-              style: Theme.of(context).textTheme.titleMedium,
+        final woNumber = wo['workOrderNumber']?.toString() ?? '';
+        final priority = wo['priority']?.toString() ?? 'NORMAL';
+
+        return KCard(
+          onTap: () => _openWo(wo),
+          child: Padding(
+            padding: const EdgeInsets.all(KSpacing.md),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            woNumber,
+                            style: KTypography.mono(fontSize: 14, fontWeight: FontWeight.w700),
+                          ),
+                          KSpacing.hGapSm,
+                          KStatusChip(status: priority),
+                        ],
+                      ),
+                      KSpacing.vGapXs,
+                      Text(
+                        'FG: ${wo['finishedGoodName'] ?? wo['finishedGoodId'] ?? ''} · Qty: ${wo['quantityToProduce']} (Done: ${wo['quantityProduced'] ?? 0})',
+                        style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right, color: KColors.textHint),
+              ],
             ),
-            subtitle: Text(
-              'FG ${wo['finishedGoodName'] ?? wo['finishedGoodId'] ?? ''} · '
-              'qty ${wo['quantityToProduce']} '
-              '(produced ${wo['quantityProduced'] ?? 0})',
-            ),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => _openWo(wo),
           ),
         );
       },
@@ -305,14 +311,17 @@ class _ShopFloorScreenState extends ConsumerState<ShopFloorScreen> {
 
   Widget _woView() {
     final wo = _wo!;
+    final woNumber = wo['workOrderNumber']?.toString() ?? '';
+    final status = wo['status']?.toString() ?? '';
+
     return RefreshIndicator(
       onRefresh: _refreshCurrentWo,
       child: ListView(
-        padding: const EdgeInsets.all(12),
+        padding: KSpacing.pagePadding,
         children: [
-          Card(
+          KCard(
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(KSpacing.md),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -320,46 +329,44 @@ class _ShopFloorScreenState extends ConsumerState<ShopFloorScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        wo['workOrderNumber']?.toString() ?? '',
-                        style: Theme.of(context).textTheme.headlineSmall,
+                        woNumber,
+                        style: KTypography.mono(fontSize: 16, weight: FontWeight.w700),
                       ),
-                      _statusPill(wo['status']),
+                      KStatusChip(status: status),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  KSpacing.vGapSm,
                   Text(
-                    'FG ${wo['finishedGoodName'] ?? wo['finishedGoodId'] ?? ''} · '
-                    'qty ${wo['quantityToProduce']} (produced ${wo['quantityProduced'] ?? 0})',
+                    'FG: ${wo['finishedGoodName'] ?? wo['finishedGoodId'] ?? ''} · Qty: ${wo['quantityToProduce']} (Produced: ${wo['quantityProduced'] ?? 0})',
+                    style: KTypography.bodyMedium,
                   ),
-                  if (wo['priority'] != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text('Priority: ${wo['priority']}'),
-                    ),
+                  if (wo['priority'] != null) ...[
+                    KSpacing.vGapXs,
+                    Text('Priority: ${wo['priority']}', style: KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
+                  ],
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          KSpacing.vGapMd,
           Text(
-            'Job cards (${_jobCards.length})',
-            style: Theme.of(context).textTheme.titleMedium,
+            'Job Cards (${_jobCards.length})',
+            style: KTypography.h4,
           ),
-          const SizedBox(height: 4),
+          KSpacing.vGapSm,
           if (_jobCards.isEmpty)
-            const Card(
+            const KCard(
               child: Padding(
-                padding: EdgeInsets.all(16),
+                padding: EdgeInsets.all(KSpacing.md),
                 child: Text(
-                  'No job cards on this WO yet. '
-                  'Set up a routing in Manufacturing to generate them.',
+                  'No job cards on this WO yet. Set up a routing in Manufacturing to generate them.',
                 ),
               ),
             )
           else
             ..._jobCards.map(_jobCardCard),
-          const SizedBox(height: 12),
-          TextButton.icon(
+          KSpacing.vGapMd,
+          KButton.outlined(
             onPressed: () {
               setState(() {
                 _wo = null;
@@ -367,8 +374,8 @@ class _ShopFloorScreenState extends ConsumerState<ShopFloorScreen> {
               });
               _scanFocus.requestFocus();
             },
-            icon: const Icon(Icons.arrow_back),
-            label: const Text('Done — scan next WO'),
+            icon: Icons.arrow_back,
+            label: 'Done — scan next WO',
           ),
         ],
       ),
@@ -377,91 +384,73 @@ class _ShopFloorScreenState extends ConsumerState<ShopFloorScreen> {
 
   Widget _jobCardCard(Map<String, dynamic> jc) {
     final status = jc['status']?.toString() ?? 'PENDING';
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '${jc['sequenceNumber'] ?? '?'}. '
-                    '${jc['operationName'] ?? jc['operationId'] ?? 'Operation'}',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ),
-                _statusPill(status),
-              ],
-            ),
-            if (jc['workstationName'] != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Text('Workstation: ${jc['workstationName']}'),
-              ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                if (status == 'PENDING')
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: KCard(
+        child: Padding(
+          padding: const EdgeInsets.all(KSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
                   Expanded(
-                    child: FilledButton.icon(
-                      onPressed: () => _startJobCard(jc),
-                      icon: const Icon(Icons.play_arrow),
-                      label: const Text('Start'),
+                    child: Text(
+                      '${jc['sequenceNumber'] ?? '?'}. ${jc['operationName'] ?? jc['operationId'] ?? 'Operation'}',
+                      style: KTypography.labelLarge,
                     ),
                   ),
-                if (status == 'IN_PROGRESS') ...[
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: () => _completeJobCard(jc),
-                      icon: const Icon(Icons.check),
-                      label: const Text('Complete'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => _logScrap(jc),
-                      icon: const Icon(Icons.delete_outline),
-                      label: const Text('Scrap'),
-                    ),
-                  ),
+                  KStatusChip(status: status),
                 ],
-                if (status == 'COMPLETED')
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => _logScrap(jc),
-                      icon: const Icon(Icons.delete_outline),
-                      label: const Text('Log scrap'),
-                    ),
-                  ),
+              ),
+              if (jc['workstationName'] != null) ...[
+                KSpacing.vGapXs,
+                Text(
+                  'Workstation: ${jc['workstationName']}',
+                  style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                ),
               ],
-            ),
-          ],
+              KSpacing.vGapMd,
+              Row(
+                children: [
+                  if (status == 'PENDING')
+                    Expanded(
+                      child: KButton.primary(
+                        onPressed: () => _startJobCard(jc),
+                        icon: Icons.play_arrow,
+                        label: 'Start',
+                      ),
+                    ),
+                  if (status == 'IN_PROGRESS') ...[
+                    Expanded(
+                      child: KButton.primary(
+                        onPressed: () => _completeJobCard(jc),
+                        icon: Icons.check,
+                        label: 'Complete',
+                      ),
+                    ),
+                    KSpacing.hGapSm,
+                    Expanded(
+                      child: KButton.danger(
+                        onPressed: () => _logScrap(jc),
+                        icon: Icons.delete_outline,
+                        label: 'Scrap',
+                      ),
+                    ),
+                  ],
+                  if (status == 'COMPLETED')
+                    Expanded(
+                      child: KButton.outlined(
+                        onPressed: () => _logScrap(jc),
+                        icon: Icons.delete_outline,
+                        label: 'Log Scrap',
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
         ),
-      ),
-    );
-  }
-
-  Widget _statusPill(Object? status) {
-    final color = switch (status) {
-      'PENDING' => Colors.blueGrey,
-      'DRAFT' => Colors.blueGrey,
-      'IN_PROGRESS' => Colors.orange,
-      'COMPLETED' => Colors.green,
-      'CANCELLED' => Colors.grey,
-      _ => Colors.grey,
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        status?.toString() ?? '',
-        style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600),
       ),
     );
   }
@@ -486,9 +475,8 @@ class _CompleteJobCardSheetState extends State<_CompleteJobCardSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Complete job card',
-              style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 12),
+          Text('Complete Job Card', style: KTypography.h3),
+          KSpacing.vGapMd,
           TextField(
             controller: _qty,
             decoration: const InputDecoration(
@@ -497,7 +485,7 @@ class _CompleteJobCardSheetState extends State<_CompleteJobCardSheet> {
             ),
             keyboardType: TextInputType.number,
           ),
-          const SizedBox(height: 8),
+          KSpacing.vGapSm,
           TextField(
             controller: _hours,
             decoration: const InputDecoration(
@@ -506,7 +494,7 @@ class _CompleteJobCardSheetState extends State<_CompleteJobCardSheet> {
             ),
             keyboardType: TextInputType.number,
           ),
-          const SizedBox(height: 8),
+          KSpacing.vGapSm,
           TextField(
             controller: _notes,
             decoration: const InputDecoration(
@@ -515,8 +503,8 @@ class _CompleteJobCardSheetState extends State<_CompleteJobCardSheet> {
             ),
             maxLines: 2,
           ),
-          const SizedBox(height: 12),
-          FilledButton(
+          KSpacing.vGapMd,
+          KButton.primary(
             onPressed: () => Navigator.pop(context, {
               if (_qty.text.trim().isNotEmpty)
                 'quantityProduced': double.tryParse(_qty.text.trim()),
@@ -524,7 +512,7 @@ class _CompleteJobCardSheetState extends State<_CompleteJobCardSheet> {
                 'actualHours': double.tryParse(_hours.text.trim()),
               if (_notes.text.trim().isNotEmpty) 'notes': _notes.text.trim(),
             }),
-            child: const Text('Complete'),
+            label: 'Complete',
           ),
         ],
       ),
@@ -554,9 +542,8 @@ class _LogScrapSheetState extends State<_LogScrapSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Log scrap',
-              style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 12),
+          Text('Log Scrap', style: KTypography.h3),
+          KSpacing.vGapMd,
           TextField(
             controller: _qty,
             decoration: const InputDecoration(
@@ -565,7 +552,7 @@ class _LogScrapSheetState extends State<_LogScrapSheet> {
             ),
             keyboardType: TextInputType.number,
           ),
-          const SizedBox(height: 8),
+          KSpacing.vGapSm,
           DropdownButtonFormField<String>(
             initialValue: _reasonId,
             decoration: const InputDecoration(
@@ -580,7 +567,7 @@ class _LogScrapSheetState extends State<_LogScrapSheet> {
                 .toList(),
             onChanged: (v) => setState(() => _reasonId = v),
           ),
-          const SizedBox(height: 8),
+          KSpacing.vGapSm,
           TextField(
             controller: _notes,
             decoration: const InputDecoration(
@@ -589,8 +576,8 @@ class _LogScrapSheetState extends State<_LogScrapSheet> {
             ),
             maxLines: 2,
           ),
-          const SizedBox(height: 12),
-          FilledButton(
+          KSpacing.vGapMd,
+          KButton.danger(
             onPressed: _qty.text.trim().isEmpty || _reasonId == null
                 ? null
                 : () => Navigator.pop(context, {
@@ -599,7 +586,7 @@ class _LogScrapSheetState extends State<_LogScrapSheet> {
                       if (_notes.text.trim().isNotEmpty)
                         'notes': _notes.text.trim(),
                     }),
-            child: const Text('Save scrap'),
+            label: 'Save Scrap',
           ),
         ],
       ),

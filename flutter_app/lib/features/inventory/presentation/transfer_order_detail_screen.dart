@@ -80,18 +80,22 @@ class _TransferOrderDetailScreenState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Ship Transfer Order'),
+        title: Text('Ship Transfer Order', style: KTypography.titleLarge),
         content: const Text(
           'This will deduct stock from the source warehouse. Continue?',
         ),
         actions: [
-          TextButton(
+          KButton.outlined(
+            label: 'Cancel',
+            size: KButtonSize.small,
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
           ),
-          FilledButton(
+          KSpacing.hGapSm,
+          KButton.primary(
+            icon: Icons.local_shipping_outlined,
+            label: 'Confirm Dispatch',
+            size: KButtonSize.small,
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Ship'),
           ),
         ],
       ),
@@ -107,18 +111,22 @@ class _TransferOrderDetailScreenState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Receive Transfer Order'),
+        title: Text('Receive Transfer Order', style: KTypography.titleLarge),
         content: const Text(
           'This will add stock to the destination warehouse. Continue?',
         ),
         actions: [
-          TextButton(
+          KButton.outlined(
+            label: 'Cancel',
+            size: KButtonSize.small,
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
           ),
-          FilledButton(
+          KSpacing.hGapSm,
+          KButton.primary(
+            icon: Icons.inventory_outlined,
+            label: 'Confirm Receipt',
+            size: KButtonSize.small,
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Receive'),
           ),
         ],
       ),
@@ -134,21 +142,24 @@ class _TransferOrderDetailScreenState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Cancel Transfer Order'),
+        title: Text('Cancel Transfer Order', style: KTypography.titleLarge),
         content: Text(
           _order?['status'] == 'IN_TRANSIT'
               ? 'This will reverse the stock deduction from the source warehouse. Continue?'
               : 'Are you sure you want to cancel this transfer order?',
         ),
         actions: [
-          TextButton(
+          KButton.outlined(
+            label: 'Back',
+            size: KButtonSize.small,
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('No'),
           ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: KColors.error),
+          KSpacing.hGapSm,
+          KButton.danger(
+            icon: Icons.cancel_outlined,
+            label: 'Cancel Transfer',
+            size: KButtonSize.small,
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Cancel Order'),
           ),
         ],
       ),
@@ -178,32 +189,36 @@ class _TransferOrderDetailScreenState
     final actions = <Widget>[];
     if (status == 'DRAFT') {
       actions.add(
-        FilledButton.icon(
+        KButton.primary(
           onPressed: _actionInProgress ? null : _ship,
-          icon: const Icon(Icons.local_shipping_outlined, size: 18),
-          label: const Text('Ship'),
+          icon: Icons.local_shipping_outlined,
+          label: 'Ship',
+          size: KButtonSize.small,
         ),
       );
       actions.add(const SizedBox(width: 8));
       actions.add(
-        OutlinedButton(
+        KButton.outlined(
           onPressed: _actionInProgress ? null : _cancel,
-          child: const Text('Cancel'),
+          label: 'Cancel',
+          size: KButtonSize.small,
         ),
       );
     } else if (status == 'IN_TRANSIT') {
       actions.add(
-        FilledButton.icon(
+        KButton.primary(
           onPressed: _actionInProgress ? null : _receive,
-          icon: const Icon(Icons.inventory_2_outlined, size: 18),
-          label: const Text('Receive'),
+          icon: Icons.inventory_2_outlined,
+          label: 'Receive',
+          size: KButtonSize.small,
         ),
       );
       actions.add(const SizedBox(width: 8));
       actions.add(
-        OutlinedButton(
+        KButton.outlined(
           onPressed: _actionInProgress ? null : _cancel,
-          child: const Text('Cancel'),
+          label: 'Cancel',
+          size: KButtonSize.small,
         ),
       );
     }
@@ -289,7 +304,7 @@ class _TransferOrderDetailScreenState
                 Expanded(
                   child: Text(
                     _order!['transferNumber'] ?? '',
-                    style: KTypography.titleLarge,
+                    style: KTypography.mono(size: 18, weight: FontWeight.w700),
                   ),
                 ),
                 KStatusChip(status: status),
@@ -390,7 +405,8 @@ class _TransferOrderDetailScreenState
                       if (line['sku'] != null)
                         Text(
                           line['sku'] as String,
-                          style: KTypography.bodySmall.copyWith(
+                          style: KTypography.mono(
+                            size: 11,
                             color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                         ),
@@ -425,7 +441,8 @@ class _TransferOrderDetailScreenState
                   const SizedBox(width: 4),
                   Text(
                     'Batch: ${line['batchNumber']}',
-                    style: KTypography.bodySmall.copyWith(
+                    style: KTypography.mono(
+                      size: 11,
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),

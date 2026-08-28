@@ -4,7 +4,6 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../contacts/presentation/contact_picker_sheet.dart';
 import '../data/transport_repository.dart';
 
@@ -69,12 +68,14 @@ class _LorryReceiptListScreenState extends ConsumerState<LorryReceiptListScreen>
         actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh))],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: KColors.primary,
+        foregroundColor: Colors.white,
         onPressed: _openCreate,
         icon: const Icon(Icons.add),
         label: const Text('New LR'),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: KLoading())
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView(
@@ -118,7 +119,7 @@ class _LorryReceiptListScreenState extends ConsumerState<LorryReceiptListScreen>
                   child: Text('${lr['lrNumber']} · ${lr['lrDate']}',
                       style: KTypography.labelLarge),
                 ),
-                _statusChip(status),
+                KStatusChip(status: status),
               ],
             ),
             KSpacing.vGapXs,
@@ -133,20 +134,20 @@ class _LorryReceiptListScreenState extends ConsumerState<LorryReceiptListScreen>
                 Text('Freight: ',
                     style: KTypography.bodySmall
                         .copyWith(color: KColors.textSecondary)),
-                Text(
-                  CurrencyFormatter.formatIndian(
-                      (lr['freightAmount'] as num?)?.toDouble() ?? 0),
-                  style: KTypography.bodyMedium,
+                KMoney(
+                  (lr['freightAmount'] as num?)?.toDouble() ?? 0,
+                  size: KMoneySize.small,
+                  style: KTypography.bodyMedium.copyWith(fontWeight: FontWeight.w600),
                 ),
                 KSpacing.hGapSm,
-                _pill(basis, KColors.textSecondary),
+                KStatusChip(status: basis, label: basis.replaceAll('_', ' ')),
                 if ((lr['gstTreatment'] as String?) == 'RCM') ...[
                   KSpacing.hGapXs,
-                  _pill('RCM', KColors.warning),
+                  const KStatusChip(status: 'WARNING', label: 'RCM'),
                 ],
                 if (billed) ...[
                   KSpacing.hGapXs,
-                  _pill('Billed', KColors.success),
+                  const KStatusChip(status: 'PAID', label: 'Billed'),
                 ],
               ],
             ),
@@ -155,25 +156,30 @@ class _LorryReceiptListScreenState extends ConsumerState<LorryReceiptListScreen>
               spacing: 8,
               children: [
                 if (status == 'DRAFT')
-                  OutlinedButton(
-                      onPressed: () => _act(id,
-                          () => ref.read(transportRepositoryProvider).issueLr(id),
-                          'LR issued'),
-                      child: const Text('Issue')),
+                  KButton.outlined(
+                    size: KButtonSize.small,
+                    onPressed: () => _act(id,
+                        () => ref.read(transportRepositoryProvider).issueLr(id),
+                        'LR issued'),
+                    label: 'Issue',
+                  ),
                 if (status == 'ISSUED')
-                  OutlinedButton(
-                      onPressed: () => _act(id,
-                          () => ref.read(transportRepositoryProvider).deliverLr(id),
-                          'Marked delivered'),
-                      child: const Text('Deliver')),
+                  KButton.outlined(
+                    size: KButtonSize.small,
+                    onPressed: () => _act(id,
+                        () => ref.read(transportRepositoryProvider).deliverLr(id),
+                        'Marked delivered'),
+                    label: 'Deliver',
+                  ),
                 if (billable)
-                  FilledButton.icon(
+                  KButton.primary(
+                    size: KButtonSize.small,
                     onPressed: () => _act(
                         id,
                         () => ref.read(transportRepositoryProvider).billFreight(id),
                         'Draft freight bill raised'),
-                    icon: const Icon(Icons.receipt_long, size: 16),
-                    label: const Text('Bill freight'),
+                    icon: Icons.receipt_long,
+                    label: 'Bill freight',
                   ),
               ],
             ),
@@ -182,25 +188,6 @@ class _LorryReceiptListScreenState extends ConsumerState<LorryReceiptListScreen>
       ),
     );
   }
-
-  Widget _statusChip(String status) {
-    final color = switch (status) {
-      'DELIVERED' => KColors.success,
-      'CANCELLED' => KColors.textSecondary,
-      'ISSUED' => KColors.warning,
-      _ => KColors.textSecondary,
-    };
-    return _pill(status, color);
-  }
-
-  Widget _pill(String text, Color color) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Text(text, style: KTypography.bodySmall.copyWith(color: color)),
-      );
 }
 
 /// Minimal LR create form — transporter (vendor) + route + freight + basis/GST.
@@ -364,7 +351,7 @@ class _CreateLorryReceiptScreenState
             ),
           ),
           KSpacing.vGapLg,
-          KButton(
+          KButton.primary(
             label: _saving ? 'Saving…' : 'Save LR',
             icon: Icons.save,
             isLoading: _saving,

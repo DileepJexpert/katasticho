@@ -4,7 +4,6 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../data/item_repository.dart';
 
 /// Modal item picker. Returns the selected item map (with id, sku, name,
@@ -182,10 +181,9 @@ class _ItemPickerSheetState extends ConsumerState<_ItemPickerSheet> {
                         subtitleParts.join(' • '),
                         style: KTypography.bodySmall,
                       ),
-                      trailing: Text(
-                        CurrencyFormatter.formatIndian(
-                            (item['salePrice'] as num?)?.toDouble() ?? 0),
-                        style: KTypography.amountSmall,
+                      trailing: KMoney(
+                        (item['salePrice'] as num?)?.toDouble() ?? 0,
+                        size: KMoneySize.small,
                       ),
                       onTap: () => Navigator.pop(context, item),
                     );

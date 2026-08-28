@@ -1,7 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/widgets/widgets.dart';
+import '../../../core/theme/k_colors.dart';
+import '../../../core/theme/k_spacing.dart';
+import '../../../core/theme/k_typography.dart';
+import '../../../core/utils/api_error_parser.dart';
+import '../../../core/widgets/k_card.dart';
+import '../../../core/widgets/k_empty_state.dart';
+import '../../../core/widgets/k_error_view.dart';
+import '../../../core/widgets/k_loading.dart';
+import '../../../core/widgets/k_money.dart';
+import '../../../core/widgets/k_status_chip.dart';
 import '../data/partner_network_repository.dart';
 
 class SupplierSearchScreen extends ConsumerStatefulWidget {
@@ -23,14 +32,25 @@ class _SupplierSearchScreenState extends ConsumerState<SupplierSearchScreen> {
     _search();
   }
 
+  @override
+  void dispose() {
+    _searchCtl.dispose();
+    super.dispose();
+  }
+
   Future<void> _search() async {
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
-      final results = await ref.read(partnerNetworkRepositoryProvider)
-          .searchSuppliers(search: _searchCtl.text.trim().isEmpty ? null : _searchCtl.text.trim());
+      final query = _searchCtl.text.trim();
+      final results = await ref
+          .read(partnerNetworkRepositoryProvider)
+          .searchSuppliers(search: query.isEmpty ? null : query);
       if (mounted) setState(() => _results = results);
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = ApiErrorParser.message(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -38,50 +58,71 @@ class _SupplierSearchScreenState extends ConsumerState<SupplierSearchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
     return Scaffold(
-      body: Column(
+      appBar: AppBar(
+        title: const Text('Network Supplier Search'),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh',
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: _search,
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: KSpacing.pagePadding,
         children: [
-          const KListPageHeader(
-            title: 'Supplier Search',
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: TextField(
-              controller: _searchCtl,
-              decoration: InputDecoration(
-                hintText: 'Search by name, SKU, or manufacturer…',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.clear),
-                  onPressed: () { _searchCtl.clear(); _search(); },
-                ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Explore Supplier Catalogs',
+                style: KTypography.h2.copyWith(fontWeight: FontWeight.w800),
               ),
-              onSubmitted: (_) => _search(),
-            ),
+              const SizedBox(height: 4),
+              Text(
+                'Search available inventory, PTR pricing, and pack sizes across all connected network suppliers.',
+                style: KTypography.bodySmall.copyWith(color: cs.onSurfaceVariant),
+              ),
+            ],
           ),
+          KSpacing.vGapMd,
+          TextField(
+            controller: _searchCtl,
+            decoration: InputDecoration(
+              hintText: 'Search products by title, SKU, or manufacturer...',
+              prefixIcon: const Icon(Icons.search_rounded, size: 20),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(KSpacing.radiusMd)),
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              suffixIcon: IconButton(
+                icon: const Icon(Icons.clear_rounded, size: 18),
+                onPressed: () {
+                  _searchCtl.clear();
+                  _search();
+                },
+              ),
+            ),
+            onSubmitted: (_) => _search(),
+          ),
+          KSpacing.vGapMd,
           if (_error != null)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.only(bottom: KSpacing.md),
               child: KErrorView(message: _error!, onRetry: _search),
             ),
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : _results.isEmpty
-                    ? const KEmptyState(
-                        icon: Icons.search_off,
-                        title: 'No results',
-                        subtitle: 'No items found from your approved suppliers.',
-                      )
-                    : RefreshIndicator(
-                        onRefresh: _search,
-                        child: ListView.builder(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: _results.length,
-                          itemBuilder: (ctx, i) => _SupplierItemCard(item: _results[i]),
-                        ),
-                      ),
-          ),
+          if (_loading)
+            const KLoading(message: 'Searching supplier items across partner network...')
+          else if (_results.isEmpty)
+            const KEmptyState(
+              icon: Icons.search_off_rounded,
+              title: 'No supplier products found',
+              subtitle: 'No items match your search term from connected suppliers.',
+            )
+          else
+            ..._results.map((item) => _SupplierItemCard(item: item)),
         ],
       ),
     );
@@ -94,62 +135,77 @@ class _SupplierItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final name = item['displayName']?.toString() ?? 'Unnamed';
+    final cs = Theme.of(context).colorScheme;
+    final name = item['displayName']?.toString() ?? 'Unnamed Product';
     final manufacturer = item['manufacturer']?.toString();
-    final mrp = item['publishedMrp'];
-    final ptr = item['publishedPtr'];
+    final mrp = (item['publishedMrp'] as num?)?.toDouble();
+    final ptr = (item['publishedPtr'] as num?)?.toDouble();
     final availability = item['availabilityStatus']?.toString() ?? 'AVAILABLE';
     final packSize = item['packSize']?.toString();
     final minQty = item['minOrderQty'];
 
-    final availColor = switch (availability) {
-      'AVAILABLE' => Colors.green,
-      'LOW_STOCK' => Colors.orange,
-      'OUT_OF_STOCK' => Colors.red,
-      _ => Colors.grey,
-    };
-
     return KCard(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      margin: const EdgeInsets.only(bottom: KSpacing.sm),
+      padding: const EdgeInsets.all(KSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  name,
+                  style: KTypography.titleSmall.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+              const SizedBox(width: 8),
+              KStatusChip(
+                status: availability,
+                label: availability.replaceAll('_', ' '),
+              ),
+            ],
+          ),
+          if (manufacturer != null && manufacturer.isNotEmpty) ...[
+            const SizedBox(height: 4),
             Row(
               children: [
-                Expanded(
-                  child: Text(name,
-                      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                Icon(Icons.precision_manufacturing_outlined, size: 14, color: cs.onSurfaceVariant),
+                const SizedBox(width: 4),
+                Text(
+                  'Manufacturer: $manufacturer',
+                  style: KTypography.bodySmall.copyWith(color: cs.onSurfaceVariant),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: availColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(availability.replaceAll('_', ' '),
-                      style: theme.textTheme.labelSmall?.copyWith(color: availColor)),
-                ),
-              ],
-            ),
-            if (manufacturer != null) ...[
-              const SizedBox(height: 4),
-              Text(manufacturer, style: theme.textTheme.bodySmall),
-            ],
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 16,
-              children: [
-                if (mrp != null) Text('MRP: ₹$mrp', style: theme.textTheme.bodySmall),
-                if (ptr != null) Text('PTR: ₹$ptr',
-                    style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
-                if (packSize != null) Text('Pack: $packSize', style: theme.textTheme.bodySmall),
-                if (minQty != null) Text('Min Qty: $minQty', style: theme.textTheme.bodySmall),
               ],
             ),
           ],
-        ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 16,
+            runSpacing: 4,
+            children: [
+              if (mrp != null)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('MRP: ', style: KTypography.bodySmall.copyWith(color: cs.onSurfaceVariant)),
+                    KMoney(mrp, style: KTypography.bodySmall),
+                  ],
+                ),
+              if (ptr != null)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('PTR: ', style: KTypography.bodySmall.copyWith(color: cs.onSurfaceVariant)),
+                    KMoney(ptr, style: KTypography.titleSmall.copyWith(color: KColors.primary)),
+                  ],
+                ),
+              if (packSize != null && packSize.isNotEmpty)
+                Text('Pack: $packSize', style: KTypography.bodySmall.copyWith(color: cs.onSurfaceVariant)),
+              if (minQty != null)
+                Text('Min Order: $minQty units', style: KTypography.bodySmall.copyWith(color: cs.onSurfaceVariant)),
+            ],
+          ),
+        ],
       ),
     );
   }

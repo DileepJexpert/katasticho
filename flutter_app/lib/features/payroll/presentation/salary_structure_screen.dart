@@ -8,7 +8,15 @@ import '../../../core/api/api_config.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
-import '../../../core/widgets/widgets.dart';
+import '../../../core/utils/api_error_parser.dart';
+import '../../../core/widgets/k_button.dart';
+import '../../../core/widgets/k_card.dart';
+import '../../../core/widgets/k_compact_row.dart';
+import '../../../core/widgets/k_error_view.dart';
+import '../../../core/widgets/k_loading.dart';
+import '../../../core/widgets/k_money.dart';
+import '../../../core/widgets/k_status_chip.dart';
+import '../../../core/widgets/k_text_field.dart';
 
 /// Salary-structure builder for one employee. Loads the current active
 /// structure (read-only) and lets HR compose a new effective-dated structure
@@ -90,9 +98,9 @@ class _SalaryStructureScreenState extends ConsumerState<SalaryStructureScreen> {
         _current = null; // 404 PAYROLL_NO_ACTIVE_STRUCTURE — none yet
       }
     } on DioException catch (e) {
-      _error = _msg(e) ?? 'Failed to load';
-    } catch (_) {
-      _error = 'Failed to load';
+      _error = ApiErrorParser.message(e);
+    } catch (e) {
+      _error = 'Failed to load salary structure';
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -103,7 +111,7 @@ class _SalaryStructureScreenState extends ConsumerState<SalaryStructureScreen> {
         _lines.where((l) => (l.componentCode ?? '').isNotEmpty).toList();
     if (usable.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Add at least one component line')),
+        const SnackBar(content: Text('Please add at least one salary component line')),
       );
       return;
     }
@@ -142,7 +150,8 @@ class _SalaryStructureScreenState extends ConsumerState<SalaryStructureScreen> {
             data: body,
           );
       messenger.showSnackBar(
-          const SnackBar(content: Text('Salary structure saved')));
+        const SnackBar(content: Text('Salary structure saved successfully'), backgroundColor: KColors.success),
+      );
       for (final l in _lines) {
         l.dispose();
       }
@@ -152,7 +161,7 @@ class _SalaryStructureScreenState extends ConsumerState<SalaryStructureScreen> {
       await _load();
     } on DioException catch (e) {
       messenger.showSnackBar(SnackBar(
-        content: Text(_msg(e) ?? 'Save failed'),
+        content: Text(ApiErrorParser.message(e)),
         backgroundColor: KColors.error,
       ));
     } finally {
@@ -163,20 +172,32 @@ class _SalaryStructureScreenState extends ConsumerState<SalaryStructureScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Salary Structure')),
+      appBar: AppBar(
+        title: const Text('Salary Structure & CTC Builder'),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh',
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: _load,
+          ),
+        ],
+      ),
       body: _loading
-          ? const KLoading(message: 'Loading…')
+          ? const Center(child: KLoading(message: 'Loading employee salary structure...'))
           : _error != null
-              ? KErrorView(message: _error!, onRetry: _load)
+              ? Padding(
+                  padding: KSpacing.pagePadding,
+                  child: KErrorView(message: _error!, onRetry: _load),
+                )
               : ListView(
                   padding: KSpacing.pagePadding,
                   children: [
                     if (_current != null) ...[
                       _currentCard(),
-                      KSpacing.vGapMd,
+                      KSpacing.vGapLg,
                     ],
                     _newStructureForm(),
-                    const SizedBox(height: 60),
+                    const SizedBox(height: 40),
                   ],
                 ),
     );
@@ -187,48 +208,57 @@ class _SalaryStructureScreenState extends ConsumerState<SalaryStructureScreen> {
   Widget _currentCard() {
     final c = _current!;
     final lines = (c['lines'] as List?)?.cast<Map<String, dynamic>>() ?? const [];
+    final cs = Theme.of(context).colorScheme;
+
     return KCard(
-      title: 'Current structure',
+      title: 'Current Active Salary Structure',
       subtitle: 'Effective from ${c['effectiveFrom'] ?? '--'}',
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: KSpacing.sm),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Wrap(
-              spacing: KSpacing.sm,
-              children: [
-                KStatusChip(status: (c['status'] ?? 'ACTIVE').toString()),
-                if (c['payType'] != null)
-                  Chip(label: Text(c['payType'].toString())),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              KStatusChip(status: (c['status'] ?? 'ACTIVE').toString()),
+              if (c['payType'] != null) ...[
+                KSpacing.hGapSm,
+                KStatusChip(status: c['payType'].toString()),
               ],
-            ),
-            if (lines.isEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: KSpacing.sm),
-                child: Text('No component lines on the active structure.',
-                    style: KTypography.bodySmall),
-              )
-            else
-              ...lines.map((l) {
-                final comp = (l['salaryComponent'] as Map?) ?? const {};
-                final code = comp['code'] ?? l['baseComponentCode'] ?? '--';
-                final calc = l['calculationType'] ?? '';
-                final detail = calc == 'PERCENTAGE'
-                    ? '${l['percentage'] ?? 0}% of ${l['baseComponentCode'] ?? ''}'
-                    : '₹${l['amount'] ?? 0}';
-                return Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Row(
-                    children: [
-                      Expanded(child: Text(code.toString())),
-                      Text(detail, style: KTypography.bodySmall),
-                    ],
-                  ),
-                );
-              }),
-          ],
-        ),
+            ],
+          ),
+          KSpacing.vGapMd,
+          if (lines.isEmpty)
+            Text(
+              'No component lines defined on this active structure.',
+              style: KTypography.bodySmall.copyWith(color: cs.onSurfaceVariant),
+            )
+          else
+            ...lines.map((l) {
+              final comp = (l['salaryComponent'] as Map?) ?? const {};
+              final code = comp['code'] ?? l['baseComponentCode'] ?? '--';
+              final calc = l['calculationType'] ?? '';
+              final isPct = calc == 'PERCENTAGE';
+              final amt = (l['amount'] as num?)?.toDouble() ?? 0;
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  children: [
+                    Text(
+                      code.toString(),
+                      style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w700),
+                    ),
+                    const Spacer(),
+                    if (isPct)
+                      Text(
+                        '${l['percentage'] ?? 0}% of ${l['baseComponentCode'] ?? ''}',
+                        style: KTypography.mono(fontSize: 12, color: cs.onSurfaceVariant),
+                      )
+                    else
+                      KMoney(amt, size: KMoneySize.small),
+                  ],
+                ),
+              );
+            }),
+        ],
       ),
     );
   }
@@ -236,109 +266,127 @@ class _SalaryStructureScreenState extends ConsumerState<SalaryStructureScreen> {
   // ── New structure builder ─────────────────────────────────────────────────
 
   Widget _newStructureForm() {
+    final cs = Theme.of(context).colorScheme;
+
     return KCard(
-      title: 'New structure',
-      subtitle: 'Supersedes the current one from the effective date',
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: KSpacing.sm),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Effective from
-            InkWell(
-              onTap: () async {
-                final picked = await showDatePicker(
-                  context: context,
-                  initialDate: _effectiveFrom,
-                  firstDate: DateTime(2020),
-                  lastDate: DateTime(2100),
-                );
-                if (picked != null) setState(() => _effectiveFrom = picked);
-              },
-              child: InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: 'Effective from',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.event_outlined),
-                ),
-                child: Text(_dateFmt.format(_effectiveFrom)),
-              ),
-            ),
-            KSpacing.vGapSm,
-            DropdownButtonFormField<String>(
-              initialValue: _payType,
-              decoration: const InputDecoration(
-                labelText: 'Pay type',
-                border: OutlineInputBorder(),
-              ),
-              items: const [
-                DropdownMenuItem(value: 'SALARY', child: Text('Salary (monthly)')),
-                DropdownMenuItem(value: 'HOURLY', child: Text('Hourly')),
-                DropdownMenuItem(
-                    value: 'PIECE_RATE', child: Text('Piece rate')),
-              ],
-              onChanged: (v) => setState(() => _payType = v ?? 'SALARY'),
-            ),
-            if (_payType == 'HOURLY') ...[
-              KSpacing.vGapSm,
-              _money('Hourly rate', _hourlyRate),
-            ],
-            if (_payType == 'PIECE_RATE') ...[
-              KSpacing.vGapSm,
-              _money('Piece rate', _pieceRate),
-            ],
-            KSpacing.vGapSm,
-            KCompactRow(children: [
-              _money('CTC / month (optional)', _ctc),
-              _money('Gross / month (optional)', _gross),
-            ]),
-            const Divider(height: KSpacing.lg),
-            Row(
+      title: 'Compose New Salary Structure',
+      subtitle: 'Supersedes the active structure from the effective date for future payroll runs.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Effective from
+          KCard(
+            onTap: () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: _effectiveFrom,
+                firstDate: DateTime(2020),
+                lastDate: DateTime(2100),
+              );
+              if (picked != null) setState(() => _effectiveFrom = picked);
+            },
+            child: Row(
               children: [
+                Icon(Icons.event_note_rounded, size: 18, color: cs.primary),
+                KSpacing.hGapMd,
                 Expanded(
-                  child: Text('Component lines',
-                      style: KTypography.labelLarge),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Effective From Date *', style: KTypography.labelSmall),
+                      Text(
+                        _dateFmt.format(_effectiveFrom),
+                        style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
                 ),
-                KButton(
-                  label: 'Add line',
-                  icon: Icons.add,
-                  variant: KButtonVariant.outlined,
-                  size: KButtonSize.small,
-                  onPressed: () => setState(() => _lines.add(_LineDraft())),
-                ),
+                Icon(Icons.edit_calendar_rounded, size: 16, color: cs.onSurfaceVariant),
               ],
             ),
-            if (_lines.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: KSpacing.sm),
-                child: Text(
-                  'Add the earning components that make up pay (BASIC, HRA, …). '
-                  'Statutory deductions (PF/ESI/PT) are auto-computed.',
-                  style: KTypography.bodySmall
-                      .copyWith(color: KColors.textSecondary),
-                ),
-              )
-            else
-              ...List.generate(_lines.length, (i) => _lineCard(i)),
-            KSpacing.vGapMd,
-            KButton(
-              label: 'Save structure',
-              icon: Icons.save_outlined,
-              isLoading: _saving,
-              onPressed: _saving ? null : _save,
+          ),
+          KSpacing.vGapMd,
+          DropdownButtonFormField<String>(
+            initialValue: _payType,
+            decoration: const InputDecoration(
+              labelText: 'Pay Type / Structure Model *',
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+            items: const [
+              DropdownMenuItem(value: 'SALARY', child: Text('Monthly Salary (Fixed CTC)')),
+              DropdownMenuItem(value: 'HOURLY', child: Text('Hourly Rate')),
+              DropdownMenuItem(value: 'PIECE_RATE', child: Text('Piece Rate (Per Unit)')),
+            ],
+            onChanged: (v) => setState(() => _payType = v ?? 'SALARY'),
+          ),
+          if (_payType == 'HOURLY') ...[
+            KSpacing.vGapSm,
+            KTextField.amount(
+              label: 'Hourly Rate (₹/hr) *',
+              controller: _hourlyRate,
             ),
           ],
-        ),
+          if (_payType == 'PIECE_RATE') ...[
+            KSpacing.vGapSm,
+            KTextField.amount(
+              label: 'Piece Rate (₹/unit) *',
+              controller: _pieceRate,
+            ),
+          ],
+          KSpacing.vGapSm,
+          KCompactRow(children: [
+            KTextField.amount(
+              label: 'Target Monthly CTC (Optional)',
+              controller: _ctc,
+            ),
+            KTextField.amount(
+              label: 'Target Monthly Gross (Optional)',
+              controller: _gross,
+            ),
+          ]),
+          const Divider(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Salary Component Lines', style: KTypography.titleMedium),
+              KButton.secondary(
+                label: 'Add Line',
+                icon: Icons.add_rounded,
+                size: KButtonSize.small,
+                onPressed: () => setState(() => _lines.add(_LineDraft())),
+              ),
+            ],
+          ),
+          KSpacing.vGapSm,
+          if (_lines.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: KSpacing.sm),
+              child: Text(
+                'Add salary earning components (e.g. BASIC, HRA, SPECIAL_ALLOWANCE). Statutory deductions (PF, ESI, PT, LWF) calculate automatically.',
+                style: KTypography.bodySmall.copyWith(color: cs.onSurfaceVariant),
+              ),
+            )
+          else
+            ...List.generate(_lines.length, (i) => _lineCard(i)),
+          KSpacing.vGapLg,
+          KButton.primary(
+            label: 'Save Salary Structure',
+            icon: Icons.save_rounded,
+            isLoading: _saving,
+            onPressed: _saving ? null : _save,
+          ),
+        ],
       ),
     );
   }
 
   Widget _lineCard(int i) {
     final l = _lines[i];
-    return Card(
-      margin: const EdgeInsets.only(top: KSpacing.sm),
-      child: Padding(
-        padding: const EdgeInsets.all(KSpacing.sm),
+    return Padding(
+      padding: const EdgeInsets.only(top: KSpacing.sm),
+      child: KCard(
+        padding: const EdgeInsets.all(KSpacing.md),
         child: Column(
           children: [
             Row(
@@ -348,7 +396,7 @@ class _SalaryStructureScreenState extends ConsumerState<SalaryStructureScreen> {
                     initialValue: l.componentCode,
                     isExpanded: true,
                     decoration: const InputDecoration(
-                      labelText: 'Component',
+                      labelText: 'Component *',
                       border: OutlineInputBorder(),
                       isDense: true,
                     ),
@@ -359,6 +407,7 @@ class _SalaryStructureScreenState extends ConsumerState<SalaryStructureScreen> {
                           child: Text(
                             '${c['code']} · ${c['name'] ?? ''}',
                             overflow: TextOverflow.ellipsis,
+                            style: KTypography.bodyMedium,
                           ),
                         ),
                     ],
@@ -367,7 +416,7 @@ class _SalaryStructureScreenState extends ConsumerState<SalaryStructureScreen> {
                 ),
                 IconButton(
                   tooltip: 'Remove line',
-                  icon: const Icon(Icons.close, size: 20),
+                  icon: const Icon(Icons.close_rounded, size: 20),
                   onPressed: () => setState(() {
                     _lines.removeAt(i).dispose();
                   }),
@@ -381,14 +430,13 @@ class _SalaryStructureScreenState extends ConsumerState<SalaryStructureScreen> {
                   child: DropdownButtonFormField<String>(
                     initialValue: l.calcType,
                     decoration: const InputDecoration(
-                      labelText: 'Calc',
+                      labelText: 'Calculation Mode',
                       border: OutlineInputBorder(),
                       isDense: true,
                     ),
                     items: const [
-                      DropdownMenuItem(value: 'FIXED', child: Text('Fixed ₹')),
-                      DropdownMenuItem(
-                          value: 'PERCENTAGE', child: Text('% of base')),
+                      DropdownMenuItem(value: 'FIXED', child: Text('Fixed Amount (₹)')),
+                      DropdownMenuItem(value: 'PERCENTAGE', child: Text('% of Base')),
                     ],
                     onChanged: (v) =>
                         setState(() => l.calcType = v ?? 'FIXED'),
@@ -397,14 +445,12 @@ class _SalaryStructureScreenState extends ConsumerState<SalaryStructureScreen> {
                 KSpacing.hGapSm,
                 Expanded(
                   child: l.calcType == 'FIXED'
-                      ? KTextField(
-                          label: 'Amount',
+                      ? KTextField.amount(
+                          label: 'Fixed Amount *',
                           controller: l.amount,
-                          keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true),
                         )
                       : KTextField(
-                          label: 'Percentage',
+                          label: 'Percentage % *',
                           controller: l.percentage,
                           keyboardType: const TextInputType.numberWithOptions(
                               decimal: true),
@@ -418,7 +464,7 @@ class _SalaryStructureScreenState extends ConsumerState<SalaryStructureScreen> {
                 initialValue: l.baseComponentCode,
                 isExpanded: true,
                 decoration: const InputDecoration(
-                  labelText: 'Base component (% applies to)',
+                  labelText: 'Base Component (% applies to) *',
                   border: OutlineInputBorder(),
                   isDense: true,
                 ),
@@ -426,8 +472,11 @@ class _SalaryStructureScreenState extends ConsumerState<SalaryStructureScreen> {
                   for (final c in _components)
                     DropdownMenuItem(
                       value: c['code']?.toString(),
-                      child: Text('${c['code']}',
-                          overflow: TextOverflow.ellipsis),
+                      child: Text(
+                        '${c['code']}',
+                        overflow: TextOverflow.ellipsis,
+                        style: KTypography.mono(fontSize: 12),
+                      ),
                     ),
                 ],
                 onChanged: (v) => setState(() => l.baseComponentCode = v),
@@ -437,19 +486,5 @@ class _SalaryStructureScreenState extends ConsumerState<SalaryStructureScreen> {
         ),
       ),
     );
-  }
-
-  Widget _money(String label, TextEditingController c) {
-    return KTextField(
-      label: label,
-      controller: c,
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      prefixIcon: Icons.currency_rupee,
-    );
-  }
-
-  static String? _msg(DioException e) {
-    final body = e.response?.data;
-    return body is Map ? body['message'] as String? : null;
   }
 }

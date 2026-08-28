@@ -20,6 +20,8 @@ public interface SalesReceiptRepository extends JpaRepository<SalesReceipt, UUID
 
     Optional<SalesReceipt> findByIdAndOrgIdAndIsDeletedFalse(UUID id, UUID orgId);
 
+    Optional<SalesReceipt> findByOrgIdAndOfflineReceiptNumberAndIsDeletedFalse(UUID orgId, String offlineReceiptNumber);
+
     /** Pessimistic-write variant so a concurrent double-void serialises. */
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT r FROM SalesReceipt r WHERE r.id = :id AND r.orgId = :orgId AND r.isDeleted = false")

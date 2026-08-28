@@ -5,7 +5,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
-import '../../../core/widgets/widgets.dart';
+import '../../../core/utils/api_error_parser.dart';
+import '../../../core/widgets/k_button.dart';
+import '../../../core/widgets/k_card.dart';
+import '../../../core/widgets/k_empty_state.dart';
+import '../../../core/widgets/k_error_view.dart';
+import '../../../core/widgets/k_loading.dart';
+import '../../../core/widgets/k_status_chip.dart';
+import '../../../core/widgets/k_text_field.dart';
 import '../data/api_keys_repository.dart';
 
 /// Manage org API keys — programmatic credentials for the Katasticho MCP server,
@@ -38,8 +45,7 @@ class _ApiKeysScreenState extends ConsumerState<ApiKeysScreen> {
       if (mounted) setState(() => _keys = keys);
     } catch (e) {
       if (mounted) {
-        setState(() =>
-            _error = e.toString().replaceAll('Exception: ', '').trim());
+        setState(() => _error = ApiErrorParser.message(e));
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -51,30 +57,40 @@ class _ApiKeysScreenState extends ConsumerState<ApiKeysScreen> {
     final name = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Create API key'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Give the key a name so you remember where it is used.'),
-            KSpacing.vGapMd,
-            TextField(
-              controller: nameCtrl,
-              autofocus: true,
-              decoration: const InputDecoration(
-                labelText: 'Name',
-                hintText: 'e.g. Claude Desktop',
-                border: OutlineInputBorder(),
+        title: const Text('Generate New API Key'),
+        content: SizedBox(
+          width: 400,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Assign an identifier label to this credential (e.g. MCP Server, Zapier, Custom Storefront).',
+                style: KTypography.bodySmall.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
-            ),
-          ],
+              KSpacing.vGapMd,
+              KTextField(
+                controller: nameCtrl,
+                autofocus: true,
+                label: 'Integration / Key Name *',
+                hint: 'e.g. Claude Desktop MCP',
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, nameCtrl.text.trim()),
-            child: const Text('Create'),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          KButton.primary(
+            label: 'Generate Key',
+            icon: Icons.vpn_key_rounded,
+            size: KButtonSize.small,
+            onPressed: () {
+              if (nameCtrl.text.trim().isEmpty) return;
+              Navigator.pop(ctx, nameCtrl.text.trim());
+            },
           ),
         ],
       ),
@@ -90,7 +106,7 @@ class _ApiKeysScreenState extends ConsumerState<ApiKeysScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not create key: $e')),
+        SnackBar(content: Text('Could not create key: ${ApiErrorParser.message(e)}'), backgroundColor: KColors.error),
       );
     }
   }
@@ -100,47 +116,77 @@ class _ApiKeysScreenState extends ConsumerState<ApiKeysScreen> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Text('Copy your API key'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+        title: const Row(
           children: [
-            Text(
-              'This is shown only once. Store it securely — you can\'t see it again.',
-              style: KTypography.bodySmall.copyWith(color: KColors.warning),
-            ),
-            KSpacing.vGapMd,
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: KColors.draftBg,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: KColors.divider),
-              ),
-              child: SelectableText(
-                secret,
-                style: KTypography.bodySmall.copyWith(fontFamily: 'monospace'),
-              ),
-            ),
-            KSpacing.vGapSm,
-            Text('“$name”',
-                style: KTypography.bodySmall
-                    .copyWith(color: KColors.textSecondary)),
+            Icon(Icons.vpn_key_rounded, color: KColors.primary),
+            SizedBox(width: 8),
+            Text('Copy Secret Token'),
           ],
         ),
+        content: SizedBox(
+          width: 440,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: KColors.warning.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(KSpacing.radiusSm),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning_amber_rounded, size: 18, color: KColors.warning),
+                    KSpacing.hGapSm,
+                    Expanded(
+                      child: Text(
+                        'This secret token is displayed only once. Store it in a secure password manager or environment variable.',
+                        style: KTypography.caption.copyWith(color: KColors.warning),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              KSpacing.vGapMd,
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+                ),
+                child: SelectableText(
+                  secret,
+                  style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w700),
+                ),
+              ),
+              KSpacing.vGapSm,
+              Text(
+                'Label: “$name”',
+                style: KTypography.bodySmall.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+              ),
+            ],
+          ),
+        ),
         actions: [
-          TextButton(
+          KButton.outlined(
+            label: 'Copy to Clipboard',
+            icon: Icons.copy_rounded,
+            size: KButtonSize.small,
             onPressed: () {
               Clipboard.setData(ClipboardData(text: secret));
               ScaffoldMessenger.of(ctx).showSnackBar(
-                const SnackBar(content: Text('Key copied to clipboard')),
+                const SnackBar(content: Text('Secret key copied to clipboard'), backgroundColor: KColors.success),
               );
             },
-            child: const Text('Copy'),
           ),
-          FilledButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Done')),
+          KButton.primary(
+            label: 'Done',
+            size: KButtonSize.small,
+            onPressed: () => Navigator.pop(ctx),
+          ),
         ],
       ),
     );
@@ -150,17 +196,19 @@ class _ApiKeysScreenState extends ConsumerState<ApiKeysScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Revoke API key'),
+        title: const Text('Revoke API Key?'),
         content: Text(
-            'Revoke “${key.name}” (${key.keyPrefix}…)? Any client using it will stop working immediately.'),
+          'Revoke credential “${key.name}” (${key.keyPrefix}…)? Any external application, agent, or service using it will stop working immediately.',
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: KColors.error),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          KButton.danger(
+            label: 'Revoke Key',
+            size: KButtonSize.small,
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Revoke'),
           ),
         ],
       ),
@@ -172,38 +220,92 @@ class _ApiKeysScreenState extends ConsumerState<ApiKeysScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not revoke: $e')),
+        SnackBar(content: Text('Could not revoke: ${ApiErrorParser.message(e)}'), backgroundColor: KColors.error),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('API Keys')),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _createKey,
-        icon: const Icon(Icons.add),
-        label: const Text('Create key'),
-        tooltip: 'Create key (N)',
+      appBar: AppBar(
+        title: const Text('API Keys & Agent Credentials'),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh',
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: _load,
+          ),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: KSpacing.pagePadding,
           children: [
-            _buildIntro(),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Programmatic API Credentials',
+                        style: KTypography.h2.copyWith(fontWeight: FontWeight.w800),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Generate secure bearer tokens for Katasticho Model Context Protocol (MCP) servers, LLM sidecars, and webhooks.',
+                        style: KTypography.bodySmall.copyWith(color: cs.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                ),
+                KButton.primary(
+                  label: 'Generate Key',
+                  icon: Icons.vpn_key_rounded,
+                  onPressed: _createKey,
+                ),
+              ],
+            ),
+            KSpacing.vGapMd,
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: cs.primary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(KSpacing.radiusMd),
+                border: Border.all(color: cs.primary.withValues(alpha: 0.2)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.info_outline_rounded, color: cs.primary, size: 18),
+                  KSpacing.hGapSm,
+                  Expanded(
+                    child: Text(
+                      'API keys inherit the role permissions of the issuing user. They can draft transactions and query ERP records; financial posting continues to respect organization governance policies.',
+                      style: KTypography.bodySmall.copyWith(color: cs.onSurfaceVariant),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             KSpacing.vGapLg,
             if (_loading)
-              const Center(
-                  child: Padding(
-                padding: EdgeInsets.all(32),
-                child: CircularProgressIndicator(),
-              ))
+              const KLoading(message: 'Loading configured API keys...')
             else if (_error != null)
-              _buildError()
+              KErrorView(message: _error!, onRetry: _load)
             else if ((_keys ?? const []).isEmpty)
-              _buildEmpty()
+              KEmptyState(
+                icon: Icons.vpn_key_outlined,
+                title: 'No API keys generated yet',
+                subtitle: 'Generate an API key to connect Claude Desktop, AI agents, or automated webhook integrations.',
+                actionLabel: 'Generate Key',
+                onAction: _createKey,
+              )
             else
               ...(_keys ?? const []).map(_buildKeyCard),
           ],
@@ -212,45 +314,31 @@ class _ApiKeysScreenState extends ConsumerState<ApiKeysScreen> {
     );
   }
 
-  Widget _buildIntro() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: KColors.info.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.key, color: KColors.info, size: 18),
-          KSpacing.hGapSm,
-          Expanded(
-            child: Text(
-              'Use an API key to let the Katasticho MCP server (Claude Desktop), '
-              'integrations, or scripts act on this organisation. The key carries '
-              'your role; it can draft transactions, but posting still needs approval.',
-              style:
-                  KTypography.bodySmall.copyWith(color: KColors.textSecondary),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildKeyCard(ApiKey key) {
-    final subtitle = StringBuffer('${key.keyPrefix}…');
+    final cs = Theme.of(context).colorScheme;
+    final subtitle = StringBuffer('Prefix: ${key.keyPrefix}…');
     if (key.lastUsedAt != null) {
-      subtitle.write('  ·  last used ${_fmtDate(key.lastUsedAt!)}');
+      subtitle.write('  •  Last used ${_fmtDate(key.lastUsedAt!)}');
     } else if (key.createdAt != null) {
-      subtitle.write('  ·  created ${_fmtDate(key.createdAt!)}');
+      subtitle.write('  •  Created ${_fmtDate(key.createdAt!)}');
     }
+
     return KCard(
+      margin: const EdgeInsets.only(bottom: KSpacing.sm),
+      padding: const EdgeInsets.all(KSpacing.md),
       child: Row(
         children: [
-          Icon(
-            key.active ? Icons.vpn_key : Icons.key_off,
-            color: key.active ? KColors.success : KColors.textSecondary,
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: key.active ? cs.primary.withValues(alpha: 0.10) : cs.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(KSpacing.radiusMd),
+            ),
+            child: Icon(
+              key.active ? Icons.vpn_key_rounded : Icons.key_off_rounded,
+              color: key.active ? cs.primary : cs.onSurfaceVariant,
+              size: 20,
+            ),
           ),
           KSpacing.hGapMd,
           Expanded(
@@ -259,81 +347,33 @@ class _ApiKeysScreenState extends ConsumerState<ApiKeysScreen> {
               children: [
                 Row(
                   children: [
-                    Flexible(
-                      child: Text(key.name,
-                          style: KTypography.labelLarge,
-                          overflow: TextOverflow.ellipsis),
-                    ),
-                    KSpacing.hGapSm,
-                    if (!key.active)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: KColors.error.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text('Revoked',
-                            style: KTypography.labelSmall
-                                .copyWith(color: KColors.error)),
+                    Expanded(
+                      child: Text(
+                        key.name,
+                        style: KTypography.titleSmall.copyWith(fontWeight: FontWeight.w700),
+                        overflow: TextOverflow.ellipsis,
                       ),
+                    ),
+                    KStatusChip(status: key.active ? 'ACTIVE' : 'REVOKED'),
                   ],
                 ),
-                Text(subtitle.toString(),
-                    style: KTypography.bodySmall
-                        .copyWith(color: KColors.textSecondary)),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle.toString(),
+                  style: KTypography.mono(fontSize: 11, color: cs.onSurfaceVariant),
+                ),
               ],
             ),
           ),
-          if (key.active)
+          if (key.active) ...[
+            KSpacing.hGapSm,
             IconButton(
-              icon: const Icon(Icons.delete_outline, color: KColors.error),
-              tooltip: 'Revoke',
+              icon: const Icon(Icons.delete_outline_rounded, color: KColors.error, size: 20),
+              tooltip: 'Revoke Key',
               onPressed: () => _revokeKey(key),
             ),
+          ],
         ],
-      ),
-    );
-  }
-
-  Widget _buildEmpty() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          children: [
-            Icon(Icons.vpn_key_outlined,
-                size: 48, color: KColors.textSecondary.withValues(alpha: 0.5)),
-            KSpacing.vGapSm,
-            Text('No API keys yet',
-                style: KTypography.bodyMedium
-                    .copyWith(color: KColors.textSecondary)),
-            KSpacing.vGapXs,
-            Text('Create one to connect Claude Desktop or an integration.',
-                style:
-                    KTypography.bodySmall.copyWith(color: KColors.textHint),
-                textAlign: TextAlign.center),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildError() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            const Icon(Icons.error_outline, color: KColors.error),
-            KSpacing.vGapSm,
-            Text(_error ?? 'Something went wrong',
-                style: KTypography.bodySmall.copyWith(color: KColors.error),
-                textAlign: TextAlign.center),
-            KSpacing.vGapMd,
-            KButton(label: 'Retry', onPressed: _load),
-          ],
-        ),
       ),
     );
   }

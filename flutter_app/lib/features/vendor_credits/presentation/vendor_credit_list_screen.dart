@@ -152,7 +152,7 @@ class _VendorCreditTable extends StatelessWidget {
               ? null
               : (_) => context.go('/vendor-credits/${c.id}'),
           cells: [
-            DataCell(KTableTextCell(value: c.creditNumber, width: 130)),
+            DataCell(KTableTextCell(value: c.creditNumber, width: 130, style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w500))),
             DataCell(KTableTextCell(value: c.vendorName, width: 150)),
             DataCell(KTableDateCell(value: c.creditDate)),
             DataCell(KTableTextCell(

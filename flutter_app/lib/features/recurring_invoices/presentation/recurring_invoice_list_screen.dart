@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/recurring_invoice_repository.dart';
 
@@ -231,8 +230,7 @@ class _TemplateCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    Text(CurrencyFormatter.formatIndian(total),
-                        style: KTypography.labelLarge),
+                    KMoney(total, size: KMoneySize.small),
                   ],
                 ),
                 KSpacing.vGapXs,
@@ -264,19 +262,7 @@ class _TemplateCard extends StatelessWidget {
                 KSpacing.vGapXs,
                 Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: statusColor.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        status,
-                        style: KTypography.labelSmall
-                            .copyWith(color: statusColor),
-                      ),
-                    ),
+                    KStatusChip(status: status),
                     const SizedBox(width: 6),
                     if (autoSend)
                       Container(

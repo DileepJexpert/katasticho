@@ -63,6 +63,10 @@ public class SecurityConfig {
                                 "/api/v1/courier/webhooks/**",
                                 // Razorpay payment webhooks: per-org path token + HMAC signature.
                                 "/api/v1/webhooks/razorpay/**",
+                                // Inbound WhatsApp webhooks: per-org path token.
+                                "/api/v1/whatsapp/webhook/**",
+                                // Biometric ADMS cloud push terminals (ZKTeco/eSSL iclock)
+                                "/api/v1/biometric/adms/**",
                                 "/api/v1/health",
                                 "/api/platform-admin/v1/auth/login",
                                 "/actuator/health",

@@ -251,6 +251,12 @@ const _salesGroup = NavGroup(
         activeIcon: Icons.notification_important_rounded,
         route: Routes.creditReminders),
     NavItem(
+        id: 'sales.whatsapp',
+        label: 'WhatsApp Bot & Hub',
+        icon: Icons.chat_outlined,
+        activeIcon: Icons.chat_rounded,
+        route: Routes.whatsapp),
+    NavItem(
         id: 'sales.recurring',
         label: 'Recurring',
         icon: Icons.autorenew_outlined,
@@ -290,6 +296,12 @@ const _purchasesGroup = NavGroup(
         activeIcon: Icons.receipt_rounded,
         route: Routes.bills),
     NavItem(
+        id: 'purchases.recurring_bills',
+        label: 'Recurring Bills',
+        icon: Icons.repeat_outlined,
+        activeIcon: Icons.repeat_rounded,
+        route: Routes.recurringBills),
+    NavItem(
         id: 'purchases.three_way_match',
         label: '3-Way Match',
         icon: Icons.fact_check_outlined,
@@ -307,6 +319,12 @@ const _purchasesGroup = NavGroup(
         icon: Icons.note_alt_outlined,
         activeIcon: Icons.note_alt_rounded,
         route: Routes.vendorCredits),
+    NavItem(
+        id: 'purchases.debit_notes',
+        label: 'Debit Notes',
+        icon: Icons.note_alt_outlined,
+        activeIcon: Icons.note_alt_rounded,
+        route: Routes.debitNotes),
     NavItem(
         id: 'purchases.expenses',
         label: 'Expenses',
@@ -420,6 +438,12 @@ const _inventoryGroup = NavGroup(
         activeIcon: Icons.swap_horiz_rounded,
         route: Routes.transferOrders),
     NavItem(
+        id: 'inventory.job_work',
+        label: 'Job Work (Rule 45)',
+        icon: Icons.precision_manufacturing_outlined,
+        activeIcon: Icons.precision_manufacturing_rounded,
+        route: Routes.jobWorkList),
+    NavItem(
         id: 'inventory.picklists',
         label: 'Picklists',
         icon: Icons.checklist_outlined,
@@ -510,6 +534,14 @@ const _bankingGroup = NavGroup(
       route: Routes.bankRules,
       roles: ['OWNER', 'ADMIN', 'ACCOUNTANT'],
     ),
+    NavItem(
+      id: 'banking.payouts',
+      label: 'Bank Disbursements',
+      icon: Icons.payments_outlined,
+      activeIcon: Icons.payments_rounded,
+      route: Routes.payoutDisbursement,
+      roles: ['OWNER', 'ADMIN', 'ACCOUNTANT'],
+    ),
   ],
 );
 
@@ -544,6 +576,12 @@ const _accountingGroup = NavGroup(
         activeIcon: Icons.menu_book_rounded,
         route: Routes.journalEntries),
     NavItem(
+        id: 'accounting.recurring_journals',
+        label: 'Recurring Journals',
+        icon: Icons.auto_stories_outlined,
+        activeIcon: Icons.auto_stories_rounded,
+        route: Routes.recurringJournals),
+    NavItem(
         id: 'accounting.credit_ledger',
         label: 'Credit Ledger',
         icon: Icons.menu_book_outlined,
@@ -561,6 +599,13 @@ const _accountingGroup = NavGroup(
         icon: Icons.currency_exchange_outlined,
         activeIcon: Icons.currency_exchange_rounded,
         route: Routes.forexRevaluation,
+        roles: ['OWNER', 'ADMIN', 'ACCOUNTANT']),
+    NavItem(
+        id: 'accounting.currencies',
+        label: 'Currencies',
+        icon: Icons.currency_exchange_outlined,
+        activeIcon: Icons.currency_exchange_rounded,
+        route: Routes.currencies,
         roles: ['OWNER', 'ADMIN', 'ACCOUNTANT']),
     NavItem(
         id: 'accounting.fixed_assets',
@@ -692,6 +737,12 @@ const _hrPayrollGroup = NavGroup(
         activeIcon: Icons.co_present_rounded,
         route: Routes.hrAttendance),
     NavItem(
+        id: 'hr.biometric',
+        label: 'Biometric Clocks',
+        icon: Icons.fingerprint_outlined,
+        activeIcon: Icons.fingerprint_rounded,
+        route: Routes.hrBiometricAttendance),
+    NavItem(
         id: 'hr.shifts',
         label: 'Shifts',
         icon: Icons.access_time_outlined,
@@ -783,6 +834,14 @@ const _taxComplianceGroup = NavGroup(
         roles: ['OWNER', 'ADMIN', 'ACCOUNTANT'],
         countries: ['IN']),
     NavItem(
+        id: 'tax.gstr2b_recon',
+        label: 'GSTR-2B Reconciliation',
+        icon: Icons.difference_outlined,
+        activeIcon: Icons.difference,
+        route: Routes.gstr2bReconciliation,
+        roles: ['OWNER', 'ADMIN', 'ACCOUNTANT'],
+        countries: ['IN']),
+    NavItem(
         id: 'tax.vat_return',
         label: 'VAT Return',
         icon: Icons.receipt_long_outlined,
@@ -843,6 +902,12 @@ const _fieldSalesGroup = NavGroup(
         icon: Icons.my_location_outlined,
         activeIcon: Icons.my_location,
         route: Routes.fieldSalesLiveTracking),
+    NavItem(
+        id: 'field_sales.merchandising',
+        label: 'Shelf Merchandising',
+        icon: Icons.storefront_outlined,
+        activeIcon: Icons.storefront_rounded,
+        route: Routes.fieldSalesMerchandising),
     NavItem(
         id: 'field_sales.mr_approvals',
         label: 'Field Approvals',
@@ -910,6 +975,13 @@ const _fieldSalesGroup = NavGroup(
         icon: Icons.route_outlined,
         activeIcon: Icons.route_rounded,
         route: Routes.fieldSalesRoutes),
+    NavItem(
+        id: 'field_sales.assignments',
+        label: 'Team Assignments',
+        icon: Icons.assignment_ind_outlined,
+        activeIcon: Icons.assignment_ind,
+        route: Routes.fieldSalesAssignments,
+        roles: ['OWNER', 'ADMIN']),
     NavItem(
         id: 'field_sales.vans',
         label: 'Vans',
@@ -1060,6 +1132,54 @@ const _manufacturingGroup = NavGroup(
         icon: Icons.analytics_outlined,
         activeIcon: Icons.analytics_rounded,
         route: Routes.manufacturingAnalytics),
+    NavItem(
+        id: 'manufacturing.bmr',
+        label: 'Batch Mfg Record (BMR)',
+        icon: Icons.science_outlined,
+        activeIcon: Icons.science_rounded,
+        route: Routes.manufacturingBmr),
+    NavItem(
+        id: 'manufacturing.parameterized_bom',
+        label: 'Parameterized BOM',
+        icon: Icons.filter_alt_outlined,
+        activeIcon: Icons.filter_alt_rounded,
+        route: Routes.manufacturingParameterizedBom),
+    NavItem(
+        id: 'manufacturing.bom_diff',
+        label: 'BOM Version Diff',
+        icon: Icons.compare_arrows_outlined,
+        activeIcon: Icons.compare_arrows_rounded,
+        route: Routes.manufacturingBomDiff),
+    NavItem(
+        id: 'manufacturing.actual_cost_preview',
+        label: 'Actual Cost Preview',
+        icon: Icons.timer_outlined,
+        activeIcon: Icons.timer_rounded,
+        route: Routes.manufacturingActualCostPreview),
+    NavItem(
+        id: 'manufacturing.production_mode',
+        label: 'Production Mode',
+        icon: Icons.tune_outlined,
+        activeIcon: Icons.tune_rounded,
+        route: Routes.manufacturingProductionMode),
+    NavItem(
+        id: 'manufacturing.workstation_alternates',
+        label: 'Workstation Alternates',
+        icon: Icons.swap_horiz_outlined,
+        activeIcon: Icons.swap_horiz_rounded,
+        route: Routes.manufacturingWorkstationAlternates),
+    NavItem(
+        id: 'manufacturing.operation_dependencies',
+        label: 'Operation Dependencies',
+        icon: Icons.account_tree_outlined,
+        activeIcon: Icons.account_tree_rounded,
+        route: Routes.manufacturingOperationDependencies),
+    NavItem(
+        id: 'manufacturing.operation_attachments',
+        label: 'Work Instructions (SOP)',
+        icon: Icons.description_outlined,
+        activeIcon: Icons.description_rounded,
+        route: Routes.manufacturingOperationAttachments),
   ],
 );
 
@@ -1105,6 +1225,13 @@ const _courierGroup = NavGroup(
         icon: Icons.verified_outlined,
         activeIcon: Icons.verified,
         route: Routes.proofOfDelivery),
+    NavItem(
+        id: 'courier.settings',
+        label: 'Courier Connections',
+        icon: Icons.settings_outlined,
+        activeIcon: Icons.settings_rounded,
+        route: Routes.courierSettings,
+        roles: ['OWNER', 'ADMIN']),
   ],
 );
 
@@ -1342,6 +1469,8 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
       createRoute = Routes.manufacturingRoutingCreate;
     } else if (location.startsWith('/manufacturing/job-work')) {
       createRoute = Routes.manufacturingJobWorkCreate;
+    } else if (location.startsWith('/debit-notes')) {
+      createRoute = Routes.debitNoteCreate;
     }
     if (createRoute != null) {
       context.go(createRoute);

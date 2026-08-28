@@ -288,7 +288,7 @@ class _EstimateTable extends StatelessWidget {
               selected: selected,
               onChanged: id.isEmpty ? null : (_) => onToggleSelect(id),
             )),
-            DataCell(KTablePrimaryTextCell(value: number, width: 145)),
+            DataCell(KTableTextCell(value: number, width: 145, style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w600))),
             DataCell(KTableTextCell(value: contactName, width: 180)),
             DataCell(KTableTextCell(value: subject, width: 220)),
             DataCell(KTableDateCell(value: date)),
@@ -378,13 +378,12 @@ class _EstimateCard extends StatelessWidget {
                     Expanded(
                       child: Text(
                         number,
-                        style: KTypography.labelLarge,
+                        style: KTypography.mono(fontSize: 14, fontWeight: FontWeight.w700),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    Text('₹${total.toStringAsFixed(0)}',
-                        style: KTypography.labelLarge),
+                    KMoney(total, size: KMoneySize.small),
                   ],
                 ),
                 KSpacing.vGapXs,
@@ -410,19 +409,7 @@ class _EstimateCard extends StatelessWidget {
                       child: Text(_formatDate(date),
                           style: KTypography.labelSmall),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: statusColor.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        status,
-                        style:
-                            KTypography.labelSmall.copyWith(color: statusColor),
-                      ),
-                    ),
+                    KStatusChip(status: status),
                   ],
                 ),
               ],

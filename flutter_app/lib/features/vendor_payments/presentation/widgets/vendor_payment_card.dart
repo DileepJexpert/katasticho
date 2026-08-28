@@ -4,7 +4,6 @@ import '../../../../core/theme/k_colors.dart';
 import '../../../../core/theme/k_spacing.dart';
 import '../../../../core/theme/k_typography.dart';
 import '../../../../core/widgets/widgets.dart';
-import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/utils/date_formatter.dart';
 import '../../data/vendor_payment_dto.dart';
 
@@ -47,8 +46,10 @@ class VendorPaymentCard extends StatelessWidget {
                 Row(
                   children: [
                     Flexible(
-                      child: Text(p.paymentNumber,
-                          style: KTypography.labelLarge),
+                      child: Text(
+                        p.paymentNumber,
+                        style: KTypography.mono(fontSize: 13, weight: FontWeight.w600),
+                      ),
                     ),
                     KSpacing.hGapSm,
                     Container(
@@ -86,10 +87,12 @@ class VendorPaymentCard extends StatelessWidget {
               ],
             ),
           ),
-          Text(
-            CurrencyFormatter.formatIndian(p.amount),
-            style: KTypography.amountMedium.copyWith(
+          KMoney(
+            p.amount,
+            size: KMoneySize.small,
+            style: const TextStyle(
               color: KColors.success,
+              fontWeight: FontWeight.w700,
             ),
           ),
           KSpacing.hGapSm,

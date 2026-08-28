@@ -4,7 +4,6 @@ import '../../../../core/theme/k_colors.dart';
 import '../../../../core/theme/k_spacing.dart';
 import '../../../../core/theme/k_typography.dart';
 import '../../../../core/widgets/widgets.dart';
-import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/utils/date_formatter.dart';
 import '../../data/bill_dto.dart';
 
@@ -57,7 +56,7 @@ class BillCard extends StatelessWidget {
                 Row(
                   children: [
                     Flexible(
-                      child: Text(b.billNumber, style: KTypography.labelLarge),
+                      child: Text(b.billNumber, style: KTypography.mono(fontSize: 14, fontWeight: FontWeight.w700)),
                     ),
                     KSpacing.hGapSm,
                     KStatusChip(status: b.status),
@@ -93,15 +92,29 @@ class BillCard extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                CurrencyFormatter.formatIndian(b.totalAmount),
-                style: KTypography.amountMedium,
+              KMoney(
+                b.totalAmount,
+                size: KMoneySize.medium,
+                style: const TextStyle(fontWeight: FontWeight.w700),
               ),
               if (b.balanceDue < b.totalAmount && b.balanceDue > 0) ...[
                 KSpacing.vGapXs,
-                Text(
-                  'Due: ${CurrencyFormatter.formatIndian(b.balanceDue)}',
-                  style: KTypography.bodySmall.copyWith(color: KColors.warning),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Due: ',
+                      style: KTypography.bodySmall.copyWith(color: KColors.warning),
+                    ),
+                    KMoney(
+                      b.balanceDue,
+                      size: KMoneySize.small,
+                      style: const TextStyle(
+                        color: KColors.warning,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ],

@@ -8,15 +8,15 @@ import '../data/supplier_repository.dart';
 
 /// Modal supplier picker. Returns the selected supplier map (with id,
 /// name, gstin, etc.) or null if cancelled. Includes a "+ Add new
-/// supplier" affordance that pushes the [SupplierCreateSheet] inline so
-/// the user never has to leave the GRN flow.
+/// supplier" affordance that pushes the [_SupplierCreateSheet] inline so
+/// the user never has to leave the workflow.
 Future<Map<String, dynamic>?> showSupplierPicker(BuildContext context) {
   return showModalBottomSheet<Map<String, dynamic>>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(KSpacing.radiusLg)),
     ),
     builder: (_) => DraggableScrollableSheet(
       initialChildSize: 0.76,
@@ -53,10 +53,13 @@ class _SupplierPickerSheetState extends ConsumerState<_SupplierPickerSheet> {
     final created = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(KSpacing.radiusLg)),
+      ),
       builder: (_) => const _SupplierCreateSheet(),
     );
     if (created != null && mounted) {
-      // Bounce the new supplier straight back to the caller as the picked one.
       ref.invalidate(selectableSupplierListProvider);
       Navigator.pop(context, created);
     }
@@ -75,26 +78,27 @@ class _SupplierPickerSheetState extends ConsumerState<_SupplierPickerSheet> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(
-                KSpacing.md, KSpacing.sm, KSpacing.md, KSpacing.sm),
+                KSpacing.md, KSpacing.md, KSpacing.md, KSpacing.sm),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
                     Expanded(
-                      child: Text('Select Supplier', style: KTypography.h4),
+                      child: Text('Select Supplier', style: KTypography.titleLarge),
                     ),
-                    TextButton.icon(
+                    KButton.primary(
+                      size: KButtonSize.small,
+                      icon: Icons.add,
+                      label: 'New Supplier',
                       onPressed: _addNew,
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text('New'),
                     ),
                   ],
                 ),
                 KSpacing.vGapSm,
                 KTextField.search(
                   controller: _searchController,
-                  hint: 'Search by name, GSTIN or phone',
+                  hint: 'Search by supplier name, GSTIN or phone…',
                   onChanged: (v) => setState(
                       () => _query = v.trim().isEmpty ? null : v.trim()),
                   onClear: () {
@@ -124,24 +128,15 @@ class _SupplierPickerSheetState extends ConsumerState<_SupplierPickerSheet> {
                 if (suppliers.isEmpty) {
                   return Center(
                     child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.local_shipping_outlined,
-                              size: 48, color: KColors.textHint),
-                          KSpacing.vGapSm,
-                          Text(
-                            _query == null ? 'No suppliers yet' : 'No matches',
-                            style: KTypography.bodyMedium,
-                          ),
-                          KSpacing.vGapMd,
-                          KButton(
-                            label: 'Add Supplier',
-                            icon: Icons.add,
-                            onPressed: _addNew,
-                          ),
-                        ],
+                      padding: const EdgeInsets.all(KSpacing.xl),
+                      child: KEmptyState(
+                        icon: Icons.local_shipping_outlined,
+                        title: _query == null ? 'No Suppliers' : 'No Matching Suppliers',
+                        subtitle: _query == null
+                            ? 'Tap New Supplier to create one.'
+                            : 'Try adjusting your search terms.',
+                        actionLabel: 'Add Supplier',
+                        onAction: _addNew,
                       ),
                     ),
                   );
@@ -150,54 +145,70 @@ class _SupplierPickerSheetState extends ConsumerState<_SupplierPickerSheet> {
                   controller: widget.scrollController,
                   padding: KSpacing.pagePadding,
                   itemCount: suppliers.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  separatorBuilder: (_, __) => KSpacing.vGapXs,
                   itemBuilder: (context, index) {
                     final supplier = suppliers[index] as Map<String, dynamic>;
+                    final name = supplier['name']?.toString() ?? '';
                     final gstin = supplier['gstin']?.toString() ?? '';
                     final phone = supplier['phone']?.toString() ?? '';
                     final city = supplier['city']?.toString() ?? '';
                     final state = supplier['state']?.toString() ?? '';
-                    final identity = <String>[
-                      if (gstin.isNotEmpty) 'GSTIN: $gstin',
-                      if (phone.isNotEmpty) 'Phone: $phone',
-                    ];
                     final location = [city, state]
                         .where((value) => value.isNotEmpty)
                         .join(', ');
-                    return ListTile(
-                      dense: true,
-                      visualDensity: VisualDensity.compact,
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
-                      leading: Container(
-                        width: 34,
-                        height: 34,
-                        decoration: BoxDecoration(
-                          color: KColors.primaryLight.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          Icons.local_shipping_outlined,
-                          color: KColors.primary,
-                          size: 18,
-                        ),
-                      ),
-                      title: Text(supplier['name']?.toString() ?? '',
-                          style: KTypography.labelMedium),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    return KCard(
+                      onTap: () => Navigator.pop(context, supplier),
+                      child: Row(
                         children: [
-                          Text(
-                            identity.isEmpty
-                                ? 'No GSTIN or phone on file'
-                                : identity.join('  •  '),
-                            style: KTypography.bodySmall,
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: KColors.primarySoft,
+                              borderRadius: BorderRadius.circular(KSpacing.radiusSm),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              name.isNotEmpty ? name[0].toUpperCase() : 'S',
+                              style: KTypography.titleSmall.copyWith(
+                                color: KColors.primary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                           ),
-                          if (location.isNotEmpty)
-                            Text(location, style: KTypography.bodySmall),
+                          KSpacing.hGapMd,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(name, style: KTypography.labelMedium),
+                                KSpacing.vGapXs,
+                                Row(
+                                  children: [
+                                    if (gstin.isNotEmpty) ...[
+                                      Text('GSTIN: ', style: KTypography.caption),
+                                      Text(
+                                        gstin,
+                                        style: KTypography.mono(fontSize: 11, fontWeight: FontWeight.w600),
+                                      ),
+                                      KSpacing.hGapMd,
+                                    ],
+                                    if (phone.isNotEmpty) ...[
+                                      Text(phone, style: KTypography.bodySmall),
+                                      if (location.isNotEmpty) ...[
+                                        Text('  ·  ', style: KTypography.caption),
+                                        Text(location, style: KTypography.bodySmall),
+                                      ],
+                                    ],
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          KSpacing.hGapSm,
+                          Icon(Icons.chevron_right, color: KColors.textHint, size: 18),
                         ],
                       ),
-                      onTap: () => Navigator.pop(context, supplier),
                     );
                   },
                 );
@@ -211,8 +222,7 @@ class _SupplierPickerSheetState extends ConsumerState<_SupplierPickerSheet> {
 }
 
 /// Inline supplier-create form. Pops with the created supplier map on
-/// success or null on cancel. Kept private — the only way to reach it is
-/// through the picker, which keeps the data flow simple.
+/// success or null on cancel.
 class _SupplierCreateSheet extends ConsumerStatefulWidget {
   const _SupplierCreateSheet();
 
@@ -308,21 +318,20 @@ class _SupplierCreateSheetState extends ConsumerState<_SupplierCreateSheet> {
                 controller: _email,
                 keyboardType: TextInputType.emailAddress,
               ),
-              KSpacing.vGapMd,
+              KSpacing.vGapLg,
               Row(
                 children: [
                   Expanded(
-                    child: KButton(
+                    child: KButton.outlined(
                       label: 'Cancel',
-                      variant: KButtonVariant.outlined,
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: _saving ? null : () => Navigator.pop(context),
                     ),
                   ),
                   KSpacing.hGapSm,
                   Expanded(
-                    child: KButton(
-                      label: 'Save',
-                      onPressed: _save,
+                    child: KButton.primary(
+                      label: 'Save Supplier',
+                      onPressed: _saving ? null : _save,
                       isLoading: _saving,
                     ),
                   ),

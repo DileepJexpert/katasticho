@@ -4,6 +4,7 @@ import com.katasticho.erp.common.dto.ApiResponse;
 import com.katasticho.erp.common.dto.PagedResponse;
 import com.katasticho.erp.common.module.ModuleCode;
 import com.katasticho.erp.common.module.RequiresModule;
+import com.katasticho.erp.pos.dto.BatchOfflineSyncResponse;
 import com.katasticho.erp.pos.dto.CreateSalesReceiptRequest;
 import com.katasticho.erp.pos.dto.CustomerHistoryResponse;
 import com.katasticho.erp.pos.dto.SalesReceiptResponse;
@@ -22,6 +23,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -42,6 +44,14 @@ public class SalesReceiptController {
         SalesReceiptResponse response = salesReceiptService.create(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.created(response));
+    }
+
+    @PostMapping("/offline-sync")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR')")
+    public ResponseEntity<ApiResponse<BatchOfflineSyncResponse>> offlineSync(
+            @RequestBody List<@Valid CreateSalesReceiptRequest> requests) {
+        BatchOfflineSyncResponse response = salesReceiptService.batchOfflineSync(requests);
+        return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
     @GetMapping("/{id}")

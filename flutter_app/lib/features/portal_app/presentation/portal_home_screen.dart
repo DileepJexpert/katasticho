@@ -7,6 +7,9 @@ import 'package:intl/intl.dart';
 import '../../../core/api/api_config.dart';
 import '../data/portal_session.dart';
 
+import 'portal_orders_screen.dart';
+import 'portal_reorder_screen.dart';
+
 /// External portal landing screen. Loads the profile + dashboard, then shows a
 /// customer or vendor experience depending on the portal user's kind.
 class PortalHomeScreen extends ConsumerStatefulWidget {
@@ -108,7 +111,7 @@ class _PortalHomeScreenState extends ConsumerState<PortalHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final isVendor = _kind() == 'VENDOR';
-    final tabCount = isVendor ? 3 : 3; // Summary + two detail tabs.
+    final tabCount = isVendor ? 3 : 5; // Overview, Quick Reorder, My Orders, Invoices, Statement
 
     return DefaultTabController(
       length: tabCount,
@@ -139,7 +142,9 @@ class _PortalHomeScreenState extends ConsumerState<PortalHomeScreen> {
                         ]
                       : const [
                           Tab(text: 'Overview'),
-                          Tab(text: 'All invoices'),
+                          Tab(text: '⚡ Quick Reorder'),
+                          Tab(text: 'My Orders'),
+                          Tab(text: 'Invoices'),
                           Tab(text: 'Statement'),
                         ],
                 ),
@@ -176,6 +181,8 @@ class _PortalHomeScreenState extends ConsumerState<PortalHomeScreen> {
     return TabBarView(
       children: [
         _CustomerOverview(dashboard: _dashboard ?? const {}),
+        const PortalReorderScreen(),
+        const PortalOrdersScreen(),
         _ListTab(
           fetch: () => ref.read(portalDioProvider).get(ApiConfig.portalInvoices),
           emptyText: 'No invoices yet.',
@@ -217,6 +224,41 @@ class _CustomerOverview extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        Card(
+          color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.25),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                const Icon(Icons.bolt, color: Colors.teal, size: 28),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Retailer Quick Reorder',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        'Browse live distributor catalog, active schemes & 1-tap reorders',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    DefaultTabController.of(context).animateTo(1);
+                  },
+                  icon: const Icon(Icons.add_shopping_cart, size: 16),
+                  label: const Text('Reorder'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
         _SummaryCard(
           headline: 'Outstanding',
           headlineValue: _PortalHomeScreenState.money(dashboard['outstanding']),

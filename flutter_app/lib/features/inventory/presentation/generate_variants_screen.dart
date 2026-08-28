@@ -160,8 +160,9 @@ class _GenerateVariantsScreenState
                         style: KTypography.bodySmall,
                       ),
                       KSpacing.vGapMd,
-                      KButton(
+                      KButton.outlined(
                         label: 'Edit Group',
+                        size: KButtonSize.small,
                         onPressed: () =>
                             context.go('/item-groups/${widget.groupId}/edit'),
                       ),
@@ -279,7 +280,10 @@ class _GenerateVariantsScreenState
                       value: selected,
                       onChanged: (v) =>
                           setState(() => _selection[key] = v ?? false),
-                      title: Text(sku, style: KTypography.labelLarge),
+                      title: Text(
+                        sku,
+                        style: KTypography.mono(size: 13, weight: FontWeight.w600),
+                      ),
                       subtitle: Text(
                         combo.entries
                             .map((e) => '${e.key}: ${e.value}')
@@ -302,7 +306,7 @@ class _GenerateVariantsScreenState
               SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.all(KSpacing.md),
-                  child: KButton(
+                  child: KButton.primary(
                     label: 'Generate $selectedCount Variants',
                     fullWidth: true,
                     isLoading: _submitting,

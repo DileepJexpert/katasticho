@@ -63,12 +63,15 @@ class _NcrListScreenState extends ConsumerState<NcrListScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: KColors.primary,
+        foregroundColor: Colors.white,
         onPressed: _raiseNcr,
         icon: const Icon(Icons.add),
         label: const Text('Raise NCR'),
+        tooltip: 'Raise NCR (N)',
       ),
       body: ncrsAsync.when(
-        loading: () => const KLoading(),
+        loading: () => const Center(child: KLoading(message: 'Loading NCRs...')),
         error: (e, _) => KErrorView(
           message: 'Failed to load NCRs',
           onRetry: _refresh,
@@ -120,8 +123,10 @@ class _NcrListScreenState extends ConsumerState<NcrListScreen> {
             Row(
               children: [
                 Expanded(
-                  child: Text(n['ncrNumber']?.toString() ?? 'NCR',
-                      style: KTypography.labelLarge),
+                  child: Text(
+                    n['ncrNumber']?.toString() ?? 'NCR',
+                    style: KTypography.mono(fontSize: 14, fontWeight: FontWeight.w700),
+                  ),
                 ),
                 Container(
                   padding:
@@ -135,7 +140,7 @@ class _NcrListScreenState extends ConsumerState<NcrListScreen> {
                           KTypography.labelSmall.copyWith(color: sevColor)),
                 ),
                 KSpacing.hGapSm,
-                KStatusChip(status: status.replaceAll('_', ' ')),
+                KStatusChip(status: status),
               ],
             ),
             KSpacing.vGapXs,
@@ -181,9 +186,9 @@ class _NcrListScreenState extends ConsumerState<NcrListScreen> {
               children: [
                 Text('Raise NCR', style: KTypography.h3),
                 KSpacing.vGapMd,
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.inventory_2_outlined, size: 18),
-                  label: Text(itemName ?? 'Pick item'),
+                KButton.outlined(
+                  icon: Icons.inventory_2_outlined,
+                  label: itemName ?? 'Pick Item',
                   onPressed: () async {
                     final item = await showItemPicker(ctx);
                     if (item != null) {
@@ -216,7 +221,7 @@ class _NcrListScreenState extends ConsumerState<NcrListScreen> {
                 TextField(
                   controller: batchCtl,
                   decoration: const InputDecoration(
-                      labelText: 'Batch number (optional)',
+                      labelText: 'Batch Number (optional)',
                       border: OutlineInputBorder()),
                 ),
                 KSpacing.vGapMd,
@@ -228,7 +233,7 @@ class _NcrListScreenState extends ConsumerState<NcrListScreen> {
                       border: OutlineInputBorder()),
                 ),
                 KSpacing.vGapLg,
-                KButton(
+                KButton.primary(
                   label: 'Raise NCR',
                   icon: Icons.check,
                   onPressed: () async {
@@ -308,7 +313,7 @@ class _NcrListScreenState extends ConsumerState<NcrListScreen> {
                   items: const [
                     DropdownMenuItem(value: 'OPEN', child: Text('Open')),
                     DropdownMenuItem(
-                        value: 'IN_PROGRESS', child: Text('In progress')),
+                        value: 'IN_PROGRESS', child: Text('In Progress')),
                     DropdownMenuItem(value: 'CLOSED', child: Text('Closed')),
                   ],
                   onChanged: isClosed
@@ -321,7 +326,7 @@ class _NcrListScreenState extends ConsumerState<NcrListScreen> {
                   enabled: !isClosed,
                   maxLines: 2,
                   decoration: const InputDecoration(
-                      labelText: 'Root cause', border: OutlineInputBorder()),
+                      labelText: 'Root Cause', border: OutlineInputBorder()),
                 ),
                 KSpacing.vGapMd,
                 TextField(
@@ -329,7 +334,7 @@ class _NcrListScreenState extends ConsumerState<NcrListScreen> {
                   enabled: !isClosed,
                   maxLines: 3,
                   decoration: const InputDecoration(
-                      labelText: 'Corrective action',
+                      labelText: 'Corrective Action',
                       border: OutlineInputBorder()),
                 ),
                 KSpacing.vGapLg,
@@ -337,10 +342,9 @@ class _NcrListScreenState extends ConsumerState<NcrListScreen> {
                   Row(
                     children: [
                       Expanded(
-                        child: KButton(
+                        child: KButton.outlined(
                           label: 'Save',
                           icon: Icons.save_outlined,
-                          variant: KButtonVariant.outlined,
                           onPressed: () async {
                             try {
                               await _repo.updateNcr(
@@ -359,7 +363,7 @@ class _NcrListScreenState extends ConsumerState<NcrListScreen> {
                       ),
                       KSpacing.hGapMd,
                       Expanded(
-                        child: KButton(
+                        child: KButton.primary(
                           label: 'Close NCR',
                           icon: Icons.check_circle_outline,
                           onPressed: () async {

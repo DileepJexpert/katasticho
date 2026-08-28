@@ -4,6 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/theme/k_colors.dart';
+import '../../../core/theme/k_spacing.dart';
+import '../../../core/theme/k_typography.dart';
+import '../../../core/widgets/k_card.dart';
+import '../../../core/widgets/k_empty_state.dart';
+import '../../../core/widgets/k_loading.dart';
+import '../../../core/widgets/k_status_chip.dart';
 import '../data/field_sales_repository.dart';
 
 /// Admin view of where every field salesperson is right now.
@@ -49,7 +56,10 @@ class _LiveTrackingScreenState extends ConsumerState<LiveTrackingScreen> {
     } catch (e) {
       if (mounted && !silent) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load live locations: $e')),
+          SnackBar(
+            content: Text('Failed to load live locations: $e'),
+            backgroundColor: KColors.error,
+          ),
         );
       }
     } finally {
@@ -83,7 +93,10 @@ class _LiveTrackingScreenState extends ConsumerState<LiveTrackingScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load trail: $e')),
+          SnackBar(
+            content: Text('Failed to load trail: $e'),
+            backgroundColor: KColors.error,
+          ),
         );
       }
     }
@@ -108,6 +121,8 @@ class _LiveTrackingScreenState extends ConsumerState<LiveTrackingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Live Field Tracking'),
@@ -118,7 +133,7 @@ class _LiveTrackingScreenState extends ConsumerState<LiveTrackingScreen> {
                 padding: const EdgeInsets.only(right: 8),
                 child: Text(
                   'Updated ${_relativeTime(_lastRefreshed!.toIso8601String())}',
-                  style: Theme.of(context).textTheme.bodySmall,
+                  style: KTypography.bodySmall.copyWith(color: cs.onSurfaceVariant),
                 ),
               ),
             ),
@@ -130,71 +145,100 @@ class _LiveTrackingScreenState extends ConsumerState<LiveTrackingScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: KLoading())
           : _locations.isEmpty
-              ? const Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.location_off_outlined, size: 48),
-                      SizedBox(height: 12),
-                      Text('No location pings received today'),
-                      SizedBox(height: 4),
-                      Text(
-                        'Salespeople appear here once their field app starts '
-                        'sending GPS pings during a route.',
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
+              ? const KEmptyState(
+                  icon: Icons.location_off_outlined,
+                  title: 'No location pings received today',
+                  subtitle: 'Salespeople appear here once their field app starts sending GPS pings during an active route run.',
                 )
               : RefreshIndicator(
                   onRefresh: _loadData,
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(12),
+                  child: ListView.separated(
+                    padding: KSpacing.pagePadding,
                     itemCount: _locations.length,
+                    separatorBuilder: (_, __) => KSpacing.vGapSm,
                     itemBuilder: (context, index) {
                       final loc = _locations[index];
                       final stale = _isStale(loc['recordedAt']?.toString());
                       final name =
                           loc['salespersonName']?.toString().trim() ?? '';
                       final hasExecution = loc['routeExecutionId'] != null;
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 10),
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: stale
-                                ? Colors.orange.shade100
-                                : Colors.green.shade100,
-                            child: Icon(
-                              stale
-                                  ? Icons.location_searching
-                                  : Icons.my_location,
-                              color: stale ? Colors.orange : Colors.green,
-                            ),
-                          ),
-                          title: Text(name.isEmpty ? 'Salesperson' : name),
-                          subtitle: Text(
-                            '${loc['latitude']}, ${loc['longitude']}'
-                            '  •  ${_relativeTime(loc['recordedAt']?.toString())}'
-                            '${stale ? '  •  STALE' : ''}',
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (hasExecution)
-                                IconButton(
-                                  icon: const Icon(Icons.timeline),
-                                  tooltip: 'View trail',
-                                  onPressed: () => _showTrail(loc),
-                                ),
-                              IconButton(
-                                icon: const Icon(Icons.map_outlined),
-                                tooltip: 'Open in Google Maps',
-                                onPressed: () => _openInMaps(loc),
+                      final lat = loc['latitude'];
+                      final lng = loc['longitude'];
+
+                      return KCard(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 20,
+                              backgroundColor: stale
+                                  ? KColors.warning.withValues(alpha: 0.15)
+                                  : KColors.success.withValues(alpha: 0.15),
+                              child: Icon(
+                                stale ? Icons.location_searching : Icons.my_location,
+                                color: stale ? KColors.warning : KColors.success,
+                                size: 20,
                               ),
-                            ],
-                          ),
+                            ),
+                            KSpacing.hGapMd,
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        name.isEmpty ? 'Salesperson' : name,
+                                        style: KTypography.titleMedium,
+                                      ),
+                                      KSpacing.hGapSm,
+                                      if (stale)
+                                        const KStatusChip(
+                                          status: 'WARNING',
+                                          label: 'Stale',
+                                        )
+                                      else
+                                        const KStatusChip(
+                                          status: 'ACTIVE',
+                                          label: 'Live',
+                                        ),
+                                    ],
+                                  ),
+                                  KSpacing.vGapXxs,
+                                  Row(
+                                    children: [
+                                      Text(
+                                        '$lat, $lng',
+                                        style: KTypography.mono(fontSize: 12, fontWeight: FontWeight.w500),
+                                      ),
+                                      Text(
+                                        '  •  ${_relativeTime(loc['recordedAt']?.toString())}',
+                                        style: KTypography.bodySmall,
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (hasExecution)
+                                  IconButton(
+                                    icon: const Icon(Icons.timeline, color: KColors.primary),
+                                    tooltip: 'View trail',
+                                    onPressed: () => _showTrail(loc),
+                                  ),
+                                IconButton(
+                                  icon: const Icon(Icons.map_outlined),
+                                  tooltip: 'Open in Maps',
+                                  onPressed: () => _openInMaps(loc),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       );
                     },
@@ -225,11 +269,11 @@ class _TrailSheet extends StatelessWidget {
           children: [
             Text(
               salespersonName.isEmpty
-                  ? "Today's trail"
-                  : "$salespersonName — today's trail",
-              style: Theme.of(context).textTheme.titleMedium,
+                  ? "Today's Trail"
+                  : "$salespersonName — Today's Trail",
+              style: KTypography.titleLarge,
             ),
-            const SizedBox(height: 16),
+            KSpacing.vGapMd,
             Row(
               children: [
                 Expanded(
@@ -246,13 +290,83 @@ class _TrailSheet extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            if (pings.isNotEmpty)
-              Text(
-                'First ping: ${pings.first['recordedAt'] ?? ''}\n'
-                'Last ping: ${pings.last['recordedAt'] ?? ''}',
-                style: Theme.of(context).textTheme.bodySmall,
+            KSpacing.vGapMd,
+            if (pings.isNotEmpty) ...[
+              KCard(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.flight_takeoff, size: 14, color: KColors.primary),
+                            KSpacing.hGapXs,
+                            Text('First ping: ', style: KTypography.caption),
+                            Text(
+                              pings.first['recordedAt']?.toString().substring(11, 19) ?? '',
+                              style: KTypography.mono(fontSize: 12),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            const Icon(Icons.flight_land, size: 14, color: KColors.success),
+                            KSpacing.hGapXs,
+                            Text('Last ping: ', style: KTypography.caption),
+                            Text(
+                              pings.last['recordedAt']?.toString().substring(11, 19) ?? '',
+                              style: KTypography.mono(fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
+              KSpacing.vGapMd,
+              Text('GPS Breadcrumb Waypoints', style: KTypography.h4),
+              KSpacing.vGapXs,
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 220),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: pings.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1, color: KColors.divider),
+                  itemBuilder: (ctx, i) {
+                    final p = pings[i];
+                    final lat = p['latitude'];
+                    final lng = p['longitude'];
+                    final acc = p['accuracyM'];
+                    final time = p['recordedAt']?.toString() ?? '';
+                    final timeStr = time.length > 19 ? time.substring(11, 19) : time;
+
+                    return ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: CircleAvatar(
+                        radius: 12,
+                        backgroundColor: KColors.primary.withValues(alpha: 0.1),
+                        child: Text('${i + 1}', style: const TextStyle(fontSize: 10, color: KColors.primary, fontWeight: FontWeight.bold)),
+                      ),
+                      title: Text('$lat, $lng', style: KTypography.mono(fontSize: 12)),
+                      subtitle: Text('Time: $timeStr • Accuracy: ${acc ?? "-"}m', style: KTypography.caption),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.open_in_new, size: 16, color: KColors.primary),
+                        tooltip: 'Open in Maps',
+                        onPressed: () async {
+                          final uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+                          await launchUrl(uri, mode: LaunchMode.externalApplication);
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -271,8 +385,12 @@ class _Metric extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(value, style: Theme.of(context).textTheme.headlineSmall),
-        Text(label, style: Theme.of(context).textTheme.bodySmall),
+        Text(
+          value,
+          style: KTypography.mono(fontSize: 20, fontWeight: FontWeight.w700),
+        ),
+        KSpacing.vGapXxs,
+        Text(label, style: KTypography.bodySmall),
       ],
     );
   }

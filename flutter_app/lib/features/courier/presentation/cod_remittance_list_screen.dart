@@ -4,7 +4,6 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../data/courier_repository.dart';
 
 /// COD remittance ingest + reconcile. A remittance is the courier's payout —
@@ -119,12 +118,14 @@ class _CodRemittanceListScreenState extends ConsumerState<CodRemittanceListScree
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: KColors.primary,
+        foregroundColor: Colors.white,
         onPressed: _openCreate,
         icon: const Icon(Icons.add),
         label: const Text('New remittance'),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: KLoading())
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView(
@@ -186,20 +187,7 @@ class _CodRemittanceListScreenState extends ConsumerState<CodRemittanceListScree
                     style: KTypography.labelLarge,
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: (isReconciled ? KColors.success : KColors.warning)
-                        .withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(status,
-                      style: KTypography.bodySmall.copyWith(
-                          color: isReconciled
-                              ? KColors.success
-                              : KColors.warning)),
-                ),
+                KStatusChip(status: status),
               ],
             ),
             KSpacing.vGapXs,
@@ -221,7 +209,8 @@ class _CodRemittanceListScreenState extends ConsumerState<CodRemittanceListScree
               KSpacing.vGapSm,
               Align(
                 alignment: Alignment.centerRight,
-                child: KButton(
+                child: KButton.primary(
+                  size: KButtonSize.small,
                   label: 'Reconcile',
                   icon: Icons.task_alt,
                   onPressed: () => _reconcile(
@@ -244,8 +233,11 @@ class _CodRemittanceListScreenState extends ConsumerState<CodRemittanceListScree
         Text(label,
             style: KTypography.bodySmall
                 .copyWith(color: KColors.textSecondary)),
-        Text(CurrencyFormatter.formatIndian(v),
-            style: KTypography.bodyMedium.copyWith(color: color)),
+        KMoney(
+          v,
+          size: KMoneySize.small,
+          style: KTypography.bodyMedium.copyWith(color: color, fontWeight: FontWeight.w600),
+        ),
       ],
     );
   }
@@ -427,7 +419,7 @@ class _CreateCodRemittanceScreenState
             ),
           ),
           KSpacing.vGapLg,
-          KButton(
+          KButton.primary(
             label: _saving ? 'Saving…' : 'Save remittance',
             icon: Icons.save,
             isLoading: _saving,

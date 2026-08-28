@@ -8,15 +8,20 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/api_error_parser.dart';
+import '../../../core/widgets/k_button.dart';
+import '../../../core/widgets/k_card.dart';
+import '../../../core/widgets/k_empty_state.dart';
+import '../../../core/widgets/k_loading.dart';
 import '../../../core/widgets/k_money.dart';
 import '../../../core/widgets/k_status_chip.dart';
+import '../../../core/widgets/k_text_field.dart';
 import '../../contacts/presentation/contact_picker_sheet.dart';
 import '../../inventory/presentation/item_picker_sheet.dart';
 
 /// RFQ → supplier quotation compare → award → PO.
 ///
-/// List of RFQs at the top, "New RFQ" FAB drafts a header + first line +
-/// chosen suppliers in one shot. Tap a row to see all returned quotes side by
+/// List of RFQs at the top, "New RFQ" drafts a header + line items +
+/// chosen suppliers. Tap a row to see all returned quotes side by
 /// side with a per-row "Award" button. Award drafts a real PO carrying the
 /// winning supplier and prices.
 class RfqScreen extends ConsumerStatefulWidget {
@@ -73,6 +78,15 @@ class _RfqScreenState extends ConsumerState<RfqScreen> {
             icon: const Icon(Icons.refresh),
             onPressed: _refresh,
           ),
+          Padding(
+            padding: const EdgeInsets.only(right: KSpacing.md),
+            child: KButton.primary(
+              size: KButtonSize.small,
+              icon: Icons.add,
+              label: 'New RFQ',
+              onPressed: _showCreateDialog,
+            ),
+          ),
         ],
       ),
       body: Padding(
@@ -83,20 +97,27 @@ class _RfqScreenState extends ConsumerState<RfqScreen> {
             Container(
               padding: const EdgeInsets.all(KSpacing.md),
               decoration: BoxDecoration(
-                color: KColors.bgApp,
+                color: KColors.primarySoft,
                 borderRadius: BorderRadius.circular(KSpacing.radiusSm),
                 border: Border.all(color: KColors.divider),
               ),
-              child: Text(
-                'Shop around: draft an RFQ, record each supplier\'s quote, '
-                'compare, and award the winner — the system drafts the PO.',
-                style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, size: 20, color: KColors.primary),
+                  KSpacing.hGapSm,
+                  Expanded(
+                    child: Text(
+                      'Sourcing matrix: draft an RFQ, invite suppliers, record bids, compare quotes side-by-side, and award the winner to draft a Purchase Order.',
+                      style: KTypography.bodySmall.copyWith(color: KColors.textPrimary),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: KSpacing.md),
+            KSpacing.vGapMd,
             Expanded(
               child: _loading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const Center(child: KLoading())
                   : _error != null
                       ? Center(
                           child: Text(
@@ -107,10 +128,12 @@ class _RfqScreenState extends ConsumerState<RfqScreen> {
                         )
                       : _rfqs.isEmpty
                           ? Center(
-                              child: Text(
-                                'No RFQs yet — tap "New RFQ" to draft one.',
-                                style: KTypography.bodyMedium.copyWith(
-                                    color: KColors.textSecondary),
+                              child: KEmptyState(
+                                icon: Icons.request_quote_outlined,
+                                title: 'No RFQs Created',
+                                subtitle: 'Start by drafting a Request for Quotation to source items from vendors.',
+                                actionLabel: 'Create First RFQ',
+                                onAction: _showCreateDialog,
                               ),
                             )
                           : ListView.separated(
@@ -118,18 +141,12 @@ class _RfqScreenState extends ConsumerState<RfqScreen> {
                                 rfq: _rfqs[i],
                                 onChanged: _refresh,
                               ),
-                              separatorBuilder: (_, __) =>
-                                  const Divider(height: 1),
+                              separatorBuilder: (_, __) => KSpacing.vGapSm,
                               itemCount: _rfqs.length,
                             ),
             ),
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showCreateDialog,
-        icon: const Icon(Icons.add),
-        label: const Text('New RFQ'),
       ),
     );
   }
@@ -154,23 +171,71 @@ class _RfqTile extends ConsumerWidget {
     final status = rfq['status']?.toString() ?? 'DRAFT';
     final lines = (rfq['lines'] as List?) ?? const [];
     final suppliers = (rfq['supplierContactIds'] as List?) ?? const [];
-    return ListTile(
-      title: Row(
+    return KCard(
+      onTap: () => _showRfqDetail(context, ref, rfq, onChanged),
+      child: Row(
         children: [
-          Text(rfq['rfqNumber']?.toString() ?? '',
-              style: KTypography.mono(weight: FontWeight.w600)),
-          const SizedBox(width: KSpacing.md),
-          Expanded(child: Text(rfq['title']?.toString() ?? '')),
-          KStatusChip(status: status),
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: KColors.primarySoft,
+              borderRadius: BorderRadius.circular(KSpacing.radiusSm),
+            ),
+            alignment: Alignment.center,
+            child: Icon(Icons.request_quote_outlined, color: KColors.primary, size: 20),
+          ),
+          KSpacing.hGapMd,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      rfq['rfqNumber']?.toString() ?? '',
+                      style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w700),
+                    ),
+                    KSpacing.hGapSm,
+                    Expanded(
+                      child: Text(
+                        rfq['title']?.toString() ?? '',
+                        style: KTypography.titleMedium,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    KSpacing.hGapSm,
+                    KStatusChip(status: status),
+                  ],
+                ),
+                KSpacing.vGapXs,
+                Row(
+                  children: [
+                    Text(
+                      '${lines.length} Item${lines.length == 1 ? '' : 's'}',
+                      style: KTypography.mono(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                    Text('  ·  ', style: KTypography.caption),
+                    Text(
+                      '${suppliers.length} Supplier${suppliers.length == 1 ? '' : 's'} Invited',
+                      style: KTypography.bodySmall,
+                    ),
+                    if (rfq['dueDate'] != null) ...[
+                      Text('  ·  ', style: KTypography.caption),
+                      Icon(Icons.calendar_today_outlined, size: 12, color: KColors.textHint),
+                      const SizedBox(width: 4),
+                      Text('Due: ${rfq['dueDate']}', style: KTypography.mono(fontSize: 11)),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+          KSpacing.hGapSm,
+          Icon(Icons.chevron_right, color: KColors.textHint),
         ],
       ),
-      subtitle: Text(
-        '${lines.length} line${lines.length == 1 ? '' : 's'} · '
-        '${suppliers.length} supplier${suppliers.length == 1 ? '' : 's'} · '
-        'Due ${rfq['dueDate'] ?? '—'}',
-        style: KTypography.bodySmall,
-      ),
-      onTap: () => _showRfqDetail(context, ref, rfq, onChanged),
     );
   }
 }
@@ -181,6 +246,9 @@ Future<void> _showRfqDetail(BuildContext context, WidgetRef ref,
   await showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(KSpacing.radiusLg)),
+    ),
     builder: (_) => DraggableScrollableSheet(
       initialChildSize: 0.85,
       maxChildSize: 0.95,
@@ -259,7 +327,7 @@ class _RfqDetailSheetState extends State<_RfqDetailSheet> {
           data: {'winningQuoteId': quoteId});
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('RFQ awarded; PO drafted')));
+          const SnackBar(content: Text('RFQ awarded! Purchase Order has been drafted.')));
       widget.onChanged();
       Navigator.of(context).pop();
     } on DioException catch (e) {
@@ -287,22 +355,25 @@ class _RfqDetailSheetState extends State<_RfqDetailSheet> {
           Row(
             children: [
               Text(widget.rfqNumber,
-                  style: KTypography.h3.copyWith(fontWeight: FontWeight.w700)),
-              const SizedBox(width: KSpacing.md),
+                  style: KTypography.mono(fontSize: 18, fontWeight: FontWeight.w700)),
+              KSpacing.hGapMd,
               KStatusChip(status: widget.status),
               const Spacer(),
               if (widget.status == 'DRAFT' || widget.status == 'SENT')
-                TextButton.icon(
+                KButton.primary(
+                  size: KButtonSize.small,
+                  icon: Icons.add,
+                  label: 'Record Quote',
                   onPressed: _addQuote,
-                  icon: const Icon(Icons.add_circle_outline),
-                  label: const Text('Record quote'),
                 ),
             ],
           ),
+          KSpacing.vGapMd,
           const Divider(),
+          KSpacing.vGapSm,
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(child: KLoading())
                 : _err != null
                     ? Center(
                         child: Text('Failed: $_err',
@@ -310,51 +381,71 @@ class _RfqDetailSheetState extends State<_RfqDetailSheet> {
                                 .copyWith(color: KColors.error)))
                     : _quotes.isEmpty
                         ? Center(
-                            child: Text(
-                                'No quotes yet — tap "Record quote" once a supplier replies.',
-                                style: KTypography.bodyMedium.copyWith(
-                                    color: KColors.textSecondary)),
+                            child: KEmptyState(
+                              icon: Icons.price_check_outlined,
+                              title: 'No Quotes Recorded',
+                              subtitle: 'Record supplier quotations as they submit their bids.',
+                              actionLabel: (widget.status == 'DRAFT' || widget.status == 'SENT')
+                                  ? 'Record First Quote'
+                                  : null,
+                              onAction: (widget.status == 'DRAFT' || widget.status == 'SENT')
+                                  ? _addQuote
+                                  : null,
+                            ),
                           )
-                        : ListView.builder(
+                        : ListView.separated(
                             controller: widget.scrollController,
                             itemCount: _quotes.length,
+                            separatorBuilder: (_, __) => KSpacing.vGapSm,
                             itemBuilder: (_, i) {
                               final q = _quotes[i];
                               final qStatus = q['status']?.toString() ?? 'RECEIVED';
-                              return Card(
-                                margin: const EdgeInsets.only(
-                                    bottom: KSpacing.sm),
-                                child: ListTile(
-                                  title: Row(
-                                    children: [
-                                      Text(q['quoteNumber']?.toString() ?? '',
-                                          style: KTypography.mono()),
-                                      const SizedBox(width: KSpacing.sm),
-                                      KStatusChip(status: qStatus),
-                                    ],
-                                  ),
-                                  subtitle: Padding(
-                                    padding: const EdgeInsets.only(top: 4),
-                                    child: Row(
-                                      children: [
-                                        const Text('Total: '),
-                                        KMoney(_toBig(q['totalAmount'])),
-                                        const SizedBox(width: KSpacing.md),
-                                        Text(
-                                            'Valid until ${q['validUntil'] ?? '—'}',
-                                            style: KTypography.bodySmall),
-                                      ],
+                              final isAwarded = qStatus == 'AWARDED';
+                              return KCard(
+                                statusAccent: isAwarded ? KColors.success : null,
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Text(
+                                                q['quoteNumber']?.toString() ?? 'QUOTE',
+                                                style: KTypography.mono(fontWeight: FontWeight.w700),
+                                              ),
+                                              KSpacing.hGapSm,
+                                              KStatusChip(status: qStatus),
+                                            ],
+                                          ),
+                                          KSpacing.vGapXs,
+                                          Row(
+                                            children: [
+                                              Text('Total Quote: ', style: KTypography.caption),
+                                              KMoney(_toBig(q['totalAmount'])),
+                                              if (q['validUntil'] != null) ...[
+                                                Text('  ·  ', style: KTypography.caption),
+                                                Text(
+                                                  'Valid Until ${q['validUntil']}',
+                                                  style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                  trailing: (widget.status != 'AWARDED' &&
-                                          widget.status != 'CANCELLED' &&
-                                          qStatus == 'RECEIVED')
-                                      ? FilledButton(
-                                          onPressed: () =>
-                                              _award(q['id'].toString()),
-                                          child: const Text('Award'),
-                                        )
-                                      : null,
+                                    if (widget.status != 'AWARDED' &&
+                                        widget.status != 'CANCELLED' &&
+                                        qStatus == 'RECEIVED')
+                                      KButton.primary(
+                                        size: KButtonSize.small,
+                                        icon: Icons.check_circle_outline,
+                                        label: 'Award PO',
+                                        onPressed: () => _award(q['id'].toString()),
+                                      ),
+                                  ],
                                 ),
                               );
                             },
@@ -372,8 +463,7 @@ class _RfqDetailSheetState extends State<_RfqDetailSheet> {
   }
 }
 
-/// Per-line state. Each line carries the picked item (id, name, hsn, gst
-/// pulled from the item master) plus an editable description + quantity.
+/// Per-line state. Each line carries the picked item plus description + quantity.
 class _RfqLineDraft {
   String? itemId;
   String? itemName;
@@ -397,7 +487,6 @@ class _CreateRfqDialog extends ConsumerStatefulWidget {
 class _CreateRfqDialogState extends ConsumerState<_CreateRfqDialog> {
   final _titleCtrl = TextEditingController();
   final List<_RfqLineDraft> _lines = [_RfqLineDraft()];
-  // Picked vendor contacts: list of {id, displayName, gstin, ...}.
   final List<Map<String, dynamic>> _suppliers = [];
   DateTime? _dueDate;
   bool _busy = false;
@@ -421,7 +510,6 @@ class _CreateRfqDialogState extends ConsumerState<_CreateRfqDialog> {
       line.sku = picked['sku']?.toString();
       line.hsnCode = picked['hsnCode']?.toString();
       line.gstRate = (picked['gstRate'] as num?);
-      // Auto-fill description with the item name (user can override).
       if (line.descriptionCtrl.text.trim().isEmpty) {
         line.descriptionCtrl.text = picked['name']?.toString() ?? '';
       }
@@ -433,7 +521,7 @@ class _CreateRfqDialogState extends ConsumerState<_CreateRfqDialog> {
       context,
       contactType: 'VENDOR',
       showQuickCreate: true,
-      title: 'Add supplier (VENDOR / BOTH)',
+      title: 'Add Supplier (Vendor)',
     );
     if (picked == null) return;
     final id = picked['id']?.toString();
@@ -512,139 +600,164 @@ class _CreateRfqDialogState extends ConsumerState<_CreateRfqDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('New RFQ'),
-      content: SizedBox(
-        width: 520,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextField(
-                controller: _titleCtrl,
-                decoration: const InputDecoration(
-                    labelText: 'Title (e.g. Cement Q3)'),
-              ),
-              const SizedBox(height: KSpacing.sm),
-              Row(
-                children: [
-                  Expanded(
-                      child: Text(
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(KSpacing.radiusLg)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 580),
+        child: Padding(
+          padding: const EdgeInsets.all(KSpacing.lg),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Text('New Request for Quotation (RFQ)', style: KTypography.titleLarge),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(context).pop(false),
+                    ),
+                  ],
+                ),
+                KSpacing.vGapMd,
+                KTextField(
+                  controller: _titleCtrl,
+                  label: 'RFQ Title *',
+                  hint: 'e.g. Bulk Cement Procurement Q3',
+                ),
+                KSpacing.vGapSm,
+                KCard(
+                  onTap: () async {
+                    final now = DateTime.now();
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: now,
+                      firstDate: now.subtract(const Duration(days: 1)),
+                      lastDate: now.add(const Duration(days: 365)),
+                    );
+                    if (picked != null) setState(() => _dueDate = picked);
+                  },
+                  child: Row(
+                    children: [
+                      Icon(Icons.calendar_today_outlined, size: 18, color: KColors.primary),
+                      KSpacing.hGapSm,
+                      Expanded(
+                        child: Text(
                           _dueDate == null
-                              ? 'No due date'
-                              : 'Due ${_dueDate!.toLocal().toString().substring(0, 10)}',
-                          style: KTypography.bodySmall)),
-                  TextButton.icon(
-                    icon: const Icon(Icons.calendar_today, size: 16),
-                    label: const Text('Pick'),
-                    onPressed: () async {
-                      final now = DateTime.now();
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: now,
-                        firstDate: now.subtract(const Duration(days: 1)),
-                        lastDate: now.add(const Duration(days: 365)),
-                      );
-                      if (picked != null) setState(() => _dueDate = picked);
-                    },
+                              ? 'Select Submission Due Date'
+                              : 'Due Date: ${_dueDate!.toLocal().toString().substring(0, 10)}',
+                          style: KTypography.bodyMedium,
+                        ),
+                      ),
+                      KButton.outlined(
+                        size: KButtonSize.small,
+                        label: 'Change Date',
+                        onPressed: () async {
+                          final now = DateTime.now();
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: now,
+                            firstDate: now.subtract(const Duration(days: 1)),
+                            lastDate: now.add(const Duration(days: 365)),
+                          );
+                          if (picked != null) setState(() => _dueDate = picked);
+                        },
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              const Divider(),
-              Text('Items',
-                  style: KTypography.bodySmall
-                      .copyWith(color: KColors.textSecondary)),
-              const SizedBox(height: KSpacing.xs),
-              ..._lines.asMap().entries.map(
-                    (entry) => _RfqLineEditor(
-                      index: entry.key,
-                      line: entry.value,
-                      canRemove: _lines.length > 1,
-                      onPickItem: () => _pickItemForLine(entry.value),
-                      onRemove: () => _removeLine(entry.key),
-                    ),
-                  ),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: _addLine,
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text('Add line'),
                 ),
-              ),
-              const Divider(),
-              Row(
-                children: [
-                  Expanded(
+                KSpacing.vGapMd,
+                Row(
+                  children: [
+                    Text('Line Items', style: KTypography.titleSmall),
+                    const Spacer(),
+                    KButton.outlined(
+                      size: KButtonSize.small,
+                      icon: Icons.add,
+                      label: 'Add Line',
+                      onPressed: _addLine,
+                    ),
+                  ],
+                ),
+                KSpacing.vGapSm,
+                ..._lines.asMap().entries.map(
+                      (entry) => _RfqLineEditor(
+                        index: entry.key,
+                        line: entry.value,
+                        canRemove: _lines.length > 1,
+                        onPickItem: () => _pickItemForLine(entry.value),
+                        onRemove: () => _removeLine(entry.key),
+                      ),
+                    ),
+                KSpacing.vGapMd,
+                Row(
+                  children: [
+                    Text('Invited Suppliers (${_suppliers.length})', style: KTypography.titleSmall),
+                    const Spacer(),
+                    KButton.outlined(
+                      size: KButtonSize.small,
+                      icon: Icons.person_add_outlined,
+                      label: 'Add Supplier',
+                      onPressed: _addSupplier,
+                    ),
+                  ],
+                ),
+                KSpacing.vGapSm,
+                if (_suppliers.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: KSpacing.xs),
                     child: Text(
-                      _suppliers.isEmpty
-                          ? 'Suppliers — none yet'
-                          : 'Suppliers (${_suppliers.length})',
-                      style: KTypography.bodySmall
-                          .copyWith(color: KColors.textSecondary),
+                      'Pick at least one vendor contact to invite to this RFQ.',
+                      style: KTypography.bodySmall.copyWith(color: KColors.textHint),
                     ),
+                  )
+                else
+                  Wrap(
+                    spacing: KSpacing.xs,
+                    runSpacing: KSpacing.xs,
+                    children: _suppliers
+                        .map((s) => Chip(
+                              label: Text(
+                                s['displayName']?.toString() ??
+                                    s['name']?.toString() ??
+                                    'Vendor',
+                                style: KTypography.bodySmall,
+                              ),
+                              deleteIcon: const Icon(Icons.close, size: 14),
+                              onDeleted: () =>
+                                  _removeSupplier(s['id']?.toString() ?? ''),
+                            ))
+                        .toList(),
                   ),
-                  TextButton.icon(
-                    onPressed: _addSupplier,
-                    icon: const Icon(Icons.add, size: 16),
-                    label: const Text('Add supplier'),
-                  ),
+                if (_err != null) ...[
+                  KSpacing.vGapSm,
+                  Text(_err!,
+                      style: KTypography.bodySmall
+                          .copyWith(color: KColors.error)),
                 ],
-              ),
-              const SizedBox(height: KSpacing.xs),
-              if (_suppliers.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: KSpacing.xs),
-                  child: Text(
-                    'Pick at least one VENDOR (or BOTH) contact to invite.',
-                    style: KTypography.bodySmall
-                        .copyWith(color: KColors.textHint),
-                  ),
-                )
-              else
-                Wrap(
-                  spacing: KSpacing.xs,
-                  runSpacing: KSpacing.xs,
-                  children: _suppliers
-                      .map((s) => InputChip(
-                            label: Text(
-                              s['displayName']?.toString() ??
-                                  s['name']?.toString() ??
-                                  'Vendor',
-                            ),
-                            avatar: const Icon(Icons.local_shipping_outlined,
-                                size: 14),
-                            onDeleted: () =>
-                                _removeSupplier(s['id']?.toString() ?? ''),
-                          ))
-                      .toList(),
+                KSpacing.vGapLg,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    KButton.outlined(
+                      label: 'Cancel',
+                      onPressed: _busy ? null : () => Navigator.of(context).pop(false),
+                    ),
+                    KSpacing.hGapSm,
+                    KButton.primary(
+                      label: 'Create RFQ',
+                      isLoading: _busy,
+                      onPressed: _busy ? null : _submit,
+                    ),
+                  ],
                 ),
-              if (_err != null) ...[
-                const SizedBox(height: KSpacing.sm),
-                Text(_err!,
-                    style: KTypography.bodySmall
-                        .copyWith(color: KColors.error)),
               ],
-            ],
+            ),
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: _busy ? null : () => Navigator.of(context).pop(false),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: _busy ? null : _submit,
-          child: _busy
-              ? const SizedBox(
-                  height: 16,
-                  width: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2))
-              : const Text('Create'),
-        ),
-      ],
     );
   }
 }
@@ -667,56 +780,50 @@ class _RfqLineEditor extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final picked = line.itemId != null;
-    return Container(
-      margin: const EdgeInsets.only(bottom: KSpacing.sm),
-      padding: const EdgeInsets.all(KSpacing.sm),
-      decoration: BoxDecoration(
-        color: KColors.bgApp,
-        borderRadius: BorderRadius.circular(KSpacing.radiusSm),
-        border: Border.all(color: KColors.divider),
-      ),
+    return KCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
-              Text('Line ${index + 1}',
-                  style: KTypography.labelMedium),
+              Text('Line Item #${index + 1}', style: KTypography.labelMedium),
               const Spacer(),
-              TextButton.icon(
+              KButton.outlined(
+                size: KButtonSize.small,
+                icon: Icons.search,
+                label: picked ? 'Change Item' : 'Pick Item',
                 onPressed: onPickItem,
-                icon: const Icon(Icons.search, size: 14),
-                label: Text(picked ? 'Change item' : 'Pick item'),
               ),
-              if (canRemove)
+              if (canRemove) ...[
+                KSpacing.hGapSm,
                 IconButton(
                   iconSize: 18,
-                  icon: const Icon(Icons.close, color: KColors.error),
+                  icon: const Icon(Icons.delete_outline, color: KColors.error),
                   onPressed: onRemove,
                 ),
+              ],
             ],
           ),
-          if (picked)
-            Padding(
-              padding: const EdgeInsets.only(bottom: KSpacing.xs),
-              child: Text(
-                '${line.itemName ?? ''} '
-                '${line.sku != null ? '· ${line.sku}' : ''}'
-                '${line.hsnCode != null ? ' · HSN ${line.hsnCode}' : ''}'
-                '${line.gstRate != null ? ' · ${line.gstRate}% GST' : ''}',
-                style: KTypography.bodySmall
-                    .copyWith(color: KColors.textSecondary),
-              ),
+          if (picked) ...[
+            KSpacing.vGapXs,
+            Text(
+              '${line.itemName ?? ''} '
+              '${line.sku != null ? '· SKU: ${line.sku}' : ''}'
+              '${line.hsnCode != null ? ' · HSN: ${line.hsnCode}' : ''}'
+              '${line.gstRate != null ? ' · ${line.gstRate}% GST' : ''}',
+              style: KTypography.mono(fontSize: 11, color: KColors.primary),
             ),
-          TextField(
+          ],
+          KSpacing.vGapSm,
+          KTextField(
             controller: line.descriptionCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Description (free-text — sent to suppliers)',
-            ),
+            label: 'Description for Suppliers',
+            hint: 'Specifications or requirements',
           ),
-          TextField(
+          KSpacing.vGapSm,
+          KTextField(
             controller: line.qtyCtrl,
-            decoration: const InputDecoration(labelText: 'Quantity'),
+            label: 'Required Quantity',
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
           ),
         ],
@@ -758,7 +865,7 @@ class _RecordQuoteDialogState extends State<_RecordQuoteDialog> {
     final picked = await showContactPicker(
       context,
       contactType: 'VENDOR',
-      title: 'Select supplier',
+      title: 'Select Supplier',
     );
     if (picked != null) setState(() => _supplier = picked);
   }
@@ -773,7 +880,7 @@ class _RecordQuoteDialogState extends State<_RecordQuoteDialog> {
     final qty = num.tryParse(_qtyCtrl.text.trim());
     final price = num.tryParse(_priceCtrl.text.trim());
     if (supplierId == null || qty == null || price == null) {
-      setState(() => _err = 'Supplier, qty, and unit price required');
+      setState(() => _err = 'Supplier, quantity, and unit price are required');
       return;
     }
     setState(() {
@@ -809,86 +916,106 @@ class _RecordQuoteDialogState extends State<_RecordQuoteDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Record supplier quote'),
-      content: SizedBox(
-        width: 460,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _PickerRow(
-                label: 'Supplier',
-                value: _supplier?['displayName']?.toString() ??
-                    _supplier?['name']?.toString(),
-                placeholder: 'Pick a supplier (VENDOR / BOTH)',
-                icon: Icons.local_shipping_outlined,
-                onPick: _pickSupplier,
-              ),
-              const SizedBox(height: KSpacing.sm),
-              TextField(
-                controller: _quoteNumCtrl,
-                decoration: const InputDecoration(
-                    labelText: 'Quote number (optional — auto if blank)'),
-              ),
-              const Divider(),
-              _PickerRow(
-                label: 'Item (optional)',
-                value: _item?['name']?.toString(),
-                placeholder: 'Pick an item — or leave blank for free-text',
-                icon: Icons.inventory_2_outlined,
-                onPick: _pickItem,
-              ),
-              const SizedBox(height: KSpacing.sm),
-              TextField(
-                controller: _qtyCtrl,
-                decoration: const InputDecoration(labelText: 'Quantity'),
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-              ),
-              TextField(
-                controller: _priceCtrl,
-                decoration: const InputDecoration(labelText: 'Unit price (₹)'),
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-              ),
-              TextField(
-                controller: _leadCtrl,
-                decoration:
-                    const InputDecoration(labelText: 'Lead time (days)'),
-                keyboardType: TextInputType.number,
-              ),
-              if (_err != null) ...[
-                const SizedBox(height: KSpacing.sm),
-                Text(_err!,
-                    style: KTypography.bodySmall
-                        .copyWith(color: KColors.error)),
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(KSpacing.radiusLg)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 500),
+        child: Padding(
+          padding: const EdgeInsets.all(KSpacing.lg),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Text('Record Supplier Quote', style: KTypography.titleLarge),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(context).pop(false),
+                    ),
+                  ],
+                ),
+                KSpacing.vGapMd,
+                _PickerRow(
+                  label: 'Supplier',
+                  value: _supplier?['displayName']?.toString() ??
+                      _supplier?['name']?.toString(),
+                  placeholder: 'Select responding supplier',
+                  icon: Icons.local_shipping_outlined,
+                  onPick: _pickSupplier,
+                ),
+                KSpacing.vGapSm,
+                KTextField(
+                  controller: _quoteNumCtrl,
+                  label: 'Quote Number (optional)',
+                  hint: 'Supplier reference quote #',
+                ),
+                KSpacing.vGapSm,
+                _PickerRow(
+                  label: 'Item (optional)',
+                  value: _item?['name']?.toString(),
+                  placeholder: 'Pick item master or leave as generic',
+                  icon: Icons.inventory_2_outlined,
+                  onPick: _pickItem,
+                ),
+                KSpacing.vGapSm,
+                Row(
+                  children: [
+                    Expanded(
+                      child: KTextField(
+                        controller: _qtyCtrl,
+                        label: 'Quoted Qty',
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      ),
+                    ),
+                    KSpacing.hGapSm,
+                    Expanded(
+                      child: KTextField.amount(
+                        controller: _priceCtrl,
+                        label: 'Unit Price',
+                      ),
+                    ),
+                  ],
+                ),
+                KSpacing.vGapSm,
+                KTextField(
+                  controller: _leadCtrl,
+                  label: 'Lead Time (Days)',
+                  keyboardType: TextInputType.number,
+                ),
+                if (_err != null) ...[
+                  KSpacing.vGapSm,
+                  Text(_err!,
+                      style: KTypography.bodySmall
+                          .copyWith(color: KColors.error)),
+                ],
+                KSpacing.vGapLg,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    KButton.outlined(
+                      label: 'Cancel',
+                      onPressed: _busy ? null : () => Navigator.of(context).pop(false),
+                    ),
+                    KSpacing.hGapSm,
+                    KButton.primary(
+                      label: 'Save Quote',
+                      isLoading: _busy,
+                      onPressed: _busy ? null : _submit,
+                    ),
+                  ],
+                ),
               ],
-            ],
+            ),
           ),
         ),
       ),
-      actions: [
-        TextButton(
-            onPressed: _busy ? null : () => Navigator.of(context).pop(false),
-            child: const Text('Cancel')),
-        FilledButton(
-            onPressed: _busy ? null : _submit,
-            child: _busy
-                ? const SizedBox(
-                    height: 16,
-                    width: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2))
-                : const Text('Save')),
-      ],
     );
   }
 }
 
-/// Tiny composable for "label + picked value + pick button" rows that
-/// the rest of the procurement dialogs reuse. Keeps the look uniform
-/// without forcing the design system to grow a new primitive.
 class _PickerRow extends StatelessWidget {
   final String label;
   final String? value;
@@ -907,40 +1034,33 @@ class _PickerRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final picked = value != null && value!.isNotEmpty;
-    return Container(
-      padding: const EdgeInsets.symmetric(
-          horizontal: KSpacing.sm, vertical: KSpacing.xs),
-      decoration: BoxDecoration(
-        color: KColors.bgApp,
-        borderRadius: BorderRadius.circular(KSpacing.radiusSm),
-        border: Border.all(color: KColors.divider),
-      ),
+    return KCard(
+      onTap: onPick,
       child: Row(
         children: [
-          Icon(icon, size: 18, color: KColors.textSecondary),
-          const SizedBox(width: KSpacing.sm),
+          Icon(icon, size: 20, color: KColors.primary),
+          KSpacing.hGapMd,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label,
-                    style: KTypography.bodySmall
-                        .copyWith(color: KColors.textSecondary)),
+                Text(label, style: KTypography.caption),
+                KSpacing.vGapXs,
                 Text(
                   picked ? value! : placeholder,
                   style: picked
-                      ? KTypography.bodyMedium
-                      : KTypography.bodyMedium
-                          .copyWith(color: KColors.textHint),
+                      ? KTypography.labelMedium
+                      : KTypography.bodyMedium.copyWith(color: KColors.textHint),
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
-          TextButton.icon(
+          KSpacing.hGapSm,
+          KButton.outlined(
+            size: KButtonSize.small,
+            label: picked ? 'Change' : 'Select',
             onPressed: onPick,
-            icon: const Icon(Icons.search, size: 14),
-            label: Text(picked ? 'Change' : 'Pick'),
           ),
         ],
       ),

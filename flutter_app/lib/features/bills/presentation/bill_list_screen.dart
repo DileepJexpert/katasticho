@@ -6,7 +6,6 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/api_error_parser.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../data/bill_dto.dart';
@@ -58,12 +57,14 @@ class _BillListScreenState extends ConsumerState<BillListScreen> {
         content: const Text(
             'This will post selected DRAFT bills, creating journal entries and updating inventory.'),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Go Back')),
-          FilledButton(
+          KButton.outlined(
+            label: 'Go Back',
+            onPressed: () => Navigator.pop(ctx, false),
+          ),
+          KSpacing.hGapSm,
+          KButton.primary(
+            label: 'Post Bills',
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Post Bills'),
           ),
         ],
       ),
@@ -108,16 +109,14 @@ class _BillListScreenState extends ConsumerState<BillListScreen> {
         content: const Text(
             'Bills with existing payments cannot be voided. This will reverse journal entries.'),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Go Back')),
-          FilledButton.tonal(
-            style: FilledButton.styleFrom(
-              backgroundColor: KColors.error.withValues(alpha: 0.12),
-              foregroundColor: KColors.error,
-            ),
+          KButton.outlined(
+            label: 'Go Back',
+            onPressed: () => Navigator.pop(ctx, false),
+          ),
+          KSpacing.hGapSm,
+          KButton.danger(
+            label: 'Void Bills',
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Void Bills'),
           ),
         ],
       ),
@@ -151,18 +150,16 @@ class _BillListScreenState extends ConsumerState<BillListScreen> {
       builder: (ctx) => AlertDialog(
         title: Text('Delete $count bill${count == 1 ? '' : 's'}?'),
         content: const Text(
-            'Only DRAFT bills can be deleted. This cannot be undone.'),
+            'Only DRAFT bills can be deleted. This action cannot be undone.'),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
-          FilledButton.tonal(
-            style: FilledButton.styleFrom(
-              backgroundColor: KColors.error.withValues(alpha: 0.12),
-              foregroundColor: KColors.error,
-            ),
+          KButton.outlined(
+            label: 'Go Back',
+            onPressed: () => Navigator.pop(ctx, false),
+          ),
+          KSpacing.hGapSm,
+          KButton.danger(
+            label: 'Delete Bills',
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete'),
           ),
         ],
       ),
@@ -465,26 +462,55 @@ class _BillSettlementCell extends StatelessWidget {
         : KColors.success;
 
     return SizedBox(
-      width: 118,
+      width: 124,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Text(
-            'Paid ${CurrencyFormatter.formatIndian(paid)}',
-            style: KTypography.bodySmall.copyWith(
-              color: KColors.success,
-              fontWeight: FontWeight.w600,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Paid ',
+                style: KTypography.bodySmall.copyWith(
+                  color: KColors.success,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 11,
+                ),
+              ),
+              KMoney(
+                paid,
+                size: KMoneySize.small,
+                style: const TextStyle(
+                  color: KColors.success,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 11,
+                ),
+              ),
+            ],
           ),
           KSpacing.vGapXxs,
-          Text(
-            'Bal ${CurrencyFormatter.formatIndian(balance)}',
-            style: KTypography.amountSmall.copyWith(color: balanceColor),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Bal ',
+                style: KTypography.bodySmall.copyWith(
+                  color: balanceColor,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 11,
+                ),
+              ),
+              KMoney(
+                balance,
+                size: KMoneySize.small,
+                style: TextStyle(
+                  color: balanceColor,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 11,
+                ),
+              ),
+            ],
           ),
         ],
       ),

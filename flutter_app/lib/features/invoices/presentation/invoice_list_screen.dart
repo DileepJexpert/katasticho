@@ -6,7 +6,6 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/api_error_parser.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../data/invoice_providers.dart';
@@ -341,10 +340,7 @@ class _InvoiceCard extends StatelessWidget {
                     KSpacing.hGapSm,
                     KStatusChip(status: status),
                     const Spacer(),
-                    Text(
-                      CurrencyFormatter.formatIndian(total),
-                      style: KTypography.amountMedium,
-                    ),
+                    KMoney(total, size: KMoneySize.medium),
                   ],
                 ),
                 const SizedBox(height: 4),
@@ -395,15 +391,16 @@ class _InvoiceCard extends StatelessWidget {
                         ),
                       ],
                       const Spacer(),
-                      if (hasBalance)
-                        Text(
-                          'Due ${CurrencyFormatter.formatIndian(balanceDue)}',
-                          style: KTypography.bodySmall.copyWith(
+                      if (hasBalance) ...[
+                        Text('Due ', style: KTypography.bodySmall.copyWith(color: KColors.warning, fontWeight: FontWeight.w600)),
+                        KMoney(
+                          balanceDue,
+                          style: TextStyle(
                             color: KColors.warning,
                             fontWeight: FontWeight.w600,
                           ),
-                        )
-                      else if (status == 'PAID')
+                        ),
+                      ] else if (status == 'PAID')
                         Text(
                           'Paid in full',
                           style: KTypography.bodySmall.copyWith(

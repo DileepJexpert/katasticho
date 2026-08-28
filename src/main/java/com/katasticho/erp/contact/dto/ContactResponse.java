@@ -71,6 +71,10 @@ public record ContactResponse(
         String mrClass,
         Integer visitsPerMonth,
 
+        // MSME compliance
+        boolean msmeRegistered,
+        String msmeRegistrationNo,
+
         List<ContactPersonResponse> persons,
         boolean supplierEnabled
 ) {}

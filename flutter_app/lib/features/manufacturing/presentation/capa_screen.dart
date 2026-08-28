@@ -3,15 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
+import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/api_error_parser.dart';
+import '../../../core/widgets/widgets.dart';
 
 /// Tracker #88: CAPA (Corrective & Preventive Action) inbox.
-///
-/// Three tabs: All / Open & In-Progress / My CAPAs / Overdue. Floating
-/// action button raises a new CAPA. Tap a row to drive its lifecycle
-/// (Start → Complete → Verify).
 class CapaScreen extends ConsumerStatefulWidget {
   const CapaScreen({super.key});
 
@@ -65,9 +63,12 @@ class _CapaScreenState extends ConsumerState<CapaScreen>
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: KColors.primary,
+        foregroundColor: Colors.white,
         onPressed: _raiseCapa,
         icon: const Icon(Icons.add),
         label: const Text('Raise CAPA'),
+        tooltip: 'Raise CAPA (N)',
       ),
       body: Column(
         children: [
@@ -101,16 +102,16 @@ class _CapaScreenState extends ConsumerState<CapaScreen>
           ),
         );
     return Container(
-      color: Colors.blueGrey.shade50,
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      color: KColors.surface,
+      padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          metric('Open', d['open'], Colors.orange),
-          metric('In Progress', d['inProgress'], Colors.blue),
-          metric('Completed', d['completed'], Colors.indigo),
-          metric('Verified', d['verified'], Colors.green),
-          metric('Overdue', d['overdue'], Colors.red),
+          metric('Open', d['open'], KColors.warning),
+          metric('In Progress', d['inProgress'], KColors.info),
+          metric('Completed', d['completed'], KColors.primary),
+          metric('Verified', d['verified'], KColors.success),
+          metric('Overdue', d['overdue'], KColors.error),
         ],
       ),
     );
@@ -127,13 +128,13 @@ class _CapaScreenState extends ConsumerState<CapaScreen>
           ApiConfig.manufacturingCapa, data: result);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('CAPA raised')));
+          const SnackBar(content: Text('CAPA raised successfully'), backgroundColor: KColors.success));
       _loadDashboard();
-      setState(() {}); // Trigger list reload
+      setState(() {});
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(ApiErrorParser.message(e))));
+          SnackBar(content: Text(ApiErrorParser.message(e)), backgroundColor: KColors.error));
     }
   }
 }
@@ -196,22 +197,29 @@ class _CapaListState extends ConsumerState<_CapaList> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading) return const Center(child: KLoading(message: 'Loading CAPAs...'));
     if (_error != null) return Center(child: Text(_error!));
     if (_items == null || _items!.isEmpty) {
-      return const Center(child: Text('No CAPAs in this view'));
+      return const KEmptyState(
+        icon: Icons.assignment_turned_in_outlined,
+        title: 'No CAPAs found',
+        subtitle: 'No corrective or preventive actions in this filter.',
+      );
     }
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView.builder(
-        padding: const EdgeInsets.all(KSpacing.md),
+        padding: KSpacing.pagePadding,
         itemCount: _items!.length,
         itemBuilder: (ctx, i) {
           final c = _items![i];
-          return _CapaCard(capa: c, onAction: () {
-            _load();
-            widget.onChanged();
-          });
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _CapaCard(capa: c, onAction: () {
+              _load();
+              widget.onChanged();
+            }),
+          );
         },
       ),
     );
@@ -226,39 +234,50 @@ class _CapaCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final status = capa['status']?.toString() ?? '';
-    final statusColor = switch (status) {
-      'OPEN' => Colors.orange,
-      'IN_PROGRESS' => Colors.blue,
-      'COMPLETED' => Colors.indigo,
-      'VERIFIED' => Colors.green,
-      'CANCELLED' => Colors.grey,
-      _ => Colors.black,
-    };
     final priority = capa['priority']?.toString() ?? '';
     final due = capa['dueDate']?.toString();
 
-    return Card(
+    return KCard(
       child: ListTile(
-        title: Text('${capa['capaNumber']} — ${capa['title']}',
-            style: KTypography.titleSmall),
+        title: Row(
+          children: [
+            Text(
+              capa['capaNumber']?.toString() ?? 'CAPA',
+              style: KTypography.mono(fontSize: 14, fontWeight: FontWeight.w700),
+            ),
+            KSpacing.hGapSm,
+            Expanded(
+              child: Text(
+                capa['title']?.toString() ?? '',
+                style: KTypography.labelLarge,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 4),
+            KSpacing.vGapXs,
             Wrap(
               spacing: 8,
+              runSpacing: 4,
               children: [
-                _chip(status, statusColor),
-                _chip(capa['capaType']?.toString() ?? '', Colors.deepPurple),
-                if (priority.isNotEmpty) _chip(priority, Colors.teal),
-                if (due != null && due.isNotEmpty) _chip('Due $due', Colors.grey),
+                KStatusChip(status: status),
+                _chip(capa['capaType']?.toString() ?? '', KColors.primary),
+                if (priority.isNotEmpty) _chip(priority, KColors.info),
+                if (due != null && due.isNotEmpty) _chip('Due $due', KColors.textSecondary),
               ],
             ),
             if (capa['description'] != null)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
-                child: Text(capa['description'].toString(),
-                    maxLines: 2, overflow: TextOverflow.ellipsis),
+                child: Text(
+                  capa['description'].toString(),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                ),
               ),
           ],
         ),
@@ -266,7 +285,7 @@ class _CapaCard extends ConsumerWidget {
           itemBuilder: (_) {
             final items = <PopupMenuEntry<String>>[];
             if (status == 'OPEN') items.add(const PopupMenuItem(value: 'start', child: Text('Start')));
-            if (status == 'OPEN' || status == 'IN_PROGRESS') items.add(const PopupMenuItem(value: 'complete', child: Text('Mark complete')));
+            if (status == 'OPEN' || status == 'IN_PROGRESS') items.add(const PopupMenuItem(value: 'complete', child: Text('Mark Complete')));
             if (status == 'COMPLETED') items.add(const PopupMenuItem(value: 'verify', child: Text('Verify')));
             if (status != 'VERIFIED' && status != 'CANCELLED') items.add(const PopupMenuItem(value: 'cancel', child: Text('Cancel')));
             return items;
@@ -310,7 +329,7 @@ class _CapaCard extends ConsumerWidget {
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(ApiErrorParser.message(e))));
+          SnackBar(content: Text(ApiErrorParser.message(e)), backgroundColor: KColors.error));
     }
   }
 }
@@ -332,9 +351,9 @@ class _NotesDialogState extends State<_NotesDialog> {
   @override
   Widget build(BuildContext context) {
     final label = switch (widget.action) {
-      'complete' => 'Completion notes',
-      'verify'   => 'Effectiveness review notes',
-      'cancel'   => 'Cancellation reason',
+      'complete' => 'Completion Notes',
+      'verify'   => 'Effectiveness Review Notes',
+      'cancel'   => 'Cancellation Reason',
       _ => 'Notes',
     };
     return AlertDialog(
@@ -346,11 +365,17 @@ class _NotesDialogState extends State<_NotesDialog> {
         decoration: const InputDecoration(border: OutlineInputBorder()),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel')),
-        FilledButton(
-            onPressed: () => Navigator.pop(context, _ctl.text.trim()),
-            child: const Text('Submit')),
+        KButton.outlined(
+          size: KButtonSize.small,
+          onPressed: () => Navigator.pop(context),
+          label: 'Cancel',
+        ),
+        KSpacing.hGapSm,
+        KButton.primary(
+          size: KButtonSize.small,
+          onPressed: () => Navigator.pop(context, _ctl.text.trim()),
+          label: 'Submit',
+        ),
       ],
     );
   }
@@ -394,8 +419,8 @@ class _RaiseCapaDialogState extends State<_RaiseCapaDialog> {
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(controller: _titleCtl, decoration: const InputDecoration(
-                  labelText: 'Title*', border: OutlineInputBorder())),
-              const SizedBox(height: 8),
+                  labelText: 'Title *', border: OutlineInputBorder())),
+              KSpacing.vGapSm,
               Row(children: [
                 Expanded(child: DropdownButtonFormField<String>(
                   initialValue: _type,
@@ -407,7 +432,7 @@ class _RaiseCapaDialogState extends State<_RaiseCapaDialog> {
                   ],
                   onChanged: (v) => setState(() => _type = v ?? 'CORRECTIVE'),
                 )),
-                const SizedBox(width: 8),
+                KSpacing.hGapSm,
                 Expanded(child: DropdownButtonFormField<String>(
                   initialValue: _priority,
                   decoration: const InputDecoration(labelText: 'Priority',
@@ -421,30 +446,32 @@ class _RaiseCapaDialogState extends State<_RaiseCapaDialog> {
                   onChanged: (v) => setState(() => _priority = v ?? 'NORMAL'),
                 )),
               ]),
-              const SizedBox(height: 8),
+              KSpacing.vGapSm,
               TextField(controller: _descCtl, maxLines: 2,
-                  decoration: const InputDecoration(labelText: 'Problem description',
+                  decoration: const InputDecoration(labelText: 'Problem Description',
                       border: OutlineInputBorder())),
-              const SizedBox(height: 8),
+              KSpacing.vGapSm,
               TextField(controller: _actionCtl, maxLines: 2,
-                  decoration: const InputDecoration(labelText: 'Proposed action',
+                  decoration: const InputDecoration(labelText: 'Proposed Action',
                       border: OutlineInputBorder())),
-              const SizedBox(height: 8),
+              KSpacing.vGapSm,
               TextField(controller: _ncrCtl,
-                  decoration: const InputDecoration(labelText: 'NCR id (optional)',
+                  decoration: const InputDecoration(labelText: 'NCR ID (optional)',
                       border: OutlineInputBorder())),
-              const SizedBox(height: 8),
+              KSpacing.vGapSm,
               TextField(controller: _assigneeCtl,
-                  decoration: const InputDecoration(labelText: 'Assignee user id (optional)',
+                  decoration: const InputDecoration(labelText: 'Assignee User ID (optional)',
                       border: OutlineInputBorder())),
-              const SizedBox(height: 8),
+              KSpacing.vGapSm,
               Row(children: [
                 Expanded(child: Text(_dueDate == null
                     ? 'No due date'
-                    : 'Due: ${_dueDate!.toIso8601String().substring(0, 10)}')),
-                TextButton.icon(
-                  icon: const Icon(Icons.calendar_today),
-                  label: const Text('Pick'),
+                    : 'Due: ${_dueDate!.toIso8601String().substring(0, 10)}',
+                    style: KTypography.bodySmall)),
+                KButton.outlined(
+                  size: KButtonSize.small,
+                  icon: Icons.calendar_today,
+                  label: 'Pick Date',
                   onPressed: () async {
                     final d = await showDatePicker(
                       context: context,
@@ -461,9 +488,17 @@ class _RaiseCapaDialogState extends State<_RaiseCapaDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel')),
-        FilledButton(onPressed: _submit, child: const Text('Raise')),
+        KButton.outlined(
+          size: KButtonSize.small,
+          onPressed: () => Navigator.pop(context),
+          label: 'Cancel',
+        ),
+        KSpacing.hGapSm,
+        KButton.primary(
+          size: KButtonSize.small,
+          onPressed: _submit,
+          label: 'Raise CAPA',
+        ),
       ],
     );
   }

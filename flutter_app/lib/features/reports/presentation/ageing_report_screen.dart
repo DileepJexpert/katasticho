@@ -4,9 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
-import '../../../core/widgets/widgets.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
+import '../../../core/widgets/widgets.dart';
 import '../data/report_repository.dart';
 
 class AgeingReportScreen extends ConsumerStatefulWidget {
@@ -46,7 +45,16 @@ class _AgeingReportScreenState extends ConsumerState<AgeingReportScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Ageing Report')),
+      appBar: AppBar(
+        title: const Text('Receivables Ageing Report'),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh',
+            icon: const Icon(Icons.refresh),
+            onPressed: _isLoading ? null : _loadReport,
+          ),
+        ],
+      ),
       body: _isLoading
           ? const KLoading(message: 'Loading ageing report...')
           : _error != null
@@ -75,6 +83,7 @@ class _AgeingReportScreenState extends ConsumerState<AgeingReportScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Top Summary KPI Cards ──
           Row(
             children: [
               Expanded(
@@ -88,7 +97,7 @@ class _AgeingReportScreenState extends ConsumerState<AgeingReportScreen> {
               KSpacing.hGapMd,
               Expanded(
                 child: _SummaryCard(
-                  label: 'Overdue',
+                  label: 'Total Overdue',
                   value: overdueTotal,
                   icon: Icons.warning_amber_rounded,
                   color: overdueTotal > 0 ? KColors.error : KColors.success,
@@ -97,6 +106,8 @@ class _AgeingReportScreenState extends ConsumerState<AgeingReportScreen> {
             ],
           ),
           KSpacing.vGapMd,
+
+          // ── Ageing Buckets Bar ──
           Text('Ageing Buckets', style: KTypography.h4),
           KSpacing.vGapSm,
           LayoutBuilder(
@@ -109,22 +120,22 @@ class _AgeingReportScreenState extends ConsumerState<AgeingReportScreen> {
                   color: KColors.ageingCurrent,
                 ),
                 _AgeingBucket(
-                  label: '1-30',
+                  label: '1-30 Days',
                   amount: _bucket(buckets, 'days1to30'),
                   color: KColors.ageing1to30,
                 ),
                 _AgeingBucket(
-                  label: '31-60',
+                  label: '31-60 Days',
                   amount: _bucket(buckets, 'days31to60'),
                   color: KColors.ageing31to60,
                 ),
                 _AgeingBucket(
-                  label: '61-90',
+                  label: '61-90 Days',
                   amount: _bucket(buckets, 'days61to90'),
                   color: KColors.ageing61to90,
                 ),
                 _AgeingBucket(
-                  label: '90+',
+                  label: '90+ Days',
                   amount: _bucket(buckets, 'days90plus'),
                   color: KColors.ageing90Plus,
                 ),
@@ -139,16 +150,19 @@ class _AgeingReportScreenState extends ConsumerState<AgeingReportScreen> {
                 spacing: 8,
                 runSpacing: 8,
                 children: children
-                    .map((child) => SizedBox(width: 132, child: child))
+                    .map((child) => SizedBox(width: 140, child: child))
                     .toList(),
               );
             },
           ),
-          KSpacing.vGapMd,
+          KSpacing.vGapLg,
+
+          // ── Customer Breakdown List ──
           Row(
             children: [
               Expanded(
-                  child: Text('Customer Breakdown', style: KTypography.h4)),
+                child: Text('Customer Breakdown', style: KTypography.h4),
+              ),
               Text(
                 '${customers.length} customer${customers.length == 1 ? '' : 's'}',
                 style: KTypography.bodySmall.copyWith(
@@ -162,6 +176,7 @@ class _AgeingReportScreenState extends ConsumerState<AgeingReportScreen> {
             const KEmptyState(
               icon: Icons.people_outline,
               title: 'No outstanding receivables',
+              subtitle: 'All customer accounts are fully settled.',
             )
           else
             ...customers.map((c) {
@@ -199,29 +214,27 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
     return Container(
-      constraints: const BoxConstraints(minHeight: 52),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.all(KSpacing.sm),
       decoration: BoxDecoration(
-        color: Theme.of(context)
-            .colorScheme
-            .surfaceContainerHighest
-            .withValues(alpha: 0.28),
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
         borderRadius: KSpacing.borderRadiusMd,
         border: Border.all(
-          color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
+          color: cs.outlineVariant.withValues(alpha: 0.5),
         ),
       ),
       child: Row(
         children: [
           Container(
-            width: 28,
-            height: 28,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.12),
               borderRadius: KSpacing.borderRadiusSm,
             ),
-            child: Icon(icon, color: color, size: 16),
+            child: Icon(icon, color: color, size: 20),
           ),
           KSpacing.hGapSm,
           Expanded(
@@ -231,13 +244,62 @@ class _SummaryCard extends StatelessWidget {
               children: [
                 Text(label, style: KTypography.labelSmall),
                 const SizedBox(height: 2),
-                Text(
-                  CurrencyFormatter.formatIndian(value),
-                  style: KTypography.amountSmall.copyWith(color: color),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                KMoney(
+                  value,
+                  size: KMoneySize.medium,
+                  style: TextStyle(color: color, fontWeight: FontWeight.w700),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AgeingBucket extends StatelessWidget {
+  final String label;
+  final double amount;
+  final Color color;
+
+  const _AgeingBucket({
+    required this.label,
+    required this.amount,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: KSpacing.borderRadiusSm,
+        border: Border(
+          top: BorderSide(color: color, width: 3),
+          left: BorderSide(color: color.withValues(alpha: 0.2)),
+          right: BorderSide(color: color.withValues(alpha: 0.2)),
+          bottom: BorderSide(color: color.withValues(alpha: 0.2)),
+        ),
+      ),
+      child: Column(
+        children: [
+          Text(
+            label,
+            style: KTypography.labelSmall.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          KSpacing.vGapXs,
+          KMoney(
+            amount,
+            size: KMoneySize.small,
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],
@@ -261,19 +323,19 @@ class _CustomerAgeingTile extends StatelessWidget {
     return KCard(
       padding: EdgeInsets.zero,
       child: ExpansionTile(
-        tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+        tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
         leading: CircleAvatar(
-          radius: 16,
-          backgroundColor: KColors.primaryLight.withValues(alpha: 0.15),
+          radius: 18,
+          backgroundColor: KColors.primary.withValues(alpha: 0.12),
           child: Text(
             name.isEmpty ? '?' : name[0].toUpperCase(),
-            style: KTypography.labelMedium.copyWith(color: KColors.primary),
+            style: KTypography.labelLarge.copyWith(color: KColors.primary),
           ),
         ),
         title: Text(
           name,
-          style: KTypography.labelMedium,
+          style: KTypography.labelLarge.copyWith(fontWeight: FontWeight.w600),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
@@ -282,24 +344,28 @@ class _CustomerAgeingTile extends StatelessWidget {
             if (phone != null && phone.isNotEmpty) phone,
             '${invoices.length} open invoice${invoices.length == 1 ? '' : 's'}',
           ].join(' • '),
+          style: KTypography.bodySmall,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        trailing: SizedBox(
-          width: 132,
-          child: Text(
-            CurrencyFormatter.formatIndian(total),
-            style: KTypography.amountSmall.copyWith(color: KColors.warning),
-            textAlign: TextAlign.end,
+        trailing: KMoney(
+          total,
+          size: KMoneySize.medium,
+          style: const TextStyle(
+            color: KColors.warning,
+            fontWeight: FontWeight.w700,
           ),
         ),
         children: [
           _InlineBuckets(source: customer),
           KSpacing.vGapSm,
           if (invoices.isEmpty)
-            Text(
-              'No invoice level detail returned',
-              style: KTypography.bodySmall.copyWith(color: KColors.textHint),
+            Padding(
+              padding: const EdgeInsets.all(KSpacing.sm),
+              child: Text(
+                'No invoice level detail returned',
+                style: KTypography.bodySmall.copyWith(color: KColors.textHint),
+              ),
             )
           else
             _InvoiceDetailTable(invoices: invoices),
@@ -360,6 +426,71 @@ class _InlineBuckets extends StatelessWidget {
   }
 }
 
+class _BucketChip extends StatelessWidget {
+  final String label;
+  final double amount;
+  final Color color;
+
+  const _BucketChip({
+    required this.label,
+    required this.amount,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasAmount = amount > 0.001;
+
+    return Container(
+      margin: const EdgeInsets.only(right: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: hasAmount
+            ? color.withValues(alpha: 0.1)
+            : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
+        borderRadius: KSpacing.borderRadiusSm,
+        border: Border.all(
+          color: hasAmount
+              ? color.withValues(alpha: 0.35)
+              : Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.4),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: KTypography.labelSmall.copyWith(
+              color: hasAmount ? color : Theme.of(context).colorScheme.onSurfaceVariant,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 2),
+          if (hasAmount)
+            KMoney(
+              amount,
+              size: KMoneySize.small,
+              style: TextStyle(
+                color: color,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            )
+          else
+            Text(
+              '--',
+              style: KTypography.bodySmall.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                fontSize: 11,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _InvoiceDetailTable extends StatelessWidget {
   final List<dynamic> invoices;
 
@@ -379,55 +510,75 @@ class _InvoiceDetailTable extends StatelessWidget {
           );
         }
 
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: DataTable(
-            headingRowHeight: 36,
-            dataRowMinHeight: 38,
-            dataRowMaxHeight: 46,
-            headingTextStyle: KTypography.labelMedium,
-            dataTextStyle: KTypography.bodySmall,
-            columnSpacing: 12,
-            horizontalMargin: 8,
-            columns: const [
-              DataColumn(label: Text('Invoice')),
-              DataColumn(label: Text('Date')),
-              DataColumn(label: Text('Age')),
-              DataColumn(label: Text('Bucket')),
-              DataColumn(label: Text('Original'), numeric: true),
-              DataColumn(label: Text('Balance'), numeric: true),
-              DataColumn(label: SizedBox(width: 32)),
-            ],
-            rows: invoices.map((raw) {
-              final invoice = raw as Map<String, dynamic>;
-              final id = invoice['invoiceId']?.toString();
-              return DataRow(
-                cells: [
-                  DataCell(Text(invoice['invoiceNumber']?.toString() ?? '--')),
-                  DataCell(Text(_formatDate(invoice['invoiceDate']))),
-                  DataCell(Text(_ageLabel(invoice['daysOverdue']))),
-                  DataCell(_BucketLabel(bucket: invoice['bucket']?.toString())),
-                  DataCell(Text(
-                    CurrencyFormatter.formatIndian(
-                        _num(invoice['totalAmount'])),
-                    style: KTypography.amountSmall,
-                  )),
-                  DataCell(Text(
-                    CurrencyFormatter.formatIndian(_num(invoice['balanceDue'])),
-                    style: KTypography.amountSmall.copyWith(
-                      color: KColors.warning,
-                    ),
-                  )),
-                  DataCell(IconButton(
-                    tooltip: 'Open invoice',
-                    visualDensity: VisualDensity.compact,
-                    icon: const Icon(Icons.open_in_new_rounded, size: 18),
-                    onPressed:
-                        id == null ? null : () => context.go('/invoices/$id'),
-                  )),
-                ],
-              );
-            }).toList(),
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: KSpacing.borderRadiusMd,
+            border: Border.all(
+              color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.4),
+            ),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              headingRowHeight: 34,
+              dataRowMinHeight: 36,
+              dataRowMaxHeight: 44,
+              headingRowColor: WidgetStateProperty.all(
+                Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+              ),
+              headingTextStyle: KTypography.labelSmall.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+              dataTextStyle: KTypography.bodySmall,
+              columnSpacing: 16,
+              horizontalMargin: 12,
+              columns: const [
+                DataColumn(label: Text('INVOICE')),
+                DataColumn(label: Text('DATE')),
+                DataColumn(label: Text('AGE')),
+                DataColumn(label: Text('BUCKET')),
+                DataColumn(label: Text('ORIGINAL'), numeric: true),
+                DataColumn(label: Text('BALANCE'), numeric: true),
+                DataColumn(label: SizedBox(width: 28)),
+              ],
+              rows: invoices.map((raw) {
+                final invoice = raw as Map<String, dynamic>;
+                final id = invoice['invoiceId']?.toString();
+                return DataRow(
+                  cells: [
+                    DataCell(Text(
+                      invoice['invoiceNumber']?.toString() ?? '--',
+                      style: KTypography.mono(fontSize: 12, weight: FontWeight.w600),
+                    )),
+                    DataCell(Text(_formatDate(invoice['invoiceDate']))),
+                    DataCell(Text(_ageLabel(invoice['daysOverdue']))),
+                    DataCell(KStatusChip(
+                      status: invoice['bucket']?.toString() ?? 'CURRENT',
+                    )),
+                    DataCell(KMoney(
+                      _num(invoice['totalAmount']),
+                      size: KMoneySize.small,
+                    )),
+                    DataCell(KMoney(
+                      _num(invoice['balanceDue']),
+                      size: KMoneySize.small,
+                      style: const TextStyle(
+                        color: KColors.warning,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    )),
+                    DataCell(IconButton(
+                      tooltip: 'Open invoice',
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                      onPressed:
+                          id == null ? null : () => context.go('/invoices/$id'),
+                    )),
+                  ],
+                );
+              }).toList(),
+            ),
           ),
         );
       },
@@ -435,120 +586,6 @@ class _InvoiceDetailTable extends StatelessWidget {
   }
 
   double _num(dynamic value) => (value as num?)?.toDouble() ?? 0;
-}
-
-class _AgeingBucket extends StatelessWidget {
-  final String label;
-  final double amount;
-  final Color color;
-
-  const _AgeingBucket({
-    required this.label,
-    required this.amount,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 2),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: KSpacing.borderRadiusSm,
-        border: Border(top: BorderSide(color: color, width: 3)),
-      ),
-      child: Column(
-        children: [
-          Text(label, style: KTypography.labelSmall.copyWith(color: color)),
-          KSpacing.vGapXs,
-          Text(
-            CurrencyFormatter.formatCompact(amount),
-            style: KTypography.amountSmall.copyWith(color: color),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BucketChip extends StatelessWidget {
-  final String label;
-  final double amount;
-  final Color color;
-
-  const _BucketChip({
-    required this.label,
-    required this.amount,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(right: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: amount > 0
-            ? color.withValues(alpha: 0.1)
-            : KColors.divider.withValues(alpha: 0.3),
-        borderRadius: KSpacing.borderRadiusSm,
-        border: Border.all(
-          color: amount > 0 ? color.withValues(alpha: 0.35) : KColors.divider,
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: KTypography.labelSmall.copyWith(
-              color: amount > 0 ? color : KColors.textHint,
-              fontSize: 10,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            amount == 0 ? '--' : CurrencyFormatter.formatCompact(amount),
-            style: KTypography.amountSmall.copyWith(
-              color: amount > 0 ? color : KColors.textHint,
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BucketLabel extends StatelessWidget {
-  final String? bucket;
-
-  const _BucketLabel({required this.bucket});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = switch (bucket) {
-      'CURRENT' => KColors.ageingCurrent,
-      '1-30' => KColors.ageing1to30,
-      '31-60' => KColors.ageing31to60,
-      '61-90' => KColors.ageing61to90,
-      '90+' => KColors.ageing90Plus,
-      _ => KColors.textHint,
-    };
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: KSpacing.borderRadiusSm,
-      ),
-      child: Text(
-        bucket ?? '--',
-        style: KTypography.labelSmall.copyWith(color: color),
-      ),
-    );
-  }
 }
 
 class _DocumentCard extends StatelessWidget {
@@ -566,11 +603,12 @@ class _DocumentCard extends StatelessWidget {
     return ListTile(
       dense: true,
       contentPadding: EdgeInsets.zero,
-      title: Text(number, style: KTypography.labelLarge),
+      title: Text(number, style: KTypography.mono(fontSize: 13, weight: FontWeight.w600)),
       subtitle: Text('$date • ${_ageLabel(source['daysOverdue'])}'),
-      trailing: Text(
-        CurrencyFormatter.formatIndian(balance),
-        style: KTypography.amountSmall.copyWith(color: KColors.warning),
+      trailing: KMoney(
+        balance,
+        size: KMoneySize.small,
+        style: const TextStyle(color: KColors.warning, fontWeight: FontWeight.w700),
       ),
       onTap: id == null ? null : () => context.go('/invoices/$id'),
     );

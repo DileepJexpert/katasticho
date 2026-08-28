@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../data/vendor_payment_dto.dart';
@@ -198,9 +197,8 @@ class VendorPaymentListScreen extends ConsumerWidget {
               Row(
                 children: [
                   Expanded(
-                    child: KButton(
+                    child: KButton.outlined(
                       label: 'Clear',
-                      variant: KButtonVariant.outlined,
                       onPressed: () {
                         ref
                             .read(vendorPaymentFilterProvider.notifier)
@@ -211,7 +209,7 @@ class VendorPaymentListScreen extends ConsumerWidget {
                   ),
                   KSpacing.hGapMd,
                   Expanded(
-                    child: KButton(
+                    child: KButton.primary(
                       label: 'Apply',
                       onPressed: () {
                         ref
@@ -265,17 +263,17 @@ class _VendorPaymentTable extends StatelessWidget {
             if (dto.id.isNotEmpty) context.go('/vendor-payments/${dto.id}');
           },
           cells: [
-            DataCell(KTablePrimaryTextCell(
-              value: dto.paymentNumber,
-              width: 165,
+            DataCell(Text(
+              dto.paymentNumber,
+              style: KTypography.mono(fontSize: 12, weight: FontWeight.w600),
             )),
             DataCell(KTableTextCell(value: dto.vendorName, width: 220)),
             DataCell(KTableDateCell(value: dto.paymentDate)),
             DataCell(_PaymentModePill(label: dto.paymentModeLabel)),
-            DataCell(Text(
-              CurrencyFormatter.formatIndian(dto.amount),
-              textAlign: TextAlign.end,
-              style: KTypography.amountSmall.copyWith(color: KColors.success),
+            DataCell(KMoney(
+              dto.amount,
+              size: KMoneySize.small,
+              style: const TextStyle(color: KColors.success, fontWeight: FontWeight.w700),
             )),
             DataCell(KTableOpenActionCell(
               tooltip: 'Open vendor payment',

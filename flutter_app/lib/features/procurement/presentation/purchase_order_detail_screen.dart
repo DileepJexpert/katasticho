@@ -146,11 +146,11 @@ class PurchaseOrderDetailScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text('Total', style: KTypography.bodySmall),
-                      Text(
-                        CurrencyFormatter.formatIndian(
-                            (po['totalAmount'] as num?)?.toDouble() ?? 0),
-                        style: KTypography.amountLarge,
+                      Text('Total Amount', style: KTypography.caption),
+                      KMoney(
+                        (po['totalAmount'] as num?)?.toDouble() ?? 0,
+                        size: KMoneySize.large,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
                     ],
                   ),
@@ -158,24 +158,23 @@ class PurchaseOrderDetailScreen extends ConsumerWidget {
                   if (canSend) ...[
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
-                      child: KButton(
+                      child: KButton.outlined(
                         label: 'Edit',
-                        variant: KButtonVariant.outlined,
                         icon: Icons.edit_outlined,
                         onPressed: () => context.go(
                           '/purchase-orders/$poId/edit',
                         ),
                       ),
                     ),
-                    KButton(
+                    KButton.primary(
                       label: 'Send to Supplier',
                       icon: Icons.send_outlined,
                       onPressed: () => _confirmSend(context, ref, po),
                     ),
                   ],
                   if (canReceive)
-                    KButton(
-                      label: 'Create Goods Receipt',
+                    KButton.primary(
+                      label: 'Create Goods Receipt (GRN)',
                       icon: Icons.receipt_long_outlined,
                       onPressed: () => _navigateToReceive(context, po),
                     ),
@@ -719,10 +718,11 @@ class _PoLinesPanel extends StatelessWidget {
                 ),
                 DataCell(Text(qtyFmt)),
                 DataCell(Text(recFmt)),
-                DataCell(Text(CurrencyFormatter.formatIndian(unitPrice))),
-                DataCell(Text(
-                  CurrencyFormatter.formatIndian(lineTotal),
-                  style: KTypography.amountSmall,
+                DataCell(KMoney(unitPrice, size: KMoneySize.small)),
+                DataCell(KMoney(
+                  lineTotal,
+                  size: KMoneySize.small,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
                 )),
               ],
             );
@@ -744,11 +744,19 @@ class _PoSummaryPanel extends StatelessWidget {
       title: 'Summary',
       child: Column(
         children: [
-          const Divider(height: 8),
-          _SummaryRow(
-            label: 'Order Total',
-            value: CurrencyFormatter.formatIndian(total),
-            bold: true,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Order Total', style: KTypography.labelLarge),
+              KMoney(
+                total,
+                size: KMoneySize.medium,
+                style: const TextStyle(
+                  color: KColors.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -785,29 +793,3 @@ class _TextBlock extends StatelessWidget {
   }
 }
 
-class _SummaryRow extends StatelessWidget {
-  final String label;
-  final String value;
-  final bool bold;
-  const _SummaryRow({
-    required this.label,
-    required this.value,
-    this.bold = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label,
-              style: bold ? KTypography.labelLarge : KTypography.bodyMedium),
-          Text(value,
-              style: bold ? KTypography.amountMedium : KTypography.amountSmall),
-        ],
-      ),
-    );
-  }
-}

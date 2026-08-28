@@ -4,7 +4,6 @@ import '../../../../core/theme/k_colors.dart';
 import '../../../../core/theme/k_spacing.dart';
 import '../../../../core/theme/k_typography.dart';
 import '../../../../core/widgets/widgets.dart';
-import '../../../../core/utils/currency_formatter.dart';
 import '../../data/vendor_credit_dto.dart';
 
 /// Card used in the vendor credit list. Extracts fields via [VendorCreditDto]
@@ -34,7 +33,7 @@ class VendorCreditCard extends StatelessWidget {
                   children: [
                     Flexible(
                       child:
-                          Text(c.creditNumber, style: KTypography.labelLarge),
+                          Text(c.creditNumber, style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w600)),
                     ),
                     KSpacing.hGapSm,
                     KStatusChip(status: c.status),
@@ -72,17 +71,15 @@ class VendorCreditCard extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                CurrencyFormatter.formatIndian(c.totalAmount),
-                style: KTypography.amountMedium,
-              ),
+              KMoney(c.totalAmount, size: KMoneySize.medium),
               if (c.balance < c.totalAmount && c.balance > 0) ...[
                 KSpacing.vGapXs,
-                Text(
-                  'Bal: ${CurrencyFormatter.formatIndian(c.balance)}',
-                  style: KTypography.bodySmall.copyWith(
-                    color: KColors.warning,
-                  ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Bal: ', style: KTypography.bodySmall.copyWith(color: KColors.warning)),
+                    KMoney(c.balance, size: KMoneySize.small, style: const TextStyle(color: KColors.warning)),
+                  ],
                 ),
               ],
             ],

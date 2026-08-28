@@ -4,7 +4,6 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../data/report_repository.dart';
 
@@ -188,10 +187,7 @@ class _BalanceSheetScreenState extends ConsumerState<BalanceSheetScreen> {
                             fontStyle: FontStyle.italic,
                           ),
                         ),
-                        Text(
-                          CurrencyFormatter.formatIndian(retainedEarnings),
-                          style: KTypography.amountSmall,
-                        ),
+                        KMoney(retainedEarnings, size: KMoneySize.small),
                       ],
                     ),
                   )
@@ -220,89 +216,86 @@ class _SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
     return KCard(
+      statusAccent: color,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Container(
-                      width: 4,
-                      height: 20,
-                      decoration: BoxDecoration(
-                        color: color,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                    KSpacing.hGapSm,
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: KTypography.h4,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              KSpacing.hGapSm,
               Text(
-                CurrencyFormatter.formatIndian(total),
-                style: KTypography.amountMedium,
-                textAlign: TextAlign.end,
+                title,
+                style: KTypography.h4.copyWith(fontWeight: FontWeight.w700),
+              ),
+              KMoney(
+                total,
+                size: KMoneySize.medium,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ],
           ),
           KSpacing.vGapSm,
           if (accounts.isEmpty)
-            Text(
-              'No accounts with balance',
-              style: KTypography.bodySmall.copyWith(
-                color: KColors.textSecondary,
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                'No accounts with balance',
+                style: KTypography.bodySmall.copyWith(
+                  color: KColors.textSecondary,
+                ),
               ),
             )
           else
-            ...accounts.map((acct) {
-              final a = acct as Map<String, dynamic>;
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 3),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 60,
-                      child: Text(
-                        a['accountCode'] as String? ?? '',
-                        style: KTypography.bodySmall,
+            KDataTable(
+              columns: const [
+                KTableColumn(label: 'Code'),
+                KTableColumn(label: 'Account'),
+                KTableColumn(label: 'Balance', numeric: true),
+              ],
+              rows: [
+                ...accounts.map((acct) {
+                  final a = acct as Map<String, dynamic>;
+                  final amt = (a['amount'] as num?)?.toDouble() ?? 0;
+                  return [
+                    Text(
+                      a['accountCode'] as String? ?? '',
+                      style: KTypography.mono(
+                        size: 12,
+                        color: cs.onSurfaceVariant,
                       ),
                     ),
-                    Expanded(
-                      child: Text(
-                        a['accountName'] as String? ?? '',
-                        style: KTypography.bodySmall,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                    Text(
+                      a['accountName'] as String? ?? '',
+                      style: KTypography.bodySmall,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    KSpacing.hGapSm,
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 160),
-                      child: Text(
-                        CurrencyFormatter.formatIndian(
-                          (a['amount'] as num?)?.toDouble() ?? 0,
-                        ),
-                        style: KTypography.amountSmall,
-                        textAlign: TextAlign.end,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
-          if (footer != null) footer!,
+                    KMoney(amt, size: KMoneySize.small),
+                  ];
+                }),
+                [
+                  Text('', style: KTypography.labelLarge),
+                  Text(
+                    'TOTAL ${title.toUpperCase()}',
+                    style: KTypography.labelLarge.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  KMoney(
+                    total,
+                    size: KMoneySize.medium,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ],
+            ),
+          if (footer != null) ...[
+            KSpacing.vGapSm,
+            footer!,
+          ],
         ],
       ),
     );

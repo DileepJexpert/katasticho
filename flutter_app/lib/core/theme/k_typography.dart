@@ -61,6 +61,9 @@ class KTypography {
   static TextStyle get titleLarge => h2;
   static TextStyle get titleMedium => h3;
   static TextStyle get titleSmall => h4;
+  static TextStyle get headingLarge => h1;
+  static TextStyle get headingMedium => h2;
+  static TextStyle get headingSmall => h3;
 
   // ── Body ──
   static TextStyle get bodyLarge => GoogleFonts.inter(
@@ -80,6 +83,8 @@ class KTypography {
         fontWeight: FontWeight.w400,
         height: 1.4,
       );
+
+  static TextStyle get caption => bodySmall;
 
   // ── Labels ──
   static TextStyle get labelLarge => GoogleFonts.inter(
@@ -144,14 +149,16 @@ class KTypography {
   // IBM Plex Mono so fixed-width codes line up and read scannably; never use
   // for prose. Per design-system.md §3.
   static TextStyle mono({
-    double size = 13,
+    double? size,
+    double? fontSize,
     Color? color,
     FontWeight weight = FontWeight.w400,
+    FontWeight? fontWeight,
   }) =>
       GoogleFonts.ibmPlexMono(
-        fontSize: size,
+        fontSize: fontSize ?? size ?? 13,
         color: color,
-        fontWeight: weight,
+        fontWeight: fontWeight ?? weight,
         height: 1.4,
       );
 }

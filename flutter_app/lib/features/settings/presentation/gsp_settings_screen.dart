@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
-import '../../../core/widgets/widgets.dart';
+import '../../../core/utils/api_error_parser.dart';
+import '../../../core/widgets/k_button.dart';
+import '../../../core/widgets/k_card.dart';
+import '../../../core/widgets/k_error_view.dart';
+import '../../../core/widgets/k_loading.dart';
+import '../../../core/widgets/k_text_field.dart';
 import '../../gst/data/gst_repository.dart';
 
 /// GSP (GST Suvidha Provider) connection settings.
@@ -76,7 +82,7 @@ class _GspSettingsScreenState extends ConsumerState<GspSettingsScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString().replaceAll('Exception: ', '');
+        _error = ApiErrorParser.message(e);
         _loading = false;
       });
     }
@@ -84,6 +90,7 @@ class _GspSettingsScreenState extends ConsumerState<GspSettingsScreen> {
 
   Future<void> _save() async {
     setState(() => _saving = true);
+    final messenger = ScaffoldMessenger.of(context);
     try {
       final body = <String, dynamic>{
         'enabled': _enabled,
@@ -93,7 +100,6 @@ class _GspSettingsScreenState extends ConsumerState<GspSettingsScreen> {
         'einvoicePath': _einvoicePath.text.trim(),
         'ewaybillPath': _ewaybillPath.text.trim(),
         'gstr2bPath': _gstr2bPath.text.trim(),
-        // Token is write-only: only send when the user typed a new one.
         if (_token.text.trim().isNotEmpty) 'token': _token.text.trim(),
       };
       final s = await ref.read(gstRepositoryProvider).updateGspSettings(body);
@@ -103,14 +109,15 @@ class _GspSettingsScreenState extends ConsumerState<GspSettingsScreen> {
         _token.clear();
         _saving = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('GSP settings saved')),
+      messenger.showSnackBar(
+        const SnackBar(content: Text('GSP connection settings saved successfully'), backgroundColor: KColors.success),
       );
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Save failed: ${e.toString().replaceAll('Exception: ', '')}'),
+      messenger.showSnackBar(SnackBar(
+        content: Text('Save failed: ${ApiErrorParser.message(e)}'),
+        backgroundColor: KColors.error,
       ));
     }
   }
@@ -132,7 +139,7 @@ class _GspSettingsScreenState extends ConsumerState<GspSettingsScreen> {
       if (!mounted) return;
       setState(() {
         _testOk = false;
-        _testMessage = 'Test failed: ${e.toString().replaceAll('Exception: ', '')}';
+        _testMessage = 'Test failed: ${ApiErrorParser.message(e)}';
         _testing = false;
       });
     }
@@ -140,84 +147,87 @@ class _GspSettingsScreenState extends ConsumerState<GspSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('GSP Connection')),
+      appBar: AppBar(
+        title: const Text('GST Suvidha Provider (GSP) Setup'),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh',
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: _load,
+          ),
+        ],
+      ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: KLoading(message: 'Loading GSP connector settings...'))
           : _error != null
-              ? Center(
-                  child: Padding(
-                    padding: KSpacing.pagePadding,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(_error!, textAlign: TextAlign.center),
-                        KSpacing.vGapMd,
-                        KButton(label: 'Retry', onPressed: _load),
-                      ],
-                    ),
-                  ),
+              ? Padding(
+                  padding: KSpacing.pagePadding,
+                  child: KErrorView(message: _error!, onRetry: _load),
                 )
               : ListView(
                   padding: KSpacing.pagePadding,
                   children: [
-                    KCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('What is a GSP?', style: KTypography.h3),
-                          KSpacing.vGapSm,
-                          Text(
-                            'A GST Suvidha Provider (e.g. Masters India, ClearTax) '
-                            'is an aggregator that talks to the GST/NIC portals for '
-                            'you. With credentials below you can generate e-invoice '
-                            'IRNs, e-way bills, and pull GSTR-2B in one tap — no '
-                            'manual portal download/upload.',
-                            style: KTypography.bodySmall
-                                .copyWith(color: KColors.textSecondary),
-                          ),
-                        ],
-                      ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Automated GSTN Portal Gateway',
+                          style: KTypography.h2.copyWith(fontWeight: FontWeight.w800),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Connect via authorized GSPs (Masters India, ClearTax, IRIS) for instant e-Invoice IRN and e-Way bill generation.',
+                          style: KTypography.bodySmall.copyWith(color: cs.onSurfaceVariant),
+                        ),
+                      ],
                     ),
-                    KSpacing.vGapMd,
+                    KSpacing.vGapLg,
                     KCard(
+                      title: 'Live Connection Credentials',
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          SwitchListTile(
+                          SwitchListTile.adaptive(
                             contentPadding: EdgeInsets.zero,
-                            title: const Text('Enable GSP integration'),
-                            subtitle: const Text(
-                                'Off = manual portal upload only'),
+                            title: const Text('Enable Automated GSP Integration'),
+                            subtitle: Text(
+                              _enabled
+                                  ? 'Active — 1-click IRN generation & e-Way bill dispatch enabled'
+                                  : 'Disabled — Fallback to manual JSON portal downloads',
+                              style: KTypography.bodySmall.copyWith(color: cs.onSurfaceVariant),
+                            ),
                             value: _enabled,
+                            activeThumbColor: KColors.primary,
                             onChanged: (v) => setState(() => _enabled = v),
                           ),
-                          const Divider(),
-                          KSpacing.vGapSm,
+                          const Divider(height: 24),
                           KTextField(
-                            label: 'Provider name',
-                            hint: 'e.g. MastersIndia',
+                            label: 'GSP Provider Name *',
+                            hint: 'e.g. MastersIndia / ClearTax / IRIS',
                             controller: _provider,
                           ),
                           KSpacing.vGapSm,
                           KTextField(
-                            label: 'Base URL',
-                            hint: 'https://api.example.com',
+                            label: 'API Gateway Base URL *',
+                            hint: 'https://api.mastersindia.co',
                             controller: _baseUrl,
                             keyboardType: TextInputType.url,
                           ),
                           KSpacing.vGapSm,
                           KTextField(
-                            label: 'Your GSTIN',
+                            label: 'Authorized GSTIN *',
                             hint: '27AABCT1234A1Z5',
                             controller: _gstin,
                           ),
                           KSpacing.vGapSm,
                           KTextField(
                             label: _tokenSet
-                                ? 'API token (saved — type to replace)'
-                                : 'API token',
-                            hint: _tokenSet ? '•••••••• stored' : 'Bearer token / API key',
+                                ? 'Bearer Auth Token (Encrypted on Server — Enter new token to replace)'
+                                : 'Bearer Auth Token / API Secret *',
+                            hint: _tokenSet ? '•••••••• (Stored & Protected)' : 'Enter client secret token',
                             controller: _token,
                             obscureText: true,
                           ),
@@ -226,32 +236,25 @@ class _GspSettingsScreenState extends ConsumerState<GspSettingsScreen> {
                     ),
                     KSpacing.vGapMd,
                     KCard(
+                      title: 'Custom Endpoint Routing (Optional)',
+                      subtitle: 'Override standard API endpoint URI paths if your aggregator uses custom gateways.',
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Text('Endpoint paths (optional)',
-                              style: KTypography.labelLarge),
-                          KSpacing.vGapXs,
-                          Text(
-                            'Leave blank to use defaults. Appended to the base URL.',
-                            style: KTypography.bodySmall
-                                .copyWith(color: KColors.textSecondary),
-                          ),
-                          KSpacing.vGapSm,
                           KTextField(
-                            label: 'e-Invoice path',
+                            label: 'e-Invoice IRN Endpoint Path',
                             hint: '/einvoice/generate',
                             controller: _einvoicePath,
                           ),
                           KSpacing.vGapSm,
                           KTextField(
-                            label: 'e-Way bill path',
+                            label: 'e-Way Bill Generation Path',
                             hint: '/ewaybill/generate',
                             controller: _ewaybillPath,
                           ),
                           KSpacing.vGapSm,
                           KTextField(
-                            label: 'GSTR-2B fetch path',
+                            label: 'GSTR-2B Input Fetch Path',
                             hint: '/gstr2b/fetch',
                             controller: _gstr2bPath,
                           ),
@@ -259,37 +262,59 @@ class _GspSettingsScreenState extends ConsumerState<GspSettingsScreen> {
                       ),
                     ),
                     KSpacing.vGapLg,
-                    KButton(
-                      label: _saving ? 'Saving…' : 'Save GSP settings',
-                      icon: Icons.save,
-                      isLoading: _saving,
-                      onPressed: _saving ? null : _save,
-                    ),
-                    KSpacing.vGapSm,
-                    OutlinedButton.icon(
-                      onPressed: (_testing || _saving) ? null : _test,
-                      icon: const Icon(Icons.wifi_tethering),
-                      label: Text(_testing ? 'Testing…' : 'Test connection'),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: KButton.primary(
+                            label: 'Save GSP Configuration',
+                            icon: Icons.save_rounded,
+                            isLoading: _saving,
+                            onPressed: _saving ? null : _save,
+                          ),
+                        ),
+                        KSpacing.hGapMd,
+                        KButton.outlined(
+                          label: _testing ? 'Testing...' : 'Test Gateway Connection',
+                          icon: Icons.wifi_tethering_rounded,
+                          isLoading: _testing,
+                          onPressed: (_testing || _saving) ? null : _test,
+                        ),
+                      ],
                     ),
                     if (_testMessage != null) ...[
-                      KSpacing.vGapSm,
-                      Row(
-                        children: [
-                          Icon(
-                            _testOk ? Icons.check_circle : Icons.error_outline,
-                            color: _testOk ? KColors.success : KColors.error,
-                            size: 18,
+                      KSpacing.vGapMd,
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: _testOk
+                              ? KColors.success.withValues(alpha: 0.12)
+                              : KColors.error.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(KSpacing.radiusMd),
+                          border: Border.all(
+                            color: _testOk
+                                ? KColors.success.withValues(alpha: 0.3)
+                                : KColors.error.withValues(alpha: 0.3),
                           ),
-                          KSpacing.hGapSm,
-                          Expanded(
-                            child: Text(
-                              _testMessage!,
-                              style: KTypography.bodySmall.copyWith(
-                                color: _testOk ? KColors.success : KColors.error,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              _testOk ? Icons.check_circle_rounded : Icons.error_outline_rounded,
+                              color: _testOk ? KColors.success : KColors.error,
+                              size: 20,
+                            ),
+                            KSpacing.hGapSm,
+                            Expanded(
+                              child: Text(
+                                _testMessage!,
+                                style: KTypography.bodySmall.copyWith(
+                                  color: _testOk ? KColors.success : KColors.error,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ],
                   ],

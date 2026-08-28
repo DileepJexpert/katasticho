@@ -213,7 +213,7 @@ class _CreditNoteDetailBody extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: Text(creditNoteNumber, style: KTypography.h2),
+                      child: Text(creditNoteNumber, style: KTypography.mono(fontSize: 20, fontWeight: FontWeight.w600)),
                     ),
                     KStatusChip(status: status),
                   ],
@@ -221,11 +221,10 @@ class _CreditNoteDetailBody extends StatelessWidget {
                 KSpacing.vGapSm,
                 Text(customerName, style: KTypography.bodyLarge),
                 KSpacing.vGapMd,
-                Text(
-                  CurrencyFormatter.formatIndian(totalAmount),
-                  style: KTypography.amountLarge.copyWith(
-                    color: KColors.error,
-                  ),
+                KMoney(
+                  totalAmount,
+                  size: KMoneySize.large,
+                  style: const TextStyle(color: KColors.error),
                 ),
               ],
             ),
@@ -272,7 +271,7 @@ class _CreditNoteDetailBody extends StatelessWidget {
                       children: [
                         KDetailRow(
                           label: 'Credit Note #',
-                          value: creditNoteNumber,
+                          valueWidget: Text(creditNoteNumber, style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w600)),
                         ),
                         KDetailRow(
                           label: 'Customer',
@@ -281,7 +280,7 @@ class _CreditNoteDetailBody extends StatelessWidget {
                         if (invoiceNumber != null)
                           KDetailRow(
                             label: 'Against Invoice',
-                            value: invoiceNumber,
+                            valueWidget: Text(invoiceNumber, style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w600)),
                           ),
                         KDetailRow(
                           label: 'Date',
@@ -300,18 +299,17 @@ class _CreditNoteDetailBody extends StatelessWidget {
                         const Divider(),
                         KDetailRow(
                           label: 'Subtotal',
-                          value: CurrencyFormatter.formatIndian(subtotal),
+                          valueWidget: KMoney(subtotal),
                         ),
                         KDetailRow(
                           label: 'Tax',
-                          value: CurrencyFormatter.formatIndian(taxAmount),
+                          valueWidget: KMoney(taxAmount),
                         ),
                         KDetailRow(
                           label: 'Total',
-                          value:
-                              CurrencyFormatter.formatIndian(totalAmount),
-                          valueStyle: KTypography.amountMedium.copyWith(
-                            color: KColors.error,
+                          valueWidget: KMoney(
+                            totalAmount,
+                            style: const TextStyle(color: KColors.error),
                           ),
                         ),
                       ],
@@ -358,11 +356,8 @@ class _CreditNoteDetailBody extends StatelessWidget {
                                           style:
                                               KTypography.labelLarge),
                                     ),
-                                    Text(
-                                      CurrencyFormatter.formatIndian(
-                                          lineTotal),
-                                      style: KTypography.amountSmall,
-                                    ),
+                                    KMoney(lineTotal,
+                                        size: KMoneySize.small),
                                   ],
                                 ),
                                 KSpacing.vGapXs,
@@ -376,7 +371,7 @@ class _CreditNoteDetailBody extends StatelessWidget {
                                   KSpacing.vGapXs,
                                   Text(
                                     'HSN: $hsnCode',
-                                    style: KTypography.bodySmall,
+                                    style: KTypography.mono(fontSize: 12),
                                   ),
                                 ],
                               ],

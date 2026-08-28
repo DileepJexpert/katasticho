@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/api_error_parser.dart';
+import '../../../core/widgets/widgets.dart';
 import '../data/inventory_repository.dart';
 
 final _recallProvider = FutureProvider.autoDispose
@@ -44,7 +46,7 @@ class _BatchRecallScreenState extends ConsumerState<BatchRecallScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Batch Recall')),
+      appBar: AppBar(title: const Text('Batch Recall Coordinator')),
       body: Column(
         children: [
           Padding(
@@ -52,39 +54,28 @@ class _BatchRecallScreenState extends ConsumerState<BatchRecallScreen> {
             child: Row(
               children: [
                 Expanded(
-                  child: TextField(
+                  child: KTextField(
                     controller: _searchCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Suspect RM batch id',
-                      helperText:
-                          'Paste the batch UUID from the batch list / GRN',
-                      prefixIcon: Icon(Icons.warning_amber_outlined),
-                      border: OutlineInputBorder(),
-                    ),
-                    onSubmitted: (_) => _run(),
+                    label: 'Suspect Raw Material (RM) Batch Number / ID',
+                    hint: 'Paste the batch UUID from the batch list / GRN',
+                    prefixIcon: Icons.warning_amber_outlined,
                   ),
                 ),
-                const SizedBox(width: KSpacing.sm),
-                FilledButton.icon(
+                KSpacing.hGapSm,
+                KButton.primary(
+                  icon: Icons.search,
+                  label: 'Execute Recall Trace',
                   onPressed: _run,
-                  icon: const Icon(Icons.search),
-                  label: const Text('Recall'),
                 ),
               ],
             ),
           ),
           Expanded(
             child: _rmBatchId == null
-                ? const Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.health_and_safety_outlined,
-                            size: 64, color: Colors.grey),
-                        SizedBox(height: KSpacing.md),
-                        Text('Enter an RM batch id to start a recall trace'),
-                      ],
-                    ),
+                ? const KEmptyState(
+                    icon: Icons.health_and_safety_outlined,
+                    title: 'Enter Suspect Batch Number',
+                    subtitle: 'Audit and track downstream Finished Goods (FG) and customer shipments for regulatory quarantine and recall coordination.',
                   )
                 : _RecallView(rmBatchId: _rmBatchId!),
           ),
@@ -108,7 +99,7 @@ class _RecallView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(_recallProvider(rmBatchId));
     return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const Center(child: KLoading(message: 'Executing regulatory batch recall trace...')),
       error: (e, _) => Center(child: Text(ApiErrorParser.message(e))),
       data: (report) {
         final rmInfo = (report['rmBatch'] as Map?) ?? {};
@@ -118,62 +109,93 @@ class _RecallView extends ConsumerWidget {
         return ListView(
           padding: KSpacing.pagePadding,
           children: [
-            Card(
-              color: Colors.red.shade50,
-              child: Padding(
-                padding: const EdgeInsets.all(KSpacing.md),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.warning, color: Colors.red),
-                        const SizedBox(width: KSpacing.sm),
-                        Expanded(
-                          child: Text(
-                            'RM batch: ${rmInfo['batchNumber'] ?? rmBatchId}',
-                            style: KTypography.titleMedium,
-                          ),
+            KCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(KSpacing.sm),
+                        decoration: BoxDecoration(
+                          color: KColors.error.withValues(alpha: 0.12),
+                          borderRadius: KSpacing.borderRadiusSm,
                         ),
-                      ],
-                    ),
-                    if (rmInfo['expiryDate'] != null)
-                      Text('Expiry: ${rmInfo['expiryDate']}'),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 12,
-                      children: [
-                        _Stat(
-                          label: 'Affected FG batches',
+                        child: const Icon(Icons.warning_rounded, color: KColors.error, size: 24),
+                      ),
+                      KSpacing.hGapMd,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Suspect RM Batch: ${rmInfo['batchNumber'] ?? rmBatchId}',
+                              style: KTypography.titleMedium,
+                            ),
+                            if (rmInfo['expiryDate'] != null) ...[
+                              KSpacing.vGapXs,
+                              Text(
+                                'Expiry Date: ${rmInfo['expiryDate']}',
+                                style: KTypography.mono(fontSize: 12, color: KColors.textSecondary),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const KStatusChip(status: 'RECALL_ACTIVE'),
+                    ],
+                  ),
+                  KSpacing.vGapMd,
+                  const Divider(height: 1),
+                  KSpacing.vGapSm,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _Stat(
+                          label: 'Affected FG Batches',
                           value: '${fgBatches.length}',
+                          color: fgBatches.isNotEmpty ? KColors.warning : KColors.textPrimary,
                         ),
-                        _Stat(
-                          label: 'Customer shipments',
+                      ),
+                      Expanded(
+                        child: _Stat(
+                          label: 'Dispatched Customer Shipments',
                           value: '${shipments.length}',
+                          color: shipments.isNotEmpty ? KColors.error : KColors.success,
                         ),
-                      ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            KSpacing.vGapMd,
+            if (shipments.isEmpty)
+              KCard(
+                child: Row(
+                  children: [
+                    Icon(
+                      fgBatches.isEmpty ? Icons.check_circle_outline : Icons.info_outline,
+                      color: fgBatches.isEmpty ? KColors.success : KColors.info,
+                      size: 24,
+                    ),
+                    KSpacing.hGapMd,
+                    Expanded(
+                      child: Text(
+                        fgBatches.isEmpty
+                            ? 'This RM batch has not been consumed in any work order yet — no customer stock at risk.'
+                            : 'The affected FG batches have not been shipped yet — immediately block warehouse stock from dispatch.',
+                        style: KTypography.bodyMedium,
+                      ),
                     ),
                   ],
                 ),
-              ),
-            ),
-            const SizedBox(height: KSpacing.md),
-            if (shipments.isEmpty)
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(KSpacing.md),
-                  child: Text(
-                    fgBatches.isEmpty
-                        ? 'This RM batch has not been consumed in any work order yet — nothing to recall.'
-                        : 'The affected FG batches have not been shipped yet — block the stock before it goes out.',
-                  ),
-                ),
-              ),
-            if (shipments.isNotEmpty)
-              Text('Shipments to recall (newest first)',
-                  style: KTypography.titleMedium),
-            const SizedBox(height: KSpacing.sm),
-            ...shipments.map((s) => _ShipmentTile(shipment: s as Map<String, dynamic>)),
+              )
+            else ...[
+              Text('Shipments to Recall (${shipments.length} outbound orders)', style: KTypography.titleMedium),
+              KSpacing.vGapSm,
+              ...shipments.map((s) => _ShipmentTile(shipment: s as Map<String, dynamic>)),
+            ],
           ],
         );
       },
@@ -184,15 +206,20 @@ class _RecallView extends ConsumerWidget {
 class _Stat extends StatelessWidget {
   final String label;
   final String value;
-  const _Stat({required this.label, required this.value});
+  final Color color;
+  const _Stat({required this.label, required this.value, required this.color});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(value, style: KTypography.h3),
-        Text(label, style: KTypography.bodySmall),
+        Text(
+          value,
+          style: KTypography.mono(fontSize: 22, fontWeight: FontWeight.w700, color: color),
+        ),
+        KSpacing.vGapXs,
+        Text(label, style: KTypography.caption.copyWith(color: KColors.textSecondary)),
       ],
     );
   }
@@ -204,17 +231,52 @@ class _ShipmentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: KSpacing.sm),
-      child: ListTile(
-        leading: const Icon(Icons.local_shipping_outlined),
-        title: Text(shipment['customerName']?.toString() ?? 'Unknown customer'),
-        subtitle: Text(
-          'Invoice ${shipment['invoiceNumber'] ?? '—'} • '
-          'Qty ${shipment['quantity']} • '
-          '${shipment['movementDate'] ?? ''}',
+    final invoiceNumber = shipment['invoiceNumber']?.toString() ?? '—';
+    final qty = shipment['quantity']?.toString() ?? '0';
+    final date = shipment['movementDate']?.toString() ?? '';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: KSpacing.sm),
+      child: KCard(
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(KSpacing.sm),
+              decoration: BoxDecoration(
+                color: KColors.error.withValues(alpha: 0.1),
+                borderRadius: KSpacing.borderRadiusSm,
+              ),
+              child: const Icon(Icons.local_shipping_outlined, color: KColors.error, size: 20),
+            ),
+            KSpacing.hGapMd,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(shipment['customerName']?.toString() ?? 'Unknown Customer', style: KTypography.titleSmall),
+                  KSpacing.vGapXs,
+                  Row(
+                    children: [
+                      Text('Invoice: ', style: KTypography.caption),
+                      Text(
+                        invoiceNumber,
+                        style: KTypography.mono(fontSize: 12, fontWeight: FontWeight.w600, color: KColors.primary),
+                      ),
+                      KSpacing.hGapMd,
+                      Text('Dispatched: ', style: KTypography.caption),
+                      Text('$qty units', style: KTypography.mono(fontSize: 12, fontWeight: FontWeight.w600)),
+                      if (date.isNotEmpty) ...[
+                        KSpacing.hGapSm,
+                        Text('• $date', style: KTypography.caption),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const KStatusChip(status: 'DISPATCHED'),
+          ],
         ),
-        trailing: const Icon(Icons.chevron_right),
       ),
     );
   }

@@ -12,7 +12,9 @@ import '../theme/k_typography.dart';
 class KCard extends StatelessWidget {
   final Widget child;
   final String? title;
+  final Widget? titleWidget;
   final String? subtitle;
+  final Widget? subtitleWidget;
   final Widget? action;
   final Widget? leading;
   final EdgeInsets? padding;
@@ -31,13 +33,19 @@ class KCard extends StatelessWidget {
   /// shows a left accent bar. When null (the default) the card is a plain
   /// [StatelessWidget] with no provider read — zero cost for the 99% of
   /// cards that don't opt in.
+  /// Optional status accent color (e.g. [KColors.success], [KColors.error]).
+  /// When set, the card renders a crisp 3px accent bar on its left edge.
+  final Color? statusAccent;
+
   final String? colorKey;
 
   const KCard({
     super.key,
     required this.child,
     this.title,
+    this.titleWidget,
     this.subtitle,
+    this.subtitleWidget,
     this.action,
     this.leading,
     this.padding,
@@ -49,6 +57,7 @@ class KCard extends StatelessWidget {
     this.gradient,
     this.shadow,
     this.radius,
+    this.statusAccent,
     this.colorKey,
   });
 
@@ -83,6 +92,7 @@ class KCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (title != null ||
+              titleWidget != null ||
               subtitle != null ||
               action != null ||
               leading != null) ...[
@@ -98,7 +108,9 @@ class KCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (title != null)
+                      if (titleWidget != null)
+                        titleWidget!
+                      else if (title != null)
                         Text(
                           title!,
                           style: KTypography.h4.copyWith(
@@ -106,7 +118,10 @@ class KCard extends StatelessWidget {
                                 gradient != null ? Colors.white : cs.onSurface,
                           ),
                         ),
-                      if (subtitle != null) ...[
+                      if (subtitleWidget != null) ...[
+                        const SizedBox(height: 2),
+                        subtitleWidget!,
+                      ] else if (subtitle != null) ...[
                         const SizedBox(height: 2),
                         Text(
                           subtitle!,
@@ -133,20 +148,39 @@ class KCard extends StatelessWidget {
     // A per-component override (when opted in) tints the surface + border and
     // adds a left accent bar, so the card reads as deliberately re-coloured
     // without losing the borders-first look. Gradient cards opt out.
-    final bool tinted = override != null && gradient == null;
-    final Color tintedSurface = tinted
+    final bool hasAccent = (override != null || statusAccent != null) && gradient == null;
+    final Color? accentColor = override ?? statusAccent;
+    final Color tintedSurface = (override != null && gradient == null)
         ? (backgroundColor ?? Color.lerp(cs.surface, override, 0.06)!)
         : (backgroundColor ?? cs.surface);
     final BoxBorder? cardBorder = gradient != null
         ? null
-        : tinted
-            ? Border(
-                left: BorderSide(color: override, width: 3),
-                top: BorderSide(color: borderColor ?? override, width: 1),
-                right: BorderSide(color: borderColor ?? override, width: 1),
-                bottom: BorderSide(color: borderColor ?? override, width: 1),
-              )
-            : Border.all(color: borderColor ?? cs.outlineVariant, width: 1);
+        : Border.all(color: borderColor ?? cs.outlineVariant, width: 1);
+
+    Widget cardBody = content;
+    if (hasAccent && accentColor != null) {
+      cardBody = Stack(
+        clipBehavior: Clip.antiAlias,
+        children: [
+          content,
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: 3.5,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: accentColor,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(r),
+                  bottomLeft: Radius.circular(r),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
 
     final card = AnimatedContainer(
       duration: const Duration(milliseconds: 150),
@@ -158,7 +192,8 @@ class KCard extends StatelessWidget {
         border: cardBorder,
         boxShadow: shadow ?? defaultShadow,
       ),
-      child: content,
+      clipBehavior: Clip.antiAlias,
+      child: cardBody,
     );
 
     if (onTap != null || onLongPress != null) {

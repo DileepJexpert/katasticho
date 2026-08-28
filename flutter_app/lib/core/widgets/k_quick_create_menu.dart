@@ -46,6 +46,14 @@ class KQuickCreateMenu extends StatelessWidget {
         label: 'New Credit Note',
         icon: Icons.note_add_rounded,
         route: Routes.creditNoteCreate),
+    _CreateItem(
+        label: 'New Debit Note',
+        icon: Icons.note_alt_rounded,
+        route: Routes.debitNoteCreate),
+    _CreateItem(
+        label: 'New Work Order',
+        icon: Icons.precision_manufacturing_rounded,
+        route: Routes.manufacturingWorkOrderCreate),
   ];
 
   void _show(BuildContext context) {

@@ -30,6 +30,56 @@ class KButton extends StatelessWidget {
     this.fullWidth = false,
   });
 
+  const KButton.primary({
+    super.key,
+    required this.label,
+    this.onPressed,
+    this.size = KButtonSize.medium,
+    this.icon,
+    this.isLoading = false,
+    this.fullWidth = false,
+  }) : variant = KButtonVariant.primary;
+
+  const KButton.secondary({
+    super.key,
+    required this.label,
+    this.onPressed,
+    this.size = KButtonSize.medium,
+    this.icon,
+    this.isLoading = false,
+    this.fullWidth = false,
+  }) : variant = KButtonVariant.secondary;
+
+  const KButton.danger({
+    super.key,
+    required this.label,
+    this.onPressed,
+    this.size = KButtonSize.medium,
+    this.icon,
+    this.isLoading = false,
+    this.fullWidth = false,
+  }) : variant = KButtonVariant.danger;
+
+  const KButton.outlined({
+    super.key,
+    required this.label,
+    this.onPressed,
+    this.size = KButtonSize.medium,
+    this.icon,
+    this.isLoading = false,
+    this.fullWidth = false,
+  }) : variant = KButtonVariant.outlined;
+
+  const KButton.text({
+    super.key,
+    required this.label,
+    this.onPressed,
+    this.size = KButtonSize.medium,
+    this.icon,
+    this.isLoading = false,
+    this.fullWidth = false,
+  }) : variant = KButtonVariant.text;
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;

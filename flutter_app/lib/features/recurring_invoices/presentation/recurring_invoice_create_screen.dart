@@ -6,7 +6,7 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/form_error_handler.dart';
-import '../../contacts/data/contact_repository.dart';
+import '../../contacts/presentation/contact_picker_sheet.dart';
 import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
 import '../data/recurring_invoice_repository.dart';
 
@@ -140,44 +140,36 @@ class _RecurringInvoiceCreateScreenState
             ),
             KSpacing.vGapMd,
 
-            // Frequency
-            DropdownButtonFormField<String>(
-              initialValue: _frequency,
-              decoration: const InputDecoration(labelText: 'Frequency *'),
-              items: _frequencies
-                  .map((f) => DropdownMenuItem(
-                        value: f.value,
-                        child: Text(f.label),
-                      ))
-                  .toList(),
-              onChanged: (v) {
-                if (v != null) setState(() => _frequency = v);
-              },
-            ),
-            KSpacing.vGapMd,
-
-            // Dates
-            Row(
+            // Frequency & Dates
+            KCompactRow(
               children: [
-                Expanded(
-                  child: KDatePicker(
-                    label: 'Start date *',
-                    value: _startDate,
-                    onChanged: (d) => setState(() => _startDate = d),
-                  ),
+                KDropdownField<String>(
+                  label: 'Frequency *',
+                  value: _frequency,
+                  items: _frequencies
+                      .map((f) => DropdownMenuItem(
+                            value: f.value,
+                            child: Text(f.label),
+                          ))
+                      .toList(),
+                  onChanged: (v) {
+                    if (v != null) setState(() => _frequency = v);
+                  },
                 ),
-                KSpacing.hGapSm,
-                Expanded(
-                  child: KDatePicker(
-                    label: 'End date',
-                    value: _endDate,
-                    firstDate: _startDate,
-                    onChanged: (d) => setState(() => _endDate = d),
-                  ),
+                KDatePicker(
+                  label: 'Start Date *',
+                  value: _startDate,
+                  onChanged: (d) => setState(() => _startDate = d),
+                ),
+                KDatePicker(
+                  label: 'End Date',
+                  value: _endDate,
+                  firstDate: _startDate,
+                  onChanged: (d) => setState(() => _endDate = d),
                 ),
               ],
             ),
-            KSpacing.vGapMd,
+            KSpacing.vGapSm,
 
             // Payment terms
             KTextField(
@@ -279,63 +271,26 @@ class _RecurringInvoiceCreateScreenState
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label,
-            style: bold ? KTypography.labelLarge : KTypography.bodyMedium),
-        Text('₹${value.toStringAsFixed(2)}',
-            style: bold ? KTypography.labelLarge : KTypography.bodyMedium),
+            style: bold
+                ? KTypography.labelLarge.copyWith(fontWeight: FontWeight.w700)
+                : KTypography.bodyMedium),
+        KMoney(
+          value,
+          size: bold ? KMoneySize.medium : KMoneySize.small,
+          style: bold ? const TextStyle(fontWeight: FontWeight.w700) : null,
+        ),
       ],
     );
   }
 
   Future<void> _pickContact() async {
-    final repo = ref.read(contactRepositoryProvider);
-    Map<String, dynamic>? result;
-    try {
-      result = await repo.listContacts(type: 'CUSTOMER');
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to load customers')));
-      return;
-    }
-
-    if (!mounted) return;
-    final content = result['data'];
-    final contacts = content is List
-        ? content
-        : (content is Map ? (content['content'] as List?) ?? [] : []);
-
-    final filtered = contacts.where((c) {
-      final t = (c as Map)['contactType'] as String? ?? '';
-      return t == 'CUSTOMER' || t == 'BOTH';
-    }).toList();
-
-    final picked = await showModalBottomSheet<Map<String, dynamic>>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (ctx) => SafeArea(
-        child: ListView.separated(
-          shrinkWrap: true,
-          itemCount: filtered.length,
-          separatorBuilder: (_, __) => const Divider(height: 1),
-          itemBuilder: (_, i) {
-            final c = filtered[i] as Map<String, dynamic>;
-            return ListTile(
-              leading: const CircleAvatar(
-                  child: Icon(Icons.person_outline, size: 18)),
-              title: Text(c['displayName'] as String? ?? 'Customer'),
-              subtitle: Text(c['email'] as String? ?? ''),
-              onTap: () => Navigator.pop(ctx, c),
-            );
-          },
-        ),
-      ),
-    );
-
-    if (picked != null) {
+    final picked = await showContactPicker(context, showQuickCreate: true);
+    if (picked != null && mounted) {
       setState(() {
         _contactId = picked['id']?.toString();
-        _contactName = picked['displayName'] as String?;
+        _contactName = picked['displayName'] as String? ??
+            picked['companyName'] as String? ??
+            'Customer';
       });
     }
   }
@@ -463,63 +418,53 @@ class _LineCard extends StatelessWidget {
                 (v == null || v.trim().isEmpty) ? 'Required' : null,
           ),
           KSpacing.vGapSm,
-          Row(
+          KCompactRow(
             children: [
-              Expanded(
-                child: KTextField(
-                  label: 'Quantity',
-                  controller: line.quantityCtrl,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  onChanged: (_) => onChanged(),
-                ),
+              KTextField(
+                label: 'Quantity',
+                controller: line.quantityCtrl,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                onChanged: (_) => onChanged(),
               ),
-              KSpacing.hGapSm,
-              Expanded(
-                child: KTextField.amount(
-                  label: 'Rate',
-                  controller: line.rateCtrl,
-                  onChanged: (_) => onChanged(),
-                ),
+              KTextField.amount(
+                label: 'Rate',
+                controller: line.rateCtrl,
+                onChanged: (_) => onChanged(),
+              ),
+            ],
+          ),
+          KSpacing.vGapSm,
+          KCompactRow(
+            children: [
+              TaxGroupPicker(
+                value: line.taxGroupId,
+                label: 'Tax',
+                onChanged: (group) {
+                  line.taxGroupId = group?.id;
+                  line.taxRate = group?.totalRate ?? 0;
+                  onChanged();
+                },
+              ),
+              KTextField(
+                label: 'Discount %',
+                initialValue: line.discountPct.toString(),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                onChanged: (v) {
+                  line.discountPct = double.tryParse(v) ?? 0;
+                  onChanged();
+                },
               ),
             ],
           ),
           KSpacing.vGapSm,
           Row(
+            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              Expanded(
-                child: TaxGroupPicker(
-                  value: line.taxGroupId,
-                  label: 'Tax',
-                  onChanged: (group) {
-                    line.taxGroupId = group?.id;
-                    line.taxRate = group?.totalRate ?? 0;
-                    onChanged();
-                  },
-                ),
-              ),
-              KSpacing.hGapSm,
-              Expanded(
-                child: KTextField(
-                  label: 'Discount %',
-                  initialValue: line.discountPct.toString(),
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  onChanged: (v) {
-                    line.discountPct = double.tryParse(v) ?? 0;
-                    onChanged();
-                  },
-                ),
-              ),
+              Text('Line total: ', style: KTypography.bodySmall),
+              KMoney(line.total, size: KMoneySize.small),
             ],
-          ),
-          KSpacing.vGapSm,
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              'Line total: ₹${line.total.toStringAsFixed(2)}',
-              style: KTypography.labelLarge,
-            ),
           ),
         ],
       ),

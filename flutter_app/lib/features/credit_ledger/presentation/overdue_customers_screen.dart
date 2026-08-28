@@ -7,7 +7,6 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../data/credit_reminder_repository.dart';
 
 class OverdueCustomersScreen extends ConsumerStatefulWidget {
@@ -295,9 +294,10 @@ class _SummaryCard extends StatelessWidget {
               children: [
                 Text('Total Overdue', style: KTypography.bodySmall),
                 KSpacing.vGapXs,
-                Text(
-                  CurrencyFormatter.formatIndian(totalOverdue),
-                  style: KTypography.amountLarge.copyWith(color: KColors.error),
+                KMoney(
+                  totalOverdue,
+                  size: KMoneySize.large,
+                  style: const TextStyle(color: KColors.error, fontWeight: FontWeight.w700),
                 ),
               ],
             ),
@@ -406,10 +406,12 @@ class _OverdueCustomerCard extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text(
-                      CurrencyFormatter.formatIndian(totalOutstanding),
-                      style: KTypography.amountSmall.copyWith(
+                    KMoney(
+                      totalOutstanding,
+                      size: KMoneySize.small,
+                      style: TextStyle(
                         color: severityColor,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     KSpacing.vGapXs,

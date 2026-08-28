@@ -6,7 +6,6 @@ import '../../../../core/theme/k_colors.dart';
 import '../../../../core/theme/k_spacing.dart';
 import '../../../../core/theme/k_typography.dart';
 import '../../../../core/widgets/widgets.dart';
-import '../../../../core/utils/currency_formatter.dart';
 import '../../data/bill_dto.dart';
 import '../../data/bill_providers.dart';
 import '../../data/bill_repository.dart';
@@ -108,11 +107,20 @@ class _RecordPaymentSheetState extends ConsumerState<_RecordPaymentSheet> {
             ),
           ),
           KSpacing.vGapXs,
-          Text(
-            'Balance: ${CurrencyFormatter.formatIndian(b.balanceDue)}',
-            style: KTypography.bodySmall.copyWith(
-              color: KColors.textSecondary,
-            ),
+          Row(
+            children: [
+              Text(
+                'Balance: ',
+                style: KTypography.bodySmall.copyWith(
+                  color: KColors.textSecondary,
+                ),
+              ),
+              KMoney(
+                b.balanceDue,
+                size: KMoneySize.small,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ],
           ),
           KSpacing.vGapMd,
           KTextField.amount(
@@ -165,7 +173,7 @@ class _RecordPaymentSheetState extends ConsumerState<_RecordPaymentSheet> {
             onChanged: (d) => setState(() => _paymentDate = d),
           ),
           KSpacing.vGapLg,
-          KButton(
+          KButton.primary(
             label: 'Record Payment',
             icon: Icons.check,
             fullWidth: true,

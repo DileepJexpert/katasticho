@@ -25,11 +25,17 @@ class KShortcuts {
   static const listSelect = 'X';
   static const listSelectAll = 'Ctrl/Cmd A';
 
-  // ── Form screens ──────────────────────────────────────────────
+  // ── Form & Billing screens ────────────────────────────────────
   static const formSubmit = 'Ctrl/Cmd Enter';
   static const formNextStep = 'Ctrl/Cmd →';
   static const formPrevStep = 'Ctrl/Cmd ←';
   static const formCancel = 'Esc';
+  static const billingDateJump = 'F2';
+  static const billingItemLookup = 'F7';
+  static const billingSchemeLookup = 'F8';
+  static const billingQuickCreate = 'Alt C';
+  static const billingPrint = 'Ctrl/Cmd P';
+  static const billingAddRow = 'Enter';
 
   // ── POS ───────────────────────────────────────────────────────
   // "/" (slash) is the search key — universal web-app convention. Ctrl+F is
@@ -59,5 +65,11 @@ class KShortcuts {
     final pressed = HardwareKeyboard.instance.logicalKeysPressed;
     return pressed.contains(LogicalKeyboardKey.shiftLeft) ||
         pressed.contains(LogicalKeyboardKey.shiftRight);
+  }
+
+  static bool isAltOrOptionPressed() {
+    final pressed = HardwareKeyboard.instance.logicalKeysPressed;
+    return pressed.contains(LogicalKeyboardKey.altLeft) ||
+        pressed.contains(LogicalKeyboardKey.altRight);
   }
 }

@@ -361,15 +361,13 @@ class _ItemScanSheetState extends ConsumerState<_ItemScanSheet> {
             padding: const EdgeInsets.all(KSpacing.md),
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surface,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
-                  blurRadius: 8,
-                  offset: const Offset(0, -2),
+              border: Border(
+                top: BorderSide(
+                  color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
                 ),
-              ],
+              ),
             ),
-            child: KButton(
+            child: KButton.primary(
               label: 'Use All ${_scannedItems.length} Items',
               icon: Icons.check,
               onPressed: () => Navigator.pop(context, _scannedItems),
@@ -671,14 +669,16 @@ class _ScannedItemCardState extends State<_ScannedItemCard> {
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              TextButton(
+              KButton.outlined(
+                label: 'Cancel',
+                size: KButtonSize.small,
                 onPressed: _cancelEditing,
-                child: const Text('Cancel'),
               ),
               KSpacing.hGapSm,
-              KButton(
+              KButton.primary(
                 label: 'Done',
                 icon: Icons.check,
+                size: KButtonSize.small,
                 onPressed: _doneEditing,
               ),
             ],

@@ -8,6 +8,8 @@ import '../features/auth/presentation/login_screen.dart';
 import '../features/portal_app/presentation/portal_login_screen.dart';
 import '../features/portal_app/presentation/portal_accept_invite_screen.dart';
 import '../features/portal_app/presentation/portal_home_screen.dart';
+import '../features/portal_app/presentation/portal_reorder_screen.dart';
+import '../features/portal_app/presentation/portal_orders_screen.dart';
 import '../features/auth/presentation/otp_screen.dart';
 import '../features/auth/presentation/signup_screen.dart';
 import '../features/dashboard/presentation/dashboard_screen.dart';
@@ -46,6 +48,8 @@ import '../features/ai_chat/presentation/ai_chat_screen.dart';
 import '../features/banking/presentation/bank_reconciliation_screen.dart';
 import '../features/banking/presentation/bank_account_list_screen.dart';
 import '../features/banking/presentation/bank_rules_screen.dart';
+import '../features/banking/presentation/payout_disbursement_screen.dart';
+import '../features/whatsapp/presentation/whatsapp_hub_screen.dart';
 import '../features/settings/presentation/business_configuration_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
 import '../features/settings/presentation/inventory_features_screen.dart';
@@ -59,6 +63,7 @@ import '../features/onboarding/presentation/sub_category_screen.dart';
 import '../features/onboarding/presentation/business_details_screen.dart';
 import '../features/onboarding/presentation/setup_complete_screen.dart';
 import '../features/gst/presentation/gst_dashboard_screen.dart';
+import '../features/gst/presentation/gstr2b_reconciliation_screen.dart';
 import '../features/gst/presentation/itc_risk_screen.dart';
 import '../features/courier/presentation/courier_shipment_list_screen.dart';
 import '../features/courier/presentation/cod_remittance_list_screen.dart';
@@ -145,6 +150,8 @@ import '../features/inventory/presentation/transfer_order_list_screen.dart';
 import '../features/inventory/presentation/transfer_order_create_screen.dart';
 import '../features/inventory/presentation/transfer_order_detail_screen.dart';
 import '../features/inventory/presentation/picklist_list_screen.dart';
+import '../features/job_work/presentation/job_work_list_screen.dart';
+import '../features/job_work/presentation/job_work_detail_screen.dart';
 import '../features/inventory/presentation/reorder_screen.dart';
 import '../features/inventory/presentation/shortbook_screen.dart';
 import '../features/team/presentation/team_screen.dart';
@@ -153,6 +160,7 @@ import '../features/settings/presentation/gsp_settings_screen.dart';
 import '../features/settings/presentation/api_keys_screen.dart';
 import '../features/settings/presentation/nav_customisation_screen.dart';
 import '../features/settings/presentation/modules_settings_screen.dart';
+import '../features/custom_fields/presentation/custom_fields_settings_screen.dart';
 import '../features/settings/presentation/budgets_screen.dart';
 import '../features/settings/presentation/tally_import_screen.dart';
 import '../features/settings/presentation/business_policy_settings_screen.dart';
@@ -189,6 +197,7 @@ import '../features/inventory/presentation/consignment_screen.dart';
 import '../features/hr/presentation/my_profile_screen.dart';
 import '../features/hr/presentation/leave_management_screen.dart';
 import '../features/hr/presentation/hr_attendance_screen.dart';
+import '../features/hr/presentation/biometric_attendance_screen.dart';
 import '../features/hr/presentation/shift_management_screen.dart';
 import '../features/hr/presentation/timesheet_screen.dart';
 import '../features/hr/presentation/help_desk_screen.dart';
@@ -197,6 +206,7 @@ import '../features/hr/presentation/hr_analytics_screen.dart';
 import '../features/hr/presentation/offboarding_screen.dart';
 import '../features/field_sales/presentation/beat_list_screen.dart';
 import '../features/field_sales/presentation/live_tracking_screen.dart';
+import '../features/field_sales/presentation/field_merchandising_screen.dart';
 import '../features/field_sales/presentation/mr_approvals_screen.dart';
 import '../features/field_sales/presentation/field_samples_screen.dart';
 import '../features/field_sales/presentation/field_coverage_screen.dart';
@@ -212,6 +222,7 @@ import '../features/field_sales/presentation/route_execution_detail_screen.dart'
 import '../features/field_sales/presentation/day_close_screen.dart';
 import '../features/field_sales/presentation/salesman_dashboard_screen.dart';
 import '../features/field_sales/presentation/salesman_targets_screen.dart';
+import '../features/field_sales/presentation/team_assignments_screen.dart';
 import '../features/partner_network/presentation/partner_list_screen.dart';
 import '../features/partner_network/presentation/catalog_list_screen.dart';
 import '../features/partner_network/presentation/supplier_search_screen.dart';
@@ -264,6 +275,10 @@ import '../features/currency/presentation/currency_screen.dart';
 import '../features/forex_revaluation/presentation/forex_revaluation_screen.dart';
 import '../features/integrations/presentation/integration_list_screen.dart';
 import '../features/workflow/presentation/workflow_settings_screen.dart';
+import '../features/payment_terms/presentation/payment_terms_screen.dart';
+import '../features/recurring_bills/presentation/recurring_bills_screen.dart';
+import '../features/recurring_journals/presentation/recurring_journals_screen.dart';
+import '../features/workflow_rules/presentation/workflow_rules_screen.dart';
 import 'shell_screen.dart';
 
 /// Route paths.
@@ -283,6 +298,7 @@ class Routes {
   static const contactDetail = '/contacts/:id';
   static const contactEdit = '/contacts/:id/edit';
   static const notifications = '/notifications';
+  static const whatsapp = '/whatsapp';
   static const expenses = '/expenses';
   static const expenseCreate = '/expenses/create';
   static const expenseDetail = '/expenses/:id';
@@ -293,6 +309,10 @@ class Routes {
   static const recurringInvoices = '/recurring-invoices';
   static const recurringInvoiceCreate = '/recurring-invoices/create';
   static const recurringInvoiceDetail = '/recurring-invoices/:id';
+  static const paymentTerms = '/settings/payment-terms';
+  static const recurringBills = '/purchases/recurring-bills';
+  static const recurringJournals = '/accounting/recurring-journals';
+  static const workflowRules = '/settings/workflow-rules';
 
   static const items = '/items';
   static const itemCreate = '/items/create';
@@ -373,8 +393,10 @@ class Routes {
   static const bankReconciliation = '/banking/reconciliation';
   static const bankAccounts = '/bank-accounts';
   static const bankRules = '/banking/rules';
+  static const payoutDisbursement = '/banking/payouts';
   static const gst = '/gst';
   static const gstItcRisk = '/gst/itc-risk';
+  static const gstr2bReconciliation = '/gst/gstr2b-recon';
   static const courierShipments = '/courier/shipments';
   static const courierCod = '/courier/cod-remittances';
   static const courierSettings = '/settings/couriers';
@@ -391,6 +413,8 @@ class Routes {
   static const transferOrders = '/inventory/transfer-orders';
   static const transferOrderCreate = '/inventory/transfer-orders/create';
   static const picklists = '/inventory/picklists';
+  static const jobWorkList = '/inventory/job-work';
+  static const jobWorkDetail = '/inventory/job-work/:id';
   static const contactStatement = '/contacts/:id/statement';
   static const settings = '/settings';
   static const businessConfiguration = '/settings/business-configuration';
@@ -411,6 +435,7 @@ class Routes {
   static const tallyImport = '/settings/tally-import';
   static const portalUsers = '/settings/portal-users';
   static const navCustomisation = '/settings/nav-customisation';
+  static const customFields = '/settings/custom-fields';
   static const modules = '/settings/modules';
   // Onboarding wizard
   static const onboardingBusinessType = '/onboarding/business-type';
@@ -471,6 +496,7 @@ class Routes {
   static const hrProfile = '/hr/profile';
   static const hrLeave = '/hr/leave';
   static const hrAttendance = '/hr/attendance';
+  static const hrBiometricAttendance = '/hr/biometric';
   static const hrShifts = '/hr/shifts';
   static const hrTimesheets = '/hr/timesheets';
   static const hrHelpdesk = '/hr/helpdesk';
@@ -488,6 +514,7 @@ class Routes {
   static const fieldSalesDayClose = '/field-sales/day-close';
   static const fieldSalesDashboard = '/field-sales/dashboard';
   static const fieldSalesLiveTracking = '/field-sales/live-tracking';
+  static const fieldSalesMerchandising = '/field-sales/merchandising';
   static const fieldSalesMrApprovals = '/field-sales/mr-approvals';
   static const fieldSalesSamples = '/field-sales/samples';
   static const fieldSalesCoverage = '/field-sales/coverage';
@@ -497,6 +524,7 @@ class Routes {
   static const fieldSalesRcpa = '/field-sales/rcpa';
   static const fieldSalesOrgChart = '/field-sales/org-chart';
   static const fieldSalesTargets = '/field-sales/targets';
+  static const fieldSalesAssignments = '/field-sales/assignments';
 
   // Partner Network (B2B)
   static const partnerNetworkPartners = '/partner-network/partners';
@@ -570,6 +598,8 @@ class Routes {
   static const portalLogin = '/portal/login';
   static const portalAccept = '/portal/accept';
   static const portalHome = '/portal/home';
+  static const portalReorder = '/portal/reorder';
+  static const portalOrders = '/portal/orders';
   static const platformAdminDashboard = '/platform-admin/dashboard';
   static const platformAdminPending = '/platform-admin/pending';
   static const platformAdminOrgs = '/platform-admin/orgs';
@@ -693,6 +723,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.portalHome,
         builder: (context, state) => const PortalHomeScreen(),
+      ),
+      GoRoute(
+        path: Routes.portalReorder,
+        builder: (context, state) => const PortalReorderScreen(),
+      ),
+      GoRoute(
+        path: Routes.portalOrders,
+        builder: (context, state) => const PortalOrdersScreen(),
       ),
       GoRoute(
         path: Routes.otp,
@@ -895,7 +933,9 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: Routes.contactCreate,
-            builder: (context, state) => const ContactCreateScreen(),
+            builder: (context, state) => ContactCreateScreen(
+              initialType: state.uri.queryParameters['type'],
+            ),
           ),
           GoRoute(
             path: Routes.contactImport,
@@ -1141,6 +1181,30 @@ final routerProvider = Provider<GoRouter>((ref) {
               templateId: state.pathParameters['id']!,
             ),
           ),
+          GoRoute(
+            path: Routes.paymentTerms,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: PaymentTermsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.recurringBills,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: RecurringBillsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.recurringJournals,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: RecurringJournalsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.workflowRules,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: WorkflowRulesScreen(),
+            ),
+          ),
 
           GoRoute(
             path: Routes.items,
@@ -1248,6 +1312,20 @@ final routerProvider = Provider<GoRouter>((ref) {
               child: PicklistListScreen(),
             ),
           ),
+          GoRoute(
+            path: Routes.jobWorkList,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: JobWorkChallan45ListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.jobWorkDetail,
+            pageBuilder: (context, state) => NoTransitionPage(
+              child: JobWorkChallan45DetailScreen(
+                orderId: state.pathParameters['id'] ?? '',
+              ),
+            ),
+          ),
           // Payroll
           GoRoute(
             path: Routes.payrollEmployees,
@@ -1335,6 +1413,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.hrAttendance,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: HrAttendanceScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.hrBiometricAttendance,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: BiometricAttendanceScreen(),
             ),
           ),
           GoRoute(
@@ -1429,6 +1513,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+            path: Routes.fieldSalesMerchandising,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: FieldMerchandisingScreen(),
+            ),
+          ),
+          GoRoute(
             path: Routes.fieldSalesMrApprovals,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: MrApprovalsScreen(),
@@ -1480,6 +1570,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.fieldSalesDetailAids,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: DetailAidsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.fieldSalesAssignments,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: TeamAssignmentsScreen(),
             ),
           ),
           // Partner Network (B2B)
@@ -2151,6 +2247,18 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+            path: Routes.payoutDisbursement,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: PayoutDisbursementScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.whatsapp,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: WhatsAppHubScreen(),
+            ),
+          ),
+          GoRoute(
             path: Routes.forexRevaluation,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: ForexRevaluationScreen(),
@@ -2165,6 +2273,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.gstItcRisk,
             builder: (context, state) => const ItcRiskScreen(),
+          ),
+          GoRoute(
+            path: Routes.gstr2bReconciliation,
+            builder: (context, state) => const Gstr2bReconciliationScreen(),
           ),
           GoRoute(
             path: Routes.courierShipments,
@@ -2269,6 +2381,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.navCustomisation,
             builder: (context, state) => const NavCustomisationScreen(),
+          ),
+          GoRoute(
+            path: Routes.customFields,
+            builder: (context, state) => const CustomFieldsSettingsScreen(),
           ),
           GoRoute(
             path: Routes.modules,

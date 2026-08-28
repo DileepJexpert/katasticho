@@ -120,13 +120,26 @@ class KDetailDrawer extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header
-          Padding(
+          // Header with DualEntry-style subtle tint & hairline divider
+          Container(
+            decoration: BoxDecoration(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? cs.surfaceContainerHighest.withValues(alpha: 0.25)
+                  : const Color(0xFFF8F8F6),
+              border: Border(
+                bottom: BorderSide(
+                  color: cs.outlineVariant.withValues(
+                    alpha: Theme.of(context).brightness == Brightness.dark ? 0.4 : 0.7,
+                  ),
+                  width: 1,
+                ),
+              ),
+            ),
             padding: const EdgeInsets.fromLTRB(
               KSpacing.md,
-              10,
+              12,
               KSpacing.sm,
-              10,
+              12,
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -138,7 +151,10 @@ class KDetailDrawer extends StatelessWidget {
                     children: [
                       Text(
                         title,
-                        style: KTypography.h3.copyWith(color: cs.onSurface),
+                        style: KTypography.h3.copyWith(
+                          color: cs.onSurface,
+                          fontWeight: FontWeight.w600,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -172,7 +188,6 @@ class KDetailDrawer extends StatelessWidget {
               ],
             ),
           ),
-          Divider(height: 1, thickness: 1, color: cs.outlineVariant),
 
           // Body
           Expanded(

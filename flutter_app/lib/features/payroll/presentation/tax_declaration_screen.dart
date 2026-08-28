@@ -258,17 +258,22 @@ class _MyDeclarationTabState extends ConsumerState<_MyDeclarationTab> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Submit declaration'),
-        content: const Text(
-            'Once submitted, the declaration is locked for HR review and can '
-            'no longer be edited. Continue?'),
+        title: Text('Submit Tax Declaration', style: KTypography.titleLarge),
+        content: Text(
+          'Once submitted, the declaration is locked for HR review and can '
+          'no longer be edited. Continue?',
+          style: KTypography.bodyMedium,
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
-          FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Submit')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          KButton.primary(
+            label: 'Submit for Review',
+            icon: Icons.check,
+            onPressed: () => Navigator.pop(ctx, true),
+          ),
         ],
       ),
     );
@@ -279,8 +284,9 @@ class _MyDeclarationTabState extends ConsumerState<_MyDeclarationTab> {
       await ref
           .read(apiClientProvider)
           .post(ApiConfig.taxDeclarationSubmit(id));
-      messenger
-          .showSnackBar(const SnackBar(content: Text('Declaration submitted')));
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Declaration submitted successfully'), backgroundColor: KColors.success),
+      );
       _load();
     } on DioException catch (e) {
       messenger.showSnackBar(SnackBar(
@@ -308,59 +314,60 @@ class _MyDeclarationTabState extends ConsumerState<_MyDeclarationTab> {
       children: [
         // Status + regime
         KCard(
-          child: Padding(
-            padding: const EdgeInsets.all(KSpacing.md),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text('FY ${widget.fy}', style: KTypography.h3),
-                    ),
-                    KStatusChip(status: _status),
-                  ],
-                ),
-                KSpacing.vGapMd,
-                DropdownButtonFormField<String>(
-                  initialValue: _regime,
-                  decoration: const InputDecoration(
-                    labelText: 'Tax regime',
-                    border: OutlineInputBorder(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text('Financial Year $widget.fy', style: KTypography.titleLarge),
                   ),
-                  items: const [
-                    DropdownMenuItem(value: 'OLD', child: Text('Old regime')),
-                    DropdownMenuItem(
-                        value: 'NEW', child: Text('New regime (115BAC)')),
-                  ],
-                  onChanged: _editable
-                      ? (v) => setState(() => _regime = v ?? 'OLD')
-                      : null,
-                ),
-                if (newRegime) ...[
-                  KSpacing.vGapSm,
-                  _infoBanner(
-                      'Under the new regime, HRA exemption and most Chapter VI-A '
-                      'deductions don\'t apply. Figures below are kept for record only.'),
+                  KStatusChip(status: _status),
                 ],
+              ),
+              KSpacing.vGapMd,
+              DropdownButtonFormField<String>(
+                initialValue: _regime,
+                decoration: const InputDecoration(
+                  labelText: 'Tax Regime',
+                  border: OutlineInputBorder(),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'OLD', child: Text('Old Tax Regime (with exemptions & deductions)')),
+                  DropdownMenuItem(
+                      value: 'NEW', child: Text('New Tax Regime (Section 115BAC)')),
+                ],
+                onChanged: _editable
+                    ? (v) => setState(() => _regime = v ?? 'OLD')
+                    : null,
+              ),
+              if (newRegime) ...[
+                KSpacing.vGapSm,
+                _infoBanner(
+                    'Under the new regime, HRA exemption and most Chapter VI-A '
+                    'deductions don\'t apply. Figures below are kept for record only.'),
               ],
-            ),
+            ],
           ),
         ),
         KSpacing.vGapMd,
 
         // 1. HRA
-        _section('1. House Rent Allowance', [
-          _money('Annual rent paid', _rent),
+        _section('1. House Rent Allowance (HRA)', [
+          KTextField.amount(
+            label: 'Annual Rent Paid',
+            controller: _rent,
+            enabled: _editable,
+          ),
           SwitchListTile.adaptive(
             contentPadding: EdgeInsets.zero,
             value: _metro,
             onChanged: _editable ? (v) => setState(() => _metro = v) : null,
-            title: const Text('Metro city (Delhi/Mumbai/Kolkata/Chennai)'),
-            subtitle: const Text('50% of basic vs 40% for non-metro'),
+            title: const Text('Metro City (Delhi / Mumbai / Kolkata / Chennai)'),
+            subtitle: const Text('50% of basic eligible for HRA exemption vs 40% for non-metro'),
           ),
           KTextField(
-            label: 'Landlord PAN (if annual rent > ₹1,00,000)',
+            label: 'Landlord PAN (Mandatory if annual rent > ₹1,00,000)',
             controller: _landlordPan,
             enabled: _editable,
             prefixIcon: Icons.badge_outlined,
@@ -368,30 +375,74 @@ class _MyDeclarationTabState extends ConsumerState<_MyDeclarationTab> {
         ]),
 
         // 2. LTA / 3. home loan
-        _section('2. Leave Travel Concession', [
-          _money('LTA / LTC claimed', _lta),
+        _section('2. Leave Travel Concession (LTA)', [
+          KTextField.amount(
+            label: 'LTA / LTC Claimed',
+            controller: _lta,
+            enabled: _editable,
+          ),
         ]),
-        _section('3. Interest on home loan (Sec 24)', [
-          _money('Interest paid / payable', _homeLoan),
+        _section('3. Interest on Home Loan (Section 24)', [
+          KTextField.amount(
+            label: 'Annual Interest Paid / Payable',
+            controller: _homeLoan,
+            enabled: _editable,
+          ),
         ]),
 
         // 4. Chapter VI-A
-        _section('4. Chapter VI-A deductions', [
-          _money('80C — LIC / PF / ELSS / tuition / principal', _c80c),
-          _money('80CCD(1B) — NPS (extra ₹50,000)', _c80ccd1b),
-          _money('80D — Medical insurance (self & family)', _c80dSelf),
-          _money('80D — Medical insurance (parents)', _c80dParents),
-          _money('80E — Education-loan interest', _c80e),
-          _money('80G — Donations', _c80g),
-          _money('80TTA — Savings interest', _c80tta),
-          _money('80TTB — Interest income (senior citizen)', _c80ttb),
+        _section('4. Chapter VI-A Deductions', [
+          KTextField.amount(
+            label: '80C — EPF / PPF / ELSS / Life Insurance / Tuition (max ₹1.5L)',
+            controller: _c80c,
+            enabled: _editable,
+          ),
+          KTextField.amount(
+            label: '80CCD(1B) — NPS National Pension Scheme (extra ₹50,000)',
+            controller: _c80ccd1b,
+            enabled: _editable,
+          ),
+          KTextField.amount(
+            label: '80D — Medical Insurance (Self, Spouse & Children)',
+            controller: _c80dSelf,
+            enabled: _editable,
+          ),
+          KTextField.amount(
+            label: '80D — Medical Insurance (Parents / Senior Citizens)',
+            controller: _c80dParents,
+            enabled: _editable,
+          ),
+          KTextField.amount(
+            label: '80E — Higher Education Loan Interest',
+            controller: _c80e,
+            enabled: _editable,
+          ),
+          KTextField.amount(
+            label: '80G — Eligible Charitable Donations',
+            controller: _c80g,
+            enabled: _editable,
+          ),
+          KTextField.amount(
+            label: '80TTA — Savings Account Interest (max ₹10,000)',
+            controller: _c80tta,
+            enabled: _editable,
+          ),
+          KTextField.amount(
+            label: '80TTB — Senior Citizen Interest Income (max ₹50,000)',
+            controller: _c80ttb,
+            enabled: _editable,
+          ),
         ]),
 
         // 5. other income + notes
-        _section('5. Other income & notes', [
-          _money('Other income reported to employer', _otherIncome),
+        _section('5. Other Income & Notes', [
+          KTextField.amount(
+            label: 'Other Income Reported to Employer',
+            controller: _otherIncome,
+            enabled: _editable,
+          ),
           KTextField(
-            label: 'Notes',
+            label: 'Employee Notes / Remarks',
             controller: _notes,
             enabled: _editable,
             maxLines: 2,
@@ -404,18 +455,17 @@ class _MyDeclarationTabState extends ConsumerState<_MyDeclarationTab> {
           Row(
             children: [
               Expanded(
-                child: KButton(
-                  label: 'Save draft',
+                child: KButton.outlined(
+                  label: 'Save Draft',
                   icon: Icons.save_outlined,
-                  variant: KButtonVariant.outlined,
                   isLoading: _saving,
                   onPressed: _saving ? null : _save,
                 ),
               ),
               KSpacing.hGapMd,
               Expanded(
-                child: KButton(
-                  label: 'Submit',
+                child: KButton.primary(
+                  label: 'Submit Declaration',
                   icon: Icons.send_outlined,
                   onPressed: (_saving || _id == null) ? null : _submit,
                 ),
@@ -423,18 +473,16 @@ class _MyDeclarationTabState extends ConsumerState<_MyDeclarationTab> {
             ],
           )
         else
-          KButton(
-            label: 'Download Form 12BB',
+          KButton.outlined(
+            label: 'Download Form 12BB PDF',
             icon: Icons.picture_as_pdf_outlined,
-            variant: KButtonVariant.outlined,
             onPressed: _downloadPdf,
           ),
         if (_editable && _id != null) ...[
           KSpacing.vGapSm,
-          KButton(
-            label: 'Download Form 12BB',
+          KButton.text(
+            label: 'Preview Form 12BB PDF',
             icon: Icons.picture_as_pdf_outlined,
-            variant: KButtonVariant.text,
             onPressed: _downloadPdf,
           ),
         ],
@@ -461,16 +509,6 @@ class _MyDeclarationTabState extends ConsumerState<_MyDeclarationTab> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _money(String label, TextEditingController c) {
-    return KTextField(
-      label: label,
-      controller: c,
-      enabled: _editable,
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      prefixIcon: Icons.currency_rupee,
     );
   }
 
@@ -609,38 +647,48 @@ class _HrReviewTabState extends ConsumerState<_HrReviewTab> {
           final status = (r['status']?.toString() ?? 'DRAFT').toUpperCase();
           final id = r['id']?.toString();
           return KCard(
-            child: Padding(
-              padding: const EdgeInsets.all(KSpacing.md),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(name, style: KTypography.labelLarge),
-                        KSpacing.vGapXs,
-                        Text('Regime: ${r['taxRegime'] ?? '--'}',
-                            style: KTypography.bodySmall
-                                .copyWith(color: KColors.textSecondary)),
-                      ],
-                    ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(name, style: KTypography.titleMedium),
+                      KSpacing.vGapXs,
+                      Row(
+                        children: [
+                          Text('Regime: ',
+                              style: KTypography.bodySmall
+                                  .copyWith(color: KColors.textSecondary)),
+                          Text('${r['taxRegime'] ?? '--'}',
+                              style: KTypography.mono(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              )),
+                        ],
+                      ),
+                    ],
                   ),
-                  KStatusChip(status: status),
-                  IconButton(
-                    tooltip: 'Download Form 12BB',
-                    icon: const Icon(Icons.picture_as_pdf_outlined),
-                    onPressed: id == null
-                        ? null
-                        : () => downloadForm12BB(ref, context, id),
+                ),
+                KStatusChip(status: status),
+                KSpacing.hGapSm,
+                IconButton(
+                  tooltip: 'Download Form 12BB PDF',
+                  icon: const Icon(Icons.picture_as_pdf_outlined, size: 20),
+                  onPressed: id == null
+                      ? null
+                      : () => downloadForm12BB(ref, context, id),
+                ),
+                if (status == 'SUBMITTED') ...[
+                  KSpacing.hGapSm,
+                  KButton.primary(
+                    label: 'Verify',
+                    size: KButtonSize.small,
+                    icon: Icons.check,
+                    onPressed: () => _verify(r),
                   ),
-                  if (status == 'SUBMITTED')
-                    KButton(
-                      label: 'Verify',
-                      size: KButtonSize.small,
-                      onPressed: () => _verify(r),
-                    ),
                 ],
-              ),
+              ],
             ),
           );
         },

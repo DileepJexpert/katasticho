@@ -3,19 +3,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
+import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/api_error_parser.dart';
+import '../../../core/utils/date_formatter.dart';
+import '../../../core/widgets/k_button.dart';
+import '../../../core/widgets/k_card.dart';
+import '../../../core/widgets/k_empty_state.dart';
+import '../../../core/widgets/k_error_view.dart';
+import '../../../core/widgets/k_loading.dart';
+import '../../../core/widgets/k_money.dart';
+import '../../../core/widgets/k_status_chip.dart';
 
-/// Production→payroll preview (tracker #57). HR pastes an employee id +
+/// Production→payroll preview (tracker #57). HR selects an employee +
 /// a period and sees the total hours, pieces, and computed labour pay
 /// that the payroll run would post for that worker — before actually
 /// running the run.
-///
-/// The bridge only produces a non-zero amount when the employee's
-/// current salary structure has `payType=HOURLY` or
-/// `PIECE_RATE` AND the corresponding rate is set. SALARY workers
-/// always return zero (their pay comes from the structure components).
 class LaborPayPreviewScreen extends ConsumerStatefulWidget {
   const LaborPayPreviewScreen({super.key});
 
@@ -25,7 +29,9 @@ class LaborPayPreviewScreen extends ConsumerStatefulWidget {
 }
 
 class _LaborPayPreviewScreenState extends ConsumerState<LaborPayPreviewScreen> {
-  final _empCtl = TextEditingController();
+  String? _selectedEmpId;
+  List<Map<String, dynamic>> _employees = [];
+  bool _loadingEmployees = true;
   late DateTime _from;
   late DateTime _to;
   ({String empId, DateTime from, DateTime to})? _query;
@@ -36,12 +42,27 @@ class _LaborPayPreviewScreenState extends ConsumerState<LaborPayPreviewScreen> {
     final now = DateTime.now();
     _from = DateTime(now.year, now.month, 1);
     _to = DateTime(now.year, now.month + 1, 0); // last day of current month
+    _loadEmployees();
   }
 
-  @override
-  void dispose() {
-    _empCtl.dispose();
-    super.dispose();
+  Future<void> _loadEmployees() async {
+    try {
+      final api = ref.read(apiClientProvider);
+      final res = await api.get(ApiConfig.payrollEmployees);
+      final data = res.data['data'] ?? res.data;
+      final content = data is Map ? (data['content'] as List?) ?? [] : data;
+      if (mounted) {
+        setState(() {
+          _employees = (content as List)
+              .whereType<Map>()
+              .map((e) => e.cast<String, dynamic>())
+              .toList();
+          _loadingEmployees = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingEmployees = false);
+    }
   }
 
   Future<void> _pickRange() async {
@@ -56,70 +77,89 @@ class _LaborPayPreviewScreenState extends ConsumerState<LaborPayPreviewScreen> {
         _from = picked.start;
         _to = picked.end;
       });
+      if (_selectedEmpId != null) {
+        setState(() => _query = (empId: _selectedEmpId!, from: _from, to: _to));
+      }
     }
   }
 
   void _run() {
-    final id = _empCtl.text.trim();
-    if (id.isEmpty) return;
-    setState(() => _query = (empId: id, from: _from, to: _to));
+    if (_selectedEmpId == null) return;
+    setState(() => _query = (empId: _selectedEmpId!, from: _from, to: _to));
   }
-
-  String _iso(DateTime d) => d.toIso8601String().split('T').first;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Labor Pay Preview')),
-      body: Column(
+      appBar: AppBar(
+        title: const Text('Production Labor Pay & Piece-Rate Preview'),
+      ),
+      body: ListView(
+        padding: KSpacing.pagePadding,
         children: [
-          Padding(
-            padding: const EdgeInsets.all(KSpacing.md),
+          KCard(
+            title: 'Calculate Production Wage Estimate',
+            subtitle: 'Preview piece-rate and hourly production wages derived from shopfloor work orders before executing payroll runs.',
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                TextField(
-                  controller: _empCtl,
-                  decoration: const InputDecoration(
-                    labelText: 'Employee id',
-                    helperText:
-                        'The payroll employee whose production-driven pay you want to preview',
-                    prefixIcon: Icon(Icons.engineering_outlined),
-                    border: OutlineInputBorder(),
+                if (_loadingEmployees)
+                  const KLoading(message: 'Loading employees...')
+                else
+                  DropdownButtonFormField<String>(
+                    initialValue: _selectedEmpId,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Select Worker / Employee *',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    items: [
+                      for (final emp in _employees)
+                        DropdownMenuItem(
+                          value: emp['id']?.toString(),
+                          child: Text(
+                            '${emp['fullName'] ?? '--'} (${emp['employeeCode'] ?? 'No Code'}) · ${emp['designation'] ?? 'Worker'}',
+                            overflow: TextOverflow.ellipsis,
+                            style: KTypography.bodyMedium,
+                          ),
+                        ),
+                    ],
+                    onChanged: (v) => setState(() => _selectedEmpId = v),
                   ),
-                ),
-                const SizedBox(height: KSpacing.sm),
+                KSpacing.vGapMd,
                 Row(
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: _pickRange,
-                        icon: const Icon(Icons.date_range),
-                        label: Text('${_iso(_from)} → ${_iso(_to)}'),
+                        icon: const Icon(Icons.date_range_rounded, size: 18),
+                        label: Text(
+                          '${DateFormatter.display(_from)} → ${DateFormatter.display(_to)}',
+                          style: KTypography.mono(fontSize: 12, fontWeight: FontWeight.w600),
+                        ),
                       ),
                     ),
-                    const SizedBox(width: KSpacing.sm),
-                    FilledButton(
-                        onPressed: _run, child: const Text('Preview')),
+                    KSpacing.hGapMd,
+                    KButton.primary(
+                      label: 'Preview Wages',
+                      icon: Icons.calculate_rounded,
+                      onPressed: _selectedEmpId == null ? null : _run,
+                    ),
                   ],
                 ),
               ],
             ),
           ),
-          Expanded(
-            child: _query == null
-                ? const Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.calculate_outlined,
-                            size: 64, color: Colors.grey),
-                        SizedBox(height: KSpacing.md),
-                        Text('Enter an employee id + period to preview labour pay'),
-                      ],
-                    ),
-                  )
-                : _PreviewView(query: _query!),
-          ),
+          KSpacing.vGapLg,
+          if (_query == null)
+            const KEmptyState(
+              icon: Icons.calculate_outlined,
+              title: 'Select Worker & Period',
+              subtitle: 'Pick an employee and work duration to inspect job cards, piece outputs, and rate calculations.',
+            )
+          else
+            _PreviewView(query: _query!),
         ],
       ),
     );
@@ -133,56 +173,66 @@ class _PreviewView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(_previewProvider(query));
+    final cs = Theme.of(context).colorScheme;
+
     return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text(ApiErrorParser.message(e))),
+      loading: () => const Center(child: KLoading(message: 'Calculating production pay...')),
+      error: (e, _) => KErrorView(message: ApiErrorParser.message(e)),
       data: (pay) {
         final payType = pay['payType']?.toString() ?? 'SALARY';
         final salary = payType == 'SALARY';
-        return ListView(
-          padding: KSpacing.pagePadding,
+        final amt = (pay['amount'] as num?)?.toDouble() ?? 0;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Card(
-              color: salary ? Colors.amber.shade50 : Theme.of(context).colorScheme.primaryContainer,
-              child: Padding(
-                padding: const EdgeInsets.all(KSpacing.md),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(children: [
-                      Icon(salary ? Icons.info_outline : Icons.attach_money,
-                          color: salary ? Colors.orange : Colors.green),
-                      const SizedBox(width: 8),
-                      Text('Pay type: $payType', style: KTypography.titleMedium),
-                    ]),
-                    const SizedBox(height: 8),
-                    if (salary)
-                      const Text(
-                        'This employee is on a fixed monthly salary — the production bridge does not apply. '
-                        'Their pay comes from the salary structure components.',
-                      ),
-                    if (!salary) ...[
-                      Text('₹${pay['amount']}',
-                          style: KTypography.h3),
-                      const SizedBox(height: 4),
-                      Text('over the selected period from production data',
-                          style: KTypography.bodySmall),
+            KCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text('Pay Structure Model: ', style: KTypography.labelSmall),
+                      KSpacing.hGapSm,
+                      KStatusChip(status: payType),
                     ],
+                  ),
+                  KSpacing.vGapMd,
+                  if (salary)
+                    Text(
+                      'This employee is on a fixed monthly salary — the piece-rate production bridge does not apply. '
+                      'Their earnings derive directly from the monthly salary structure components.',
+                      style: KTypography.bodyMedium.copyWith(color: cs.onSurfaceVariant),
+                    )
+                  else ...[
+                    Row(
+                      children: [
+                        Text('Calculated Production Pay: ', style: KTypography.titleMedium),
+                        KMoney(amt, style: KTypography.titleLarge.copyWith(color: KColors.success, fontWeight: FontWeight.w700)),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Aggregated across approved shopfloor job cards completed over the selected period.',
+                      style: KTypography.bodySmall.copyWith(color: cs.onSurfaceVariant),
+                    ),
                   ],
-                ),
+                ],
               ),
             ),
-            const SizedBox(height: KSpacing.md),
-            Card(
+            KSpacing.vGapMd,
+            KCard(
+              title: 'Production Metrics Breakdown',
               child: Column(
                 children: [
-                  _Metric(label: 'Total hours', value: '${pay['totalHours']}'),
+                  _Metric(label: 'Total Production Hours', value: '${pay['totalHours'] ?? 0} hrs'),
                   const Divider(height: 1),
-                  _Metric(label: 'Total pieces', value: '${pay['totalPieces']}'),
+                  _Metric(label: 'Total Finished Pieces', value: '${pay['totalPieces'] ?? 0} units'),
                   const Divider(height: 1),
                   _Metric(
-                      label: 'Job cards counted',
-                      value: '${pay['jobCardCount']}'),
+                    label: 'Completed Job Cards',
+                    value: '${pay['jobCardCount'] ?? 0}',
+                  ),
                 ],
               ),
             ),
@@ -200,7 +250,15 @@ class _Metric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(title: Text(label), trailing: Text(value, style: KTypography.titleSmall));
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: KSpacing.sm, vertical: 12),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: KTypography.bodyMedium)),
+          Text(value, style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w700)),
+        ],
+      ),
+    );
   }
 }
 

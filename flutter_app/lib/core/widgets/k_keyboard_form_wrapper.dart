@@ -8,6 +8,12 @@ class KKeyboardFormWrapper extends StatelessWidget {
   final VoidCallback? onNextStep;
   final VoidCallback? onPrevStep;
   final VoidCallback? onCancel;
+  final VoidCallback? onDateJump;
+  final VoidCallback? onItemPicker;
+  final VoidCallback? onSchemeLookup;
+  final VoidCallback? onQuickCreate;
+  final VoidCallback? onSaveAndPrint;
+  final VoidCallback? onAddRow;
 
   const KKeyboardFormWrapper({
     super.key,
@@ -16,6 +22,12 @@ class KKeyboardFormWrapper extends StatelessWidget {
     this.onNextStep,
     this.onPrevStep,
     this.onCancel,
+    this.onDateJump,
+    this.onItemPicker,
+    this.onSchemeLookup,
+    this.onQuickCreate,
+    this.onSaveAndPrint,
+    this.onAddRow,
   });
 
   KeyEventResult _handleKey(FocusNode _, KeyEvent event) {
@@ -23,7 +35,9 @@ class KKeyboardFormWrapper extends StatelessWidget {
 
     final key = event.logicalKey;
     final hasModifier = KShortcuts.isControlOrMetaPressed();
+    final hasAlt = KShortcuts.isAltOrOptionPressed();
 
+    // Ctrl/Cmd + Enter: Submit & save document
     if (hasModifier &&
         (key == LogicalKeyboardKey.enter ||
             key == LogicalKeyboardKey.numpadEnter)) {
@@ -31,6 +45,45 @@ class KKeyboardFormWrapper extends StatelessWidget {
       return KeyEventResult.handled;
     }
 
+    // Ctrl/Cmd + P: Save & Print
+    if (hasModifier && key == LogicalKeyboardKey.keyP && onSaveAndPrint != null) {
+      onSaveAndPrint?.call();
+      return KeyEventResult.handled;
+    }
+
+    // F2: Date jumper / picker
+    if (key == LogicalKeyboardKey.f2 && onDateJump != null) {
+      onDateJump?.call();
+      return KeyEventResult.handled;
+    }
+
+    // F7: Fast Item search / picker
+    if (key == LogicalKeyboardKey.f7 && onItemPicker != null) {
+      onItemPicker?.call();
+      return KeyEventResult.handled;
+    }
+
+    // F8: Schemes / Promotions lookup
+    if (key == LogicalKeyboardKey.f8 && onSchemeLookup != null) {
+      onSchemeLookup?.call();
+      return KeyEventResult.handled;
+    }
+
+    // Alt + C: In-line Quick Create (Customer, Vendor, Item)
+    if (hasAlt && key == LogicalKeyboardKey.keyC && onQuickCreate != null) {
+      onQuickCreate?.call();
+      return KeyEventResult.handled;
+    }
+
+    // Alt + A or Ctrl + Insert: Add new line item row
+    if (((hasAlt && key == LogicalKeyboardKey.keyA) ||
+            (hasModifier && key == LogicalKeyboardKey.insert)) &&
+        onAddRow != null) {
+      onAddRow?.call();
+      return KeyEventResult.handled;
+    }
+
+    // Ctrl + Arrow navigation across multi-step wizard tabs
     if (hasModifier && key == LogicalKeyboardKey.arrowRight) {
       onNextStep?.call();
       return KeyEventResult.handled;
@@ -39,11 +92,13 @@ class KKeyboardFormWrapper extends StatelessWidget {
       onPrevStep?.call();
       return KeyEventResult.handled;
     }
+
     // Esc cancels the form — but never while the user is typing in a field
     // (Esc there is habitually used to dismiss autocomplete/IME popups, and
     // navigating away would silently discard everything entered).
     if (key == LogicalKeyboardKey.escape &&
         !hasModifier &&
+        !hasAlt &&
         !_isTextFieldFocused()) {
       onCancel?.call();
       return KeyEventResult.handled;

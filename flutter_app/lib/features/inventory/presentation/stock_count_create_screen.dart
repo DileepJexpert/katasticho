@@ -508,7 +508,7 @@ class _StockCountCreateScreenState
               ],
             ),
             const Spacer(),
-            KButton(
+            KButton.primary(
               label: 'Create Count',
               icon: Icons.check,
               isLoading: _isSubmitting,

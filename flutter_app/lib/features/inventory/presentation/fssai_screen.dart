@@ -7,13 +7,15 @@ import 'package:printing/printing.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
+import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/api_error_parser.dart';
+import '../../../core/widgets/widgets.dart';
 
 /// FSSAI / Food Safety compliance management. Three tabs:
 ///
-///   1. Item compliance — paste an item id, declare veg/non-veg,
+///   1. Item compliance — select / search item, declare veg/non-veg,
 ///      allergens, nutritional info, date-marking type, shelf life,
 ///      and the per-item FSSAI license.
 ///   2. Allergen exposure report — for incident response: enter an
@@ -47,13 +49,13 @@ class _FssaiScreenState extends ConsumerState<FssaiScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('FSSAI Compliance'),
+        title: const Text('FSSAI Food Safety Compliance'),
         bottom: TabBar(
           controller: _tabs,
           tabs: const [
-            Tab(text: 'Item compliance'),
-            Tab(text: 'Allergen exposure'),
-            Tab(text: 'License renewal'),
+            Tab(text: 'Item Compliance'),
+            Tab(text: 'Allergen Exposure'),
+            Tab(text: 'License Renewals'),
           ],
         ),
       ),
@@ -99,30 +101,37 @@ class _ItemComplianceTabState extends ConsumerState<_ItemComplianceTab> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(KSpacing.md),
+          padding: KSpacing.pagePadding,
           child: Row(
             children: [
               Expanded(
-                child: TextField(
+                child: KTextField(
                   controller: _itemCtl,
-                  decoration: const InputDecoration(
-                    labelText: 'Item id',
-                    helperText:
-                        'The SKU whose FSSAI declarations you want to manage',
-                    prefixIcon: Icon(Icons.inventory_2_outlined),
-                    border: OutlineInputBorder(),
-                  ),
-                  onSubmitted: (_) => _load(),
+                  label: 'Item Identifier / SKU',
+                  hint: 'Enter Catalog Item ID or SKU to manage FSSAI declarations',
+                  prefixIcon: Icons.inventory_2_outlined,
+                  onFieldSubmitted: (_) => _load(),
                 ),
               ),
-              const SizedBox(width: KSpacing.sm),
-              FilledButton(onPressed: _load, child: const Text('Load')),
+              KSpacing.hGapSm,
+              Padding(
+                padding: const EdgeInsets.only(top: 20),
+                child: KButton.primary(
+                  label: 'Load SKU',
+                  icon: Icons.search,
+                  onPressed: _load,
+                ),
+              ),
             ],
           ),
         ),
         Expanded(
           child: _itemId == null
-              ? const Center(child: Text('Enter an item id to declare FSSAI fields'))
+              ? const KEmptyState(
+                  icon: Icons.restaurant_outlined,
+                  title: 'Declare Food Safety Compliance',
+                  subtitle: 'Enter an item SKU above to configure FSSAI license numbers, veg classifications, allergens, and shelf life parameters.',
+                )
               : _ItemComplianceForm(itemId: _itemId!),
         ),
       ],
@@ -170,7 +179,7 @@ class _ItemComplianceFormState extends ConsumerState<_ItemComplianceForm> {
         },
       );
       messenger.showSnackBar(
-          const SnackBar(content: Text('FSSAI compliance saved')));
+          const SnackBar(content: Text('FSSAI compliance saved successfully')));
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(content: Text(ApiErrorParser.message(e))),
@@ -181,7 +190,7 @@ class _ItemComplianceFormState extends ConsumerState<_ItemComplianceForm> {
   Future<void> _printLabel() async {
     final messenger = ScaffoldMessenger.of(context);
     messenger.showSnackBar(
-      const SnackBar(content: Text('Rendering FSSAI food label…')),
+      const SnackBar(content: Text('Generating compliant FSSAI food label PDF…')),
     );
     try {
       final res = await ref.read(apiClientProvider).get(
@@ -206,7 +215,7 @@ class _ItemComplianceFormState extends ConsumerState<_ItemComplianceForm> {
     final allergensAsync = ref.watch(_majorAllergensProvider);
 
     return itemAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const Center(child: KLoading(message: 'Loading FSSAI declarations...')),
       error: (e, _) => Center(child: Text(ApiErrorParser.message(e))),
       data: (item) {
         // One-shot population from server payload — user edits then save.
@@ -225,105 +234,127 @@ class _ItemComplianceFormState extends ConsumerState<_ItemComplianceForm> {
         return ListView(
           padding: KSpacing.pagePadding,
           children: [
-            Text('Item: ${item['name'] ?? widget.itemId}',
-                style: KTypography.titleMedium),
-            const SizedBox(height: KSpacing.md),
-            TextField(
-              controller: _licenseCtl,
-              decoration: const InputDecoration(
-                labelText: 'FSSAI license (14 digits)',
-                border: OutlineInputBorder(),
-              ),
-              keyboardType: TextInputType.number,
-            ),
-            const SizedBox(height: KSpacing.md),
-            DropdownButtonFormField<String>(
-              initialValue: _vegClass,
-              decoration: const InputDecoration(
-                labelText: 'Veg classification',
-                border: OutlineInputBorder(),
-              ),
-              items: const [
-                DropdownMenuItem(
-                    value: 'VEGETARIAN',
-                    child: Text('🟢 Vegetarian')),
-                DropdownMenuItem(
-                    value: 'NON_VEGETARIAN',
-                    child: Text('🔴 Non-Vegetarian')),
-                DropdownMenuItem(value: 'VEGAN', child: Text('🌱 Vegan')),
-                DropdownMenuItem(value: 'EGG', child: Text('🟡 Egg')),
-              ],
-              onChanged: (v) => setState(() => _vegClass = v),
-            ),
-            const SizedBox(height: KSpacing.md),
-            DropdownButtonFormField<String>(
-              initialValue: _dateMarking,
-              decoration: const InputDecoration(
-                labelText: 'Date marking type',
-                border: OutlineInputBorder(),
-              ),
-              items: const [
-                DropdownMenuItem(
-                    value: 'BEST_BEFORE', child: Text('Best Before')),
-                DropdownMenuItem(value: 'USE_BY', child: Text('Use By')),
-                DropdownMenuItem(value: 'EXPIRY', child: Text('Expiry')),
-              ],
-              onChanged: (v) => setState(() => _dateMarking = v),
-            ),
-            const SizedBox(height: KSpacing.md),
-            TextField(
-              controller: _shelfLifeCtl,
-              decoration: const InputDecoration(
-                labelText: 'Shelf life (days)',
-                helperText: 'MFG date + shelf life = expiry on a fresh batch',
-                border: OutlineInputBorder(),
-              ),
-              keyboardType: TextInputType.number,
-            ),
-            const SizedBox(height: KSpacing.md),
-            Text('Allergens declared on label', style: KTypography.titleSmall),
-            const SizedBox(height: KSpacing.sm),
-            allergensAsync.when(
-              loading: () => const LinearProgressIndicator(),
-              error: (e, _) => Text(ApiErrorParser.message(e)),
-              data: (allergens) => Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: allergens.map((a) {
-                  final selected = _allergens.contains(a);
-                  return FilterChip(
-                    label: Text(a.replaceAll('_', ' ')),
-                    selected: selected,
-                    onSelected: (v) {
-                      setState(() {
-                        if (v) {
-                          _allergens.add(a);
-                        } else {
-                          _allergens.remove(a);
-                        }
-                      });
-                    },
-                  );
-                }).toList(),
-              ),
-            ),
-            const SizedBox(height: KSpacing.lg),
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: _save,
-                    icon: const Icon(Icons.save),
-                    label: const Text('Save FSSAI declarations'),
+            KCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(KSpacing.sm),
+                        decoration: BoxDecoration(
+                          color: KColors.primary.withValues(alpha: 0.12),
+                          borderRadius: KSpacing.borderRadiusSm,
+                        ),
+                        child: const Icon(Icons.verified_outlined, color: KColors.primary, size: 24),
+                      ),
+                      KSpacing.hGapMd,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(item['name'] ?? widget.itemId, style: KTypography.titleMedium),
+                            KSpacing.vGapXs,
+                            Text(
+                              'FSSAI Regulatory & Labeling Compliance Profile',
+                              style: KTypography.caption.copyWith(color: KColors.textSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(width: KSpacing.sm),
-                OutlinedButton.icon(
-                  onPressed: _printLabel,
-                  icon: const Icon(Icons.print_outlined),
-                  label: const Text('Print food label'),
-                ),
-              ],
+                  KSpacing.vGapMd,
+                  KTextField(
+                    controller: _licenseCtl,
+                    label: 'FSSAI 14-Digit License Number',
+                    hint: 'e.g. 10019022009876',
+                    keyboardType: TextInputType.number,
+                  ),
+                  KSpacing.vGapSm,
+                  KCompactRow(children: [
+                    DropdownButtonFormField<String>(
+                      initialValue: _vegClass,
+                      decoration: const InputDecoration(
+                        labelText: 'Veg Classification',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'VEGETARIAN', child: Text('🟢 Vegetarian')),
+                        DropdownMenuItem(value: 'NON_VEGETARIAN', child: Text('🔴 Non-Vegetarian')),
+                        DropdownMenuItem(value: 'VEGAN', child: Text('🌱 Vegan')),
+                        DropdownMenuItem(value: 'EGG', child: Text('🟡 Contains Egg')),
+                      ],
+                      onChanged: (v) => setState(() => _vegClass = v),
+                    ),
+                    DropdownButtonFormField<String>(
+                      initialValue: _dateMarking,
+                      decoration: const InputDecoration(
+                        labelText: 'Date Marking Type',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'BEST_BEFORE', child: Text('Best Before')),
+                        DropdownMenuItem(value: 'USE_BY', child: Text('Use By')),
+                        DropdownMenuItem(value: 'EXPIRY', child: Text('Expiry Date')),
+                      ],
+                      onChanged: (v) => setState(() => _dateMarking = v),
+                    ),
+                  ]),
+                  KSpacing.vGapSm,
+                  KTextField(
+                    controller: _shelfLifeCtl,
+                    label: 'Shelf Life (Days from Mfg Date)',
+                    hint: 'e.g. 180 (automatically calculates batch expiry date)',
+                    keyboardType: TextInputType.number,
+                  ),
+                  KSpacing.vGapMd,
+                  Text('Allergens Declared on Packaging', style: KTypography.titleSmall),
+                  KSpacing.vGapSm,
+                  allergensAsync.when(
+                    loading: () => const LinearProgressIndicator(),
+                    error: (e, _) => Text(ApiErrorParser.message(e)),
+                    data: (allergens) => Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: allergens.map((a) {
+                        final selected = _allergens.contains(a);
+                        return FilterChip(
+                          label: Text(a.replaceAll('_', ' ')),
+                          selected: selected,
+                          onSelected: (v) {
+                            setState(() {
+                              if (v) {
+                                _allergens.add(a);
+                              } else {
+                                _allergens.remove(a);
+                              }
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  KSpacing.vGapLg,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: KButton.primary(
+                          onPressed: _save,
+                          icon: Icons.save,
+                          label: 'Save FSSAI Compliance',
+                        ),
+                      ),
+                      KSpacing.hGapSm,
+                      KButton.outlined(
+                        onPressed: _printLabel,
+                        icon: Icons.print_outlined,
+                        label: 'Print Food Label',
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ],
         );
@@ -349,7 +380,7 @@ class _AllergenExposureTabState extends ConsumerState<_AllergenExposureTab> {
   Widget build(BuildContext context) {
     final allergensAsync = ref.watch(_majorAllergensProvider);
     return Padding(
-      padding: const EdgeInsets.all(KSpacing.md),
+      padding: KSpacing.pagePadding,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -359,9 +390,9 @@ class _AllergenExposureTabState extends ConsumerState<_AllergenExposureTab> {
             data: (list) => DropdownButtonFormField<String>(
               initialValue: _allergen,
               decoration: const InputDecoration(
-                labelText: 'Allergen',
+                labelText: 'Select Specific Allergen',
                 helperText:
-                    'Pick an allergen to find every item declaring it',
+                    'Audit all stock keeping units and finished batches declaring this allergen',
                 border: OutlineInputBorder(),
               ),
               items: list
@@ -371,10 +402,14 @@ class _AllergenExposureTabState extends ConsumerState<_AllergenExposureTab> {
               onChanged: (v) => setState(() => _allergen = v),
             ),
           ),
-          const SizedBox(height: KSpacing.md),
+          KSpacing.vGapMd,
           Expanded(
             child: _allergen == null
-                ? const Center(child: Text('Pick an allergen above'))
+                ? const KEmptyState(
+                    icon: Icons.warning_amber_rounded,
+                    title: 'Select an Allergen',
+                    subtitle: 'Choose an allergen from the dropdown above to view an immediate exposure and contamination audit.',
+                  )
                 : _ExposureList(allergen: _allergen!),
           ),
         ],
@@ -391,24 +426,59 @@ class _ExposureList extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(_exposureProvider(allergen));
     return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const Center(child: KLoading(message: 'Auditing allergen exposure...')),
       error: (e, _) => Center(child: Text(ApiErrorParser.message(e))),
       data: (items) {
         if (items.isEmpty) {
-          return Center(
-              child: Text('No items declare ${allergen.replaceAll('_', ' ')}'));
+          return KEmptyState(
+            icon: Icons.check_circle_outline,
+            title: 'No Exposed Items Found',
+            subtitle: 'No inventory items currently declare ${allergen.replaceAll('_', ' ')}.',
+          );
         }
-        return ListView.builder(
+        return ListView.separated(
           itemCount: items.length,
+          separatorBuilder: (_, __) => KSpacing.vGapSm,
           itemBuilder: (ctx, i) {
             final r = items[i];
-            return Card(
-              margin: const EdgeInsets.only(bottom: KSpacing.sm),
-              child: ListTile(
-                leading: const Icon(Icons.warning_amber, color: Colors.orange),
-                title: Text(r['name']?.toString() ?? '—'),
-                subtitle: Text('SKU: ${r['sku'] ?? '—'}\n'
-                    'Allergens: ${(r['allergens'] as List?)?.join(", ") ?? '—'}'),
+            return KCard(
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(KSpacing.sm),
+                    decoration: BoxDecoration(
+                      color: KColors.warning.withValues(alpha: 0.12),
+                      borderRadius: KSpacing.borderRadiusSm,
+                    ),
+                    child: const Icon(Icons.warning_amber_rounded, color: KColors.warning, size: 24),
+                  ),
+                  KSpacing.hGapMd,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(r['name']?.toString() ?? '—', style: KTypography.titleMedium),
+                        KSpacing.vGapXs,
+                        Row(
+                          children: [
+                            Text('SKU: ', style: KTypography.caption),
+                            Text(
+                              r['sku']?.toString() ?? '—',
+                              style: KTypography.mono(fontSize: 12, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                        if (r['allergens'] != null) ...[
+                          KSpacing.vGapXs,
+                          Text(
+                            'Allergens: ${(r['allergens'] as List?)?.join(", ") ?? '—'}',
+                            style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
               ),
             );
           },
@@ -434,27 +504,29 @@ class _LicenseRenewalTabState extends ConsumerState<_LicenseRenewalTab> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(KSpacing.md),
+      padding: KSpacing.pagePadding,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: [
-            const Text('Horizon:'),
-            const SizedBox(width: 8),
-            DropdownButton<int>(
-              value: _daysAhead,
-              items: const [
-                DropdownMenuItem(value: 30, child: Text('30 days')),
-                DropdownMenuItem(value: 60, child: Text('60 days')),
-                DropdownMenuItem(value: 90, child: Text('90 days')),
-                DropdownMenuItem(value: 180, child: Text('180 days')),
-              ],
-              onChanged: (v) {
-                if (v != null) setState(() => _daysAhead = v);
-              },
-            ),
-          ]),
-          const SizedBox(height: KSpacing.md),
+          Row(
+            children: [
+              Text('Expiry Horizon:', style: KTypography.labelMedium),
+              KSpacing.hGapSm,
+              DropdownButton<int>(
+                value: _daysAhead,
+                items: const [
+                  DropdownMenuItem(value: 30, child: Text('30 Days')),
+                  DropdownMenuItem(value: 60, child: Text('60 Days')),
+                  DropdownMenuItem(value: 90, child: Text('90 Days')),
+                  DropdownMenuItem(value: 180, child: Text('180 Days')),
+                ],
+                onChanged: (v) {
+                  if (v != null) setState(() => _daysAhead = v);
+                },
+              ),
+            ],
+          ),
+          KSpacing.vGapMd,
           Expanded(child: _RenewalList(daysAhead: _daysAhead)),
         ],
       ),
@@ -470,28 +542,75 @@ class _RenewalList extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(_renewalProvider(daysAhead));
     return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const Center(child: KLoading(message: 'Checking license expiries...')),
       error: (e, _) => Center(child: Text(ApiErrorParser.message(e))),
       data: (rows) {
         if (rows.isEmpty) {
-          return Center(
-              child: Text('No FSSAI licenses expire within $daysAhead days'));
+          return KEmptyState(
+            icon: Icons.verified_user_outlined,
+            title: 'All Licenses Active & Compliant',
+            subtitle: 'No FSSAI food business licenses are due to expire within the next $daysAhead days.',
+          );
         }
-        return ListView.builder(
+        return ListView.separated(
           itemCount: rows.length,
+          separatorBuilder: (_, __) => KSpacing.vGapSm,
           itemBuilder: (ctx, i) {
             final r = rows[i];
             final days = r['daysToExpiry'];
             final urgent = days is int && days <= 30;
-            return Card(
-              margin: const EdgeInsets.only(bottom: KSpacing.sm),
-              color: urgent ? Colors.red.shade50 : null,
-              child: ListTile(
-                leading: Icon(Icons.event_busy,
-                    color: urgent ? Colors.red : Colors.orange),
-                title: Text('${r['scope']} • ${r['license']}'),
-                subtitle: Text(
-                    'Expires ${r['expiryDate']} • $days days from today'),
+            return KCard(
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(KSpacing.sm),
+                    decoration: BoxDecoration(
+                      color: (urgent ? KColors.error : KColors.warning).withValues(alpha: 0.12),
+                      borderRadius: KSpacing.borderRadiusSm,
+                    ),
+                    child: Icon(
+                      Icons.event_busy,
+                      color: urgent ? KColors.error : KColors.warning,
+                      size: 24,
+                    ),
+                  ),
+                  KSpacing.hGapMd,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              r['scope']?.toString() ?? 'FBO License',
+                              style: KTypography.titleMedium,
+                            ),
+                            KSpacing.hGapSm,
+                            KStatusChip(status: urgent ? 'EXPIRING_SOON' : 'ACTIVE'),
+                          ],
+                        ),
+                        KSpacing.vGapXs,
+                        Row(
+                          children: [
+                            Text('License: ', style: KTypography.caption),
+                            Text(
+                              r['license']?.toString() ?? '—',
+                              style: KTypography.mono(fontSize: 12, fontWeight: FontWeight.w700),
+                            ),
+                          ],
+                        ),
+                        KSpacing.vGapXs,
+                        Text(
+                          'Expires on ${r['expiryDate']} ($days days remaining)',
+                          style: KTypography.bodySmall.copyWith(
+                            color: urgent ? KColors.error : KColors.textSecondary,
+                            fontWeight: urgent ? FontWeight.w600 : FontWeight.normal,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             );
           },

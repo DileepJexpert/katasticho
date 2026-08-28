@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/k_colors.dart';
 import '../../../../core/theme/k_spacing.dart';
 import '../../../../core/theme/k_typography.dart';
-import '../../../../core/utils/currency_formatter.dart';
+import '../../../../core/widgets/widgets.dart';
 import '../../data/pos_recent_transactions.dart';
 
 Future<Map<String, String>?> showRecentTransactionsSheet(BuildContext context) {
@@ -113,70 +113,66 @@ class _RecentTransactionTile extends StatelessWidget {
 
     final paymentLabel = transaction.paymentMode.toUpperCase();
 
-    return Card(
+    return KCard(
       margin: const EdgeInsets.only(bottom: 8),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () {
-          Navigator.pop(context);
-          context.push('/sales-receipts/${transaction.receiptId}');
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(transaction.receiptNumber,
-                          style: KTypography.labelMedium),
-                      KSpacing.hGapSm,
-                      Text(
-                        agoText,
-                        style: KTypography.bodySmall
-                            .copyWith(color: KColors.textSecondary),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    transaction.customerName ?? 'Walk-in',
-                    style: KTypography.bodySmall
-                        .copyWith(color: KColors.textSecondary),
-                  ),
-                ],
-              ),
+      onTap: () {
+        Navigator.pop(context);
+        context.push('/sales-receipts/${transaction.receiptId}');
+      },
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      transaction.receiptNumber,
+                      style: KTypography.mono(size: 13, weight: FontWeight.w700),
+                    ),
+                    KSpacing.hGapSm,
+                    Text(
+                      agoText,
+                      style: KTypography.bodySmall
+                          .copyWith(color: KColors.textSecondary),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  transaction.customerName ?? 'Walk-in',
+                  style: KTypography.bodySmall
+                      .copyWith(color: KColors.textSecondary),
+                ),
+              ],
             ),
-            Icon(_paymentModeIcon(paymentLabel), size: 16,
-                color: KColors.textSecondary),
-            const SizedBox(width: 4),
-            Text(paymentLabel,
-                style: KTypography.labelSmall
-                    .copyWith(color: KColors.textSecondary)),
-            KSpacing.hGapMd,
-            Text(
-              CurrencyFormatter.formatIndian(transaction.total),
-              style: KTypography.amountSmall,
-            ),
-            KSpacing.hGapSm,
-            IconButton(
-              icon: const Icon(Icons.print, size: 18),
-              onPressed: onReprint,
-              tooltip: 'Reprint',
-              visualDensity: VisualDensity.compact,
-            ),
-            IconButton(
-              icon: const Icon(Icons.send, size: 18),
-              onPressed: onWhatsApp,
-              tooltip: 'WhatsApp',
-              visualDensity: VisualDensity.compact,
-            ),
-          ],
-        ),
-      ),
+          ),
+          Icon(_paymentModeIcon(paymentLabel), size: 16,
+              color: KColors.textSecondary),
+          const SizedBox(width: 4),
+          Text(paymentLabel,
+              style: KTypography.labelSmall
+                  .copyWith(color: KColors.textSecondary)),
+          KSpacing.hGapMd,
+          KMoney(
+            transaction.total,
+            size: KMoneySize.small,
+          ),
+          KSpacing.hGapSm,
+          IconButton(
+            icon: const Icon(Icons.print, size: 18),
+            onPressed: onReprint,
+            tooltip: 'Reprint',
+            visualDensity: VisualDensity.compact,
+          ),
+          IconButton(
+            icon: const Icon(Icons.send, size: 18),
+            onPressed: onWhatsApp,
+            tooltip: 'WhatsApp',
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
       ),
     );
   }

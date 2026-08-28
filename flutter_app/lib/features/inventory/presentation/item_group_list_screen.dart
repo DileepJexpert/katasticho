@@ -84,6 +84,8 @@ class ItemGroupListScreen extends ConsumerWidget {
           ],
         ),
         floatingActionButton: FloatingActionButton.extended(
+          backgroundColor: KColors.primary,
+          foregroundColor: Colors.white,
           onPressed: () => context.push('/item-groups/create'),
           icon: const Icon(Icons.add),
           label: const Text('New Group'),

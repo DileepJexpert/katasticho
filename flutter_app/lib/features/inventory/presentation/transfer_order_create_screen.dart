@@ -242,10 +242,11 @@ class _TransferOrderCreateScreenState
                       Expanded(
                         child: Text('Line Items', style: KTypography.h3),
                       ),
-                      TextButton.icon(
+                      KButton.outlined(
                         onPressed: _addLine,
-                        icon: const Icon(Icons.add, size: 18),
-                        label: const Text('Add Item'),
+                        icon: Icons.add,
+                        label: 'Add Item',
+                        size: KButtonSize.small,
                       ),
                     ],
                   ),
@@ -286,7 +287,7 @@ class _TransferOrderCreateScreenState
                     }),
 
                   KSpacing.vGapXl,
-                  KButton(
+                  KButton.primary(
                     label: 'Create Transfer Order',
                     fullWidth: true,
                     isLoading: _saving,

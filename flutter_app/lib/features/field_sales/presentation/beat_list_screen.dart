@@ -5,6 +5,7 @@ import '../../../core/auth/auth_state.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
+import '../../../core/utils/api_error_parser.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/field_sales_repository.dart';
 import 'beat_customer_picker_sheet.dart';
@@ -45,7 +46,10 @@ class _BeatListScreenState extends ConsumerState<BeatListScreen> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load beats: $error')),
+          SnackBar(
+            content: Text('Failed to load beats: ${ApiErrorParser.message(error)}'),
+            backgroundColor: KColors.error,
+          ),
         );
       }
     } finally {
@@ -85,7 +89,10 @@ class _BeatListScreenState extends ConsumerState<BeatListScreen> {
       } catch (error) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Could not load assigned customers: $error')),
+            SnackBar(
+              content: Text('Could not load assigned customers: ${ApiErrorParser.message(error)}'),
+              backgroundColor: KColors.error,
+            ),
           );
         }
         return;
@@ -125,7 +132,7 @@ class _BeatListScreenState extends ConsumerState<BeatListScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Could not save beat: $error'),
+            content: Text('Could not save beat: ${ApiErrorParser.message(error)}'),
             backgroundColor: KColors.error,
           ),
         );
@@ -210,6 +217,8 @@ class _BeatListScreenState extends ConsumerState<BeatListScreen> {
         ),
         floatingActionButton: canManage
             ? FloatingActionButton.extended(
+                backgroundColor: KColors.primary,
+                foregroundColor: Colors.white,
                 onPressed: () => _openBeatEditor(),
                 icon: const Icon(Icons.add),
                 label: const Text('New Beat'),
@@ -295,10 +304,30 @@ class _BeatCardState extends State<_BeatCard> {
         .join(', ');
 
     return KCard(
+      statusAccent: active ? KColors.primary : null,
       onTap: widget.onTap,
       leading: const Icon(Icons.map_outlined, color: KColors.primary),
       title: name,
-      subtitle: location.isEmpty ? code : '$code | $location',
+      subtitleWidget: Row(
+        children: [
+          Text(
+            code,
+            style: KTypography.mono(
+              fontSize: 12,
+              color: KColors.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          if (location.isNotEmpty)
+            Expanded(
+              child: Text(
+                ' • $location',
+                style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+        ],
+      ),
       action: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -308,10 +337,9 @@ class _BeatCardState extends State<_BeatCard> {
           ),
           if (widget.canManage) ...[
             KSpacing.hGapSm,
-            KButton(
+            KButton.outlined(
               label: 'Edit',
               size: KButtonSize.small,
-              variant: KButtonVariant.outlined,
               icon: Icons.edit_outlined,
               onPressed: widget.onEdit,
             ),
@@ -464,8 +492,6 @@ class _BeatEditorDialogState extends State<_BeatEditorDialog> {
       'customers': [
         for (var index = 0; index < _selectedCustomers.length; index++)
           {
-            // Existing beat assignments have their own id. The API expects
-            // the contact id, which is preserved separately on those rows.
             'contactId': _selectedCustomers[index]['contactId']?.toString() ??
                 _selectedCustomers[index]['id']?.toString(),
             'visitSequence': index + 1,
@@ -551,11 +577,10 @@ class _BeatEditorDialogState extends State<_BeatEditorDialog> {
                         subtitle: _selectedCustomers.isEmpty
                             ? 'No customers selected yet'
                             : '${_selectedCustomers.length} customer${_selectedCustomers.length == 1 ? '' : 's'} assigned',
-                        action: KButton(
+                        action: KButton.outlined(
                           label: 'Manage',
                           icon: Icons.people_outline,
                           size: KButtonSize.small,
-                          variant: KButtonVariant.outlined,
                           onPressed: _selectCustomers,
                         ),
                         child: _selectedCustomers.isEmpty
@@ -583,15 +608,14 @@ class _BeatEditorDialogState extends State<_BeatEditorDialog> {
               Row(
                 children: [
                   Expanded(
-                    child: KButton(
+                    child: KButton.outlined(
                       label: 'Cancel',
-                      variant: KButtonVariant.outlined,
                       onPressed: () => Navigator.pop(context),
                     ),
                   ),
                   KSpacing.hGapSm,
                   Expanded(
-                    child: KButton(
+                    child: KButton.primary(
                       label: editing ? 'Save changes' : 'Create Beat',
                       onPressed: _save,
                     ),

@@ -313,15 +313,15 @@ class _BusinessConfigurationScreenState
         title: const Text('Business Configuration'),
         actions: [
           if (_canSave)
-            TextButton(
-              onPressed: _saving ? null : _save,
-              child: _saving
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Save'),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+              child: KButton.primary(
+                label: 'Save Configuration',
+                size: KButtonSize.small,
+                icon: Icons.check_rounded,
+                isLoading: _saving,
+                onPressed: _saving ? null : _save,
+              ),
             ),
         ],
       ),

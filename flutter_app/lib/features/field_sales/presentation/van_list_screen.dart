@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
+import '../../../core/utils/api_error_parser.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/field_sales_repository.dart';
 
@@ -31,7 +32,10 @@ class _VanListScreenState extends ConsumerState<VanListScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load vans: $e')),
+          SnackBar(
+            content: Text('Failed to load vans: ${ApiErrorParser.message(e)}'),
+            backgroundColor: KColors.error,
+          ),
         );
       }
     } finally {
@@ -53,88 +57,91 @@ class _VanListScreenState extends ConsumerState<VanListScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('Create Van'),
+          title: const Text('Add Field Delivery Van'),
           content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: codeCtl,
-                  decoration: const InputDecoration(
-                    labelText: 'Code *',
-                    hintText: 'e.g. VAN-001',
+            child: SizedBox(
+              width: 440,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  KTextField(
+                    controller: codeCtl,
+                    label: 'Van Code *',
+                    hint: 'e.g. VAN-001',
+                    isRequired: true,
                   ),
-                ),
-                KSpacing.vGapSm,
-                TextField(
-                  controller: vehicleNumberCtl,
-                  decoration: const InputDecoration(
-                    labelText: 'Vehicle Number *',
-                    hintText: 'e.g. KA-01-AB-1234',
+                  KSpacing.vGapSm,
+                  KTextField(
+                    controller: vehicleNumberCtl,
+                    label: 'Vehicle Registration Number *',
+                    hint: 'e.g. KA-01-AB-1234',
+                    isRequired: true,
                   ),
-                ),
-                KSpacing.vGapSm,
-                TextField(
-                  controller: nameCtl,
-                  decoration: const InputDecoration(
-                    labelText: 'Name',
-                    hintText: 'e.g. North Zone Van',
+                  KSpacing.vGapSm,
+                  KTextField(
+                    controller: nameCtl,
+                    label: 'Van Name / Route Nickname',
+                    hint: 'e.g. North Zone Express',
                   ),
-                ),
-                KSpacing.vGapSm,
-                DropdownButtonFormField<String>(
-                  initialValue: selectedType,
-                  decoration: const InputDecoration(labelText: 'Vehicle Type'),
-                  items: vehicleTypes
-                      .map((t) => DropdownMenuItem(
-                          value: t,
-                          child: Text(t[0] + t.substring(1).toLowerCase())))
-                      .toList(),
-                  onChanged: (val) {
-                    if (val != null) {
-                      setDialogState(() => selectedType = val);
-                    }
-                  },
-                ),
-                KSpacing.vGapSm,
-                TextField(
-                  controller: capacityWeightCtl,
-                  decoration: const InputDecoration(
-                    labelText: 'Capacity Weight (kg)',
-                    hintText: 'e.g. 500',
+                  KSpacing.vGapSm,
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedType,
+                    decoration: const InputDecoration(
+                      labelText: 'Vehicle Type',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: vehicleTypes
+                        .map((t) => DropdownMenuItem(
+                            value: t,
+                            child: Text(t[0] + t.substring(1).toLowerCase())))
+                        .toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setDialogState(() => selectedType = val);
+                      }
+                    },
                   ),
-                  keyboardType: TextInputType.number,
-                ),
-                KSpacing.vGapSm,
-                TextField(
-                  controller: capacityVolumeCtl,
-                  decoration: const InputDecoration(
-                    labelText: 'Capacity Volume (litres)',
-                    hintText: 'e.g. 1000',
+                  KSpacing.vGapSm,
+                  KTextField(
+                    controller: capacityWeightCtl,
+                    label: 'Payload Capacity (kg)',
+                    hint: 'e.g. 500',
+                    keyboardType: TextInputType.number,
                   ),
-                  keyboardType: TextInputType.number,
-                ),
-              ],
+                  KSpacing.vGapSm,
+                  KTextField(
+                    controller: capacityVolumeCtl,
+                    label: 'Cargo Volume (litres)',
+                    hint: 'e.g. 1000',
+                    keyboardType: TextInputType.number,
+                  ),
+                ],
+              ),
             ),
           ),
           actions: [
-            TextButton(
+            KButton.outlined(
+              size: KButtonSize.small,
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel'),
+              label: 'Cancel',
             ),
-            FilledButton(
+            KSpacing.hGapSm,
+            KButton.primary(
+              size: KButtonSize.small,
+              label: 'Create Van',
               onPressed: () {
                 if (codeCtl.text.trim().isEmpty ||
                     vehicleNumberCtl.text.trim().isEmpty) {
                   ScaffoldMessenger.of(ctx).showSnackBar(
                     const SnackBar(
-                        content: Text('Code and Vehicle Number are required')),
+                      content: Text('Code and Vehicle Number are required'),
+                      backgroundColor: KColors.error,
+                    ),
                   );
                   return;
                 }
                 Navigator.pop(ctx, true);
               },
-              child: const Text('Create'),
             ),
           ],
         ),
@@ -169,7 +176,10 @@ class _VanListScreenState extends ConsumerState<VanListScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to create van: $e')),
+          SnackBar(
+            content: Text('Failed to create van: ${ApiErrorParser.message(e)}'),
+            backgroundColor: KColors.error,
+          ),
         );
         setState(() => _isLoading = false);
       }
@@ -200,16 +210,16 @@ class _VanListScreenState extends ConsumerState<VanListScreen> {
       onOpen: (i) => _showVanStockSheet(_vans[i]),
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Vans'),
+          title: const Text('Field Delivery Vans & Inventory'),
         ),
         body: _isLoading
-            ? const KLoading()
+            ? const Center(child: KLoading())
             : _vans.isEmpty
                 ? KEmptyState(
                     icon: Icons.local_shipping_outlined,
-                    title: 'No vans yet',
+                    title: 'No vans registered yet',
                     subtitle:
-                        'Add vans to manage your field delivery vehicles.',
+                        'Add delivery vans and mobile inventory units to manage field logistics.',
                     actionLabel: 'New Van',
                     onAction: _showCreateDialog,
                   )
@@ -229,6 +239,8 @@ class _VanListScreenState extends ConsumerState<VanListScreen> {
                     ),
                   ),
         floatingActionButton: FloatingActionButton.extended(
+          backgroundColor: KColors.primary,
+          foregroundColor: Colors.white,
           onPressed: _showCreateDialog,
           icon: const Icon(Icons.add),
           label: const Text('New Van'),
@@ -254,34 +266,22 @@ class _VanCard extends StatelessWidget {
     final capacityWeight = (van['capacityWeightKg'] as num?)?.toDouble();
     final capacityVolume = (van['capacityVolumeLitre'] as num?)?.toDouble();
 
-    Color typeColor;
-    switch (vehicleType) {
-      case 'TRUCK':
-        typeColor = KColors.warning;
-        break;
-      case 'BIKE':
-        typeColor = KColors.info;
-        break;
-      case 'AUTO':
-        typeColor = KColors.success;
-        break;
-      default:
-        typeColor = KColors.primary;
-    }
-
     return KCard(
       onTap: onTap,
       child: Row(
         children: [
           Container(
-            width: 40,
-            height: 40,
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
-              color: typeColor.withValues(alpha: 0.1),
+              color: KColors.primary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(Icons.local_shipping_outlined,
-                color: typeColor, size: 20),
+            child: const Icon(
+              Icons.local_shipping_outlined,
+              color: KColors.primary,
+              size: 22,
+            ),
           ),
           KSpacing.hGapMd,
           Expanded(
@@ -291,39 +291,33 @@ class _VanCard extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: Text(name,
-                          style: KTypography.labelLarge,
-                          overflow: TextOverflow.ellipsis),
+                      child: Text(
+                        name,
+                        style: KTypography.titleMedium,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                     KSpacing.hGapSm,
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: typeColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        vehicleType,
-                        style: KTypography.bodySmall.copyWith(
-                            color: typeColor, fontWeight: FontWeight.w600),
-                      ),
+                    KStatusChip(
+                      status: vehicleType,
+                      label: vehicleType,
                     ),
                   ],
                 ),
                 KSpacing.vGapXs,
                 Row(
                   children: [
-                    Text(code,
-                        style: KTypography.bodySmall
-                            .copyWith(color: KColors.textSecondary)),
+                    Text(
+                      code,
+                      style: KTypography.mono(fontSize: 12, fontWeight: FontWeight.w600, color: KColors.textSecondary),
+                    ),
                     const SizedBox(width: 8),
-                    Icon(Icons.directions_car_outlined,
-                        size: 12, color: KColors.textSecondary),
-                    const SizedBox(width: 2),
-                    Text(vehicleNumber,
-                        style: KTypography.bodySmall
-                            .copyWith(color: KColors.textSecondary)),
+                    const Icon(Icons.directions_car_outlined, size: 13, color: KColors.textSecondary),
+                    const SizedBox(width: 3),
+                    Text(
+                      vehicleNumber,
+                      style: KTypography.mono(fontSize: 12, fontWeight: FontWeight.w600, color: KColors.textSecondary),
+                    ),
                   ],
                 ),
                 if (capacityWeight != null || capacityVolume != null) ...[
@@ -333,14 +327,14 @@ class _VanCard extends StatelessWidget {
                     children: [
                       if (capacityWeight != null)
                         _InfoChip(
-                            icon: Icons.fitness_center,
-                            label:
-                                '${capacityWeight.toStringAsFixed(0)} kg'),
+                          icon: Icons.fitness_center,
+                          label: '${capacityWeight.toStringAsFixed(0)} kg capacity',
+                        ),
                       if (capacityVolume != null)
                         _InfoChip(
-                            icon: Icons.water_drop_outlined,
-                            label:
-                                '${capacityVolume.toStringAsFixed(0)} L'),
+                          icon: Icons.water_drop_outlined,
+                          label: '${capacityVolume.toStringAsFixed(0)} L volume',
+                        ),
                     ],
                   ),
                 ],
@@ -386,7 +380,10 @@ class _VanStockSheetState extends State<_VanStockSheet> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load van stock: $e')),
+          SnackBar(
+            content: Text('Failed to load van stock: $e'),
+            backgroundColor: KColors.error,
+          ),
         );
       }
     } finally {
@@ -397,9 +394,9 @@ class _VanStockSheetState extends State<_VanStockSheet> {
   @override
   Widget build(BuildContext context) {
     return DraggableScrollableSheet(
-      initialChildSize: 0.5,
-      minChildSize: 0.3,
-      maxChildSize: 0.85,
+      initialChildSize: 0.55,
+      minChildSize: 0.35,
+      maxChildSize: 0.88,
       expand: false,
       builder: (ctx, scrollController) => Column(
         children: [
@@ -408,11 +405,13 @@ class _VanStockSheetState extends State<_VanStockSheet> {
                 KSpacing.md, KSpacing.md, KSpacing.md, KSpacing.sm),
             child: Row(
               children: [
-                const Icon(Icons.inventory_2_outlined, size: 20),
+                const Icon(Icons.inventory_2_outlined, size: 20, color: KColors.primary),
                 KSpacing.hGapSm,
                 Expanded(
-                  child: Text('${widget.vanName} — Stock',
-                      style: KTypography.labelLarge),
+                  child: Text(
+                    '${widget.vanName} — Current Van Stock',
+                    style: KTypography.titleLarge,
+                  ),
                 ),
                 IconButton(
                   icon: const Icon(Icons.close, size: 20),
@@ -424,9 +423,13 @@ class _VanStockSheetState extends State<_VanStockSheet> {
           const Divider(height: 1),
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(child: KLoading())
                 : _stock.isEmpty
-                    ? const Center(child: Text('No stock in this van'))
+                    ? const KEmptyState(
+                        icon: Icons.inventory_2_outlined,
+                        title: 'No inventory currently in this van',
+                        subtitle: 'Load goods via Van Stock Transfers to equip this delivery vehicle.',
+                      )
                     : ListView.separated(
                         controller: scrollController,
                         padding: KSpacing.pagePadding,
@@ -440,17 +443,22 @@ class _VanStockSheetState extends State<_VanStockSheet> {
                           final qty =
                               (item['quantity'] as num?)?.toDouble() ?? 0;
                           final uom = item['uom']?.toString() ?? '';
-                          return Row(
-                            children: [
-                              Expanded(
-                                child: Text(itemName,
-                                    style: KTypography.bodyMedium),
-                              ),
-                              Text(
-                                '${qty.toStringAsFixed(qty == qty.roundToDouble() ? 0 : 2)} $uom',
-                                style: KTypography.labelMedium,
-                              ),
-                            ],
+                          return KCard(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.check_box_outline_blank, size: 16, color: KColors.primary),
+                                KSpacing.hGapSm,
+                                Expanded(
+                                  child: Text(itemName,
+                                      style: KTypography.bodyMedium.copyWith(fontWeight: FontWeight.w500)),
+                                ),
+                                Text(
+                                  '${qty.toStringAsFixed(qty == qty.roundToDouble() ? 0 : 2)} $uom',
+                                  style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w700),
+                                ),
+                              ],
+                            ),
                           );
                         },
                       ),

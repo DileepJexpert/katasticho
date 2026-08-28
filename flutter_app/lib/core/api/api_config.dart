@@ -218,6 +218,10 @@ class ApiConfig {
   static const String portalDashboard = '/api/v1/portal/dashboard';
   static const String portalInvoices = '/api/v1/portal/invoices';
   static const String portalStatement = '/api/v1/portal/statement';
+  static const String portalCatalog = '/api/v1/portal/catalog';
+  static const String portalFrequentItems = '/api/v1/portal/frequent-items';
+  static const String portalOrders = '/api/v1/portal/orders';
+  static String portalOrderById(String id) => '/api/v1/portal/orders/$id';
   static const String portalPurchaseOrders = '/api/v1/portal/purchase-orders';
   static const String portalBills = '/api/v1/portal/bills';
   static const String portalChangePassword = '/api/v1/portal/change-password';
@@ -286,9 +290,15 @@ class ApiConfig {
   static const String uoms = '/api/v1/uoms';
   static String uomById(String id) => '/api/v1/uoms/$id';
 
-  // Barcode lookup
+  // Barcode lookup & Multi-Barcode Packaging Hierarchy
   static String itemByBarcode(String barcode) =>
       '/api/v1/items/by-barcode/$barcode';
+  static String itemPackagingBarcodes(String itemId) =>
+      '/api/v1/inventory/packaging-barcodes/items/$itemId';
+  static String itemPackagingBarcode(String id) =>
+      '/api/v1/inventory/packaging-barcodes/$id';
+  static String resolvePackagingBarcode(String barcode) =>
+      '/api/v1/inventory/packaging-barcodes/resolve/$barcode';
 
   // Stock Counts
   static const String stockCounts = '/api/v1/stock-counts';
@@ -313,6 +323,14 @@ class ApiConfig {
   static String picklistById(String id) => '/api/v1/picklists/$id';
   static String picklistsBySalesOrder(String soId) =>
       '/api/v1/picklists/by-sales-order/$soId';
+
+  // Job Work & Subcontracting (Challan 45 / ITC-04)
+  static const String jobWorkOrders = '/api/v1/inventory/job-work';
+  static String jobWorkOrder(String id) => '/api/v1/inventory/job-work/$id';
+  static String jobWorkReceipt(String id) =>
+      '/api/v1/inventory/job-work/$id/receipts';
+  static String jobWorkItc04(String quarter, int year) =>
+      '/api/v1/inventory/job-work/itc-04?quarter=$quarter&year=$year';
   static String startPicklist(String id) => '/api/v1/picklists/$id/start';
   static String picklistLines(String id) => '/api/v1/picklists/$id/lines';
   static String completePicklist(String id) =>
@@ -978,6 +996,14 @@ class ApiConfig {
   static String taxDeclarationPdf(String id) =>
       '/api/v1/payroll/tax-declarations/$id/pdf';
 
+  // Biometric Attendance Devices & Punch Logs
+  static const String biometricDevices = '/api/v1/biometric/devices';
+  static String biometricDevice(String id) => '/api/v1/biometric/devices/$id';
+  static String biometricDeviceTest(String id) =>
+      '/api/v1/biometric/devices/$id/test-connection';
+  static const String biometricLogs = '/api/v1/biometric/logs';
+  static const String biometricSimulatePunch = '/api/v1/biometric/logs/simulate';
+
   // Field Sales / FMCG Execution
   static const String fieldSalesBeats = '/api/v1/field-sales/beats';
   static String fieldSalesBeatById(String id) =>
@@ -997,6 +1023,11 @@ class ApiConfig {
   static String fieldSalesVanStock(String vanId) =>
       '/api/v1/field-sales/vans/$vanId/stock';
   static const String fieldSalesAssignments = '/api/v1/field-sales/assignments';
+  static const String fieldSalesAssignmentsMe = '/api/v1/field-sales/assignments/me';
+  static String fieldSalesAssignmentById(String id) =>
+      '/api/v1/field-sales/assignments/$id';
+  static String fieldSalesAssignmentEnd(String id) =>
+      '/api/v1/field-sales/assignments/$id/end';
   static String fieldSalesAssignmentsBySalesperson(String id) =>
       '/api/v1/field-sales/assignments/salesperson/$id';
   static const String fieldSalesVanTransfersLoad =
@@ -1052,6 +1083,19 @@ class ApiConfig {
       '/api/v1/field-sales/locations/live';
   static String fieldSalesLocationTrail(String executionId) =>
       '/api/v1/field-sales/locations/trail/$executionId';
+
+  // Store Shelf Merchandising & Photo Audits (Step 4.4)
+  static const String fieldSalesMerchandising = '/api/v1/field-sales/merchandising';
+  static String fieldSalesMerchandisingByVisit(String visitId) =>
+      '/api/v1/field-sales/merchandising/visit/$visitId';
+  static String fieldSalesMerchandisingByExecution(String executionId) =>
+      '/api/v1/field-sales/merchandising/execution/$executionId';
+  static String fieldSalesMerchandisingByCustomer(String contactId) =>
+      '/api/v1/field-sales/merchandising/customer/$contactId';
+  static const String fieldSalesMerchandisingRecent =
+      '/api/v1/field-sales/merchandising/recent';
+  static const String fieldSalesMerchandisingSummary =
+      '/api/v1/field-sales/merchandising/summary';
 
   // MR Reporting (tour plans + DCR)
   static const String mrTourPlans = '/api/v1/mr/tour-plans';
@@ -1308,9 +1352,10 @@ class ApiConfig {
   static const String cashRegister = '/api/v1/pos/cash-register';
   static String cashRegisterDate(String date) => '/api/v1/pos/cash-register/$date';
 
-  // WhatsApp document templates
-  static const String whatsappSettings = '/api/v1/settings/whatsapp';
+  // WhatsApp document templates & Bot Automation
+  static const String whatsappSettings = '/api/v1/whatsapp/settings';
   static const String whatsappMessages = '/api/v1/whatsapp/messages';
+  static const String whatsappSimulateBot = '/api/v1/whatsapp/simulate-bot';
   static String whatsappSendInvoice(String id) => '/api/v1/whatsapp/invoices/$id';
   static String whatsappSendReceipt(String id) => '/api/v1/whatsapp/receipts/$id';
   static String whatsappSendReminder(String contactId) =>
@@ -1497,4 +1542,47 @@ class ApiConfig {
       '/api/v1/supply-chain/supplier-performance/$supplierId/calculate';
   static const String supplyChainTurnover = '/api/v1/supply-chain/analytics/turnover';
   static const String supplyChainDashboard = '/api/v1/supply-chain/dashboard';
+
+  // Payment Terms & Dunning
+  static const String paymentTerms = '/api/v1/payment-terms';
+  static String paymentTermById(String id) => '/api/v1/payment-terms/$id';
+  static const String dunningLevels = '/api/v1/dunning/levels';
+  static String dunningLevelById(String id) => '/api/v1/dunning/levels/$id';
+  static const String dunningRun = '/api/v1/dunning/run';
+  static const String dunningPreview = '/api/v1/dunning/preview';
+  static const String dunningLog = '/api/v1/dunning/log';
+
+  // Recurring Bills
+  static const String recurringBills = '/api/v1/recurring-bills';
+  static String recurringBillById(String id) => '/api/v1/recurring-bills/$id';
+  static String recurringBillStop(String id) => '/api/v1/recurring-bills/$id/stop';
+  static String recurringBillGenerate(String id) => '/api/v1/recurring-bills/$id/generate';
+
+  // Recurring Journals
+  static const String recurringJournals = '/api/v1/recurring-journals';
+  static String recurringJournalById(String id) => '/api/v1/recurring-journals/$id';
+  static String recurringJournalStop(String id) => '/api/v1/recurring-journals/$id/stop';
+  static String recurringJournalGenerate(String id) => '/api/v1/recurring-journals/$id/generate';
+
+  // Workflow Rules
+  static const String workflowRules = '/api/v1/workflow-rules';
+  static String workflowRuleById(String id) => '/api/v1/workflow-rules/$id';
+  static String workflowRuleToggle(String id) => '/api/v1/workflow-rules/$id/toggle';
+  static const String workflowRuleDryRun = '/api/v1/workflow-rules/dry-run';
+  static const String workflowRuleMetadata = '/api/v1/workflow-rules/metadata';
+  static String workflowRuleExecutions(String id) => '/api/v1/workflow-rules/$id/executions';
+
+  // Razorpay Payment Links & Settings
+  static String invoicePaymentLink(String invoiceId) => '/api/v1/invoices/$invoiceId/payment-link';
+  static String invoicePaymentLinks(String invoiceId) => '/api/v1/invoices/$invoiceId/payment-links';
+  static const String settingsRazorpay = '/api/v1/settings/razorpay';
+
+  // User-Defined Custom Fields (UDF)
+  static const String customFieldDefinitions = '/api/v1/custom-fields/definitions';
+  static const String customFieldDefinitionsAll = '/api/v1/custom-fields/definitions/all';
+  static String customFieldDefinitionById(String id) => '/api/v1/custom-fields/definitions/$id';
+  static String customFieldValues(String entityType, String entityId) =>
+      '/api/v1/custom-fields/values/$entityType/$entityId';
+  static String customFieldValuesBatch(String entityType) =>
+      '/api/v1/custom-fields/values/$entityType/batch';
 }

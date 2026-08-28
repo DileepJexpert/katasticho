@@ -84,7 +84,7 @@ class CustomerReceiptListScreen extends ConsumerWidget {
               children: [
                 Row(children: [
                   Text(r['receiptNumber']?.toString() ?? '—',
-                      style: KTypography.labelLarge),
+                      style: KTypography.mono(fontSize: 14, fontWeight: FontWeight.w600)),
                   const SizedBox(width: KSpacing.sm),
                   Text(r['receiptDate']?.toString() ?? '',
                       style: KTypography.bodySmall
@@ -109,8 +109,7 @@ class CustomerReceiptListScreen extends ConsumerWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(CurrencyFormatter.format(amount),
-                  style: KTypography.labelLarge),
+              KMoney(amount, size: KMoneySize.medium),
               TextButton(
                 onPressed: () => _confirmVoid(context, ref, r),
                 style: TextButton.styleFrom(

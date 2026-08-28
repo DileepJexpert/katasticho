@@ -81,10 +81,13 @@ class KColors {
   // For dark-mode support, use context.cs.surface / context.cs.onSurface.
   static const Color surface = Colors.white;
   static const Color divider = Color(0xFFE5E5E1);        // --border
+  static const Color border = divider;
   static const Color borderStrong = Color(0xFFD4D4CF);   // --border-strong
   static const Color textPrimary = Color(0xFF1A1A18);    // warm near-black
   static const Color textSecondary = Color(0xFF5F5F59);  // warm grey
   static const Color textHint = Color(0xFF94948D);       // warm muted
+  static const Color textTertiary = textHint;            // alias for tertiary text
+  static const Color teal = brandSeed;                   // brand teal token
 
   // ── Gradients (derived from seeds) ──
   static final LinearGradient primaryGradient = LinearGradient(

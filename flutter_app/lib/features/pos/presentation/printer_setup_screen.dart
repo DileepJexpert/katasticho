@@ -1,71 +1,113 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/auth/auth_state.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
+import '../../../core/widgets/k_button.dart';
+import '../../../core/widgets/k_card.dart';
+import '../../../core/widgets/k_text_field.dart';
 import '../data/thermal_print_service.dart';
 
-class PrinterSetupScreen extends StatefulWidget {
+class PrinterSetupScreen extends ConsumerStatefulWidget {
   const PrinterSetupScreen({super.key});
 
   @override
-  State<PrinterSetupScreen> createState() => _PrinterSetupScreenState();
+  ConsumerState<PrinterSetupScreen> createState() => _PrinterSetupScreenState();
 }
 
-class _PrinterSetupScreenState extends State<PrinterSetupScreen> {
+class _PrinterSetupScreenState extends ConsumerState<PrinterSetupScreen> {
   final _printService = ThermalPrintService.instance;
+  ReceiptPrintSettings _settings = const ReceiptPrintSettings();
+  final _ipController = TextEditingController();
+  final _portController = TextEditingController();
+
   List<ScanResult> _devices = [];
   bool _scanning = false;
   String? _connectingId;
-  String? _savedName;
+  String? _savedBluetoothName;
   bool _autoPrint = false;
+  bool _testingPrint = false;
 
   @override
   void initState() {
     super.initState();
-    _loadSavedState();
+    _loadState();
   }
 
-  Future<void> _loadSavedState() async {
-    final name = await _printService.savedPrinterName;
+  @override
+  void dispose() {
+    _ipController.dispose();
+    _portController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadState() async {
+    final settings = await _printService.loadSettings();
     final auto = await _printService.autoPrintEnabled;
-    if (mounted) setState(() { _savedName = name; _autoPrint = auto; });
+    final btName = await _printService.savedPrinterName;
+
+    if (mounted) {
+      setState(() {
+        _settings = settings;
+        _autoPrint = auto;
+        _savedBluetoothName = btName;
+        _ipController.text = settings.networkIp;
+        _portController.text = settings.networkPort.toString();
+      });
+    }
   }
 
-  Future<void> _startScan() async {
-    setState(() { _scanning = true; _devices = []; });
+  Future<void> _saveSettings(ReceiptPrintSettings updated) async {
+    setState(() => _settings = updated);
+    await _printService.saveSettings(updated);
+  }
+
+  Future<void> _startBluetoothScan() async {
+    setState(() {
+      _scanning = true;
+      _devices = [];
+    });
     try {
       final results = await _printService.scanForPrinters();
       if (mounted) setState(() => _devices = results);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Scan failed: $e')));
+          SnackBar(content: Text('Scan failed: $e'), backgroundColor: KColors.error),
+        );
       }
     } finally {
       if (mounted) setState(() => _scanning = false);
     }
   }
 
-  Future<void> _connectTo(BluetoothDevice device) async {
+  Future<void> _connectBluetoothDevice(BluetoothDevice device) async {
     setState(() => _connectingId = device.remoteId.str);
     try {
       final ok = await _printService.connectToDevice(device);
       if (mounted) {
         if (ok) {
-          setState(() => _savedName = device.platformName.isNotEmpty
-              ? device.platformName : device.remoteId.str);
+          final name = device.platformName.isNotEmpty ? device.platformName : device.remoteId.str;
+          setState(() => _savedBluetoothName = name);
           ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Printer connected')));
+            SnackBar(content: Text('Bluetooth printer connected: $name')),
+          );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Could not find writable characteristic')));
+            const SnackBar(
+              content: Text('Could not find writable printer characteristic'),
+              backgroundColor: KColors.error,
+            ),
+          );
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Connection failed: $e')));
+          SnackBar(content: Text('Connection failed: $e'), backgroundColor: KColors.error),
+        );
       }
     } finally {
       if (mounted) setState(() => _connectingId = null);
@@ -73,218 +115,310 @@ class _PrinterSetupScreenState extends State<PrinterSetupScreen> {
   }
 
   Future<void> _testPrint() async {
-    if (!_printService.isConnected) {
-      final ok = await _printService.reconnectSaved();
-      if (!ok) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Printer not connected')));
-        }
-        return;
-      }
-    }
-
+    setState(() => _testingPrint = true);
     try {
-      await _printService.printReceipt(
-        receipt: {
-          'receiptNumber': 'TEST-001',
-          'receiptDate': DateTime.now().toIso8601String(),
-          'lines': [
-            {'itemName': 'Test Item 1', 'quantity': 2, 'rate': 50, 'amount': 100, 'unit': 'PCS'},
-            {'itemName': 'Test Item 2', 'quantity': 1, 'rate': 75, 'amount': 75, 'unit': 'PCS'},
-          ],
-          'subtotal': 175,
-          'cgst': 0,
-          'sgst': 0,
-          'igst': 0,
-          'total': 175,
-          'paymentMode': 'CASH',
-          'amountReceived': 200,
-          'changeReturned': 25,
+      final auth = ref.read(authProvider);
+      final orgName = auth.orgName ?? 'Katasticho Demo Store';
+
+      await _printService.testPrint(
+        settings: _settings,
+        org: {
+          'name': orgName,
+          'address': 'Main Market Road, Sector 12',
+          'phone': '9876543210',
+          'gstin': '07AAAAA0000A1Z5',
+          'drugLicenseNo': 'DL-20B-12345/21B-67890',
         },
-        org: {'name': 'Test Store', 'address': '123 Test St', 'phone': '9876543210'},
-        settings: const ReceiptPrintSettings(),
       );
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Test print sent')));
+          const SnackBar(content: Text('Test print sent successfully!')),
+        );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Print failed: $e')));
+          SnackBar(
+            content: Text('Print failed: $e'),
+            backgroundColor: KColors.error,
+          ),
+        );
       }
+    } finally {
+      if (mounted) setState(() => _testingPrint = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Printer Setup')),
+      appBar: AppBar(title: const Text('Thermal Printer Setup')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: KSpacing.pagePadding,
         children: [
-          _buildCurrentPrinter(),
-          KSpacing.vGapLg,
-          _buildAutoPrint(),
-          KSpacing.vGapLg,
-          _buildScanSection(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCurrentPrinter() {
-    final connected = _printService.isConnected;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Current Printer', style: KTypography.h3),
-            KSpacing.vGapSm,
-            Row(
-              children: [
-                Icon(
-                  connected ? Icons.print : Icons.print_disabled,
-                  color: connected ? KColors.success : KColors.textSecondary,
-                ),
-                KSpacing.hGapSm,
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _savedName ?? 'No printer selected',
-                        style: KTypography.labelLarge,
-                      ),
-                      Text(
-                        connected ? 'Connected' : (_savedName != null ? 'Saved (tap to reconnect)' : 'Scan below to pair'),
-                        style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
-                      ),
-                    ],
+          // Connection Mode Selector
+          Text('Printer Connection Interface', style: KTypography.h3),
+          KSpacing.vGapXs,
+          Text(
+            'High-speed zero-dialog direct ESC/POS printing over Network (TCP/IP) or Bluetooth.',
+            style: KTypography.caption.copyWith(color: KColors.textSecondary),
+          ),
+          KSpacing.vGapSm,
+          KCard(
+            child: RadioGroup<PrinterConnectionType>(
+              groupValue: _settings.connectionType,
+              onChanged: (val) {
+                if (val != null) _saveSettings(_settings.copyWith(connectionType: val));
+              },
+              child: Column(
+                children: const [
+                  RadioListTile<PrinterConnectionType>(
+                    value: PrinterConnectionType.network,
+                    title: Text('Direct Network / Ethernet (Raw TCP Socket)'),
+                    subtitle: Text('Recommended for LAN/WiFi thermal printers (Epson, TVS, NGX, Everycom) — Port 9100'),
                   ),
-                ),
-                if (_savedName != null) ...[
-                  if (!connected)
-                    TextButton(
-                      onPressed: () async {
-                        final ok = await _printService.reconnectSaved();
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                            content: Text(ok ? 'Reconnected' : 'Could not reconnect'),
-                          ));
-                          setState(() {});
-                        }
-                      },
-                      child: const Text('Connect'),
-                    ),
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline, color: KColors.error),
-                    onPressed: () async {
-                      await _printService.clearSavedPrinter();
-                      if (mounted) setState(() => _savedName = null);
-                    },
+                  Divider(height: 1),
+                  RadioListTile<PrinterConnectionType>(
+                    value: PrinterConnectionType.bluetooth,
+                    title: Text('Direct Bluetooth (BLE / Wireless)'),
+                    subtitle: Text('For portable hand-held 58mm / 80mm Bluetooth billing machines'),
+                  ),
+                  Divider(height: 1),
+                  RadioListTile<PrinterConnectionType>(
+                    value: PrinterConnectionType.system,
+                    title: Text('System Print Dialog (Browser / OS Driver)'),
+                    subtitle: Text('Standard OS print window fallback'),
                   ),
                 ],
-              ],
-            ),
-            if (connected) ...[
-              KSpacing.vGapMd,
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: _testPrint,
-                  icon: const Icon(Icons.receipt_long, size: 18),
-                  label: const Text('Test Print'),
-                ),
               ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAutoPrint() {
-    return Card(
-      child: SwitchListTile(
-        title: const Text('Auto-print on sale'),
-        subtitle: const Text('Automatically print receipt after each sale'),
-        value: _autoPrint,
-        onChanged: (v) {
-          setState(() => _autoPrint = v);
-          _printService.setAutoPrint(v);
-        },
-      ),
-    );
-  }
-
-  Widget _buildScanSection() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Text('Available Devices', style: KTypography.h3),
-                const Spacer(),
-                FilledButton.icon(
-                  onPressed: _scanning ? null : _startScan,
-                  icon: _scanning
-                      ? const SizedBox(width: 16, height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Icon(Icons.bluetooth_searching, size: 18),
-                  label: Text(_scanning ? 'Scanning...' : 'Scan'),
-                ),
-              ],
             ),
-            KSpacing.vGapMd,
-            if (_devices.isEmpty && !_scanning)
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 24),
-                  child: Column(
+          ),
+          KSpacing.vGapLg,
+
+          // If Network: IP and Port Inputs
+          if (_settings.connectionType == PrinterConnectionType.network) ...[
+            Text('Network Printer Address', style: KTypography.h3),
+            KSpacing.vGapSm,
+            KCard(
+              padding: const EdgeInsets.all(KSpacing.md),
+              child: Column(
+                children: [
+                  Row(
                     children: [
-                      Icon(Icons.bluetooth, size: 48, color: KColors.textSecondary.withValues(alpha: 0.5)),
-                      KSpacing.vGapSm,
-                      Text('Tap Scan to find nearby printers',
-                          style: KTypography.bodyMedium.copyWith(color: KColors.textSecondary)),
+                      Expanded(
+                        flex: 3,
+                        child: KTextField(
+                          label: 'Printer IP Address',
+                          hint: 'e.g. 192.168.1.200',
+                          controller: _ipController,
+                          keyboardType: TextInputType.number,
+                          onChanged: (val) {
+                            _saveSettings(_settings.copyWith(networkIp: val.trim()));
+                          },
+                        ),
+                      ),
+                      KSpacing.hGapSm,
+                      Expanded(
+                        flex: 1,
+                        child: KTextField(
+                          label: 'Port',
+                          hint: '9100',
+                          controller: _portController,
+                          keyboardType: TextInputType.number,
+                          onChanged: (val) {
+                            final port = int.tryParse(val.trim()) ?? 9100;
+                            _saveSettings(_settings.copyWith(networkPort: port));
+                          },
+                        ),
+                      ),
                     ],
                   ),
-                ),
+                  KSpacing.vGapSm,
+                  Text(
+                    'Default RAW port for Epson ESC/POS, Star, TVS RP series and Posiflex is 9100.',
+                    style: KTypography.caption.copyWith(color: KColors.textSecondary),
+                  ),
+                ],
               ),
-            ..._devices.map((r) => _buildDeviceTile(r)),
+            ),
+            KSpacing.vGapLg,
           ],
-        ),
-      ),
-    );
-  }
 
-  Widget _buildDeviceTile(ScanResult result) {
-    final device = result.device;
-    final name = device.platformName.isNotEmpty ? device.platformName : device.remoteId.str;
-    final isConnecting = _connectingId == device.remoteId.str;
-    final isThisConnected = _printService.isConnected &&
-        _printService.connectedPrinterName == device.platformName;
+          // If Bluetooth: Device Scanner
+          if (_settings.connectionType == PrinterConnectionType.bluetooth) ...[
+            Text('Bluetooth Device Pairing', style: KTypography.h3),
+            KSpacing.vGapSm,
+            KCard(
+              padding: const EdgeInsets.all(KSpacing.md),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        _printService.isConnected ? Icons.bluetooth_connected : Icons.bluetooth,
+                        color: _printService.isConnected ? KColors.primary : KColors.textSecondary,
+                      ),
+                      KSpacing.hGapSm,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _savedBluetoothName ?? 'No Bluetooth printer paired',
+                              style: KTypography.labelMedium,
+                            ),
+                            Text(
+                              _printService.isConnected ? 'Connected & Ready' : 'Saved device',
+                              style: KTypography.caption.copyWith(
+                                color: _printService.isConnected ? KColors.success : KColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (_savedBluetoothName != null)
+                        TextButton(
+                          onPressed: () async {
+                            await _printService.clearSavedPrinter();
+                            setState(() => _savedBluetoothName = null);
+                          },
+                          child: Text('Disconnect', style: TextStyle(color: KColors.error)),
+                        ),
+                    ],
+                  ),
+                  KSpacing.vGapMd,
+                  KButton(
+                    label: _scanning ? 'Scanning Bluetooth Devices...' : 'Scan for Nearby Printers',
+                    icon: Icons.search,
+                    variant: KButtonVariant.outlined,
+                    isLoading: _scanning,
+                    onPressed: _scanning ? null : _startBluetoothScan,
+                  ),
+                  if (_devices.isNotEmpty) ...[
+                    KSpacing.vGapMd,
+                    const Divider(height: 1),
+                    ..._devices.map((r) => ListTile(
+                          dense: true,
+                          title: Text(r.device.platformName, style: KTypography.labelMedium),
+                          subtitle: Text(r.device.remoteId.str, style: KTypography.caption),
+                          trailing: _connectingId == r.device.remoteId.str
+                              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                              : FilledButton.tonal(
+                                  onPressed: () => _connectBluetoothDevice(r.device),
+                                  child: const Text('Pair'),
+                                ),
+                        )),
+                  ],
+                ],
+              ),
+            ),
+            KSpacing.vGapLg,
+          ],
 
-    return ListTile(
-      leading: Icon(
-        Icons.print,
-        color: isThisConnected ? KColors.success : KColors.primary,
+          // Hardware & Paper Options
+          Text('Paper & Hardware Controls', style: KTypography.h3),
+          KSpacing.vGapSm,
+          KCard(
+            child: Column(
+              children: [
+                ListTile(
+                  title: const Text('Paper Roll Width'),
+                  subtitle: Text(_settings.paperSize == '80mm' ? '80mm (3-inch wide / 48 columns)' : '58mm (2-inch standard / 32 columns)'),
+                  trailing: SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(value: '58mm', label: Text('58mm')),
+                      ButtonSegment(value: '80mm', label: Text('80mm')),
+                    ],
+                    selected: {_settings.paperSize},
+                    onSelectionChanged: (set) {
+                      _saveSettings(_settings.copyWith(paperSize: set.first));
+                    },
+                  ),
+                ),
+                const Divider(height: 1),
+                SwitchListTile(
+                  value: _autoPrint,
+                  title: const Text('Auto-Print on Bill Completion'),
+                  subtitle: const Text('Instantly fires print without asking for confirmation'),
+                  onChanged: (val) async {
+                    setState(() => _autoPrint = val);
+                    await _printService.setAutoPrint(val);
+                  },
+                ),
+                const Divider(height: 1),
+                SwitchListTile(
+                  value: _settings.autoCut,
+                  title: const Text('Automatic Paper Cut (GS V)'),
+                  subtitle: const Text('Triggers guillotine cutter at the end of every receipt'),
+                  onChanged: (val) => _saveSettings(_settings.copyWith(autoCut: val)),
+                ),
+                const Divider(height: 1),
+                SwitchListTile(
+                  value: _settings.openCashDrawer,
+                  title: const Text('Kick Cash Drawer Pulse (ESC p)'),
+                  subtitle: const Text('Punches 24V drawer solenoid on bill settlement'),
+                  onChanged: (val) => _saveSettings(_settings.copyWith(openCashDrawer: val)),
+                ),
+              ],
+            ),
+          ),
+          KSpacing.vGapLg,
+
+          // Slip Content Customization
+          Text('Receipt Content Elements', style: KTypography.h3),
+          KSpacing.vGapSm,
+          KCard(
+            child: Column(
+              children: [
+                SwitchListTile(
+                  value: _settings.showSavingsBanner,
+                  title: const Text('Display "You Saved ₹X" Banner'),
+                  subtitle: const Text('Highlights total scheme and bill discounts to customer'),
+                  onChanged: (val) => _saveSettings(_settings.copyWith(showSavingsBanner: val)),
+                ),
+                const Divider(height: 1),
+                SwitchListTile(
+                  value: _settings.showUpiQr,
+                  title: const Text('Print Dynamic UPI QR Code'),
+                  subtitle: const Text('Prints UPI QR code on slip for instant mobile scan & payment verification'),
+                  onChanged: (val) => _saveSettings(_settings.copyWith(showUpiQr: val)),
+                ),
+                const Divider(height: 1),
+                SwitchListTile(
+                  value: _settings.showDrugLicense,
+                  title: const Text('Show Pharma Drug License (D.L. No)'),
+                  subtitle: const Text('Mandatory statutory header for pharmacy retailers & distributors'),
+                  onChanged: (val) => _saveSettings(_settings.copyWith(showDrugLicense: val)),
+                ),
+                const Divider(height: 1),
+                SwitchListTile(
+                  value: _settings.showHsnCode,
+                  title: const Text('Show HSN/SAC Code per Line'),
+                  onChanged: (val) => _saveSettings(_settings.copyWith(showHsnCode: val)),
+                ),
+                const Divider(height: 1),
+                SwitchListTile(
+                  value: _settings.showTaxBreakdown,
+                  title: const Text('Show CGST + SGST Breakdown'),
+                  onChanged: (val) => _saveSettings(_settings.copyWith(showTaxBreakdown: val)),
+                ),
+              ],
+            ),
+          ),
+          KSpacing.vGapXl,
+
+          // Test Print CTA
+          KButton(
+            label: _testingPrint ? 'Sending Test Slip...' : 'Send Test Print to Thermal Printer',
+            icon: Icons.print,
+            isLoading: _testingPrint,
+            onPressed: _testingPrint ? null : _testPrint,
+          ),
+          KSpacing.vGapXl,
+        ],
       ),
-      title: Text(name),
-      subtitle: Text('RSSI: ${result.rssi} dBm'),
-      trailing: isConnecting
-          ? const SizedBox(width: 24, height: 24,
-              child: CircularProgressIndicator(strokeWidth: 2))
-          : isThisConnected
-              ? const Icon(Icons.check_circle, color: KColors.success)
-              : const Icon(Icons.link, color: KColors.primary),
-      onTap: isConnecting ? null : () => _connectTo(device),
     );
   }
 }

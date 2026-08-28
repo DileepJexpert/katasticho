@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
@@ -30,6 +31,11 @@ class _SupplierListScreenState extends ConsumerState<SupplierListScreen> {
   }
 
   Future<void> _openForm({Map<String, dynamic>? existing}) async {
+    if (existing == null) {
+      await context.push('/contacts/create?type=VENDOR');
+      if (mounted) ref.invalidate(supplierListProvider);
+      return;
+    }
     final saved = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -58,23 +64,33 @@ class _SupplierListScreenState extends ConsumerState<SupplierListScreen> {
     final async = ref.watch(supplierListProvider(_query));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Suppliers')),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openForm(),
-        icon: const Icon(Icons.add),
-        label: const Text('New supplier'),
+      appBar: AppBar(
+        title: const Text('Suppliers & Vendors'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: KSpacing.md),
+            child: KButton.primary(
+              size: KButtonSize.small,
+              icon: Icons.add,
+              label: 'New Supplier',
+              onPressed: () => _openForm(),
+            ),
+          ),
+        ],
       ),
       body: Column(
         children: [
           Padding(
             padding: const EdgeInsets.all(KSpacing.md),
-            child: KTextField(
-              label: 'Search suppliers',
-              hint: 'Name, GSTIN…',
+            child: KTextField.search(
+              hint: 'Search by supplier name, GSTIN, city…',
               controller: _searchController,
-              prefixIcon: Icons.search,
               onChanged: (v) => setState(
                   () => _query = v.trim().isEmpty ? null : v.trim()),
+              onClear: () {
+                _searchController.clear();
+                setState(() => _query = null);
+              },
             ),
           ),
           Expanded(
@@ -88,66 +104,113 @@ class _SupplierListScreenState extends ConsumerState<SupplierListScreen> {
                 final list = _extractList(response);
                 if (list.isEmpty) {
                   return Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.local_shipping_outlined,
-                            size: 48, color: KColors.textHint),
-                        KSpacing.vGapSm,
-                        Text(
-                          _query == null ? 'No suppliers yet' : 'No matches',
-                          style: KTypography.bodyMedium,
-                        ),
-                        KSpacing.vGapMd,
-                        KButton(
-                          label: 'Add supplier',
-                          icon: Icons.add,
-                          onPressed: () => _openForm(),
-                        ),
-                      ],
+                    child: KEmptyState(
+                      icon: Icons.local_shipping_outlined,
+                      title: _query == null ? 'No Suppliers Registered' : 'No Matching Suppliers',
+                      actionLabel: _query == null ? 'Add Supplier' : null,
+                      onAction: _query == null ? () => _openForm() : null,
                     ),
                   );
                 }
                 return ListView.separated(
                   padding: const EdgeInsets.fromLTRB(
-                      KSpacing.md, 0, KSpacing.md, 88),
+                      KSpacing.md, 0, KSpacing.md, KSpacing.xl),
                   itemCount: list.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  separatorBuilder: (_, __) => KSpacing.vGapSm,
                   itemBuilder: (_, i) {
                     final s = list[i];
                     final name = s['name']?.toString() ?? '';
                     final gstin = s['gstin']?.toString() ?? '';
                     final phone = s['phone']?.toString() ?? '';
                     final city = s['city']?.toString() ?? '';
+                    final paymentTerms = s['paymentTermsDays'] != null
+                        ? '${s['paymentTermsDays']} Days'
+                        : null;
                     final active = s['active'] != false;
-                    final subtitleParts = <String>[
-                      if (gstin.isNotEmpty) 'GSTIN: $gstin',
-                      if (phone.isNotEmpty) phone,
-                      if (city.isNotEmpty) city,
-                    ];
                     return KCard(
                       onTap: () => _openForm(existing: s),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 4, vertical: 2),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(name, style: KTypography.labelMedium),
-                                  if (subtitleParts.isNotEmpty) ...[
-                                    const SizedBox(height: 2),
-                                    Text(subtitleParts.join('  ·  '),
-                                        style: KTypography.bodySmall),
-                                  ],
-                                ],
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: KColors.primarySoft,
+                              borderRadius: BorderRadius.circular(KSpacing.radiusSm),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              name.isNotEmpty ? name[0].toUpperCase() : 'S',
+                              style: KTypography.titleMedium.copyWith(
+                                color: KColors.primary,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
-                            if (!active) const KStatusChip(status: 'Inactive'),
-                          ],
-                        ),
+                          ),
+                          KSpacing.hGapMd,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        name,
+                                        style: KTypography.titleMedium,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    KSpacing.hGapSm,
+                                    KStatusChip(status: active ? 'ACTIVE' : 'INACTIVE'),
+                                  ],
+                                ),
+                                KSpacing.vGapXs,
+                                Row(
+                                  children: [
+                                    if (gstin.isNotEmpty) ...[
+                                      Text(
+                                        'GSTIN: ',
+                                        style: KTypography.caption,
+                                      ),
+                                      Text(
+                                        gstin,
+                                        style: KTypography.mono(fontSize: 12, fontWeight: FontWeight.w600),
+                                      ),
+                                      KSpacing.hGapMd,
+                                    ],
+                                    if (phone.isNotEmpty) ...[
+                                      Icon(Icons.phone_outlined, size: 13, color: KColors.textHint),
+                                      const SizedBox(width: 4),
+                                      Text(phone, style: KTypography.bodySmall),
+                                      KSpacing.hGapMd,
+                                    ],
+                                    if (city.isNotEmpty) ...[
+                                      Icon(Icons.location_on_outlined, size: 13, color: KColors.textHint),
+                                      const SizedBox(width: 4),
+                                      Text(city, style: KTypography.bodySmall),
+                                    ],
+                                  ],
+                                ),
+                                if (paymentTerms != null) ...[
+                                  KSpacing.vGapXs,
+                                  Row(
+                                    children: [
+                                      Text('Payment Terms: ', style: KTypography.caption),
+                                      Text(
+                                        paymentTerms,
+                                        style: KTypography.mono(fontSize: 11, fontWeight: FontWeight.w600, color: KColors.primary),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          KSpacing.hGapSm,
+                          Icon(Icons.chevron_right, color: KColors.textHint),
+                        ],
                       ),
                     );
                   },
@@ -374,27 +437,27 @@ class _SupplierFormSheetState extends ConsumerState<SupplierFormSheet> {
                 maxLines: 2,
               ),
               KSpacing.vGapSm,
-              SwitchListTile(
+              SwitchListTile.adaptive(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Active'),
+                title: Text('Active Supplier', style: KTypography.bodyMedium),
+                subtitle: Text('Allow issuing purchase orders to this vendor', style: KTypography.caption),
                 value: _active,
+                activeTrackColor: KColors.primary,
                 onChanged: (v) => setState(() => _active = v),
               ),
-              KSpacing.vGapMd,
+              KSpacing.vGapLg,
               Row(
                 children: [
                   Expanded(
-                    child: KButton(
+                    child: KButton.outlined(
                       label: 'Cancel',
-                      variant: KButtonVariant.outlined,
-                      onPressed:
-                          _saving ? null : () => Navigator.pop(context),
+                      onPressed: _saving ? null : () => Navigator.pop(context),
                     ),
                   ),
                   KSpacing.hGapSm,
                   Expanded(
-                    child: KButton(
-                      label: _isEdit ? 'Save' : 'Create',
+                    child: KButton.primary(
+                      label: _isEdit ? 'Save Changes' : 'Create Supplier',
                       isLoading: _saving,
                       onPressed: _saving ? null : _save,
                     ),

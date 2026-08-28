@@ -99,16 +99,21 @@ class _PicklistListScreenState extends ConsumerState<PicklistListScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Complete Picklist'),
+        title: Text('Complete Picklist', style: KTypography.titleLarge),
         content:
             const Text('Mark this picklist as completed? Ensure all items have been picked.'),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
-          FilledButton(
+          KButton.outlined(
+            label: 'Cancel',
+            size: KButtonSize.small,
+            onPressed: () => Navigator.pop(ctx, false),
+          ),
+          KSpacing.hGapSm,
+          KButton.primary(
+            icon: Icons.task_alt,
+            label: 'Complete Picklist',
+            size: KButtonSize.small,
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Complete'),
           ),
         ],
       ),
@@ -142,19 +147,20 @@ class _PicklistListScreenState extends ConsumerState<PicklistListScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Cancel Picklist'),
+        title: Text('Cancel Picklist', style: KTypography.titleLarge),
         content: const Text('Cancel this picklist? This cannot be undone.'),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Keep')),
-          FilledButton.tonal(
-            style: FilledButton.styleFrom(
-              backgroundColor: KColors.error.withValues(alpha: 0.12),
-              foregroundColor: KColors.error,
-            ),
+          KButton.outlined(
+            label: 'Keep',
+            size: KButtonSize.small,
+            onPressed: () => Navigator.pop(ctx, false),
+          ),
+          KSpacing.hGapSm,
+          KButton.danger(
+            icon: Icons.cancel_outlined,
+            label: 'Cancel Picklist',
+            size: KButtonSize.small,
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Cancel Picklist'),
           ),
         ],
       ),
@@ -214,11 +220,15 @@ class _PicklistListScreenState extends ConsumerState<PicklistListScreen> {
           ],
         ),
         actions: [
-          TextButton(
+          KButton.outlined(
+            label: 'Cancel',
+            size: KButtonSize.small,
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
           ),
-          FilledButton(
+          KSpacing.hGapSm,
+          KButton.primary(
+            label: 'Create',
+            size: KButtonSize.small,
             onPressed: () {
               if (soNumberCtl.text.trim().isEmpty) return;
               Navigator.pop(ctx, {
@@ -226,7 +236,6 @@ class _PicklistListScreenState extends ConsumerState<PicklistListScreen> {
                 'notes': notesCtl.text.trim(),
               });
             },
-            child: const Text('Create'),
           ),
         ],
       ),
@@ -437,12 +446,19 @@ class _PicklistCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(picklistNumber, style: KTypography.labelLarge),
-                    KSpacing.vGapXxs,
                     Text(
-                      'SO: $soNumber',
-                      style: KTypography.bodySmall
-                          .copyWith(color: KColors.textSecondary),
+                      picklistNumber,
+                      style: KTypography.mono(size: 13, weight: FontWeight.w700),
+                    ),
+                    KSpacing.vGapXxs,
+                    Row(
+                      children: [
+                        Text('SO: ', style: KTypography.labelSmall.copyWith(color: KColors.textSecondary)),
+                        Text(
+                          soNumber,
+                          style: KTypography.mono(size: 11, color: KColors.textSecondary),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -828,37 +844,38 @@ class _PicklistActions extends StatelessWidget {
 
     if (status == 'PENDING') {
       actions.add(
-        FilledButton.icon(
+        KButton.primary(
           onPressed: actionInProgress ? null : onStart,
-          icon: const Icon(Icons.play_arrow_rounded, size: 18),
-          label: const Text('Start Picking'),
+          icon: Icons.play_arrow_rounded,
+          label: 'Start Picking',
+          size: KButtonSize.small,
         ),
       );
       actions.add(const SizedBox(width: 8));
       actions.add(
-        OutlinedButton.icon(
+        KButton.outlined(
           onPressed: actionInProgress ? null : onCancel,
-          icon: const Icon(Icons.cancel_outlined, size: 18),
-          label: const Text('Cancel'),
-          style: OutlinedButton.styleFrom(foregroundColor: KColors.error),
+          icon: Icons.cancel_outlined,
+          label: 'Cancel',
+          size: KButtonSize.small,
         ),
       );
     } else if (status == 'IN_PROGRESS') {
       actions.add(
-        FilledButton.icon(
+        KButton.primary(
           onPressed: actionInProgress ? null : onComplete,
-          icon: const Icon(Icons.check_circle_outline, size: 18),
-          label: const Text('Complete'),
-          style: FilledButton.styleFrom(backgroundColor: KColors.success),
+          icon: Icons.check_circle_outline,
+          label: 'Complete',
+          size: KButtonSize.small,
         ),
       );
       actions.add(const SizedBox(width: 8));
       actions.add(
-        OutlinedButton.icon(
+        KButton.outlined(
           onPressed: actionInProgress ? null : onCancel,
-          icon: const Icon(Icons.cancel_outlined, size: 18),
-          label: const Text('Cancel'),
-          style: OutlinedButton.styleFrom(foregroundColor: KColors.error),
+          icon: Icons.cancel_outlined,
+          label: 'Cancel',
+          size: KButtonSize.small,
         ),
       );
     }

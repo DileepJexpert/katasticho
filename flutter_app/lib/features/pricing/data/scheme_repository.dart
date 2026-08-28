@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
+import 'scheme_models.dart';
 
 class SchemeRepository {
   final ApiClient _client;
@@ -54,6 +55,31 @@ class SchemeRepository {
       return const [];
     } catch (e, st) {
       debugPrint('[SchemeRepo] getApplicable FAILED: $e\n$st');
+      rethrow;
+    }
+  }
+
+  Future<SchemeCalculationResult> evaluateScheme({
+    required String itemId,
+    required double quantity,
+    required double unitPrice,
+    String? schemeId,
+  }) async {
+    debugPrint('[SchemeRepo] evaluateScheme itemId=$itemId qty=$quantity price=$unitPrice');
+    try {
+      final res = await _client.post(
+        '/api/v1/schemes/evaluate',
+        data: {
+          'itemId': itemId,
+          'quantity': quantity,
+          'unitPrice': unitPrice,
+          if (schemeId != null) 'schemeId': schemeId,
+        },
+      );
+      final data = (res.data as Map<String, dynamic>)['data'] as Map<String, dynamic>;
+      return SchemeCalculationResult.fromJson(data);
+    } catch (e, st) {
+      debugPrint('[SchemeRepo] evaluateScheme FAILED: $e\n$st');
       rethrow;
     }
   }

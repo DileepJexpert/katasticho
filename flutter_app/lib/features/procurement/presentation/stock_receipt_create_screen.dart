@@ -6,11 +6,10 @@ import '../../../core/auth/auth_state.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
+import '../../../core/utils/date_formatter.dart';
+import '../../../core/utils/form_error_handler.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/workflow/workflow_hint_resolver.dart';
-import '../../../core/utils/currency_formatter.dart';
-import '../../../core/utils/form_error_handler.dart';
-import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../../inventory/presentation/item_picker_sheet.dart';
 import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
@@ -27,10 +26,6 @@ class StockReceiptPrefill {
   });
 }
 
-/// Two-step GRN creation: pick supplier + add lines, then review.
-/// Saving creates the receipt in DRAFT state — posting (which writes to
-/// the inventory ledger) happens from the detail screen so the user has
-/// one last chance to bail out.
 class StockReceiptCreateScreen extends ConsumerStatefulWidget {
   final List<Map<String, dynamic>>? prefillItems;
   final Map<String, dynamic>? prefillSupplier;
@@ -48,7 +43,6 @@ class StockReceiptCreateScreen extends ConsumerStatefulWidget {
 
 class _StockReceiptCreateScreenState
     extends ConsumerState<StockReceiptCreateScreen> with FormErrorHandler {
-  int _currentStep = 0;
   bool _isSubmitting = false;
   String? _errorMessage;
 
@@ -104,106 +98,15 @@ class _StockReceiptCreateScreenState
   double _chargeOf(TextEditingController c) =>
       double.tryParse(c.text.trim()) ?? 0;
 
-  Widget _buildLandedCharges() {
-    final total = _chargeOf(_freightCtl) +
-        _chargeOf(_dutyCtl) +
-        _chargeOf(_insuranceCtl) +
-        _chargeOf(_otherChargesCtl);
-    return KCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.local_shipping_outlined,
-                  size: 18, color: KColors.primary),
-              KSpacing.hGapSm,
-              Text('Landed cost (optional)', style: KTypography.labelLarge),
-            ],
-          ),
-          KSpacing.vGapXs,
-          Text(
-            'Freight, duty, insurance and other charges are spread across the '
-            'items by value, so stock cost reflects what you really paid.',
-            style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
-          ),
-          KSpacing.vGapSm,
-          Row(
-            children: [
-              Expanded(
-                child: KTextField(
-                  label: 'Freight',
-                  controller: _freightCtl,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  onChanged: (_) => setState(() {}),
-                ),
-              ),
-              KSpacing.hGapSm,
-              Expanded(
-                child: KTextField(
-                  label: 'Duty',
-                  controller: _dutyCtl,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  onChanged: (_) => setState(() {}),
-                ),
-              ),
-            ],
-          ),
-          KSpacing.vGapSm,
-          Row(
-            children: [
-              Expanded(
-                child: KTextField(
-                  label: 'Insurance',
-                  controller: _insuranceCtl,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  onChanged: (_) => setState(() {}),
-                ),
-              ),
-              KSpacing.hGapSm,
-              Expanded(
-                child: KTextField(
-                  label: 'Other',
-                  controller: _otherChargesCtl,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  onChanged: (_) => setState(() {}),
-                ),
-              ),
-            ],
-          ),
-          if (total > 0) ...[
-            KSpacing.vGapSm,
-            Text('Total landed charges: ₹${total.toStringAsFixed(2)}',
-                style: KTypography.labelMedium.copyWith(color: KColors.primary)),
-          ],
-        ],
-      ),
-    );
-  }
+  double get _landedTotal =>
+      _chargeOf(_freightCtl) +
+      _chargeOf(_dutyCtl) +
+      _chargeOf(_insuranceCtl) +
+      _chargeOf(_otherChargesCtl);
 
   double get _subtotal => _lines.fold(0, (sum, l) => sum + l.taxableAmount);
   double get _totalTax => _lines.fold(0, (sum, l) => sum + l.taxAmount);
-  double get _grandTotal => _subtotal + _totalTax;
-
-  void _nextStep() {
-    // Pure step-advance: on the review step this is a no-op so that the
-    // Ctrl+→ "next step" shortcut can never silently submit the GRN —
-    // submitting is Ctrl+Enter / the Save Draft button only.
-    if (_currentStep >= 2) return;
-    if (_currentStep == 0 && _supplier == null) {
-      setState(() => _errorMessage = 'Please select a supplier');
-      return;
-    }
-    setState(() => _currentStep++);
-  }
-
-  void _prevStep() {
-    if (_currentStep > 0) setState(() => _currentStep--);
-  }
+  double get _grandTotal => _subtotal + _totalTax + _landedTotal;
 
   Future<void> _pickSupplier() async {
     final picked = await showSupplierPicker(context);
@@ -213,8 +116,6 @@ class _StockReceiptCreateScreenState
   }
 
   Future<void> _submit() async {
-    // Guard: Ctrl+Enter can invoke this directly while a submit is in
-    // flight; without this check a second press creates a duplicate document.
     if (_isSubmitting) return;
     if (_supplier == null) {
       setState(() => _errorMessage = 'Please select a supplier');
@@ -253,8 +154,10 @@ class _StockReceiptCreateScreenState
         if (_notesCtl.text.trim().isNotEmpty) 'notes': _notesCtl.text.trim(),
         if (_chargeOf(_freightCtl) > 0) 'freightAmount': _chargeOf(_freightCtl),
         if (_chargeOf(_dutyCtl) > 0) 'dutyAmount': _chargeOf(_dutyCtl),
-        if (_chargeOf(_insuranceCtl) > 0) 'insuranceAmount': _chargeOf(_insuranceCtl),
-        if (_chargeOf(_otherChargesCtl) > 0) 'otherCharges': _chargeOf(_otherChargesCtl),
+        if (_chargeOf(_insuranceCtl) > 0)
+          'insuranceAmount': _chargeOf(_insuranceCtl),
+        if (_chargeOf(_otherChargesCtl) > 0)
+          'otherCharges': _chargeOf(_otherChargesCtl),
         'lines': validLines
             .map((l) => {
                   'itemId': l.itemId,
@@ -308,397 +211,281 @@ class _StockReceiptCreateScreenState
       businessType: auth.businessType,
       industryCode: auth.industryCode,
     );
+
     return KKeyboardFormWrapper(
-      onSubmit: _currentStep == 2 ? _submit : _nextStep,
-      onNextStep: _nextStep,
-      onPrevStep: _prevStep,
+      onSubmit: _submit,
       onCancel: () => context.go(Routes.stockReceipts),
       child: Scaffold(
-      appBar: AppBar(
-        title: const Text('New Goods Receipt'),
-        leading: IconButton(
-          tooltip: 'Back to goods receipts',
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go(Routes.stockReceipts),
+        appBar: AppBar(
+          title: const Text('New Goods Receipt'),
+          leading: IconButton(
+            tooltip: 'Back to goods receipts',
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => context.go(Routes.stockReceipts),
+          ),
         ),
-      ),
-      body: Column(
-        children: [
-          Container(
-            color: KColors.surface,
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _StepTab(
-                    label: 'Supplier',
-                    index: 0,
-                    current: _currentStep,
-                    onTap: () => setState(() => _currentStep = 0)),
-                _stepConnector(),
-                _StepTab(
-                    label: 'Items',
-                    index: 1,
-                    current: _currentStep,
-                    onTap: () => setState(() => _currentStep = 1)),
-                _stepConnector(),
-                _StepTab(
-                    label: 'Review',
-                    index: 2,
-                    current: _currentStep,
-                    onTap: () => setState(() => _currentStep = 2)),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-          if (_errorMessage != null)
-            Padding(
-              padding: const EdgeInsets.all(KSpacing.md),
-              child: KErrorBanner(
-                message: _errorMessage!,
-                onDismiss: () => setState(() => _errorMessage = null),
-              ),
-            ),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: KSpacing.pagePadding,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (hint != null) ...[
-                    KContextHint(hint: hint),
-                    KSpacing.vGapMd,
-                  ],
-                  switch (_currentStep) {
-                    0 => _buildSupplierStep(),
-                    1 => _buildItemsStep(),
-                    2 => _buildReviewStep(),
-                    _ => const SizedBox(),
-                  },
-                ],
-              ),
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.all(KSpacing.md),
-            decoration: BoxDecoration(
-              color: KColors.surface,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 8,
-                  offset: const Offset(0, -2),
+        body: Column(
+          children: [
+            if (_errorMessage != null)
+              Padding(
+                padding: const EdgeInsets.all(KSpacing.md),
+                child: KErrorBanner(
+                  message: _errorMessage!,
+                  onDismiss: () => setState(() => _errorMessage = null),
                 ),
-              ],
-            ),
-            child: SafeArea(
-              child: Row(
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('Total', style: KTypography.bodySmall),
-                      Text(
-                        CurrencyFormatter.formatIndian(_grandTotal),
-                        style: KTypography.amountLarge,
-                      ),
+              ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: KSpacing.pagePadding,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (hint != null) ...[
+                      KContextHint(hint: hint),
+                      KSpacing.vGapMd,
                     ],
-                  ),
-                  const Spacer(),
-                  if (_currentStep > 0)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: KButton(
-                        label: 'Back',
-                        variant: KButtonVariant.outlined,
-                        onPressed: _prevStep,
+
+                    // ── Supplier ──
+                    Text('Supplier', style: KTypography.titleLarge),
+                    KSpacing.vGapSm,
+                    KCard(
+                      onTap: _pickSupplier,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: KSpacing.md,
+                        vertical: KSpacing.sm,
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: KColors.primarySoft,
+                              borderRadius: KSpacing.borderRadiusSm,
+                            ),
+                            child: const Icon(Icons.local_shipping_outlined,
+                                color: KColors.primary, size: 22),
+                          ),
+                          KSpacing.hGapMd,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _supplier?['name']?.toString() ??
+                                      'Select Supplier (Vendor)',
+                                  style: KTypography.titleMedium.copyWith(
+                                    color: _supplier == null
+                                        ? KColors.primary
+                                        : null,
+                                  ),
+                                ),
+                                if (_supplier?['gstin'] != null &&
+                                    (_supplier!['gstin'] as String).isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 2),
+                                    child: Text(
+                                      'GSTIN: ${_supplier!['gstin']}',
+                                      style: KTypography.mono(fontSize: 12),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.chevron_right, color: KColors.textHint),
+                        ],
                       ),
                     ),
-                  if (_currentStep < 2)
-                    KButton(
-                      label: 'Next',
-                      onPressed: _nextStep,
-                    )
-                  else
-                    KButton(
+                    KSpacing.vGapMd,
+
+                    // ── Receipt Details ──
+                    Text('Receipt Details', style: KTypography.titleLarge),
+                    KSpacing.vGapSm,
+                    KCompactRow(
+                      children: [
+                        KDatePicker(
+                          label: 'Receipt Date',
+                          value: _receiptDate,
+                          onChanged: (d) => setState(() => _receiptDate = d),
+                        ),
+                        KTextField(
+                          label: 'Supplier Invoice No',
+                          controller: _supplierInvoiceNoCtl,
+                        ),
+                        KDatePicker(
+                          label: 'Supplier Invoice Date',
+                          value: _supplierInvoiceDate ?? _receiptDate,
+                          onChanged: (d) =>
+                              setState(() => _supplierInvoiceDate = d),
+                        ),
+                      ],
+                    ),
+                    KSpacing.vGapMd,
+
+                    // ── Items Received ──
+                    Row(
+                      children: [
+                        Text('Items Received', style: KTypography.titleLarge),
+                        const Spacer(),
+                        KButton.outlined(
+                          label: 'Add Line Item',
+                          icon: Icons.add,
+                          size: KButtonSize.small,
+                          onPressed: () => setState(() => _lines.add(_GrnLine())),
+                        ),
+                      ],
+                    ),
+                    KSpacing.vGapSm,
+                    ...List.generate(_lines.length, (i) {
+                      return _GrnLineCard(
+                        line: _lines[i],
+                        index: i,
+                        onRemove: _lines.length > 1
+                            ? () => setState(() => _lines.removeAt(i))
+                            : null,
+                        onChanged: () => setState(() {}),
+                      );
+                    }),
+                    KSpacing.vGapLg,
+
+                    // ── Landed Costs ──
+                    _buildLandedCharges(),
+                    KSpacing.vGapLg,
+
+                    // ── Summary Card ──
+                    KCard(
+                      title: 'Receipt Summary',
+                      child: Column(
+                        children: [
+                          _DetailSummaryRow(label: 'Taxable Amount', amount: _subtotal),
+                          _DetailSummaryRow(label: 'GST Tax', amount: _totalTax),
+                          if (_landedTotal > 0)
+                            _DetailSummaryRow(label: 'Landed Charges', amount: _landedTotal),
+                          const Divider(),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Grand Total', style: KTypography.labelLarge.copyWith(fontWeight: FontWeight.w700)),
+                              KMoney(
+                                _grandTotal,
+                                size: KMoneySize.large,
+                                style: const TextStyle(
+                                  color: KColors.primary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    KSpacing.vGapMd,
+
+                    // ── Notes ──
+                    KTextField(
+                      label: 'Notes / Receiving Remarks (optional)',
+                      controller: _notesCtl,
+                      maxLines: 3,
+                    ),
+                    KSpacing.vGapLg,
+                  ],
+                ),
+              ),
+            ),
+
+            // ── Sticky Bottom Action Bar ──
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: KSpacing.md,
+                vertical: KSpacing.sm,
+              ),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                border: Border(
+                  top: BorderSide(
+                    color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+              child: SafeArea(
+                child: Row(
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('Receipt Total', style: KTypography.caption),
+                        KMoney(
+                          _grandTotal,
+                          size: KMoneySize.medium,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    KButton.outlined(
+                      label: 'Cancel',
+                      onPressed: () => context.go(Routes.stockReceipts),
+                    ),
+                    KSpacing.hGapSm,
+                    KButton.primary(
                       label: 'Save Draft',
                       icon: Icons.save_outlined,
                       onPressed: _submit,
                       isLoading: _isSubmitting,
                     ),
-                ],
+                  ],
+                ),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLandedCharges() {
+    return KCard(
+      title: 'Landed Costs (optional)',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Freight, duty, insurance and other charges will be absorbed into item unit costs.',
+            style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+          ),
+          KSpacing.vGapSm,
+          KCompactRow(
+            children: [
+              KTextField.amount(
+                label: 'Freight',
+                controller: _freightCtl,
+                onChanged: (_) => setState(() {}),
+              ),
+              KTextField.amount(
+                label: 'Duty',
+                controller: _dutyCtl,
+                onChanged: (_) => setState(() {}),
+              ),
+            ],
+          ),
+          KSpacing.vGapSm,
+          KCompactRow(
+            children: [
+              KTextField.amount(
+                label: 'Insurance',
+                controller: _insuranceCtl,
+                onChanged: (_) => setState(() {}),
+              ),
+              KTextField.amount(
+                label: 'Other Charges',
+                controller: _otherChargesCtl,
+                onChanged: (_) => setState(() {}),
+              ),
+            ],
           ),
         ],
       ),
-    ));
-  }
-
-  Widget _stepConnector() {
-    return Container(
-      width: 32,
-      height: 2,
-      color: KColors.divider,
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-    );
-  }
-
-  // ── Step 0: Supplier ──
-  Widget _buildSupplierStep() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Select Supplier', style: KTypography.h2),
-        KSpacing.vGapSm,
-        KCard(
-          onTap: _pickSupplier,
-          padding: const EdgeInsets.symmetric(
-            horizontal: KSpacing.md,
-            vertical: KSpacing.sm,
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: KColors.primaryLight.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.local_shipping_outlined,
-                    color: KColors.primary, size: 20),
-              ),
-              KSpacing.hGapSm,
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _supplier?['name']?.toString() ?? 'Tap to pick supplier',
-                      style: KTypography.labelLarge,
-                    ),
-                    if (_supplier?['gstin'] != null &&
-                        (_supplier!['gstin'] as String).isNotEmpty)
-                      Text('GSTIN: ${_supplier!['gstin']}',
-                          style: KTypography.bodySmall),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right, color: KColors.textHint),
-            ],
-          ),
-        ),
-        KSpacing.vGapMd,
-        Text('Receipt Details', style: KTypography.labelLarge),
-        KSpacing.vGapSm,
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final fields = [
-              KDatePicker(
-                label: 'Receipt Date',
-                value: _receiptDate,
-                onChanged: (d) => setState(() => _receiptDate = d),
-              ),
-              KTextField(
-                label: 'Supplier Invoice No (optional)',
-                controller: _supplierInvoiceNoCtl,
-              ),
-              KDatePicker(
-                label: 'Supplier Invoice Date (optional)',
-                value: _supplierInvoiceDate ?? _receiptDate,
-                onChanged: (d) => setState(() => _supplierInvoiceDate = d),
-              ),
-            ];
-            if (constraints.maxWidth < 720) {
-              return Column(
-                children: [
-                  for (var i = 0; i < fields.length; i++) ...[
-                    fields[i],
-                    if (i != fields.length - 1) KSpacing.vGapSm,
-                  ],
-                ],
-              );
-            }
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (var i = 0; i < fields.length; i++) ...[
-                  Expanded(child: fields[i]),
-                  if (i != fields.length - 1) KSpacing.hGapSm,
-                ],
-              ],
-            );
-          },
-        ),
-      ],
-    );
-  }
-
-  // ── Step 1: Line items ──
-  Widget _buildItemsStep() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Items Received', style: KTypography.h2),
-        KSpacing.vGapMd,
-        ...List.generate(_lines.length, (i) {
-          return _GrnLineCard(
-            line: _lines[i],
-            index: i,
-            onRemove: _lines.length > 1
-                ? () => setState(() => _lines.removeAt(i))
-                : null,
-            onChanged: () => setState(() {}),
-          );
-        }),
-        KSpacing.vGapMd,
-        KButton(
-          label: 'Add Line Item',
-          icon: Icons.add,
-          variant: KButtonVariant.outlined,
-          onPressed: () => setState(() => _lines.add(_GrnLine())),
-        ),
-        KSpacing.vGapLg,
-        KCard(
-          child: Column(
-            children: [
-              _SummaryRow(
-                  label: 'Taxable',
-                  value: CurrencyFormatter.formatIndian(_subtotal)),
-              _SummaryRow(
-                  label: 'GST',
-                  value: CurrencyFormatter.formatIndian(_totalTax)),
-              const Divider(),
-              _SummaryRow(
-                label: 'Grand Total',
-                value: CurrencyFormatter.formatIndian(_grandTotal),
-                bold: true,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ── Step 2: Review ──
-  Widget _buildReviewStep() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Review Receipt', style: KTypography.h2),
-        KSpacing.vGapMd,
-        KCard(
-          title: 'Supplier',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _supplier?['name']?.toString() ?? '--',
-                style: KTypography.bodyLarge,
-              ),
-              KSpacing.vGapSm,
-              KDetailRow(
-                label: 'Receipt Date',
-                value: DateFormatter.display(_receiptDate),
-              ),
-              if (_supplierInvoiceNoCtl.text.trim().isNotEmpty)
-                KDetailRow(
-                    label: 'Supplier Invoice',
-                    value: _supplierInvoiceNoCtl.text.trim()),
-              if (_supplierInvoiceDate != null)
-                KDetailRow(
-                    label: 'Supplier Inv. Date',
-                    value: DateFormatter.display(_supplierInvoiceDate!)),
-            ],
-          ),
-        ),
-        KSpacing.vGapMd,
-        KCard(
-          title: 'Items (${_lines.where((l) => l.itemId != null).length})',
-          child: Column(
-            children: _lines.where((l) => l.itemId != null).map((l) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            l.description.isEmpty ? '(unnamed)' : l.description,
-                            style: KTypography.bodyMedium,
-                          ),
-                          Text(
-                            '${l.quantity} ${l.uom} x ${CurrencyFormatter.formatIndian(l.unitPrice)}'
-                            '${l.batchNumber.isNotEmpty ? ' • Batch: ${l.batchNumber}' : ''}',
-                            style: KTypography.bodySmall,
-                          ),
-                        ],
-                      ),
-                    ),
-                    Text(
-                      CurrencyFormatter.formatIndian(l.lineTotal),
-                      style: KTypography.amountSmall,
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
-          ),
-        ),
-        KSpacing.vGapMd,
-        KCard(
-          child: Column(
-            children: [
-              _SummaryRow(
-                  label: 'Taxable',
-                  value: CurrencyFormatter.formatIndian(_subtotal)),
-              _SummaryRow(
-                  label: 'GST',
-                  value: CurrencyFormatter.formatIndian(_totalTax)),
-              const Divider(),
-              _SummaryRow(
-                label: 'Total',
-                value: CurrencyFormatter.formatIndian(_grandTotal),
-                bold: true,
-              ),
-            ],
-          ),
-        ),
-        KSpacing.vGapMd,
-        _buildLandedCharges(),
-        KSpacing.vGapMd,
-        KTextField(
-          label: 'Notes (optional)',
-          controller: _notesCtl,
-          maxLines: 3,
-        ),
-        KSpacing.vGapMd,
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: KColors.warning.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: KColors.warning.withValues(alpha: 0.2)),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.info_outline, size: 18, color: KColors.warning),
-              KSpacing.hGapSm,
-              Expanded(
-                child: Text(
-                  'Saving creates a DRAFT receipt. Stock balances are updated only after you press "Receive" on the detail screen.',
-                  style: KTypography.bodySmall,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }
@@ -708,7 +495,6 @@ class _StockReceiptCreateScreenState
 class _GrnLine {
   String? itemId;
   String description = '';
-  String uom = 'PCS';
   double quantity = 1;
   double unitPrice = 0;
   double gstRate = 0;
@@ -716,9 +502,10 @@ class _GrnLine {
   String batchNumber = '';
   DateTime? expiryDate;
   bool trackBatches = false;
+  String uom = 'units';
 
   double get taxableAmount => quantity * unitPrice;
-  double get taxAmount => taxableAmount * gstRate / 100;
+  double get taxAmount => taxableAmount * (gstRate / 100);
   double get lineTotal => taxableAmount + taxAmount;
 }
 
@@ -766,22 +553,15 @@ class _GrnLineCardState extends State<_GrnLineCard> {
     setState(() {
       widget.line.itemId = picked['id']?.toString();
       widget.line.description = picked['name']?.toString() ?? '';
-      widget.line.uom = picked['unitOfMeasure']?.toString() ?? 'PCS';
-      widget.line.trackBatches = picked['trackBatches'] == true;
-      // For GRNs the relevant unit cost is the supplier's purchase price.
       widget.line.unitPrice =
           (picked['purchasePrice'] as num?)?.toDouble() ?? 0;
+      widget.line.trackBatches = picked['trackBatches'] == true;
+      widget.line.uom = picked['uom']?.toString() ?? 'units';
       _priceCtl.text = widget.line.unitPrice.toString();
-      final pickedGst = (picked['gstRate'] as num?)?.toDouble() ?? 0;
-      final pickedTaxGroupId = picked['defaultTaxGroupId']?.toString();
-      if (pickedTaxGroupId != null) {
-        widget.line.taxGroupId = pickedTaxGroupId;
-        widget.line.gstRate = pickedGst;
-      } else {
-        // Items may carry a GST rate without a tax-group link. Preserve the
-        // item master rate instead of silently changing the receipt to 0%.
-        widget.line.taxGroupId = null;
-        widget.line.gstRate = pickedGst;
+      widget.line.taxGroupId = picked['defaultTaxGroupId']?.toString();
+      if (picked['defaultTaxRate'] != null) {
+        widget.line.gstRate =
+            (picked['defaultTaxRate'] as num).toDouble();
       }
     });
     widget.onChanged();
@@ -811,49 +591,50 @@ class _GrnLineCardState extends State<_GrnLineCard> {
         children: [
           Row(
             children: [
-              Text('Line ${widget.index + 1}', style: KTypography.labelLarge),
+              Text('Line #${widget.index + 1}', style: KTypography.labelLarge),
               const Spacer(),
-              TextButton.icon(
+              KButton.outlined(
+                size: KButtonSize.small,
+                icon: Icons.search,
+                label: isPicked ? 'Change Item' : 'Pick Item',
                 onPressed: _pickItem,
-                icon: const Icon(Icons.search, size: 16),
-                label: Text(isPicked ? 'Change Item' : 'Pick Item'),
               ),
-              if (widget.onRemove != null)
+              if (widget.onRemove != null) ...[
+                KSpacing.hGapSm,
                 IconButton(
                   icon: const Icon(Icons.delete_outline,
                       color: KColors.error, size: 20),
                   onPressed: widget.onRemove,
                 ),
+              ],
             ],
           ),
           if (isPicked) ...[
             KSpacing.vGapXs,
-            Text(widget.line.description, style: KTypography.bodyMedium),
+            Text(
+              widget.line.description,
+              style: KTypography.labelLarge.copyWith(fontWeight: FontWeight.w600),
+            ),
             KSpacing.vGapSm,
-            Row(
+            KCompactRow(
               children: [
-                Expanded(
-                  child: KTextField(
-                    label: 'Quantity (${widget.line.uom})',
-                    controller: _qtyCtl,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    onChanged: (v) {
-                      widget.line.quantity = double.tryParse(v) ?? 0;
-                      widget.onChanged();
-                    },
-                  ),
+                KTextField(
+                  label: 'Quantity (${widget.line.uom})',
+                  controller: _qtyCtl,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (v) {
+                    widget.line.quantity = double.tryParse(v) ?? 0;
+                    widget.onChanged();
+                  },
                 ),
-                KSpacing.hGapSm,
-                Expanded(
-                  child: KTextField.amount(
-                    label: 'Unit Cost',
-                    controller: _priceCtl,
-                    onChanged: (v) {
-                      widget.line.unitPrice = double.tryParse(v) ?? 0;
-                      widget.onChanged();
-                    },
-                  ),
+                KTextField.amount(
+                  label: 'Unit Cost',
+                  controller: _priceCtl,
+                  onChanged: (v) {
+                    widget.line.unitPrice = double.tryParse(v) ?? 0;
+                    widget.onChanged();
+                  },
                 ),
               ],
             ),
@@ -870,31 +651,27 @@ class _GrnLineCardState extends State<_GrnLineCard> {
               },
             ),
             KSpacing.vGapSm,
-            Row(
+            KCompactRow(
               children: [
-                Expanded(
-                  child: KTextField(
-                    label: widget.line.trackBatches
-                        ? 'Batch No (required)'
-                        : 'Batch No (optional)',
-                    controller: _batchCtl,
-                    onChanged: (v) {
-                      widget.line.batchNumber = v;
-                      widget.onChanged();
-                    },
-                  ),
+                KTextField(
+                  label: widget.line.trackBatches
+                      ? 'Batch No (required)'
+                      : 'Batch No (optional)',
+                  controller: _batchCtl,
+                  onChanged: (v) {
+                    widget.line.batchNumber = v;
+                    widget.onChanged();
+                  },
                 ),
-                KSpacing.hGapSm,
-                Expanded(
-                  child: InkWell(
-                    onTap: _pickExpiry,
-                    child: InputDecorator(
-                      decoration: const InputDecoration(labelText: 'Expiry'),
-                      child: Text(
-                        widget.line.expiryDate == null
-                            ? 'Tap to set'
-                            : DateFormatter.display(widget.line.expiryDate!),
-                      ),
+                InkWell(
+                  onTap: _pickExpiry,
+                  child: InputDecorator(
+                    decoration: const InputDecoration(labelText: 'Expiry Date'),
+                    child: Text(
+                      widget.line.expiryDate == null
+                          ? 'Tap to set'
+                          : DateFormatter.display(widget.line.expiryDate!),
+                      style: KTypography.bodyMedium,
                     ),
                   ),
                 ),
@@ -904,17 +681,21 @@ class _GrnLineCardState extends State<_GrnLineCard> {
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                Text(
-                  'Line Total: ${CurrencyFormatter.formatIndian(widget.line.lineTotal)}',
-                  style:
-                      KTypography.amountSmall.copyWith(color: KColors.primary),
+                Text('Line Total: ', style: KTypography.bodySmall),
+                KMoney(
+                  widget.line.lineTotal,
+                  size: KMoneySize.small,
+                  style: const TextStyle(
+                    color: KColors.primary,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ],
             ),
           ] else ...[
             KSpacing.vGapXs,
             Text('Pick an item to fill in cost, GST and unit',
-                style: KTypography.bodySmall),
+                style: KTypography.bodySmall.copyWith(color: KColors.textHint)),
           ],
         ],
       ),
@@ -922,82 +703,24 @@ class _GrnLineCardState extends State<_GrnLineCard> {
   }
 }
 
-class _SummaryRow extends StatelessWidget {
+class _DetailSummaryRow extends StatelessWidget {
   final String label;
-  final String value;
-  final bool bold;
-  const _SummaryRow({
+  final double amount;
+
+  const _DetailSummaryRow({
     required this.label,
-    required this.value,
-    this.bold = false,
+    required this.amount,
   });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label,
-              style: bold ? KTypography.labelLarge : KTypography.bodyMedium),
-          Text(value,
-              style: bold ? KTypography.amountMedium : KTypography.amountSmall),
-        ],
-      ),
-    );
-  }
-}
-
-class _StepTab extends StatelessWidget {
-  final String label;
-  final int index;
-  final int current;
-  final VoidCallback onTap;
-  const _StepTab({
-    required this.label,
-    required this.index,
-    required this.current,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isActive = index == current;
-    final isCompleted = index < current;
-    return GestureDetector(
-      onTap: onTap,
-      child: Row(
-        children: [
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              color:
-                  isActive || isCompleted ? KColors.primary : KColors.divider,
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: isCompleted
-                  ? const Icon(Icons.check, color: Colors.white, size: 16)
-                  : Text(
-                      '${index + 1}',
-                      style: TextStyle(
-                        color: isActive ? Colors.white : KColors.textSecondary,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                      ),
-                    ),
-            ),
-          ),
-          KSpacing.hGapXs,
-          Text(
-            label,
-            style: KTypography.labelMedium.copyWith(
-              color: isActive ? KColors.primary : KColors.textSecondary,
-              fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-            ),
-          ),
+          Text(label, style: KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
+          KMoney(amount, size: KMoneySize.small),
         ],
       ),
     );

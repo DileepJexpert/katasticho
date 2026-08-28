@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/expense_repository.dart';
 
@@ -131,6 +130,8 @@ class _ExpenseListScreenState extends ConsumerState<ExpenseListScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: KColors.primary,
+        foregroundColor: Colors.white,
         onPressed: () => context.push('/expenses/create'),
         icon: const Icon(Icons.add),
         label: const Text('Record Expense'),
@@ -375,7 +376,7 @@ class _FilterSheetState extends State<_FilterSheet> {
               ],
             ),
             KSpacing.vGapLg,
-            KButton(
+            KButton.primary(
               label: 'Apply filters',
               fullWidth: true,
               onPressed: () {
@@ -487,8 +488,11 @@ class _ExpenseCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    Text(CurrencyFormatter.formatIndian(total),
-                        style: KTypography.labelLarge),
+                    KMoney(
+                      total,
+                      size: KMoneySize.small,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
                   ],
                 ),
                 KSpacing.vGapXs,
@@ -508,19 +512,7 @@ class _ExpenseCard extends StatelessWidget {
                       ),
                     ),
                     KSpacing.hGapSm,
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: statusColor.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        status,
-                        style: KTypography.labelSmall
-                            .copyWith(color: statusColor),
-                      ),
-                    ),
+                    KStatusChip(status: status),
                   ],
                 ),
               ],

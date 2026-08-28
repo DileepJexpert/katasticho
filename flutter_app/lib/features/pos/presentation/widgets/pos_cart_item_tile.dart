@@ -4,6 +4,8 @@ import '../../../../core/theme/k_colors.dart';
 import '../../../../core/theme/k_spacing.dart';
 import '../../../../core/theme/k_typography.dart';
 import '../../../../core/utils/currency_formatter.dart';
+import '../../../../core/utils/dual_uom_formatter.dart';
+import '../../../../core/widgets/widgets.dart';
 import '../../data/pos_cart_state.dart';
 
 /// Single cart item row with quantity controls and swipe-to-delete.
@@ -160,6 +162,8 @@ class PosCartItemTile extends StatelessWidget {
                 quantity: item.quantity,
                 maxQuantity: item.maxSellQuantity,
                 unit: item.stockUnitLabel,
+                conversionFactor: item.stockConversionFactor,
+                subUnit: _resolveSubUnit(item),
                 onChanged: onQuantityChanged!,
                 allowOverSell: allowOverSell,
               ),
@@ -179,17 +183,31 @@ class PosCartItemTile extends StatelessWidget {
 
             // Line total (with tax)
             SizedBox(
-              width: 80,
-              child: Text(
-                CurrencyFormatter.formatIndian(item.lineTotalWithTax),
-                style: KTypography.amountSmall,
-                textAlign: TextAlign.right,
+              width: 85,
+              child: KMoney(
+                item.lineTotalWithTax,
+                size: KMoneySize.small,
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  static String? _resolveSubUnit(CartItem item) {
+    if (item.availableUnits.isNotEmpty) {
+      for (final u in item.availableUnits) {
+        final abbr = (u['abbreviation'] ?? '').toString();
+        if (abbr.isNotEmpty && abbr.toUpperCase() != (item.unit ?? '').toUpperCase()) {
+          return abbr;
+        }
+      }
+    }
+    if (item.stockConversionFactor > 1) {
+      return 'PCS';
+    }
+    return null;
   }
 
   String _fmtQty(double qty) {
@@ -265,6 +283,20 @@ class PosCartItemTile extends StatelessWidget {
       icon: Icons.inventory_2_outlined,
       emphasis: item.exceedsStock,
     ));
+    if (item.stockConversionFactor > 1) {
+      final sub = _resolveSubUnit(item) ?? 'PCS';
+      final dual = DualUomParser.parse(
+        DualUomParser.formatInput(item.quantity, item.stockConversionFactor),
+        conversionFactor: item.stockConversionFactor,
+        mainUnit: item.unit ?? 'BOX',
+        subUnit: sub,
+      );
+      pills.add(_InfoPill(
+        label: dual.displayText,
+        icon: Icons.layers_outlined,
+        color: KColors.info,
+      ));
+    }
     if (item.isWeightBased) {
       pills.add(_InfoPill(
         label:
@@ -367,6 +399,8 @@ class _QuantityStepper extends StatelessWidget {
   final double quantity;
   final double maxQuantity;
   final String unit;
+  final double conversionFactor;
+  final String? subUnit;
   final ValueChanged<double> onChanged;
   final bool allowOverSell;
 
@@ -374,56 +408,49 @@ class _QuantityStepper extends StatelessWidget {
     required this.quantity,
     required this.maxQuantity,
     required this.unit,
+    this.conversionFactor = 1.0,
+    this.subUnit,
     required this.onChanged,
     this.allowOverSell = false,
   });
 
-  String _fmtQty(double qty) {
-    return qty == qty.roundToDouble()
-        ? qty.toInt().toString()
-        : qty.toStringAsFixed(2);
-  }
-
   void _showQtyEditor(BuildContext context) {
-    final controller = TextEditingController(
-      text: quantity == quantity.roundToDouble()
-          ? quantity.toInt().toString()
-          : quantity.toStringAsFixed(2),
+    DualUomQuantity parsedQty = DualUomParser.parse(
+      DualUomParser.formatInput(quantity, conversionFactor),
+      conversionFactor: conversionFactor,
+      mainUnit: unit,
+      subUnit: subUnit,
     );
 
     showDialog(
       context: context,
       builder: (ctx) {
-        String? errorText;
         return AlertDialog(
-          title: const Text('Enter Quantity'),
-          content: StatefulBuilder(
-            builder: (ctx, setDialogState) => TextField(
-              controller: controller,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
-              ],
+          title: Text(
+            conversionFactor > 1.0 && subUnit != null
+                ? 'Enter Quantity ($unit / $subUnit)'
+                : 'Enter Quantity',
+          ),
+          content: SizedBox(
+            width: 320,
+            child: KDualUomInput(
+              initialQuantity: quantity,
+              conversionFactor: conversionFactor,
+              mainUnit: unit,
+              subUnit: subUnit,
               autofocus: true,
-              decoration: InputDecoration(
-                hintText: 'Quantity',
-                helperText: 'Available: ${_fmtQty(maxQuantity)} $unit',
-                errorText: errorText,
-                border: const OutlineInputBorder(),
-              ),
-              onSubmitted: (value) {
-                final qty = double.tryParse(value);
-                if (qty == null || qty <= 0) {
-                  setDialogState(() => errorText = 'Enter a valid quantity');
-                  return;
+              maxQuantity: allowOverSell ? null : maxQuantity,
+              onChanged: (val) {
+                parsedQty = val;
+              },
+              onSubmitted: (val) {
+                parsedQty = val;
+                final selectedQty = parsedQty.totalMainQty;
+                if (selectedQty > 0) {
+                  onChanged(allowOverSell || maxQuantity <= 0 || selectedQty <= maxQuantity
+                      ? selectedQty
+                      : maxQuantity);
                 }
-                if (!allowOverSell && maxQuantity > 0 && qty > maxQuantity) {
-                  setDialogState(() => errorText =
-                      'Only ${_fmtQty(maxQuantity)} $unit available');
-                  return;
-                }
-                onChanged(qty);
                 Navigator.pop(ctx);
               },
             ),
@@ -435,14 +462,11 @@ class _QuantityStepper extends StatelessWidget {
             ),
             FilledButton(
               onPressed: () {
-                final qty = double.tryParse(controller.text);
-                if (qty == null || qty <= 0) {
-                  return;
-                }
-                if (!allowOverSell && maxQuantity > 0 && qty > maxQuantity) {
-                  onChanged(maxQuantity);
-                } else {
-                  onChanged(qty);
+                final selectedQty = parsedQty.totalMainQty;
+                if (selectedQty > 0) {
+                  onChanged(allowOverSell || maxQuantity <= 0 || selectedQty <= maxQuantity
+                      ? selectedQty
+                      : maxQuantity);
                 }
                 Navigator.pop(ctx);
               },

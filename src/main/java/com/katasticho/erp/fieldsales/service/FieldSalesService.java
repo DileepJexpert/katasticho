@@ -5,6 +5,8 @@ import com.katasticho.erp.ar.dto.CustomerReceiptResponse;
 import com.katasticho.erp.ar.entity.Invoice;
 import com.katasticho.erp.ar.repository.InvoiceRepository;
 import com.katasticho.erp.ar.service.CustomerReceiptService;
+import com.katasticho.erp.auth.entity.AppUser;
+import com.katasticho.erp.auth.repository.AppUserRepository;
 import com.katasticho.erp.common.context.TenantContext;
 import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.contact.entity.Contact;
@@ -43,11 +45,11 @@ import java.time.LocalDate;
 import java.util.*;
 
 /**
- * FMCG Field Sales service ï¿½ manages beats, routes, vans, field visits,
+ * FMCG Field Sales service — manages beats, routes, vans, field visits,
  * van stock transfers, day-close reconciliation, and salesman targets.
  *
  * All org-scoped queries use {@link TenantContext#getCurrentOrgId()}.
- * Stock movements flow through {@link InventoryService#recordMovement} ï¿½
+ * Stock movements flow through {@link InventoryService#recordMovement} —
  * this service never writes to stock_movement or stock_balance directly.
  */
 @Service
@@ -76,6 +78,8 @@ public class FieldSalesService {
     private final CustomerReceiptService customerReceiptService;
     private final ExpenseRepository expenseRepository;
     private final OrgSettingsService orgSettingsService;
+    private final AppUserRepository appUserRepository;
+    private final com.katasticho.erp.fieldsales.repository.FieldSalesExecutionAuditRepository executionAuditRepository;
 
     // =====================================================================
     // Beat Management
@@ -693,12 +697,68 @@ public class FieldSalesService {
     // Field Sales Assignment
     // =====================================================================
 
+    private void validateSalespersonActive(UUID orgId, UUID salespersonId) {
+        if (salespersonId == null) {
+            throw new BusinessException("Salesperson ID is required", "FS_SALESPERSON_REQUIRED", HttpStatus.BAD_REQUEST);
+        }
+        AppUser user = appUserRepository.findByIdAndOrgIdAndIsDeletedFalse(salespersonId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("Salesperson user", salespersonId));
+        if (!user.isActive()) {
+            throw new BusinessException("Salesperson user is inactive", "FS_SALESPERSON_INACTIVE", HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    private void validateNoAssignmentOverlap(UUID orgId, UUID salespersonId, UUID routeId,
+                                             LocalDate from, LocalDate to, UUID currentAssignmentId) {
+        if (routeId == null) return;
+        List<FieldSalesAssignment> existing = assignmentRepository
+                .findByOrgIdAndSalespersonIdAndRouteIdAndIsActiveTrue(orgId, salespersonId, routeId);
+
+        LocalDate effectiveTo = to != null ? to : LocalDate.MAX;
+        for (FieldSalesAssignment a : existing) {
+            if (currentAssignmentId != null && currentAssignmentId.equals(a.getId())) {
+                continue;
+            }
+            LocalDate existFrom = a.getEffectiveFrom();
+            LocalDate existTo = a.getEffectiveTo() != null ? a.getEffectiveTo() : LocalDate.MAX;
+
+            // Overlap condition: from <= existTo && existFrom <= to
+            if (!from.isAfter(existTo) && !existFrom.isAfter(effectiveTo)) {
+                throw new BusinessException(
+                        "An active assignment for this salesperson and route already exists in date range " +
+                                existFrom + " to " + (a.getEffectiveTo() != null ? a.getEffectiveTo() : "ongoing"),
+                        "FS_ASSIGNMENT_OVERLAP", HttpStatus.CONFLICT);
+            }
+        }
+    }
+
     /**
-     * Creates a new field sales assignment.
+     * Creates a new field sales assignment with strict entity, membership, and overlap validation.
      */
     @Transactional
     public FieldSalesAssignment createAssignment(FieldSalesAssignment input) {
         UUID orgId = TenantContext.getCurrentOrgId();
+
+        validateSalespersonActive(orgId, input.getSalespersonId());
+
+        if (input.getEffectiveFrom() == null) {
+            throw new BusinessException("Effective From date is required", "FS_EFFECTIVE_FROM_REQUIRED", HttpStatus.BAD_REQUEST);
+        }
+        if (input.getEffectiveTo() != null && input.getEffectiveTo().isBefore(input.getEffectiveFrom())) {
+            throw new BusinessException("Effective To date cannot be before Effective From date", "FS_INVALID_EFFECTIVE_DATES", HttpStatus.BAD_REQUEST);
+        }
+        if (input.getRouteId() != null) {
+            routeRepository.findByIdAndOrgIdAndIsDeletedFalse(input.getRouteId(), orgId)
+                    .orElseThrow(() -> BusinessException.notFound("Route", input.getRouteId()));
+            if (input.isActive()) {
+                validateNoAssignmentOverlap(orgId, input.getSalespersonId(), input.getRouteId(),
+                        input.getEffectiveFrom(), input.getEffectiveTo(), null);
+            }
+        }
+        if (input.getVanId() != null) {
+            vanRepository.findByIdAndOrgIdAndIsDeletedFalse(input.getVanId(), orgId)
+                    .orElseThrow(() -> BusinessException.notFound("Van", input.getVanId()));
+        }
 
         FieldSalesAssignment assignment = FieldSalesAssignment.builder()
                 .orgId(orgId)
@@ -708,13 +768,99 @@ public class FieldSalesService {
                 .territory(input.getTerritory())
                 .effectiveFrom(input.getEffectiveFrom())
                 .effectiveTo(input.getEffectiveTo())
-                .isActive(true)
+                .isActive(input.isActive())
                 .build();
 
         assignment = assignmentRepository.save(assignment);
         log.info("Created field sales assignment {} for salesperson {} on route {} for org {}",
                 assignment.getId(), input.getSalespersonId(), input.getRouteId(), orgId);
         return assignment;
+    }
+
+    /**
+     * Updates an existing field sales assignment with membership and overlap validation.
+     */
+    @Transactional
+    public FieldSalesAssignment updateAssignment(UUID id, FieldSalesAssignment input) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        FieldSalesAssignment existing = assignmentRepository.findByIdAndOrgId(id, orgId)
+                .orElseThrow(() -> BusinessException.notFound("FieldSalesAssignment", id));
+
+        UUID salespersonId = input.getSalespersonId() != null ? input.getSalespersonId() : existing.getSalespersonId();
+        validateSalespersonActive(orgId, salespersonId);
+
+        LocalDate effectiveFrom = input.getEffectiveFrom() != null ? input.getEffectiveFrom() : existing.getEffectiveFrom();
+        LocalDate effectiveTo = input.getEffectiveTo();
+
+        if (effectiveTo != null && effectiveTo.isBefore(effectiveFrom)) {
+            throw new BusinessException("Effective To date cannot be before Effective From date", "FS_INVALID_EFFECTIVE_DATES", HttpStatus.BAD_REQUEST);
+        }
+
+        UUID routeId = input.getRouteId() != null ? input.getRouteId() : existing.getRouteId();
+        if (routeId != null) {
+            routeRepository.findByIdAndOrgIdAndIsDeletedFalse(routeId, orgId)
+                    .orElseThrow(() -> BusinessException.notFound("Route", routeId));
+            if (existing.isActive()) {
+                validateNoAssignmentOverlap(orgId, salespersonId, routeId, effectiveFrom, effectiveTo, id);
+            }
+            existing.setRouteId(routeId);
+        }
+
+        if (input.getVanId() != null) {
+            vanRepository.findByIdAndOrgIdAndIsDeletedFalse(input.getVanId(), orgId)
+                    .orElseThrow(() -> BusinessException.notFound("Van", input.getVanId()));
+            existing.setVanId(input.getVanId());
+        }
+
+        existing.setSalespersonId(salespersonId);
+        if (input.getTerritory() != null) {
+            existing.setTerritory(input.getTerritory());
+        }
+        existing.setEffectiveFrom(effectiveFrom);
+        existing.setEffectiveTo(effectiveTo);
+        // isActive is intentionally NOT updated here.
+        // Use POST /assignments/{id}/end to end, DELETE /assignments/{id} to deactivate.
+
+        existing = assignmentRepository.save(existing);
+        log.info("Updated field sales assignment {} for org {}", id, orgId);
+        return existing;
+    }
+
+    /**
+     * Ends an assignment as of a given date (defaults to today).
+     */
+    @Transactional
+    public FieldSalesAssignment endAssignment(UUID id, LocalDate endDate) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        FieldSalesAssignment existing = assignmentRepository.findByIdAndOrgId(id, orgId)
+                .orElseThrow(() -> BusinessException.notFound("FieldSalesAssignment", id));
+
+        LocalDate finalEndDate = endDate != null ? endDate : LocalDate.now();
+        if (existing.getEffectiveFrom() != null && finalEndDate.isBefore(existing.getEffectiveFrom())) {
+            throw new BusinessException("Effective To date cannot be before Effective From date",
+                    "FS_INVALID_EFFECTIVE_DATES", HttpStatus.BAD_REQUEST);
+        }
+        existing.setEffectiveTo(finalEndDate);
+        existing.setActive(false);
+        existing = assignmentRepository.save(existing);
+        log.info("Ended field sales assignment {} as of {} for org {}", id, finalEndDate, orgId);
+        return existing;
+    }
+
+    /**
+     * Deactivates a field sales assignment (does not hard delete).
+     */
+    @Transactional
+    public void deleteAssignment(UUID id) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        FieldSalesAssignment existing = assignmentRepository.findByIdAndOrgId(id, orgId)
+                .orElseThrow(() -> BusinessException.notFound("FieldSalesAssignment", id));
+        existing.setActive(false);
+        if (existing.getEffectiveTo() == null || existing.getEffectiveTo().isAfter(LocalDate.now())) {
+            existing.setEffectiveTo(LocalDate.now());
+        }
+        assignmentRepository.save(existing);
+        log.info("Deactivated field sales assignment {} for org {}", id, orgId);
     }
 
     /**
@@ -727,11 +873,37 @@ public class FieldSalesService {
     }
 
     /**
+     * Returns active assignments for the currently logged-in user with optional date filter.
+     */
+    @Transactional(readOnly = true)
+    public List<FieldSalesAssignment> getMyAssignments(UUID userId, LocalDate effectiveOn) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        if (effectiveOn != null) {
+            return assignmentRepository.findActiveAssignmentsForSalespersonOnDate(orgId, userId, effectiveOn);
+        }
+        return assignmentRepository.findByOrgIdAndSalespersonIdAndIsActiveTrue(orgId, userId);
+    }
+
+    /**
      * Returns all active assignments for the current org.
      */
     @Transactional(readOnly = true)
     public List<FieldSalesAssignment> getAllAssignments() {
+        return getAllAssignments(false, null);
+    }
+
+    /**
+     * Returns assignments with optional filtering by inactive inclusion or effective date.
+     */
+    @Transactional(readOnly = true)
+    public List<FieldSalesAssignment> getAllAssignments(boolean includeInactive, LocalDate effectiveOn) {
         UUID orgId = TenantContext.getCurrentOrgId();
+        if (effectiveOn != null) {
+            return assignmentRepository.findActiveAssignmentsOnDate(orgId, effectiveOn);
+        }
+        if (includeInactive) {
+            return assignmentRepository.findByOrgId(orgId);
+        }
         return assignmentRepository.findByOrgIdAndIsActiveTrue(orgId);
     }
 
@@ -1102,24 +1274,91 @@ public class FieldSalesService {
     @Transactional
     public RouteExecution startExecution(UUID routeId, UUID salespersonId,
                                          UUID vanId, LocalDate executionDate) {
+        return startExecution(routeId, salespersonId, vanId, executionDate, null);
+    }
+
+    @Transactional
+    public RouteExecution startExecution(UUID routeId, UUID salespersonId,
+                                         UUID vanId, LocalDate executionDate,
+                                         String overrideReason) {
         UUID orgId = TenantContext.getCurrentOrgId();
+        UUID currentUserId = TenantContext.getCurrentUserId();
+        boolean isAdmin = isFieldAdmin();
 
         // A non-admin may only start an execution for themselves; admins legitimately
         // plan for others.
-        if (!isFieldAdmin() && !salespersonId.equals(TenantContext.getCurrentUserId())) {
+        if (!isAdmin && !salespersonId.equals(currentUserId)) {
             throw new BusinessException(
                     "Only the assigned salesperson can start this execution",
                     "FS_NOT_ASSIGNED_SALESPERSON", HttpStatus.FORBIDDEN);
         }
 
-        routeRepository.findByIdAndOrgIdAndIsDeletedFalse(routeId, orgId)
+        Route route = routeRepository.findByIdAndOrgIdAndIsDeletedFalse(routeId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("Route", routeId));
+
+        // Always validate salesperson org-membership and active status, even for admin overrides.
+        validateSalespersonActive(orgId, salespersonId);
+
+        // Enforce that salesperson has an active assignment for this route on executionDate
+        List<FieldSalesAssignment> activeAssignments = assignmentRepository
+                .findActiveAssignmentsForSalespersonAndRouteOnDate(orgId, salespersonId, routeId, executionDate);
+
+        String executionNotes = null;
+        UUID finalVanId = vanId;
+        String overrideType = null;   // ROUTE_UNASSIGNED | VAN_MISMATCH
+
+        if (activeAssignments.isEmpty()) {
+            if (!isAdmin) {
+                throw new BusinessException(
+                        "Salesperson is not actively assigned to route '" + route.getName() + "' on " + executionDate,
+                        "FS_NO_ACTIVE_ASSIGNMENT", HttpStatus.BAD_REQUEST);
+            }
+            if (overrideReason == null || overrideReason.trim().isEmpty()) {
+                throw new BusinessException(
+                        "Admin override reason is required to start an execution without an active route assignment",
+                        "FS_OVERRIDE_REASON_REQUIRED", HttpStatus.BAD_REQUEST);
+            }
+            overrideType = "ROUTE_UNASSIGNED";
+            executionNotes = "[ADMIN OVERRIDE]: " + overrideReason.trim();
+            log.warn("Admin {} created unassigned route execution for salesperson {} on route {} with reason: {}",
+                    currentUserId, salespersonId, routeId, overrideReason.trim());
+        } else {
+            // Assignment exists — validate van match
+            UUID assignedVanId = activeAssignments.get(0).getVanId();
+            if (assignedVanId != null) {
+                if (finalVanId == null) {
+                    finalVanId = assignedVanId;
+                } else if (!finalVanId.equals(assignedVanId)) {
+                    if (!isAdmin) {
+                        throw new BusinessException(
+                                "Selected van does not match the assigned van for this route",
+                                "FS_VAN_MISMATCH", HttpStatus.BAD_REQUEST);
+                    }
+                    if (overrideReason == null || overrideReason.trim().isEmpty()) {
+                        throw new BusinessException(
+                                "Admin override reason is required to override the assigned van for this route",
+                                "FS_OVERRIDE_REASON_REQUIRED", HttpStatus.BAD_REQUEST);
+                    }
+                    overrideType = "VAN_MISMATCH";
+                    executionNotes = "[ADMIN VAN OVERRIDE]: " + overrideReason.trim();
+                    log.warn("Admin {} overrode assigned van for salesperson {} on route {} with reason: {}",
+                            currentUserId, salespersonId, routeId, overrideReason.trim());
+                }
+            }
+        }
+
+        // Validate van existence if specified
+        final UUID resolvedVanId = finalVanId;
+        if (resolvedVanId != null) {
+            vanRepository.findByIdAndOrgIdAndIsDeletedFalse(resolvedVanId, orgId)
+                    .orElseThrow(() -> BusinessException.notFound("Van", resolvedVanId));
+        }
 
         // Create route execution
         RouteExecution execution = RouteExecution.builder()
                 .routeId(routeId)
                 .salespersonId(salespersonId)
-                .vanId(vanId)
+                .vanId(finalVanId)
                 .executionDate(executionDate)
                 .status("PLANNED")
                 .plannedVisits(0)
@@ -1127,6 +1366,7 @@ public class FieldSalesService {
                 .skippedVisits(0)
                 .totalOrdersValue(BigDecimal.ZERO)
                 .totalCollections(BigDecimal.ZERO)
+                .notes(executionNotes)
                 .build();
 
         execution = routeExecutionRepository.save(execution);
@@ -1159,6 +1399,23 @@ public class FieldSalesService {
 
         execution.setPlannedVisits(visitSequence);
         execution = routeExecutionRepository.save(execution);
+
+        // Write structured, immutable audit record for any admin override (P2).
+        if (overrideType != null && overrideReason != null) {
+            final UUID capturedFinalVanId = finalVanId;
+            executionAuditRepository.save(
+                com.katasticho.erp.fieldsales.entity.FieldSalesExecutionAudit.builder()
+                    .orgId(orgId)
+                    .executionId(execution.getId())
+                    .actorId(currentUserId)
+                    .salespersonId(salespersonId)
+                    .routeId(routeId)
+                    .vanId(capturedFinalVanId)
+                    .executionDate(executionDate)
+                    .overrideType(overrideType)
+                    .overrideReason(overrideReason.trim())
+                    .build());
+        }
 
         log.info("Created route execution {} for route {} with {} planned visits for org {}",
                 execution.getId(), routeId, visitSequence, orgId);

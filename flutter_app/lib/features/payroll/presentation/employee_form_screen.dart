@@ -279,20 +279,22 @@ class _EmployeeFormScreenState extends ConsumerState<EmployeeFormScreen>
               onPressed: () => context.push(
                   '/payroll/employees/${widget.employeeId}/salary-structure'),
             ),
-          TextButton(
-            onPressed: (_loading || _initialLoading) ? null : _save,
-            child: _loading
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('Save'),
+          Padding(
+            padding: const EdgeInsets.only(right: KSpacing.md),
+            child: Center(
+              child: KButton.primary(
+                label: 'Save',
+                size: KButtonSize.small,
+                icon: Icons.check,
+                isLoading: _loading,
+                onPressed: (_loading || _initialLoading) ? null : _save,
+              ),
+            ),
           ),
         ],
       ),
       body: _initialLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: KLoading(message: 'Loading employee details...'))
           : Form(
               key: _formKey,
               child: ListView(

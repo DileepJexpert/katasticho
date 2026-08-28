@@ -4,6 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
+import '../../../core/theme/k_colors.dart';
+import '../../../core/theme/k_spacing.dart';
+import '../../../core/theme/k_typography.dart';
+import '../../../core/utils/api_error_parser.dart';
+import '../../../core/widgets/widgets.dart';
 
 /// Manufacturing — Maintenance management.
 ///
@@ -62,7 +67,7 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen>
       if (!mounted) return;
       setState(() => _schedules = _list(res.data['data']));
     } catch (e) {
-      _toast('Failed to load schedules: $e');
+      _toast('Failed to load schedules: ${ApiErrorParser.message(e)}', isError: true);
     } finally {
       if (mounted) setState(() => _loadingSchedules = false);
     }
@@ -75,7 +80,7 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen>
       if (!mounted) return;
       setState(() => _workOrders = _list(res.data['data']));
     } catch (e) {
-      _toast('Failed to load work orders: $e');
+      _toast('Failed to load work orders: ${ApiErrorParser.message(e)}', isError: true);
     } finally {
       if (mounted) setState(() => _loadingWorkOrders = false);
     }
@@ -105,7 +110,7 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen>
       if (!mounted) return;
       setState(() => _report = (res.data['data'] as Map).cast<String, dynamic>());
     } catch (e) {
-      _toast('Failed to load report: $e');
+      _toast('Failed to load report: ${ApiErrorParser.message(e)}', isError: true);
     } finally {
       if (mounted) setState(() => _loadingReport = false);
     }
@@ -114,9 +119,14 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen>
   String _fmt(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
-  void _toast(String m) {
+  void _toast(String m, {bool isError = false}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(m),
+        backgroundColor: isError ? KColors.error : KColors.success,
+      ),
+    );
   }
 
   String? _wsName(Object? id) {
@@ -132,7 +142,7 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Maintenance'),
+        title: const Text('Maintenance Management'),
         bottom: TabBar(
           controller: _tabs,
           tabs: const [
@@ -164,64 +174,88 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen>
 
   Widget _schedulesTab() {
     if (_loadingSchedules) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: KLoading(message: 'Loading schedules...'));
     }
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(KSpacing.md),
           child: Row(
             children: [
               Expanded(
                 child: Text(
                   '${_schedules.length} preventive maintenance schedule(s)',
-                  style: Theme.of(context).textTheme.bodyMedium,
+                  style: KTypography.bodyMedium,
                 ),
               ),
-              OutlinedButton.icon(
+              KButton.outlined(
+                size: KButtonSize.small,
                 onPressed: _generateDue,
-                icon: const Icon(Icons.bolt),
-                label: const Text('Generate due'),
+                icon: Icons.bolt,
+                label: 'Generate Due',
               ),
-              const SizedBox(width: 8),
-              FilledButton.icon(
+              KSpacing.hGapSm,
+              KButton.primary(
+                size: KButtonSize.small,
                 onPressed: () => _editSchedule(null),
-                icon: const Icon(Icons.add),
-                label: const Text('New'),
+                icon: Icons.add,
+                label: 'New Schedule',
               ),
             ],
           ),
         ),
         Expanded(
           child: _schedules.isEmpty
-              ? const Center(child: Text('No schedules yet.'))
+              ? const KEmptyState(
+                  icon: Icons.calendar_month_outlined,
+                  title: 'No schedules configured',
+                  subtitle: 'Create recurring preventive maintenance schedules for machines and workstations.',
+                )
               : RefreshIndicator(
                   onRefresh: _loadSchedules,
                   child: ListView.separated(
+                    padding: KSpacing.pagePadding,
                     itemCount: _schedules.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    separatorBuilder: (_, __) => KSpacing.vGapSm,
                     itemBuilder: (_, i) {
                       final s = _schedules[i];
                       final due = s['nextDueDate']?.toString() ?? '';
                       final ws = _wsName(s['workstationId']) ?? '(workstation)';
-                      return ListTile(
-                        title: Text('${s['title']} · ${s['code'] ?? ''}'),
-                        subtitle: Text(
-                          '$ws · every ${s['frequencyDays']}d · next due $due'
-                          '${s['active'] == false ? ' · INACTIVE' : ''}',
-                        ),
-                        trailing: PopupMenuButton<String>(
-                          onSelected: (v) {
-                            if (v == 'edit') _editSchedule(s);
-                            if (v == 'delete') _deleteSchedule(s);
-                          },
-                          itemBuilder: (_) => const [
-                            PopupMenuItem(value: 'edit', child: Text('Edit')),
-                            PopupMenuItem(
-                                value: 'delete', child: Text('Remove')),
-                          ],
-                        ),
+                      return KCard(
                         onTap: () => _editSchedule(s),
+                        child: ListTile(
+                          title: Row(
+                            children: [
+                              Text(
+                                s['code']?.toString() ?? '',
+                                style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w700),
+                              ),
+                              KSpacing.hGapSm,
+                              Expanded(
+                                child: Text(
+                                  s['title']?.toString() ?? '',
+                                  style: KTypography.labelLarge,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          subtitle: Text(
+                            '$ws · every ${s['frequencyDays']}d · next due $due'
+                            '${s['active'] == false ? ' · INACTIVE' : ''}',
+                            style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                          ),
+                          trailing: PopupMenuButton<String>(
+                            onSelected: (v) {
+                              if (v == 'edit') _editSchedule(s);
+                              if (v == 'delete') _deleteSchedule(s);
+                            },
+                            itemBuilder: (_) => const [
+                              PopupMenuItem(value: 'edit', child: Text('Edit')),
+                              PopupMenuItem(value: 'delete', child: Text('Remove')),
+                            ],
+                          ),
+                        ),
                       );
                     },
                   ),
@@ -240,7 +274,7 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen>
           : '${created.length} maintenance work order(s) created');
       await _loadAll();
     } catch (e) {
-      _toast('Failed: $e');
+      _toast('Failed: ${ApiErrorParser.message(e)}', isError: true);
     }
   }
 
@@ -265,9 +299,9 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen>
       }
       await _loadSchedules();
     } on DioException catch (e) {
-      _toast('Failed: ${e.response?.data['message'] ?? e.message}');
+      _toast('Failed: ${e.response?.data['message'] ?? e.message}', isError: true);
     } catch (e) {
-      _toast('Failed: $e');
+      _toast('Failed: ${ApiErrorParser.message(e)}', isError: true);
     }
   }
 
@@ -281,7 +315,7 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen>
       _toast('Removed');
       await _loadSchedules();
     } catch (e) {
-      _toast('Failed: $e');
+      _toast('Failed: ${ApiErrorParser.message(e)}', isError: true);
     }
   }
 
@@ -289,62 +323,86 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen>
 
   Widget _workOrdersTab() {
     if (_loadingWorkOrders) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: KLoading(message: 'Loading work orders...'));
     }
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(KSpacing.md),
           child: Row(
             children: [
               Expanded(
                 child: Text('${_workOrders.length} work order(s)',
-                    style: Theme.of(context).textTheme.bodyMedium),
+                    style: KTypography.bodyMedium),
               ),
-              FilledButton.icon(
+              KButton.primary(
+                size: KButtonSize.small,
                 onPressed: () => _newWorkOrder(),
-                icon: const Icon(Icons.add),
-                label: const Text('Report issue'),
+                icon: Icons.add,
+                label: 'Report Issue',
               ),
             ],
           ),
         ),
         Expanded(
           child: _workOrders.isEmpty
-              ? const Center(child: Text('No work orders yet.'))
+              ? const KEmptyState(
+                  icon: Icons.build_circle_outlined,
+                  title: 'No work orders yet',
+                  subtitle: 'Generate due PM schedules or report an unexpected breakdown issue.',
+                )
               : RefreshIndicator(
                   onRefresh: _loadWorkOrders,
                   child: ListView.separated(
+                    padding: KSpacing.pagePadding,
                     itemCount: _workOrders.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    separatorBuilder: (_, __) => KSpacing.vGapSm,
                     itemBuilder: (_, i) {
                       final w = _workOrders[i];
                       final ws = _wsName(w['workstationId']) ?? '(workstation)';
                       final downtime = w['downtimeMinutes'];
-                      return ListTile(
-                        leading: _statusChip(w['status']),
-                        title: Text('${w['mwoNumber']} · ${w['title']}'),
-                        subtitle: Text(
-                          '$ws · ${w['maintenanceType']} · ${w['priority']}'
-                          '${downtime != null ? ' · ${downtime}m downtime' : ''}',
-                        ),
-                        trailing: PopupMenuButton<String>(
-                          onSelected: (v) => _woAction(w, v),
-                          itemBuilder: (_) {
-                            final status = w['status'] as String?;
-                            return [
-                              if (status == 'DRAFT')
-                                const PopupMenuItem(
-                                    value: 'start', child: Text('Start')),
-                              if (status == 'IN_PROGRESS')
-                                const PopupMenuItem(
-                                    value: 'complete', child: Text('Complete')),
-                              if (status == 'DRAFT' ||
-                                  status == 'IN_PROGRESS')
-                                const PopupMenuItem(
-                                    value: 'cancel', child: Text('Cancel')),
-                            ];
-                          },
+                      return KCard(
+                        child: ListTile(
+                          leading: KStatusChip(status: w['status']?.toString() ?? ''),
+                          title: Row(
+                            children: [
+                              Text(
+                                '${w['mwoNumber']}',
+                                style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w700),
+                              ),
+                              KSpacing.hGapSm,
+                              Expanded(
+                                child: Text(
+                                  '${w['title']}',
+                                  style: KTypography.labelLarge,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          subtitle: Text(
+                            '$ws · ${w['maintenanceType']} · ${w['priority']}'
+                            '${downtime != null ? ' · ${downtime}m downtime' : ''}',
+                            style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                          ),
+                          trailing: PopupMenuButton<String>(
+                            onSelected: (v) => _woAction(w, v),
+                            itemBuilder: (_) {
+                              final status = w['status'] as String?;
+                              return [
+                                if (status == 'DRAFT')
+                                  const PopupMenuItem(
+                                      value: 'start', child: Text('Start')),
+                                if (status == 'IN_PROGRESS')
+                                  const PopupMenuItem(
+                                      value: 'complete', child: Text('Complete')),
+                                if (status == 'DRAFT' ||
+                                    status == 'IN_PROGRESS')
+                                  const PopupMenuItem(
+                                      value: 'cancel', child: Text('Cancel')),
+                              ];
+                            },
+                          ),
                         ),
                       );
                     },
@@ -352,27 +410,6 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen>
                 ),
         ),
       ],
-    );
-  }
-
-  Widget _statusChip(Object? status) {
-    final color = switch (status) {
-      'DRAFT' => Colors.blueGrey,
-      'IN_PROGRESS' => Colors.orange,
-      'COMPLETED' => Colors.green,
-      'CANCELLED' => Colors.grey,
-      _ => Colors.grey,
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        status?.toString() ?? '',
-        style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600),
-      ),
     );
   }
 
@@ -399,9 +436,9 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen>
       }
       await _loadWorkOrders();
     } on DioException catch (e) {
-      _toast('Failed: ${e.response?.data['message'] ?? e.message}');
+      _toast('Failed: ${e.response?.data['message'] ?? e.message}', isError: true);
     } catch (e) {
-      _toast('Failed: $e');
+      _toast('Failed: ${ApiErrorParser.message(e)}', isError: true);
     }
   }
 
@@ -418,9 +455,9 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen>
       _toast('Work order created');
       await _loadWorkOrders();
     } on DioException catch (e) {
-      _toast('Failed: ${e.response?.data['message'] ?? e.message}');
+      _toast('Failed: ${e.response?.data['message'] ?? e.message}', isError: true);
     } catch (e) {
-      _toast('Failed: $e');
+      _toast('Failed: ${ApiErrorParser.message(e)}', isError: true);
     }
   }
 
@@ -430,7 +467,7 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen>
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(KSpacing.md),
           child: Row(
             children: [
               Expanded(
@@ -439,18 +476,19 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen>
                   child: Text('From ${_fmt(_reportFrom)}'),
                 ),
               ),
-              const SizedBox(width: 8),
+              KSpacing.hGapSm,
               Expanded(
                 child: OutlinedButton(
                   onPressed: () => _pickDate(false),
                   child: Text('To ${_fmt(_reportTo)}'),
                 ),
               ),
-              const SizedBox(width: 8),
-              FilledButton.icon(
+              KSpacing.hGapSm,
+              KButton.primary(
+                size: KButtonSize.small,
                 onPressed: _loadingReport ? null : _loadReport,
-                icon: const Icon(Icons.bar_chart),
-                label: const Text('Run'),
+                icon: Icons.bar_chart,
+                label: 'Run',
               ),
             ],
           ),
@@ -458,13 +496,17 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen>
         if (_loadingReport)
           const Padding(
             padding: EdgeInsets.all(16),
-            child: CircularProgressIndicator(),
+            child: KLoading(message: 'Calculating downtime report...'),
           )
         else if (_report != null)
           Expanded(child: _downtimeBody(_report!))
         else
           const Expanded(
-            child: Center(child: Text('Pick a range and tap Run.')),
+            child: KEmptyState(
+              icon: Icons.query_stats_outlined,
+              title: 'No report loaded',
+              subtitle: 'Pick a date range and tap Run to analyze machine downtime.',
+            ),
           ),
       ],
     );
@@ -494,11 +536,11 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen>
     final totalMin = (r['totalMinutes'] as num?)?.toInt() ?? 0;
     final totalCount = (r['totalCount'] as num?)?.toInt() ?? 0;
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: KSpacing.pagePadding,
       children: [
-        Card(
+        KCard(
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(KSpacing.md),
             child: Row(
               children: [
                 _kpi('Total downtime', '$totalMin min'),
@@ -508,21 +550,26 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen>
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        KSpacing.vGapMd,
         ...items.map((row) {
           final types = (row['types'] as Map?) ?? const {};
-          return Card(
-            child: ListTile(
-              title: Text(
-                '${row['workstationName'] ?? '(unknown)'} '
-                '${row['workstationCode'] != null && (row['workstationCode'] as String).isNotEmpty ? '· ${row['workstationCode']}' : ''}',
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: KCard(
+              child: ListTile(
+                title: Text(
+                  '${row['workstationName'] ?? '(unknown)'} '
+                  '${row['workstationCode'] != null && (row['workstationCode'] as String).isNotEmpty ? '· ${row['workstationCode']}' : ''}',
+                  style: KTypography.titleSmall,
+                ),
+                subtitle: Text(
+                  '${row['totalMinutes']}m downtime · ${row['count']} WO · '
+                  'cost ${row['totalCost']}\n'
+                  'types: ${types.entries.map((e) => '${e.key}=${e.value}').join(', ')}',
+                  style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                ),
+                isThreeLine: true,
               ),
-              subtitle: Text(
-                '${row['totalMinutes']}m downtime · ${row['count']} WO · '
-                'cost ${row['totalCost']}\n'
-                'types: ${types.entries.map((e) => '${e.key}=${e.value}').join(', ')}',
-              ),
-              isThreeLine: true,
             ),
           );
         }),
@@ -535,8 +582,9 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen>
       child: Column(
         children: [
           Text(value,
-              style: Theme.of(context).textTheme.headlineSmall),
-          Text(label, style: Theme.of(context).textTheme.bodySmall),
+              style: KTypography.displayMedium),
+          KSpacing.vGapXs,
+          Text(label, style: KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
         ],
       ),
     );
@@ -548,14 +596,19 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen>
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        content: Text(message),
+        content: Text(message, style: KTypography.bodyMedium),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
-          FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('OK')),
+          KButton.outlined(
+            size: KButtonSize.small,
+            onPressed: () => Navigator.pop(context, false),
+            label: 'Cancel',
+          ),
+          KSpacing.hGapSm,
+          KButton.primary(
+            size: KButtonSize.small,
+            onPressed: () => Navigator.pop(context, true),
+            label: 'OK',
+          ),
         ],
       ),
     );
@@ -569,14 +622,19 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen>
       builder: (_) => AlertDialog(
         content: TextField(
             controller: ctrl,
-            decoration: InputDecoration(labelText: label)),
+            decoration: InputDecoration(labelText: label, border: const OutlineInputBorder())),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel')),
-          FilledButton(
-              onPressed: () => Navigator.pop(context, ctrl.text),
-              child: const Text('OK')),
+          KButton.outlined(
+            size: KButtonSize.small,
+            onPressed: () => Navigator.pop(context),
+            label: 'Cancel',
+          ),
+          KSpacing.hGapSm,
+          KButton.primary(
+            size: KButtonSize.small,
+            onPressed: () => Navigator.pop(context, ctrl.text),
+            label: 'OK',
+          ),
         ],
       ),
     );
@@ -620,7 +678,7 @@ class _ScheduleDialogState extends State<_ScheduleDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.initial == null ? 'New schedule' : 'Edit schedule'),
+      title: Text(widget.initial == null ? 'New Schedule' : 'Edit Schedule'),
       content: SizedBox(
         width: 480,
         child: SingleChildScrollView(
@@ -629,7 +687,7 @@ class _ScheduleDialogState extends State<_ScheduleDialog> {
             children: [
               DropdownButtonFormField<String>(
                 initialValue: _workstationId,
-                decoration: const InputDecoration(labelText: 'Workstation *'),
+                decoration: const InputDecoration(labelText: 'Workstation *', border: OutlineInputBorder()),
                 items: widget.workstations
                     .map((w) => DropdownMenuItem(
                           value: w['id'] as String,
@@ -638,30 +696,36 @@ class _ScheduleDialogState extends State<_ScheduleDialog> {
                     .toList(),
                 onChanged: (v) => setState(() => _workstationId = v),
               ),
+              KSpacing.vGapSm,
               TextField(
                 controller: _code,
-                decoration: const InputDecoration(labelText: 'Code *'),
+                decoration: const InputDecoration(labelText: 'Code *', border: OutlineInputBorder()),
               ),
+              KSpacing.vGapSm,
               TextField(
                 controller: _title,
-                decoration: const InputDecoration(labelText: 'Title *'),
+                decoration: const InputDecoration(labelText: 'Title *', border: OutlineInputBorder()),
               ),
+              KSpacing.vGapSm,
               TextField(
                 controller: _desc,
-                decoration: const InputDecoration(labelText: 'Description'),
+                decoration: const InputDecoration(labelText: 'Description', border: OutlineInputBorder()),
                 maxLines: 2,
               ),
+              KSpacing.vGapSm,
               TextField(
                 controller: _freq,
-                decoration: const InputDecoration(labelText: 'Frequency (days) *'),
+                decoration: const InputDecoration(labelText: 'Frequency (days) *', border: OutlineInputBorder()),
                 keyboardType: TextInputType.number,
               ),
+              KSpacing.vGapSm,
               TextField(
                 controller: _est,
                 decoration: const InputDecoration(
-                    labelText: 'Estimated duration (minutes)'),
+                    labelText: 'Estimated Duration (minutes)', border: OutlineInputBorder()),
                 keyboardType: TextInputType.number,
               ),
+              KSpacing.vGapSm,
               SwitchListTile(
                 title: const Text('Active'),
                 contentPadding: EdgeInsets.zero,
@@ -673,10 +737,14 @@ class _ScheduleDialogState extends State<_ScheduleDialog> {
         ),
       ),
       actions: [
-        TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel')),
-        FilledButton(
+        KButton.outlined(
+          size: KButtonSize.small,
+          onPressed: () => Navigator.pop(context),
+          label: 'Cancel',
+        ),
+        KSpacing.hGapSm,
+        KButton.primary(
+          size: KButtonSize.small,
           onPressed: _workstationId == null ||
                   _title.text.trim().isEmpty ||
                   _code.text.trim().isEmpty ||
@@ -693,7 +761,7 @@ class _ScheduleDialogState extends State<_ScheduleDialog> {
                     'estimatedDurationMin': int.tryParse(_est.text.trim()),
                     'active': _active,
                   }),
-          child: const Text('Save'),
+          label: 'Save',
         ),
       ],
     );
@@ -718,7 +786,7 @@ class _WorkOrderDialogState extends State<_WorkOrderDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Report maintenance issue'),
+      title: const Text('Report Maintenance Issue'),
       content: SizedBox(
         width: 480,
         child: SingleChildScrollView(
@@ -727,7 +795,7 @@ class _WorkOrderDialogState extends State<_WorkOrderDialog> {
             children: [
               DropdownButtonFormField<String>(
                 initialValue: _workstationId,
-                decoration: const InputDecoration(labelText: 'Workstation *'),
+                decoration: const InputDecoration(labelText: 'Workstation *', border: OutlineInputBorder()),
                 items: widget.workstations
                     .map((w) => DropdownMenuItem(
                           value: w['id'] as String,
@@ -736,9 +804,10 @@ class _WorkOrderDialogState extends State<_WorkOrderDialog> {
                     .toList(),
                 onChanged: (v) => setState(() => _workstationId = v),
               ),
+              KSpacing.vGapSm,
               DropdownButtonFormField<String>(
                 initialValue: _type,
-                decoration: const InputDecoration(labelText: 'Type'),
+                decoration: const InputDecoration(labelText: 'Type', border: OutlineInputBorder()),
                 items: const [
                   DropdownMenuItem(
                       value: 'BREAKDOWN', child: Text('Breakdown')),
@@ -749,9 +818,10 @@ class _WorkOrderDialogState extends State<_WorkOrderDialog> {
                 ],
                 onChanged: (v) => setState(() => _type = v ?? 'BREAKDOWN'),
               ),
+              KSpacing.vGapSm,
               DropdownButtonFormField<String>(
                 initialValue: _priority,
-                decoration: const InputDecoration(labelText: 'Priority'),
+                decoration: const InputDecoration(labelText: 'Priority', border: OutlineInputBorder()),
                 items: const [
                   DropdownMenuItem(value: 'URGENT', child: Text('Urgent')),
                   DropdownMenuItem(value: 'HIGH', child: Text('High')),
@@ -760,13 +830,15 @@ class _WorkOrderDialogState extends State<_WorkOrderDialog> {
                 ],
                 onChanged: (v) => setState(() => _priority = v ?? 'NORMAL'),
               ),
+              KSpacing.vGapSm,
               TextField(
                 controller: _title,
-                decoration: const InputDecoration(labelText: 'Title *'),
+                decoration: const InputDecoration(labelText: 'Title *', border: OutlineInputBorder()),
               ),
+              KSpacing.vGapSm,
               TextField(
                 controller: _desc,
-                decoration: const InputDecoration(labelText: 'Description'),
+                decoration: const InputDecoration(labelText: 'Description', border: OutlineInputBorder()),
                 maxLines: 3,
               ),
             ],
@@ -774,10 +846,14 @@ class _WorkOrderDialogState extends State<_WorkOrderDialog> {
         ),
       ),
       actions: [
-        TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel')),
-        FilledButton(
+        KButton.outlined(
+          size: KButtonSize.small,
+          onPressed: () => Navigator.pop(context),
+          label: 'Cancel',
+        ),
+        KSpacing.hGapSm,
+        KButton.primary(
+          size: KButtonSize.small,
           onPressed:
               _workstationId == null || _title.text.trim().isEmpty
                   ? null
@@ -790,7 +866,7 @@ class _WorkOrderDialogState extends State<_WorkOrderDialog> {
                             ? null
                             : _desc.text.trim(),
                       }),
-          child: const Text('Create'),
+          label: 'Create',
         ),
       ],
     );
@@ -811,7 +887,7 @@ class _CompleteDialogState extends State<_CompleteDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Complete maintenance'),
+      title: const Text('Complete Maintenance'),
       content: SizedBox(
         width: 420,
         child: Column(
@@ -819,27 +895,32 @@ class _CompleteDialogState extends State<_CompleteDialog> {
           children: [
             TextField(
               controller: _notes,
-              decoration: const InputDecoration(labelText: 'Completion notes'),
+              decoration: const InputDecoration(labelText: 'Completion Notes', border: OutlineInputBorder()),
               maxLines: 3,
             ),
+            KSpacing.vGapSm,
             TextField(
               controller: _cost,
-              decoration: const InputDecoration(labelText: 'Cost (optional)'),
+              decoration: const InputDecoration(labelText: 'Cost ₹ (optional)', border: OutlineInputBorder()),
               keyboardType: TextInputType.number,
             ),
           ],
         ),
       ),
       actions: [
-        TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel')),
-        FilledButton(
+        KButton.outlined(
+          size: KButtonSize.small,
+          onPressed: () => Navigator.pop(context),
+          label: 'Cancel',
+        ),
+        KSpacing.hGapSm,
+        KButton.primary(
+          size: KButtonSize.small,
           onPressed: () => Navigator.pop(context, {
             'notes': _notes.text.trim().isEmpty ? null : _notes.text.trim(),
             'cost': double.tryParse(_cost.text.trim()),
           }),
-          child: const Text('Complete'),
+          label: 'Complete',
         ),
       ],
     );

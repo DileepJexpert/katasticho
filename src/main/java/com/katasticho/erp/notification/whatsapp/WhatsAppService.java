@@ -95,6 +95,34 @@ public class WhatsAppService {
         }
     }
 
+    /**
+     * Send a raw interactive/conversational text message (for bot replies & customer Q&A).
+     */
+    public SendResult sendTextMessage(UUID orgId, String e164Phone, String text) {
+        String provider = provider(orgId);
+        String apiKey = settingsService.get(orgId, "whatsapp.api_key", null);
+        if (e164Phone == null || e164Phone.isBlank()) {
+            return SendResult.fail(provider, "recipient has no valid WhatsApp number");
+        }
+        if (text == null || text.isBlank()) {
+            return SendResult.fail(provider, "message text is empty");
+        }
+        if (apiKey == null || apiKey.isBlank()) {
+            String simId = "wamid_sim_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+            log.info("[WhatsApp Bot Sandbox] To: {} | Msg: {}", e164Phone, text.replace("\n", " \\n "));
+            return SendResult.ok("SANDBOX", simId);
+        }
+        try {
+            if ("CUSTOM".equalsIgnoreCase(provider)) {
+                return sendCustomText(orgId, apiKey, e164Phone, text);
+            }
+            return sendMetaText(orgId, apiKey, e164Phone, text);
+        } catch (Exception e) {
+            log.warn("[WhatsApp] send text to {} via {} failed: {}", e164Phone, provider, e.getMessage());
+            return SendResult.fail(provider, e.getMessage());
+        }
+    }
+
     // ── META (WhatsApp Cloud API) ─────────────────────────────────────────
 
     private SendResult sendMeta(UUID orgId, String token, String to, String template, String lang,
@@ -233,6 +261,60 @@ public class WhatsAppService {
         JsonNode node = safeTree(resp.body());
         String msgId = node == null ? null
                 : firstText(node, "messageId", "message_id", "id");
+        return SendResult.ok("CUSTOM", msgId);
+    }
+
+    private SendResult sendMetaText(UUID orgId, String token, String to, String text) throws Exception {
+        String phoneNumberId = settingsService.get(orgId, "whatsapp.phone_number_id", null);
+        if (phoneNumberId == null || phoneNumberId.isBlank()) {
+            return SendResult.fail("META", "whatsapp.phone_number_id not configured");
+        }
+        ObjectNode root = objectMapper.createObjectNode();
+        root.put("messaging_product", "whatsapp");
+        root.put("to", to);
+        root.put("type", "text");
+        root.putObject("text").put("body", text);
+
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(GRAPH + "/" + phoneNumberId + "/messages"))
+                .header("Authorization", "Bearer " + token)
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(root)))
+                .timeout(Duration.ofSeconds(15))
+                .build();
+        HttpResponse<String> resp = HTTP.send(req, HttpResponse.BodyHandlers.ofString());
+        if (resp.statusCode() / 100 != 2) {
+            return SendResult.fail("META", "HTTP " + resp.statusCode());
+        }
+        JsonNode node = objectMapper.readTree(resp.body());
+        String msgId = node.path("messages").path(0).path("id").asText(null);
+        return SendResult.ok("META", msgId);
+    }
+
+    private SendResult sendCustomText(UUID orgId, String apiKey, String to, String text) throws Exception {
+        String url = settingsService.get(orgId, "whatsapp.custom_url", null);
+        if (url == null || url.isBlank()) {
+            return SendResult.fail("CUSTOM", "whatsapp.custom_url not configured");
+        }
+        com.katasticho.erp.common.net.OutboundUrlGuard.validate(url, "WHATSAPP_URL");
+        ObjectNode root = objectMapper.createObjectNode();
+        root.put("to", to);
+        root.put("message", text);
+        root.put("type", "text");
+
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .header("Authorization", "Bearer " + apiKey)
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(root)))
+                .timeout(Duration.ofSeconds(15))
+                .build();
+        HttpResponse<String> resp = HTTP.send(req, HttpResponse.BodyHandlers.ofString());
+        if (resp.statusCode() / 100 != 2) {
+            return SendResult.fail("CUSTOM", "HTTP " + resp.statusCode());
+        }
+        JsonNode node = safeTree(resp.body());
+        String msgId = node == null ? null : firstText(node, "messageId", "message_id", "id");
         return SendResult.ok("CUSTOM", msgId);
     }
 

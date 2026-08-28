@@ -4,6 +4,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
+import '../../../core/theme/k_colors.dart';
+import '../../../core/theme/k_spacing.dart';
+import '../../../core/theme/k_typography.dart';
+import '../../../core/widgets/k_button.dart';
+import '../../../core/widgets/k_card.dart';
+import '../../../core/widgets/k_data_table.dart';
+import '../../../core/widgets/k_empty_state.dart';
+import '../../../core/widgets/k_loading.dart';
+import '../../../core/widgets/k_status_chip.dart';
+import '../../../core/widgets/k_text_field.dart';
 import '../data/field_sales_repository.dart';
 
 /// Sample / promo material register per field salesperson (any vertical),
@@ -66,7 +76,7 @@ class _FieldSamplesScreenState extends ConsumerState<FieldSamplesScreen> {
         });
       }
     } catch (e) {
-      _toast('Failed to load: $e');
+      _toast('Failed to load settings: $e', isError: true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -87,7 +97,7 @@ class _FieldSamplesScreenState extends ConsumerState<FieldSamplesScreen> {
         });
       }
     } catch (e) {
-      _toast('Failed to load samples: $e');
+      _toast('Failed to load samples: $e', isError: true);
     }
   }
 
@@ -100,9 +110,9 @@ class _FieldSamplesScreenState extends ConsumerState<FieldSamplesScreen> {
             _daPerDayCtrl.text.trim().isEmpty ? '0' : _daPerDayCtrl.text.trim(),
         'field_sales.allowance_mode': _allowanceMode,
       });
-      _toast('Allowance rates saved');
+      _toast('Allowance rates saved successfully');
     } catch (e) {
-      _toast('Failed to save rates: $e');
+      _toast('Failed to save rates: $e', isError: true);
     }
   }
 
@@ -114,33 +124,45 @@ class _FieldSamplesScreenState extends ConsumerState<FieldSamplesScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(isIssue ? 'Issue Samples' : 'Record Return'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: productCtl,
-              decoration:
-                  const InputDecoration(labelText: 'Product / material'),
-            ),
-            TextField(
-              controller: qtyCtl,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Quantity'),
-            ),
-            TextField(
-              controller: notesCtl,
-              decoration: const InputDecoration(labelText: 'Notes (optional)'),
-            ),
-          ],
+        title: Text(isIssue ? 'Issue Samples / Promo Material' : 'Record Sample Return'),
+        content: SizedBox(
+          width: 380,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              KTextField(
+                controller: productCtl,
+                label: 'Product / Material Name *',
+                hint: 'e.g. Paracetamol 650mg Trial Packs',
+              ),
+              KSpacing.vGapSm,
+              KTextField(
+                controller: qtyCtl,
+                label: 'Quantity *',
+                hint: 'e.g. 50',
+                keyboardType: TextInputType.number,
+              ),
+              KSpacing.vGapSm,
+              KTextField(
+                controller: notesCtl,
+                label: 'Remarks (Optional)',
+                hint: 'e.g. Batch # or campaign details',
+              ),
+            ],
+          ),
         ),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
-          FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: Text(isIssue ? 'Issue' : 'Return')),
+          KButton.outlined(
+            size: KButtonSize.small,
+            onPressed: () => Navigator.pop(ctx, false),
+            label: 'Cancel',
+          ),
+          KSpacing.hGapSm,
+          KButton.primary(
+            size: KButtonSize.small,
+            label: isIssue ? 'Issue Samples' : 'Record Return',
+            onPressed: () => Navigator.pop(ctx, true),
+          ),
         ],
       ),
     );
@@ -148,7 +170,7 @@ class _FieldSamplesScreenState extends ConsumerState<FieldSamplesScreen> {
 
     final qty = int.tryParse(qtyCtl.text) ?? 0;
     if (productCtl.text.trim().isEmpty || qty <= 0) {
-      _toast('Product and a positive quantity are required');
+      _toast('Product and a positive quantity are required', isError: true);
       return;
     }
     try {
@@ -159,211 +181,250 @@ class _FieldSamplesScreenState extends ConsumerState<FieldSamplesScreen> {
             quantity: qty,
             notes: notesCtl.text.trim(),
           );
+      _toast(isIssue ? 'Samples issued' : 'Return recorded');
       await _loadSalesperson(_selectedUserId!);
     } catch (e) {
-      _toast('Failed: $e');
+      _toast('Failed: $e', isError: true);
     }
   }
 
-  void _toast(String msg) {
+  void _toast(String msg, {bool isError = false}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: isError ? KColors.error : KColors.success,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Field Samples & Allowance')),
+      appBar: AppBar(title: const Text('Field Samples & Travel Allowance')),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: KLoading())
           : ListView(
-              padding: const EdgeInsets.all(16),
+              padding: KSpacing.pagePadding,
               children: [
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('TA/DA allowance rates',
-                            style: Theme.of(context).textTheme.titleMedium),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Travel allowance uses the GPS distance recorded by '
-                          'the field app. Daily allowance applies on days with '
-                          'field movement. Set 0 to disable.',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<String>(
-                          initialValue: _allowanceMode,
-                          decoration: const InputDecoration(
-                            labelText: 'Distance claiming mode',
-                          ),
-                          items: const [
-                            DropdownMenuItem(
-                              value: 'FLEXIBLE',
-                              child: Text(
-                                  'Flexible — GPS km prefilled, salesperson may adjust'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'GPS',
-                              child: Text(
-                                  'GPS strict — claim exactly the tracked distance'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'MANUAL',
-                              child: Text(
-                                  'Manual — salesperson enters km themselves'),
-                            ),
-                          ],
-                          onChanged: (v) =>
-                              setState(() => _allowanceMode = v ?? 'FLEXIBLE'),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _taPerKmCtrl,
-                                keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(
-                                    labelText: 'TA per km (₹)'),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: TextField(
-                                controller: _daPerDayCtrl,
-                                keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(
-                                    labelText: 'DA per day (₹)'),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            FilledButton(
-                              onPressed: _saveRates,
-                              child: const Text('Save'),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text('Sample / promo stock register',
-                    style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  initialValue: _selectedUserId,
-                  decoration:
-                      const InputDecoration(labelText: 'Salesperson'),
-                  items: _users
-                      .map((u) => DropdownMenuItem(
-                            value: u['id']?.toString(),
-                            child: Text(
-                                '${u['fullName'] ?? u['email'] ?? ''} (${u['role'] ?? ''})'),
-                          ))
-                      .toList(),
-                  onChanged: (v) {
-                    if (v != null) _loadSalesperson(v);
-                  },
-                ),
-                if (_selectedUserId != null) ...[
-                  const SizedBox(height: 12),
-                  Row(
+                // -- TA/DA Settings Card --
+                KCard(
+                  title: 'TA / DA Travel Allowance Rates',
+                  subtitle: 'Configure daily allowance and per-kilometer travel reimbursement rates.',
+                  leading: const Icon(Icons.directions_car_outlined, color: KColors.primary),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      FilledButton.icon(
-                        onPressed: () => _recordTxn(isIssue: true),
-                        icon: const Icon(Icons.add_box_outlined),
-                        label: const Text('Issue'),
+                      DropdownButtonFormField<String>(
+                        initialValue: _allowanceMode,
+                        decoration: const InputDecoration(
+                          labelText: 'Distance claiming mode',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'FLEXIBLE',
+                            child: Text('Flexible — GPS distance prefilled, salesperson may adjust'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'GPS',
+                            child: Text('GPS Strict — claim exactly the tracked distance'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'MANUAL',
+                            child: Text('Manual — salesperson enters distance manually'),
+                          ),
+                        ],
+                        onChanged: (v) => setState(() => _allowanceMode = v ?? 'FLEXIBLE'),
                       ),
-                      const SizedBox(width: 8),
-                      OutlinedButton.icon(
-                        onPressed: () => _recordTxn(isIssue: false),
-                        icon: const Icon(Icons.keyboard_return),
-                        label: const Text('Return'),
+                      KSpacing.vGapMd,
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Expanded(
+                            child: KTextField.amount(
+                              controller: _taPerKmCtrl,
+                              label: 'TA rate per km',
+                            ),
+                          ),
+                          KSpacing.hGapSm,
+                          Expanded(
+                            child: KTextField.amount(
+                              controller: _daPerDayCtrl,
+                              label: 'DA rate per day',
+                            ),
+                          ),
+                          KSpacing.hGapSm,
+                          KButton.primary(
+                            label: 'Save Rates',
+                            icon: Icons.save_outlined,
+                            onPressed: _saveRates,
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  if (_balance.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Text('No sample activity for this salesperson'),
-                    )
-                  else
-                    Card(
-                      child: Column(
-                        children: [
-                          const ListTile(
-                            dense: true,
-                            title: Text('Product'),
-                            trailing: SizedBox(
-                              width: 230,
+                ),
+                KSpacing.vGapLg,
+
+                // -- Sample Register Section --
+                KCard(
+                  title: 'Sample & Promotional Material Register',
+                  subtitle: 'Select a field salesperson to view stock in-hand, issuances, and returns.',
+                  leading: const Icon(Icons.medical_services_outlined, color: KColors.primary),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      DropdownButtonFormField<String>(
+                        initialValue: _selectedUserId,
+                        decoration: const InputDecoration(
+                          labelText: 'Select Field Salesperson',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: _users
+                            .map((u) => DropdownMenuItem(
+                                  value: (u['userId'] ?? u['id'])?.toString(),
+                                  child: Text(
+                                      '${u['fullName'] ?? u['displayName'] ?? u['email'] ?? ''}'
+                                      '${u['role'] != null ? ' (${u['role']})' : ''}'),
+                                ))
+                            .toList(),
+                        onChanged: (v) {
+                          if (v != null) _loadSalesperson(v);
+                        },
+                      ),
+                      if (_selectedUserId != null) ...[
+                        KSpacing.vGapMd,
+                        Row(
+                          children: [
+                            KButton.primary(
+                              label: 'Issue Samples',
+                              icon: Icons.add_box_outlined,
+                              onPressed: () => _recordTxn(isIssue: true),
+                            ),
+                            KSpacing.hGapSm,
+                            KButton.outlined(
+                              label: 'Record Return',
+                              icon: Icons.keyboard_return,
+                              onPressed: () => _recordTxn(isIssue: false),
+                            ),
+                          ],
+                        ),
+                        KSpacing.vGapMd,
+                        if (_balance.isEmpty)
+                          const KEmptyState(
+                            icon: Icons.inventory_2_outlined,
+                            title: 'No sample balance records',
+                            subtitle: 'No promotional or sample items currently assigned to this salesperson.',
+                          )
+                        else
+                          KDataTable(
+                            columns: const [
+                              KTableColumn(label: 'Product / Material'),
+                              KTableColumn(label: 'Issued', numeric: true),
+                              KTableColumn(label: 'Returned', numeric: true),
+                              KTableColumn(label: 'Distributed', numeric: true),
+                              KTableColumn(label: 'Balance In-Hand', numeric: true),
+                            ],
+                            rows: _balance.map((r) {
+                              final bal = (r['balance'] as num?) ?? 0;
+                              return [
+                                Text(
+                                  r['productName']?.toString() ?? '',
+                                  style: KTypography.bodySmall.copyWith(fontWeight: FontWeight.w600),
+                                ),
+                                Text(
+                                  '${r['issued'] ?? 0}',
+                                  style: KTypography.mono(fontSize: 12),
+                                ),
+                                Text(
+                                  '${r['returned'] ?? 0}',
+                                  style: KTypography.mono(fontSize: 12),
+                                ),
+                                Text(
+                                  '${r['distributed'] ?? 0}',
+                                  style: KTypography.mono(fontSize: 12),
+                                ),
+                                Text(
+                                  '$bal',
+                                  style: KTypography.mono(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: bal < 0 ? KColors.error : KColors.success,
+                                  ),
+                                ),
+                              ];
+                            }).toList(),
+                          ),
+                        if (_transactions.isNotEmpty) ...[
+                          KSpacing.vGapLg,
+                          Text('Recent Sample Movements', style: KTypography.titleMedium),
+                          KSpacing.vGapSm,
+                          ..._transactions.take(15).map((t) {
+                            final isIssue = t['txnType'] == 'ISSUE';
+                            final txnDate = t['txnDate']?.toString() ?? '--';
+                            final notes = t['notes']?.toString();
+
+                            return KCard(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                               child: Row(
                                 children: [
-                                  Expanded(child: Text('Issued')),
-                                  Expanded(child: Text('Ret.')),
-                                  Expanded(child: Text('Dist.')),
-                                  Expanded(child: Text('Bal.')),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const Divider(height: 1),
-                          ..._balance.map((r) {
-                            final bal = (r['balance'] as num?) ?? 0;
-                            return ListTile(
-                              dense: true,
-                              title: Text(r['productName']?.toString() ?? ''),
-                              trailing: SizedBox(
-                                width: 230,
-                                child: Row(
-                                  children: [
-                                    Expanded(child: Text('${r['issued']}')),
-                                    Expanded(child: Text('${r['returned']}')),
-                                    Expanded(
-                                        child: Text('${r['distributed']}')),
-                                    Expanded(
-                                      child: Text(
-                                        '$bal',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: bal < 0 ? Colors.red : null,
-                                        ),
-                                      ),
+                                  CircleAvatar(
+                                    radius: 16,
+                                    backgroundColor: isIssue
+                                        ? KColors.success.withValues(alpha: 0.12)
+                                        : KColors.warning.withValues(alpha: 0.12),
+                                    child: Icon(
+                                      isIssue ? Icons.add_box_outlined : Icons.keyboard_return,
+                                      color: isIssue ? KColors.success : KColors.warning,
+                                      size: 18,
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                  KSpacing.hGapMd,
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '${t['productName']} × ${t['quantity']}',
+                                          style: KTypography.bodyMedium.copyWith(fontWeight: FontWeight.w600),
+                                        ),
+                                        KSpacing.vGapXxs,
+                                        Row(
+                                          children: [
+                                            KStatusChip(
+                                              status: isIssue ? 'ISSUE' : 'RETURN',
+                                              label: isIssue ? 'Issued' : 'Returned',
+                                            ),
+                                            KSpacing.hGapSm,
+                                            Text(
+                                              txnDate,
+                                              style: KTypography.mono(fontSize: 11, color: KColors.textSecondary),
+                                            ),
+                                            if (notes != null && notes.isNotEmpty) ...[
+                                              const Text(' • ', style: TextStyle(color: KColors.textSecondary)),
+                                              Expanded(
+                                                child: Text(
+                                                  notes,
+                                                  style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ),
                             );
                           }),
                         ],
-                      ),
-                    ),
-                  const SizedBox(height: 16),
-                  Text('Recent transactions',
-                      style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 8),
-                  ..._transactions.take(20).map((t) => ListTile(
-                        dense: true,
-                        leading: Icon(
-                          t['txnType'] == 'ISSUE'
-                              ? Icons.add_box_outlined
-                              : Icons.keyboard_return,
-                          color: t['txnType'] == 'ISSUE'
-                              ? Colors.green
-                              : Colors.orange,
-                        ),
-                        title: Text(
-                            '${t['productName']} × ${t['quantity']}'),
-                        subtitle: Text(
-                            '${t['txnType']} • ${t['txnDate']}'
-                            '${(t['notes'] ?? '').toString().isNotEmpty ? ' • ${t['notes']}' : ''}'),
-                      )),
-                ],
+                      ],
+                    ],
+                  ),
+                ),
               ],
             ),
     );

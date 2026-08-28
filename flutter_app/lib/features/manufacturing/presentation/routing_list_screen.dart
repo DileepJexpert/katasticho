@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/theme/k_colors.dart';
+import '../../../core/theme/k_spacing.dart';
+import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/routing_repository.dart';
 
@@ -65,12 +68,16 @@ class _RoutingListScreenState extends ConsumerState<RoutingListScreen>
         ),
         floatingActionButton: _tabController.index == 0
             ? FloatingActionButton.extended(
+                backgroundColor: KColors.primary,
+                foregroundColor: Colors.white,
                 onPressed: () => context.go('/manufacturing/routings/create'),
                 icon: const Icon(Icons.add),
                 label: const Text('New Routing'),
                 tooltip: 'New Routing (N)',
               )
             : FloatingActionButton.extended(
+                backgroundColor: KColors.primary,
+                foregroundColor: Colors.white,
                 onPressed: () => _showAddWorkstationSheet(context),
                 icon: const Icon(Icons.add),
                 label: const Text('Add Workstation'),
@@ -101,7 +108,7 @@ class _RoutingsTab extends ConsumerWidget {
     final routingsAsync = ref.watch(routingsProvider);
 
     return routingsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const Center(child: KLoading(message: 'Loading routings...')),
       error: (e, _) => KErrorView(
         message: e.toString(),
         onRetry: () => ref.invalidate(routingsProvider),
@@ -117,7 +124,7 @@ class _RoutingsTab extends ConsumerWidget {
         return RefreshIndicator(
           onRefresh: () async => ref.invalidate(routingsProvider),
           child: ListView.builder(
-            padding: const EdgeInsets.all(16),
+            padding: KSpacing.pagePadding,
             itemCount: routings.length,
             itemBuilder: (ctx, i) => _RoutingCard(routing: routings[i]),
           ),
@@ -133,7 +140,6 @@ class _RoutingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final name = routing['name']?.toString() ?? '';
     final itemId = routing['itemId']?.toString() ?? '';
     final isDefault = routing['isDefault'] == true;
@@ -145,7 +151,7 @@ class _RoutingCard extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: KCard(
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(KSpacing.md),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -154,37 +160,24 @@ class _RoutingCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       name,
-                      style: theme.textTheme.titleSmall
-                          ?.copyWith(fontWeight: FontWeight.w600),
+                      style: KTypography.labelLarge,
                     ),
                   ),
                   if (isDefault)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        'Default',
-                        style: theme.textTheme.labelSmall
-                            ?.copyWith(color: Colors.blue),
-                      ),
-                    ),
+                    const KStatusChip(status: 'DEFAULT'),
                 ],
               ),
-              const SizedBox(height: 6),
+              KSpacing.vGapXs,
               Wrap(
                 spacing: 16,
                 children: [
                   if (itemId.isNotEmpty)
                     Text('Item: $truncatedItemId',
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: Colors.grey[700])),
+                        style: KTypography.bodySmall
+                            .copyWith(color: KColors.textSecondary)),
                   Text('$ops operation${ops == 1 ? '' : 's'}',
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: Colors.grey[700])),
+                      style: KTypography.bodySmall
+                          .copyWith(color: KColors.textSecondary)),
                 ],
               ),
             ],
@@ -207,7 +200,7 @@ class _WorkstationsTab extends ConsumerWidget {
     final wsAsync = ref.watch(workstationsProvider);
 
     return wsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const Center(child: KLoading(message: 'Loading workstations...')),
       error: (e, _) => KErrorView(
         message: e.toString(),
         onRetry: () => ref.invalidate(workstationsProvider),
@@ -223,7 +216,7 @@ class _WorkstationsTab extends ConsumerWidget {
         return RefreshIndicator(
           onRefresh: () async => ref.invalidate(workstationsProvider),
           child: ListView.builder(
-            padding: const EdgeInsets.all(16),
+            padding: KSpacing.pagePadding,
             itemCount: workstations.length,
             itemBuilder: (ctx, i) =>
                 _WorkstationCard(workstation: workstations[i]),
@@ -240,7 +233,6 @@ class _WorkstationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final code = workstation['code']?.toString() ?? '';
     final name = workstation['name']?.toString() ?? '';
     final hourlyRate = workstation['hourlyRate'];
@@ -251,19 +243,19 @@ class _WorkstationCard extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: KCard(
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(KSpacing.md),
           child: Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.indigo.withValues(alpha: 0.1),
+                  color: KColors.primary.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.settings_input_component,
-                    color: Colors.indigo, size: 20),
+                    color: KColors.primary, size: 20),
               ),
-              const SizedBox(width: 12),
+              KSpacing.hGapMd,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -272,35 +264,40 @@ class _WorkstationCard extends StatelessWidget {
                       children: [
                         Text(
                           code,
-                          style: theme.textTheme.labelSmall
-                              ?.copyWith(color: Colors.grey),
+                          style: KTypography.mono(fontSize: 12, fontWeight: FontWeight.w700),
                         ),
-                        const SizedBox(width: 8),
+                        KSpacing.hGapSm,
                         Expanded(
                           child: Text(
                             name,
-                            style: theme.textTheme.bodyMedium
-                                ?.copyWith(fontWeight: FontWeight.w600),
+                            style: KTypography.labelLarge,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    KSpacing.vGapXs,
                     Wrap(
                       spacing: 16,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         if (hourlyRate != null)
-                          Text('Rate: ₹$hourlyRate/hr',
-                              style: theme.textTheme.bodySmall),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text('Rate: ', style: KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
+                              KMoney((hourlyRate as num).toDouble()),
+                              Text('/hr', style: KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
+                            ],
+                          ),
                         if (capacity != null)
                           Text('Capacity: ${capacity}h/day',
-                              style: theme.textTheme.bodySmall),
+                              style: KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
                       ],
                     ),
                   ],
                 ),
               ),
-              KStatusChip(status: isActive ? 'Active' : 'Inactive'),
+              KStatusChip(status: isActive ? 'ACTIVE' : 'INACTIVE'),
             ],
           ),
         ),
@@ -342,13 +339,12 @@ class _AddWorkstationSheetState extends ConsumerState<_AddWorkstationSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Padding(
       padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 16,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        left: KSpacing.lg,
+        right: KSpacing.lg,
+        top: KSpacing.lg,
+        bottom: MediaQuery.of(context).viewInsets.bottom + KSpacing.xl,
       ),
       child: Form(
         key: _formKey,
@@ -357,9 +353,8 @@ class _AddWorkstationSheetState extends ConsumerState<_AddWorkstationSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text('Add Workstation',
-                style:
-                    theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 16),
+                style: KTypography.h3),
+            KSpacing.vGapMd,
             Row(
               children: [
                 Expanded(
@@ -371,7 +366,7 @@ class _AddWorkstationSheetState extends ConsumerState<_AddWorkstationSheet> {
                         (v == null || v.trim().isEmpty) ? 'Required' : null,
                   ),
                 ),
-                const SizedBox(width: 12),
+                KSpacing.hGapSm,
                 Expanded(
                   flex: 2,
                   child: KTextField(
@@ -383,13 +378,13 @@ class _AddWorkstationSheetState extends ConsumerState<_AddWorkstationSheet> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            KSpacing.vGapSm,
             KTextField(
               controller: _descCtl,
               label: 'Description',
               maxLines: 2,
             ),
-            const SizedBox(height: 12),
+            KSpacing.vGapSm,
             Row(
               children: [
                 Expanded(
@@ -399,7 +394,7 @@ class _AddWorkstationSheetState extends ConsumerState<_AddWorkstationSheet> {
                     keyboardType: TextInputType.number,
                   ),
                 ),
-                const SizedBox(width: 12),
+                KSpacing.hGapSm,
                 Expanded(
                   child: KTextField(
                     controller: _capacityCtl,
@@ -409,16 +404,12 @@ class _AddWorkstationSheetState extends ConsumerState<_AddWorkstationSheet> {
                 ),
               ],
             ),
-            const SizedBox(height: 20),
-            FilledButton.icon(
+            KSpacing.vGapLg,
+            KButton.primary(
               onPressed: _submitting ? null : _submit,
-              icon: _submitting
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.check),
-              label: const Text('Save Workstation'),
+              isLoading: _submitting,
+              icon: Icons.check,
+              label: 'Save Workstation',
             ),
           ],
         ),
@@ -443,14 +434,14 @@ class _AddWorkstationSheetState extends ConsumerState<_AddWorkstationSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Workstation created'),
-            backgroundColor: Colors.green,
+            backgroundColor: KColors.success,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Failed: $e')));
+            .showSnackBar(SnackBar(content: Text('Failed: $e'), backgroundColor: KColors.error));
       }
     } finally {
       if (mounted) setState(() => _submitting = false);

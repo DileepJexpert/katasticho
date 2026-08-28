@@ -5,7 +5,6 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../data/item_repository.dart';
 import '../../procurement/presentation/purchase_order_create_screen.dart';
@@ -267,9 +266,13 @@ class _ReorderItemCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(name, style: KTypography.labelLarge),
-                    Text('SKU: $sku',
-                        style: KTypography.bodySmall
-                            .copyWith(color: KColors.textSecondary)),
+                    Text(
+                      sku,
+                      style: KTypography.mono(
+                        size: 11,
+                        color: KColors.textSecondary,
+                      ),
+                    ),
                     if (warehouseName != null)
                       Text(warehouseName,
                           style: KTypography.labelSmall
@@ -311,11 +314,15 @@ class _ReorderItemCard extends StatelessWidget {
                 value: _fmt(reorderLevel),
               ),
               KSpacing.hGapMd,
-              _Metric(
-                label: 'Avg Cost',
-                value: avgCost > 0
-                    ? CurrencyFormatter.formatCompact(avgCost)
-                    : '—',
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Avg Cost', style: KTypography.labelSmall.copyWith(color: KColors.textSecondary)),
+                  if (avgCost > 0)
+                    KMoney(avgCost, size: KMoneySize.small)
+                  else
+                    Text('—', style: KTypography.labelLarge),
+                ],
               ),
               KSpacing.hGapMd,
               _Metric(
@@ -350,14 +357,12 @@ class _CreatePoBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(KSpacing.md),
       decoration: BoxDecoration(
-        color: KColors.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(
+          top: BorderSide(
+            color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
           ),
-        ],
+        ),
       ),
       child: SafeArea(
         child: Row(
@@ -367,14 +372,16 @@ class _CreatePoBar extends StatelessWidget {
               style: KTypography.labelLarge,
             ),
             const Spacer(),
-            TextButton(
+            KButton.outlined(
+              label: 'Clear',
+              size: KButtonSize.small,
               onPressed: onClear,
-              child: const Text('Clear'),
             ),
             KSpacing.hGapSm,
-            KButton(
+            KButton.primary(
               label: 'Create PO Draft',
               icon: Icons.shopping_cart_checkout_outlined,
+              size: KButtonSize.small,
               onPressed: onCreate,
             ),
           ],

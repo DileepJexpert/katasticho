@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/theme/k_colors.dart';
+import '../../../core/theme/k_spacing.dart';
+import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../routing/app_router.dart';
 import '../data/manufacturing_repository.dart';
@@ -66,7 +69,7 @@ class _WorkOrderListScreenState extends ConsumerState<WorkOrderListScreen> {
           ),
           Expanded(
             child: ordersAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const Center(child: KLoading(message: 'Loading work orders...')),
               error: (e, _) => KErrorView(
                 message: e.toString(),
                 onRetry: () => ref.invalidate(workOrdersProvider(_statusFilter)),
@@ -83,7 +86,7 @@ class _WorkOrderListScreenState extends ConsumerState<WorkOrderListScreen> {
                 return RefreshIndicator(
                   onRefresh: () async => ref.invalidate(workOrdersProvider(_statusFilter)),
                   child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
+                    padding: KSpacing.pagePadding,
                     itemCount: orders.length,
                     itemBuilder: (ctx, i) => _WorkOrderCard(
                       order: orders[i],
@@ -100,6 +103,8 @@ class _WorkOrderListScreenState extends ConsumerState<WorkOrderListScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: KColors.primary,
+        foregroundColor: Colors.white,
         onPressed: () => context.go(Routes.manufacturingWorkOrderCreate),
         icon: const Icon(Icons.add),
         label: const Text('New Work Order'),
@@ -158,51 +163,58 @@ class _WorkOrderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final woNumber = order['workOrderNumber']?.toString() ?? '';
     final status = order['status']?.toString() ?? '';
     final qtyToProduce = order['quantityToProduce']?.toString() ?? '0';
     final qtyProduced = order['quantityProduced']?.toString() ?? '0';
-    final totalCost = order['totalCost'];
+    final totalCost = (order['totalCost'] as num?)?.toDouble();
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: KCard(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(KSpacing.md),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
                   Expanded(
-                    child: Text(woNumber,
-                        style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                    child: Text(
+                      woNumber,
+                      style: KTypography.mono(fontSize: 14, fontWeight: FontWeight.w700),
+                    ),
                   ),
                   KStatusChip(status: status),
                 ],
               ),
               if (order['finishedGoodName'] != null) ...[
-                const SizedBox(height: 2),
-                Text(order['finishedGoodName'].toString(),
-                    style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey)),
+                KSpacing.vGapXxs,
+                Text(
+                  order['finishedGoodName'].toString(),
+                  style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                ),
               ],
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 16,
+              KSpacing.vGapSm,
+              Row(
                 children: [
-                  Text('Qty: $qtyProduced / $qtyToProduce', style: theme.textTheme.bodySmall),
-                  if (totalCost != null)
-                    Text('Cost: ₹$totalCost', style: theme.textTheme.bodySmall),
+                  Text('Qty: $qtyProduced / $qtyToProduce', style: KTypography.bodySmall),
+                  if (totalCost != null) ...[
+                    KSpacing.hGapMd,
+                    Text('Cost: ', style: KTypography.bodySmall),
+                    KMoney(totalCost, size: KMoneySize.small),
+                  ],
                 ],
               ),
               if (order['notes'] != null && (order['notes'] as String).isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Text(order['notes'].toString(),
-                    style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis),
+                KSpacing.vGapXs,
+                Text(
+                  order['notes'].toString(),
+                  style: KTypography.caption.copyWith(color: KColors.textHint),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
             ],
           ),

@@ -164,26 +164,18 @@ class _PayrollSettingsScreenState extends ConsumerState<PayrollSettingsScreen> {
       appBar: AppBar(
         title: const Text('Payroll Settings'),
         actions: [
-          if (_isSaving)
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                ),
-              ),
-            )
-          else
-            TextButton(
-              onPressed: _save,
-              child: const Text(
-                'Save',
-                style: TextStyle(color: Colors.white),
+          Padding(
+            padding: const EdgeInsets.only(right: KSpacing.md),
+            child: Center(
+              child: KButton.primary(
+                label: 'Save Settings',
+                size: KButtonSize.small,
+                icon: Icons.save_outlined,
+                isLoading: _isSaving,
+                onPressed: _isSaving ? null : _save,
               ),
             ),
+          ),
         ],
       ),
       body: _buildBody(),
@@ -212,25 +204,25 @@ class _PayrollSettingsScreenState extends ConsumerState<PayrollSettingsScreen> {
           ],
 
           // ── Pay Frequency ──
-          Text('Pay Frequency', style: KTypography.h3),
+          Text('Pay Frequency', style: KTypography.titleMedium),
           KSpacing.vGapSm,
           KCard(
             child: DropdownButtonFormField<String>(
               initialValue: _payFrequency,
               isExpanded: true,
               decoration: const InputDecoration(
-                labelText: 'Frequency',
+                labelText: 'Default Pay Schedule',
                 isDense: true,
-                border: InputBorder.none,
+                border: OutlineInputBorder(),
               ),
               items: const [
                 DropdownMenuItem(
                   value: 'MONTHLY',
-                  child: Text('Monthly'),
+                  child: Text('Monthly (Calendar Month)'),
                 ),
                 DropdownMenuItem(
                   value: 'SEMI_MONTHLY',
-                  child: Text('Semi-Monthly'),
+                  child: Text('Semi-Monthly (Bi-Weekly)'),
                 ),
                 DropdownMenuItem(
                   value: 'WEEKLY',
@@ -245,7 +237,7 @@ class _PayrollSettingsScreenState extends ConsumerState<PayrollSettingsScreen> {
           KSpacing.vGapLg,
 
           // ── Statutory Compliance ──
-          Text('Statutory Compliance', style: KTypography.h3),
+          Text('Statutory Compliance Rules', style: KTypography.titleMedium),
           KSpacing.vGapSm,
           KCard(
             child: Column(
@@ -254,7 +246,7 @@ class _PayrollSettingsScreenState extends ConsumerState<PayrollSettingsScreen> {
                   value: _pfEnabled,
                   onChanged: (v) => setState(() => _pfEnabled = v),
                   title: const Text('PF (Provident Fund)'),
-                  subtitle: const Text('Employee & employer PF contributions'),
+                  subtitle: const Text('Employee 12% & employer 12% (EPS/EPF) contributions'),
                   activeThumbColor: KColors.primary,
                   dense: true,
                 ),
@@ -263,7 +255,7 @@ class _PayrollSettingsScreenState extends ConsumerState<PayrollSettingsScreen> {
                   value: _esiEnabled,
                   onChanged: (v) => setState(() => _esiEnabled = v),
                   title: const Text('ESI (Employee State Insurance)'),
-                  subtitle: const Text('Applicable if gross wages <= 21,000/month'),
+                  subtitle: const Text('Employee 0.75% / Employer 3.25% if gross wages <= ₹21,000/month'),
                   activeThumbColor: KColors.primary,
                   dense: true,
                 ),
@@ -272,7 +264,7 @@ class _PayrollSettingsScreenState extends ConsumerState<PayrollSettingsScreen> {
                   value: _ptEnabled,
                   onChanged: (v) => setState(() => _ptEnabled = v),
                   title: const Text('PT (Professional Tax)'),
-                  subtitle: const Text('State-level professional tax deduction'),
+                  subtitle: const Text('State-level professional tax deduction according to state slab'),
                   activeThumbColor: KColors.primary,
                   dense: true,
                 ),
@@ -282,7 +274,7 @@ class _PayrollSettingsScreenState extends ConsumerState<PayrollSettingsScreen> {
                   onChanged: (v) => setState(() => _lwfEnabled = v),
                   title: const Text('LWF (Labour Welfare Fund)'),
                   subtitle:
-                      const Text('State-level labour welfare fund contribution'),
+                      const Text('State-level labour welfare fund periodic contribution rules'),
                   activeThumbColor: KColors.primary,
                   dense: true,
                 ),
@@ -291,7 +283,7 @@ class _PayrollSettingsScreenState extends ConsumerState<PayrollSettingsScreen> {
                   value: _tdsEnabled,
                   onChanged: (v) => setState(() => _tdsEnabled = v),
                   title: const Text('TDS (Tax Deducted at Source)'),
-                  subtitle: const Text('Income tax deduction under Section 192'),
+                  subtitle: const Text('Salary TDS calculation under Section 192 per tax regime'),
                   activeThumbColor: KColors.primary,
                   dense: true,
                 ),
@@ -301,10 +293,10 @@ class _PayrollSettingsScreenState extends ConsumerState<PayrollSettingsScreen> {
           KSpacing.vGapLg,
 
           // ── Account Mappings ──
-          Text('Account Mappings', style: KTypography.h3),
+          Text('Chart of Accounts Mappings', style: KTypography.titleMedium),
           KSpacing.vGapXs,
           Text(
-            'Map payroll postings to your Chart of Accounts. '
+            'Map payroll expense and liability postings to your Chart of Accounts. '
             'Leave blank to use system defaults.',
             style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
           ),
@@ -316,41 +308,41 @@ class _PayrollSettingsScreenState extends ConsumerState<PayrollSettingsScreen> {
                   label: 'Salary Expense Account',
                   controller: _salaryExpenseAccountCtl,
                 ),
-                const Divider(height: 1),
+                KSpacing.vGapSm,
                 _AccountField(
                   label: 'Salary Payable Account',
                   controller: _salaryPayableAccountCtl,
                 ),
                 if (_pfEnabled) ...[
-                  const Divider(height: 1),
+                  KSpacing.vGapSm,
                   _AccountField(
                     label: 'PF Payable Account',
                     controller: _pfPayableAccountCtl,
                   ),
                 ],
                 if (_esiEnabled) ...[
-                  const Divider(height: 1),
+                  KSpacing.vGapSm,
                   _AccountField(
                     label: 'ESI Payable Account',
                     controller: _esiPayableAccountCtl,
                   ),
                 ],
                 if (_ptEnabled) ...[
-                  const Divider(height: 1),
+                  KSpacing.vGapSm,
                   _AccountField(
                     label: 'PT Payable Account',
                     controller: _ptPayableAccountCtl,
                   ),
                 ],
                 if (_lwfEnabled) ...[
-                  const Divider(height: 1),
+                  KSpacing.vGapSm,
                   _AccountField(
                     label: 'LWF Payable Account',
                     controller: _lwfPayableAccountCtl,
                   ),
                 ],
                 if (_tdsEnabled) ...[
-                  const Divider(height: 1),
+                  KSpacing.vGapSm,
                   _AccountField(
                     label: 'TDS Payable Account',
                     controller: _tdsPayableAccountCtl,
@@ -379,29 +371,11 @@ class _AccountField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      child: ValueListenableBuilder<TextEditingValue>(
-        valueListenable: controller,
-        builder: (context, value, _) {
-          return TextField(
-            controller: controller,
-            decoration: InputDecoration(
-              labelText: label,
-              hintText: 'Not configured',
-              isDense: true,
-              border: InputBorder.none,
-              suffixIcon: value.text.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear, size: 18),
-                      onPressed: () => controller.clear(),
-                      tooltip: 'Clear',
-                    )
-                  : null,
-            ),
-          );
-        },
-      ),
+    return KTextField(
+      label: label,
+      controller: controller,
+      hint: 'Account code or system default',
+      prefixIcon: Icons.account_tree_outlined,
     );
   }
 }

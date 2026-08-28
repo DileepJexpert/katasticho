@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../routing/app_router.dart';
@@ -346,8 +345,10 @@ class _CreateDebitNoteScreenState
                               ),
                               if (_supplier?['gstin'] != null &&
                                   (_supplier!['gstin'] as String).isNotEmpty)
-                                Text('GSTIN: ${_supplier!['gstin']}',
-                                    style: KTypography.bodySmall),
+                                Text(
+                                  'GSTIN: ${_supplier!['gstin']}',
+                                  style: KTypography.mono(fontSize: 12),
+                                ),
                             ],
                           ),
                         ),
@@ -402,10 +403,9 @@ class _CreateDebitNoteScreenState
                     );
                   }),
                   KSpacing.vGapMd,
-                  KButton(
+                  KButton.outlined(
                     label: 'Add Line Item',
                     icon: Icons.add,
-                    variant: KButtonVariant.outlined,
                     onPressed: () => setState(() => _lines.add(_DnLine())),
                   ),
                   KSpacing.vGapLg,
@@ -414,20 +414,28 @@ class _CreateDebitNoteScreenState
                   KCard(
                     child: Column(
                       children: [
-                        _SummaryRow(
+                        _DetailSummaryRow(
                           label: 'Subtotal',
-                          value: CurrencyFormatter.formatIndian(_subtotal),
+                          amount: _subtotal,
                         ),
-                        _SummaryRow(
+                        _DetailSummaryRow(
                           label: 'Tax',
-                          value: CurrencyFormatter.formatIndian(_totalTax),
+                          amount: _totalTax,
                         ),
                         const Divider(height: 16),
-                        _SummaryRow(
-                          label: 'Total',
-                          value:
-                              CurrencyFormatter.formatIndian(_grandTotal),
-                          bold: true,
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Total', style: KTypography.labelLarge.copyWith(fontWeight: FontWeight.w700)),
+                            KMoney(
+                              _grandTotal,
+                              size: KMoneySize.medium,
+                              style: const TextStyle(
+                                color: KColors.primary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -458,25 +466,28 @@ class _CreateDebitNoteScreenState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text('Total', style: KTypography.bodySmall),
-                      Text(
-                        CurrencyFormatter.formatIndian(_grandTotal),
-                        style: KTypography.amountLarge,
+                      Text('Total', style: KTypography.caption),
+                      KMoney(
+                        _grandTotal,
+                        size: KMoneySize.large,
+                        style: const TextStyle(
+                          color: KColors.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ],
                   ),
                   const Spacer(),
                   Padding(
                     padding: const EdgeInsets.only(right: 8),
-                    child: KButton(
+                    child: KButton.outlined(
                       label: 'Save Draft',
                       icon: Icons.save_outlined,
-                      variant: KButtonVariant.outlined,
                       onPressed: isBusy ? null : _saveAsDraft,
                       isLoading: _isSaving,
                     ),
                   ),
-                  KButton(
+                  KButton.primary(
                     label: 'Submit',
                     icon: Icons.send_outlined,
                     onPressed: isBusy ? null : _saveAndSubmit,
@@ -593,22 +604,24 @@ class _DnLineCardState extends State<_DnLineCard> {
             onChanged: (_) => widget.onChanged(),
           ),
           KSpacing.vGapSm,
-          Row(
+          KCompactRow(
             children: [
               Expanded(
+                flex: 5,
                 child: KTextField(
-                  label: 'Batch Number (optional)',
+                  label: 'Batch Number',
+                  hint: 'Optional',
                   controller: line.batchNumberCtl,
                   onChanged: (_) => widget.onChanged(),
                 ),
               ),
-              KSpacing.hGapSm,
               Expanded(
+                flex: 5,
                 child: InkWell(
                   onTap: _pickExpiryDate,
                   child: InputDecorator(
                     decoration: InputDecoration(
-                      labelText: 'Expiry Date (optional)',
+                      labelText: 'Expiry Date',
                       border: OutlineInputBorder(
                         borderRadius:
                             BorderRadius.circular(KSpacing.radiusMd),
@@ -622,7 +635,7 @@ class _DnLineCardState extends State<_DnLineCard> {
                     child: Text(
                       line.expiryDate != null
                           ? DateFormatter.display(line.expiryDate!)
-                          : 'Tap to pick',
+                          : 'Optional',
                       style: line.expiryDate != null
                           ? KTypography.bodyMedium
                           : KTypography.bodyMedium
@@ -634,9 +647,10 @@ class _DnLineCardState extends State<_DnLineCard> {
             ],
           ),
           KSpacing.vGapSm,
-          Row(
+          KCompactRow(
             children: [
               Expanded(
+                flex: 3,
                 child: KTextField(
                   label: 'Quantity',
                   controller: line.qtyCtl,
@@ -645,16 +659,16 @@ class _DnLineCardState extends State<_DnLineCard> {
                   onChanged: (_) => widget.onChanged(),
                 ),
               ),
-              KSpacing.hGapSm,
               Expanded(
+                flex: 4,
                 child: KTextField.amount(
                   label: 'Unit Price',
                   controller: line.unitPriceCtl,
                   onChanged: (_) => widget.onChanged(),
                 ),
               ),
-              KSpacing.hGapSm,
               Expanded(
+                flex: 3,
                 child: KTextField(
                   label: 'Tax Rate %',
                   controller: line.taxRateCtl,
@@ -666,13 +680,16 @@ class _DnLineCardState extends State<_DnLineCard> {
             ],
           ),
           KSpacing.vGapSm,
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              'Line Total: ${CurrencyFormatter.formatIndian(line.lineTotal)}',
-              style:
-                  KTypography.amountSmall.copyWith(color: KColors.primary),
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Text('Line Total: ', style: KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
+              KMoney(
+                line.lineTotal,
+                size: KMoneySize.small,
+                style: const TextStyle(fontWeight: FontWeight.w700, color: KColors.primary),
+              ),
+            ],
           ),
         ],
       ),
@@ -680,32 +697,21 @@ class _DnLineCardState extends State<_DnLineCard> {
   }
 }
 
-// ── Summary row ──
-
-class _SummaryRow extends StatelessWidget {
+class _DetailSummaryRow extends StatelessWidget {
   final String label;
-  final String value;
-  final bool bold;
+  final double amount;
 
-  const _SummaryRow({
-    required this.label,
-    required this.value,
-    this.bold = false,
-  });
+  const _DetailSummaryRow({required this.label, required this.amount});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label,
-              style:
-                  bold ? KTypography.labelLarge : KTypography.bodyMedium),
-          Text(value,
-              style:
-                  bold ? KTypography.amountMedium : KTypography.amountSmall),
+          Text(label, style: KTypography.bodyMedium.copyWith(color: KColors.textSecondary)),
+          KMoney(amount, size: KMoneySize.small),
         ],
       ),
     );

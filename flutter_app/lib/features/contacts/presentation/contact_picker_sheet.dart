@@ -5,6 +5,7 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/contact_repository.dart';
+import '../../pos/data/offline_pos_service.dart';
 
 /// Modal contact picker. Returns the selected contact map
 /// (with id, displayName, phone, etc.) or null if cancelled.
@@ -142,8 +143,65 @@ class _ContactPickerSheetState extends ConsumerState<_ContactPickerSheet> {
             child: contactsAsync.when(
               loading: () => const KShimmerList(),
               error: (err, st) {
-                debugPrint('[ContactPicker] ERROR: $err\n$st');
-                return KErrorView(message: 'Failed to load contacts');
+                debugPrint('[ContactPicker] Online search error: $err, trying offline cache');
+                return FutureBuilder<List<Map<String, dynamic>>>(
+                  future: OfflinePosService.instance.searchLocalCustomers(_query ?? ''),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const KShimmerList();
+                    }
+                    final localContacts = snapshot.data ?? [];
+                    if (localContacts.isEmpty) {
+                      return const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(KSpacing.lg),
+                          child: KEmptyState(
+                            icon: Icons.cloud_off_outlined,
+                            title: 'Offline Mode: No Customers Found',
+                            subtitle: 'No matching customers are stored in local offline cache.',
+                          ),
+                        ),
+                      );
+                    }
+                    return ListView.separated(
+                      controller: widget.scrollController,
+                      padding: KSpacing.pagePadding,
+                      itemCount: localContacts.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final contact = localContacts[index];
+                        final name = _contactName(contact);
+                        final company = contact['companyName']?.toString().trim() ?? '';
+                        final gstin = (contact['gstin'] ?? contact['taxNumber'])?.toString().trim() ?? '';
+                        final rawPhone = (contact['phone'] ?? contact['mobile'])?.toString().trim() ?? '';
+                        final identity = [
+                          if (company.isNotEmpty && company != name) company,
+                          if (gstin.isNotEmpty) 'GSTIN: $gstin',
+                          if (rawPhone.isNotEmpty) rawPhone,
+                        ].join(' | ');
+
+                        return ListTile(
+                          dense: true,
+                          visualDensity: VisualDensity.compact,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          leading: CircleAvatar(
+                            backgroundColor: KColors.primary.withValues(alpha: 0.1),
+                            child: Text(
+                              name.isNotEmpty ? name[0].toUpperCase() : '?',
+                              style: KTypography.h4.copyWith(color: KColors.primary),
+                            ),
+                          ),
+                          title: Text(name.isEmpty ? 'Unnamed' : name, style: KTypography.bodyMedium),
+                          subtitle: identity.isNotEmpty
+                              ? Text(identity, style: KTypography.caption.copyWith(color: KColors.textSecondary))
+                              : null,
+                          trailing: const KStatusChip(status: 'OFFLINE'),
+                          onTap: () => Navigator.pop(context, contact),
+                        );
+                      },
+                    );
+                  },
+                );
               },
               data: (data) {
                 final content = data['data'];
@@ -161,6 +219,12 @@ class _ContactPickerSheetState extends ConsumerState<_ContactPickerSheet> {
                   final t = c['contactType']?.toString().toUpperCase();
                   return t == requestedType || t == 'BOTH';
                 }).toList();
+
+                if (contacts.isNotEmpty && requestedType == 'CUSTOMER') {
+                  OfflinePosService.instance.cacheCustomers(
+                    contacts.map((c) => Map<String, dynamic>.from(c as Map)).toList(),
+                  );
+                }
 
                 if (contacts.isEmpty) {
                   final noun = switch (requestedType) {
@@ -229,7 +293,8 @@ class _ContactPickerSheetState extends ConsumerState<_ContactPickerSheet> {
                     final phone = identity.isEmpty
                         ? 'No GSTIN, phone or location on file'
                         : identity;
-                    final email = '';
+                    final email =
+                        contact['email']?.toString().trim() ?? '';
 
                     return ListTile(
                       dense: true,

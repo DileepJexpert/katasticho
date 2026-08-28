@@ -131,6 +131,83 @@ class FieldSalesRepository {
         .toList();
   }
 
+  // -- Assignments --
+  Future<List<Map<String, dynamic>>> listAssignments({
+    bool includeInactive = false,
+    String? effectiveOn,
+  }) async {
+    final queryParams = <String, dynamic>{
+      if (includeInactive) 'includeInactive': true,
+      if (effectiveOn != null) 'effectiveOn': effectiveOn,
+    };
+    final response = await _api.get(
+      ApiConfig.fieldSalesAssignments,
+      queryParameters: queryParams.isNotEmpty ? queryParams : null,
+    );
+    final data = response.data['data'] ?? response.data;
+    final content = data is Map ? (data['content'] as List?) ?? [] : data;
+    return (content as List)
+        .whereType<Map>()
+        .map((e) => e.cast<String, dynamic>())
+        .toList();
+  }
+
+  Future<Map<String, dynamic>> createAssignment(
+      Map<String, dynamic> payload) async {
+    final response =
+        await _api.post(ApiConfig.fieldSalesAssignments, data: payload);
+    return (response.data['data'] ?? response.data) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> updateAssignment(
+      String id, Map<String, dynamic> payload) async {
+    final response =
+        await _api.put(ApiConfig.fieldSalesAssignmentById(id), data: payload);
+    return (response.data['data'] ?? response.data) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> endAssignment(
+      String id, {String? endDate}) async {
+    final response = await _api.post(
+      ApiConfig.fieldSalesAssignmentEnd(id),
+      data: endDate != null ? {'endDate': endDate} : {},
+    );
+    return (response.data['data'] ?? response.data) as Map<String, dynamic>;
+  }
+
+  Future<void> deleteAssignment(String id) async {
+    await _api.delete(ApiConfig.fieldSalesAssignmentById(id));
+  }
+
+  Future<List<Map<String, dynamic>>> getAssignmentsForSalesperson(
+      String salespersonId) async {
+    final response = await _api
+        .get(ApiConfig.fieldSalesAssignmentsBySalesperson(salespersonId));
+    final data = response.data['data'] ?? response.data;
+    final content = data is Map ? (data['content'] as List?) ?? [] : data;
+    return (content as List)
+        .whereType<Map>()
+        .map((e) => e.cast<String, dynamic>())
+        .toList();
+  }
+
+  Future<List<Map<String, dynamic>>> getMyAssignments(
+      {String? effectiveOn}) async {
+    final queryParams = <String, dynamic>{
+      if (effectiveOn != null) 'effectiveOn': effectiveOn,
+    };
+    final response = await _api.get(
+      ApiConfig.fieldSalesAssignmentsMe,
+      queryParameters: queryParams.isNotEmpty ? queryParams : null,
+    );
+    final data = response.data['data'] ?? response.data;
+    final content = data is Map ? (data['content'] as List?) ?? [] : data;
+    return (content as List)
+        .whereType<Map>()
+        .map((e) => e.cast<String, dynamic>())
+        .toList();
+  }
+
   // -- Route Executions --
   Future<List<Map<String, dynamic>>> listExecutions({String? date}) async {
     final path = date != null
@@ -410,6 +487,44 @@ class FieldSalesRepository {
   Future<void> rejectLeave(String id, String reason) async {
     await _api.post(ApiConfig.attendanceLeaveReject(id),
         data: {'reason': reason});
+  }
+
+  // -- Merchandising & Shelf Audits (Step 4.4) --
+  Future<Map<String, dynamic>> recordMerchandisingAudit(
+      Map<String, dynamic> data) async {
+    final response =
+        await _api.post(ApiConfig.fieldSalesMerchandising, data: data);
+    return (response.data['data'] ?? response.data) as Map<String, dynamic>;
+  }
+
+  Future<List<Map<String, dynamic>>> getMerchandisingByVisit(
+      String visitId) async {
+    final response =
+        await _api.get(ApiConfig.fieldSalesMerchandisingByVisit(visitId));
+    return _asList(response.data['data'] ?? response.data);
+  }
+
+  Future<List<Map<String, dynamic>>> getMerchandisingByExecution(
+      String executionId) async {
+    final response = await _api
+        .get(ApiConfig.fieldSalesMerchandisingByExecution(executionId));
+    return _asList(response.data['data'] ?? response.data);
+  }
+
+  Future<List<Map<String, dynamic>>> getRecentMerchandising(
+      {String? from, String? to}) async {
+    final query = from != null && to != null ? '?from=$from&to=$to' : '';
+    final response =
+        await _api.get('${ApiConfig.fieldSalesMerchandisingRecent}$query');
+    return _asList(response.data['data'] ?? response.data);
+  }
+
+  Future<Map<String, dynamic>> getMerchandisingSummary(
+      {String? from, String? to}) async {
+    final query = from != null && to != null ? '?from=$from&to=$to' : '';
+    final response =
+        await _api.get('${ApiConfig.fieldSalesMerchandisingSummary}$query');
+    return (response.data['data'] ?? response.data) as Map<String, dynamic>;
   }
 
   List<Map<String, dynamic>> _asList(dynamic data) {

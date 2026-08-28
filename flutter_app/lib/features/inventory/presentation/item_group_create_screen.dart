@@ -291,10 +291,11 @@ class _ItemGroupCreateScreenState extends ConsumerState<ItemGroupCreateScreen>
                         child: Text('Attribute Definitions',
                             style: KTypography.h3),
                       ),
-                      TextButton.icon(
+                      KButton.outlined(
                         onPressed: _addAttribute,
-                        icon: const Icon(Icons.add, size: 18),
-                        label: const Text('Add'),
+                        icon: Icons.add,
+                        label: 'Add',
+                        size: KButtonSize.small,
                       ),
                     ],
                   ),
@@ -342,7 +343,7 @@ class _ItemGroupCreateScreenState extends ConsumerState<ItemGroupCreateScreen>
                     );
                   }),
                   KSpacing.vGapXl,
-                  KButton(
+                  KButton.primary(
                     label: _isEdit ? 'Save Changes' : 'Create Group',
                     fullWidth: true,
                     isLoading: _saving,

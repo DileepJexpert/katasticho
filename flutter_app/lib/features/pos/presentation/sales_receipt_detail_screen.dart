@@ -246,21 +246,14 @@ class _ReceiptBody extends StatelessWidget {
             ),
           // Header card
           KCard(
-            title: receiptNumber,
+            titleWidget: Text(
+              receiptNumber,
+              style: KTypography.mono(size: 16, weight: FontWeight.w700),
+            ),
             subtitle: date,
-            action: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: KColors.success.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                paymentMode,
-                style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: KColors.success),
-              ),
+            action: KStatusChip(
+              status: paymentMode,
+              dense: true,
             ),
             child: Column(
               children: [
@@ -298,45 +291,45 @@ class _ReceiptBody extends StatelessWidget {
                 if (totalDiscount > 0) ...[
                   _DetailRow(
                     label: 'MRP Total',
-                    value: CurrencyFormatter.formatIndian(mrpTotal),
+                    amount: mrpTotal,
                   ),
                   _DetailRow(
                     label: 'Discount',
-                    value: '-${CurrencyFormatter.formatIndian(totalDiscount)}',
+                    amount: -totalDiscount,
                     valueColor: KColors.success,
                   ),
                 ],
                 if (gstInvoice) ...[
                   _DetailRow(
                     label: totalDiscount > 0 ? 'Taxable Subtotal' : 'Subtotal',
-                    value: CurrencyFormatter.formatIndian(subtotal),
+                    amount: subtotal,
                   ),
                   if (cgst > 0)
                     _DetailRow(
                       label: 'CGST',
-                      value: CurrencyFormatter.formatIndian(cgst),
+                      amount: cgst,
                     ),
                   if (sgst > 0)
                     _DetailRow(
                       label: 'SGST',
-                      value: CurrencyFormatter.formatIndian(sgst),
+                      amount: sgst,
                     ),
                   if (igst > 0)
                     _DetailRow(
                       label: 'IGST',
-                      value: CurrencyFormatter.formatIndian(igst),
+                      amount: igst,
                     ),
                   const Divider(height: 16),
                 ],
                 _DetailRow(
                   label: 'Total',
-                  value: CurrencyFormatter.formatIndian(total),
+                  amount: total,
                   bold: true,
                 ),
                 if (totalDiscount > 0)
                   _DetailRow(
                     label: 'You Saved',
-                    value: CurrencyFormatter.formatIndian(totalDiscount),
+                    amount: totalDiscount,
                     valueColor: KColors.success,
                   ),
                 if (!gstInvoice)
@@ -347,12 +340,12 @@ class _ReceiptBody extends StatelessWidget {
                   ),
                 _DetailRow(
                   label: 'Received',
-                  value: CurrencyFormatter.formatIndian(amountReceived),
+                  amount: amountReceived,
                 ),
                 if (changeReturned > 0)
                   _DetailRow(
                     label: 'Change',
-                    value: CurrencyFormatter.formatIndian(changeReturned),
+                    amount: changeReturned,
                     valueColor: KColors.success,
                   ),
               ],
@@ -441,9 +434,9 @@ class _LineItem extends StatelessWidget {
             ],
           ),
         ),
-        Text(
-          CurrencyFormatter.formatIndian(amount),
-          style: KTypography.amountSmall,
+        KMoney(
+          amount,
+          size: KMoneySize.small,
         ),
       ],
     );
@@ -502,31 +495,51 @@ class _RetailLineLayout extends StatelessWidget {
               if (sku.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 2),
-                  child: Text(
-                    'SKU: $sku',
-                    style: KTypography.labelSmall
-                        .copyWith(color: KColors.textSecondary, fontSize: 10),
+                  child: Row(
+                    children: [
+                      Text('SKU: ',
+                          style: KTypography.labelSmall
+                              .copyWith(color: KColors.textSecondary, fontSize: 10)),
+                      Text(
+                        sku,
+                        style: KTypography.mono(size: 10, color: KColors.textSecondary),
+                      ),
+                    ],
                   ),
                 ),
               if ((batchNumber ?? '').isNotEmpty || (batchExpiry ?? '').isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 2),
-                  child: Text(
-                    [
-                      if ((batchNumber ?? '').isNotEmpty) 'Batch: $batchNumber',
-                      if ((batchExpiry ?? '').isNotEmpty) 'Exp: $batchExpiry',
-                    ].join('  •  '),
-                    style: KTypography.labelSmall
-                        .copyWith(color: KColors.textSecondary, fontSize: 10),
+                  child: Row(
+                    children: [
+                      if ((batchNumber ?? '').isNotEmpty) ...[
+                        Text('Batch: ',
+                            style: KTypography.labelSmall
+                                .copyWith(color: KColors.textSecondary, fontSize: 10)),
+                        Text(
+                          batchNumber!,
+                          style: KTypography.mono(size: 10, color: KColors.textSecondary),
+                        ),
+                      ],
+                      if ((batchExpiry ?? '').isNotEmpty) ...[
+                        if ((batchNumber ?? '').isNotEmpty)
+                          Text('  •  ',
+                              style: KTypography.labelSmall
+                                  .copyWith(color: KColors.textSecondary, fontSize: 10)),
+                        Text('Exp: $batchExpiry',
+                            style: KTypography.labelSmall
+                                .copyWith(color: KColors.textSecondary, fontSize: 10)),
+                      ],
+                    ],
                   ),
                 ),
             ],
           ),
         ),
         const SizedBox(width: 12),
-        Text(
-          CurrencyFormatter.formatIndian(amount),
-          style: KTypography.amountSmall,
+        KMoney(
+          amount,
+          size: KMoneySize.small,
         ),
       ],
     );
@@ -587,13 +600,15 @@ class _DiscountWrap extends StatelessWidget {
 
 class _DetailRow extends StatelessWidget {
   final String label;
-  final String value;
+  final String? value;
+  final num? amount;
   final bool bold;
   final Color? valueColor;
 
   const _DetailRow({
     required this.label,
-    required this.value,
+    this.value,
+    this.amount,
     this.bold = false,
     this.valueColor,
   });
@@ -605,15 +620,27 @@ class _DetailRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label,
-              style: bold
-                  ? KTypography.labelMedium
-                  : KTypography.bodySmall
-                      .copyWith(color: KColors.textSecondary)),
-          Text(value,
+          Text(
+            label,
+            style: bold
+                ? KTypography.labelLarge.copyWith(fontWeight: FontWeight.w700)
+                : KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+          ),
+          if (amount != null)
+            KMoney(
+              amount!,
+              size: bold ? KMoneySize.medium : KMoneySize.small,
+              style: valueColor != null
+                  ? TextStyle(color: valueColor, fontWeight: bold ? FontWeight.w700 : null)
+                  : (bold ? const TextStyle(fontWeight: FontWeight.w700) : null),
+            )
+          else
+            Text(
+              value ?? '',
               style: bold
                   ? KTypography.amountMedium
-                  : KTypography.labelMedium.copyWith(color: valueColor)),
+                  : KTypography.labelMedium.copyWith(color: valueColor),
+            ),
         ],
       ),
     );

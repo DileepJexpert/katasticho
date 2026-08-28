@@ -3,18 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
+import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/api_error_parser.dart';
+import '../../../core/widgets/widgets.dart';
 
 /// Tracker #80: actual costing from time tracking.
-///
-/// Lets the production manager preview a WO's actual labour + overhead
-/// (computed from job-card logged minutes × workstation hourly rate +
-/// the org-level overhead rate per hour) BEFORE the WO closes. The same
-/// roll-up runs automatically into `ProductionCostSummary` on completion,
-/// but planners want to eyeball it earlier so they can correct missing
-/// workstation rates while they still have time.
 class ActualCostPreviewScreen extends ConsumerStatefulWidget {
   const ActualCostPreviewScreen({super.key});
 
@@ -65,7 +60,7 @@ class _ActualCostPreviewScreenState
     return Scaffold(
       appBar: AppBar(title: const Text('Actual Cost Preview')),
       body: Padding(
-        padding: const EdgeInsets.all(KSpacing.md),
+        padding: KSpacing.pagePadding,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -75,7 +70,7 @@ class _ActualCostPreviewScreenState
                   child: TextField(
                     controller: _woCtl,
                     decoration: const InputDecoration(
-                      labelText: 'Work order id',
+                      labelText: 'Work order ID / Number',
                       helperText:
                           'Rolls up logged minutes × workstation rate + overhead rate × hours',
                       border: OutlineInputBorder(),
@@ -83,14 +78,21 @@ class _ActualCostPreviewScreenState
                     onSubmitted: (_) => _load(),
                   ),
                 ),
-                const SizedBox(width: KSpacing.sm),
-                FilledButton(onPressed: _load, child: const Text('Preview')),
+                KSpacing.hGapSm,
+                KButton.primary(
+                  onPressed: _loading ? null : _load,
+                  isLoading: _loading,
+                  icon: Icons.preview,
+                  label: 'Preview',
+                ),
               ],
             ),
-            const SizedBox(height: KSpacing.md),
-            if (_loading) const LinearProgressIndicator(),
+            KSpacing.vGapMd,
             if (_error != null)
-              Text(_error!, style: const TextStyle(color: Colors.red)),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(_error!, style: const TextStyle(color: KColors.error)),
+              ),
             if (_data != null) Expanded(child: _buildResult(_data!)),
           ],
         ),
@@ -101,58 +103,76 @@ class _ActualCostPreviewScreenState
   Widget _buildResult(Map<String, dynamic> d) {
     final hours = d['totalHours']?.toString() ?? '0';
     final jcCount = d['jobCardCount']?.toString() ?? '0';
-    final trackedLabor = d['trackedLaborCost'];
-    final trackedOverhead = d['trackedOverheadCost'];
-    final plannedLabor = d['plannedLaborCost'];
-    final plannedOverhead = d['plannedOverheadCost'];
-    final rmCost = d['rawMaterialCost'];
+    final trackedLabor = (d['trackedLaborCost'] as num?)?.toDouble();
+    final trackedOverhead = (d['trackedOverheadCost'] as num?)?.toDouble();
+    final plannedLabor = (d['plannedLaborCost'] as num?)?.toDouble();
+    final plannedOverhead = (d['plannedOverheadCost'] as num?)?.toDouble();
+    final rmCost = (d['rawMaterialCost'] as num?)?.toDouble();
 
-    Widget kv(String k, Object? v, {Color? c}) => Padding(
+    Widget moneyRow(String label, double? amount, {bool isWarning = false}) => Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: Row(
             children: [
-              Expanded(child: Text(k)),
-              Text('${v ?? '—'}',
-                  style: KTypography.bodyMedium.copyWith(
-                      color: c, fontWeight: FontWeight.w600)),
+              Expanded(child: Text(label, style: KTypography.bodyMedium)),
+              if (amount != null)
+                KMoney(amount, size: KMoneySize.small)
+              else
+                Text('— (fallback)', style: KTypography.bodySmall.copyWith(color: KColors.warning)),
             ],
           ),
         );
 
     return ListView(
       children: [
-        Text('Work order: ${d['workOrderNumber'] ?? '?'}',
-            style: KTypography.titleMedium),
-        const SizedBox(height: KSpacing.md),
-        Card(
+        Row(
+          children: [
+            Text('Work order: ', style: KTypography.bodyMedium),
+            Text(
+              d['workOrderNumber']?.toString() ?? '—',
+              style: KTypography.mono(fontSize: 14, fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+        KSpacing.vGapMd,
+        KCard(
           child: Padding(
             padding: const EdgeInsets.all(KSpacing.md),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Time tracked', style: KTypography.titleSmall),
-                kv('Total hours logged', hours),
-                kv('Job cards counted', jcCount),
+                Text('Time Tracked', style: KTypography.titleSmall),
+                const Divider(height: 16),
+                Row(
+                  children: [
+                    Expanded(child: Text('Total hours logged', style: KTypography.bodyMedium)),
+                    Text(hours, style: KTypography.labelLarge),
+                  ],
+                ),
+                KSpacing.vGapXs,
+                Row(
+                  children: [
+                    Expanded(child: Text('Job cards counted', style: KTypography.bodyMedium)),
+                    Text(jcCount, style: KTypography.labelLarge),
+                  ],
+                ),
               ],
             ),
           ),
         ),
-        const SizedBox(height: KSpacing.sm),
-        Card(
+        KSpacing.vGapSm,
+        KCard(
           child: Padding(
             padding: const EdgeInsets.all(KSpacing.md),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Cost — tracked vs planned',
-                    style: KTypography.titleSmall),
-                kv('Raw material (actual)', rmCost),
-                kv('Labour (tracked)', trackedLabor,
-                    c: trackedLabor == null ? Colors.orange : null),
-                kv('Labour (planned)', plannedLabor),
-                kv('Overhead (tracked)', trackedOverhead,
-                    c: trackedOverhead == null ? Colors.orange : null),
-                kv('Overhead (planned)', plannedOverhead),
+                Text('Cost — Tracked vs Planned', style: KTypography.titleSmall),
+                const Divider(height: 16),
+                moneyRow('Raw material (actual)', rmCost),
+                moneyRow('Labour (tracked)', trackedLabor, isWarning: trackedLabor == null),
+                moneyRow('Labour (planned)', plannedLabor),
+                moneyRow('Overhead (tracked)', trackedOverhead, isWarning: trackedOverhead == null),
+                moneyRow('Overhead (planned)', plannedOverhead),
               ],
             ),
           ),
@@ -160,17 +180,23 @@ class _ActualCostPreviewScreenState
         if (trackedLabor == null || trackedOverhead == null)
           Padding(
             padding: const EdgeInsets.only(top: KSpacing.sm),
-            child: Card(
-              color: Colors.amber.shade50,
+            child: KCard(
               child: Padding(
                 padding: const EdgeInsets.all(KSpacing.md),
-                child: Text(
-                    trackedLabor == null
-                        ? 'No workstation hourly rates set on any logged job card '
-                            '— labour falls back to the planned estimate.'
-                        : 'Set manufacturing.overhead_rate_per_hour in org settings '
-                            'to absorb overhead from time tracking.',
-                    style: const TextStyle(color: Colors.brown)),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline, color: KColors.warning),
+                    KSpacing.hGapMd,
+                    Expanded(
+                      child: Text(
+                        trackedLabor == null
+                            ? 'No workstation hourly rates set on logged job cards — labour falls back to planned estimate.'
+                            : 'Set manufacturing.overhead_rate_per_hour in org settings to absorb overhead from time tracking.',
+                        style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

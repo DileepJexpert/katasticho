@@ -226,14 +226,7 @@ class _HsnGstSearchWidgetState extends ConsumerState<HsnGstSearchWidget> {
             decoration: BoxDecoration(
               color: cs.surface,
               borderRadius: KSpacing.borderRadiusMd,
-              border: Border.all(color: cs.outline),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
-                ),
-              ],
+              border: Border.all(color: cs.outlineVariant),
             ),
             child: ListView.separated(
               shrinkWrap: true,
@@ -262,8 +255,9 @@ class _HsnGstSearchWidgetState extends ConsumerState<HsnGstSearchWidget> {
                                 children: [
                                   Text(
                                     hsnCode,
-                                    style: KTypography.labelMedium.copyWith(
-                                        fontWeight: FontWeight.w700),
+                                    style: KTypography.mono(
+                                        size: 13,
+                                        weight: FontWeight.w700),
                                   ),
                                   if (category.isNotEmpty) ...[
                                     const SizedBox(width: 6),

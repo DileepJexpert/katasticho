@@ -51,7 +51,7 @@ class _SerialNumberScreenState extends ConsumerState<SerialNumberScreen> {
       final rows = await _repo.listByItem(id);
       if (mounted) setState(() => _serials = rows);
     } catch (e) {
-      _toast('Could not load: ${e.toString().replaceAll('Exception: ', '')}');
+      _toast('Could not load serials: ${e.toString().replaceAll('Exception: ', '')}');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -70,7 +70,7 @@ class _SerialNumberScreenState extends ConsumerState<SerialNumberScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Serial Numbers'),
+        title: const Text('Serial Number Inventory'),
         actions: [
           if (_itemId != null)
             IconButton(
@@ -83,9 +83,11 @@ class _SerialNumberScreenState extends ConsumerState<SerialNumberScreen> {
       floatingActionButton: _itemId == null
           ? null
           : FloatingActionButton.extended(
+              backgroundColor: KColors.primary,
+              foregroundColor: Colors.white,
               onPressed: _openReceiveSheet,
-              icon: const Icon(Icons.add),
-              label: const Text('Receive serials'),
+              icon: const Icon(Icons.add_circle_outline),
+              label: const Text('Receive Serials'),
             ),
       body: Column(
         children: [
@@ -94,27 +96,34 @@ class _SerialNumberScreenState extends ConsumerState<SerialNumberScreen> {
             child: KCard(
               child: Row(
                 children: [
+                  Container(
+                    padding: const EdgeInsets.all(KSpacing.sm),
+                    decoration: BoxDecoration(
+                      color: KColors.primary.withValues(alpha: 0.12),
+                      borderRadius: KSpacing.borderRadiusSm,
+                    ),
+                    child: const Icon(Icons.qr_code_2, color: KColors.primary, size: 24),
+                  ),
+                  KSpacing.hGapMd,
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(_itemName ?? 'No item selected',
-                            style: KTypography.labelLarge),
+                            style: KTypography.titleMedium),
                         KSpacing.vGapXs,
                         Text(
                           _itemId == null
-                              ? 'Pick a serialised item to view its units'
-                              : '${_serials.length} unit(s) tracked',
-                          style: KTypography.bodySmall
-                              .copyWith(color: KColors.textSecondary),
+                              ? 'Pick a serialised item to view and manage its tracked units'
+                              : '${_serials.length} unit(s) tracked in system',
+                          style: KTypography.caption.copyWith(color: KColors.textSecondary),
                         ),
                       ],
                     ),
                   ),
-                  KButton(
-                    label: _itemId == null ? 'Pick item' : 'Change',
+                  KButton.outlined(
+                    label: _itemId == null ? 'Select Item' : 'Change',
                     icon: Icons.inventory_2_outlined,
-                    variant: KButtonVariant.outlined,
                     onPressed: _pickItem,
                   ),
                 ],
@@ -129,8 +138,8 @@ class _SerialNumberScreenState extends ConsumerState<SerialNumberScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: KSpacing.md),
                 children: _statuses.map((s) {
                   final label = s == 'ALL'
-                      ? 'All ${_serials.length}'
-                      : '${_pretty(s)} ${_countOf(s)}';
+                      ? 'All (${_serials.length})'
+                      : '${_pretty(s)} (${_countOf(s)})';
                   return Padding(
                     padding: const EdgeInsets.only(right: KSpacing.sm),
                     child: ChoiceChip(
@@ -152,24 +161,22 @@ class _SerialNumberScreenState extends ConsumerState<SerialNumberScreen> {
     if (_itemId == null) {
       return KEmptyState(
         icon: Icons.qr_code_2,
-        title: 'Track serial numbers',
+        title: 'Track Serial Numbers',
         subtitle:
-            'Pick a serialised item to receive units, then mark them damaged '
-            'or returned as needed.',
-        actionLabel: 'Pick item',
+            'Select a serialized catalog item to receive new units and track full lifecycle warranty/sales history.',
+        actionLabel: 'Select Item',
         onAction: _pickItem,
       );
     }
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading) return const Center(child: KLoading(message: 'Loading serialized units...'));
     final rows = _filtered;
     if (rows.isEmpty) {
-      return Center(
-        child: Text(
-          _filter == 'ALL'
-              ? 'No serials yet — tap "Receive serials" to add units'
-              : 'No ${_pretty(_filter).toLowerCase()} units',
-          style: KTypography.bodyMedium.copyWith(color: KColors.textHint),
-        ),
+      return KEmptyState(
+        icon: Icons.inventory_2_outlined,
+        title: 'No Serial Units Found',
+        subtitle: _filter == 'ALL'
+            ? 'No serial units registered yet — tap "Receive Serials" to add tracked inventory.'
+            : 'No ${_pretty(_filter).toLowerCase()} units match the selected status filter.',
       );
     }
     return RefreshIndicator(
@@ -193,32 +200,49 @@ class _SerialNumberScreenState extends ConsumerState<SerialNumberScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(s['serial']?.toString() ?? '—',
-                    style: KTypography.mono(size: 14)),
-                KSpacing.vGapXs,
-                Text(
-                  [
-                    if ((s['batchId']?.toString() ?? '').isNotEmpty) 'batch-linked',
-                    if ((s['notes']?.toString() ?? '').isNotEmpty)
-                      s['notes'].toString(),
-                  ].where((e) => e.isNotEmpty).join(' · '),
-                  style: KTypography.bodySmall
-                      .copyWith(color: KColors.textSecondary),
+                Row(
+                  children: [
+                    Text(
+                      s['serial']?.toString() ?? '—',
+                      style: KTypography.mono(fontSize: 14, fontWeight: FontWeight.w700),
+                    ),
+                    if ((s['batchId']?.toString() ?? '').isNotEmpty) ...[
+                      KSpacing.hGapSm,
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: KColors.info.withValues(alpha: 0.12),
+                          borderRadius: KSpacing.borderRadiusSm,
+                        ),
+                        child: Text(
+                          'Batch-Linked',
+                          style: KTypography.caption.copyWith(color: KColors.info, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
+                if ((s['notes']?.toString() ?? '').isNotEmpty) ...[
+                  KSpacing.vGapXs,
+                  Text(
+                    s['notes'].toString(),
+                    style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                  ),
+                ],
               ],
             ),
           ),
-          KStatusChip(status: _pretty(status)),
+          KStatusChip(status: status),
           if (status == 'IN_STOCK' || status == 'SOLD' || status == 'DAMAGED')
             PopupMenuButton<String>(
               onSelected: (v) => _onAction(id, v),
               itemBuilder: (_) => [
                 if (status == 'IN_STOCK')
                   const PopupMenuItem(
-                      value: 'damage', child: Text('Mark damaged')),
+                      value: 'damage', child: Text('Mark Damaged')),
                 if (status == 'SOLD' || status == 'DAMAGED')
                   const PopupMenuItem(
-                      value: 'return', child: Text('Mark returned')),
+                      value: 'return', child: Text('Mark Returned')),
               ],
             ),
         ],
@@ -246,22 +270,30 @@ class _SerialNumberScreenState extends ConsumerState<SerialNumberScreen> {
     return showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Mark damaged'),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Reason / notes (optional)',
-            border: OutlineInputBorder(),
+        title: Text('Mark Unit as Damaged', style: KTypography.titleLarge),
+        content: SizedBox(
+          width: 360,
+          child: KTextField(
+            controller: ctrl,
+            autofocus: true,
+            label: 'Damage Reason / Quarantine Notes',
+            hint: 'e.g. Broken screen, water damage, cracked chassis',
+            maxLines: 2,
           ),
         ),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel')),
-          FilledButton(
-              onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-              child: const Text('Mark damaged')),
+          KButton.outlined(
+            label: 'Cancel',
+            size: KButtonSize.small,
+            onPressed: () => Navigator.pop(ctx),
+          ),
+          KSpacing.hGapSm,
+          KButton.danger(
+            icon: Icons.broken_image_outlined,
+            label: 'Confirm Damaged',
+            size: KButtonSize.small,
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+          ),
         ],
       ),
     );
@@ -278,9 +310,14 @@ class _SerialNumberScreenState extends ConsumerState<SerialNumberScreen> {
     final received = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (ctx) {
         return StatefulBuilder(
-          builder: (ctx, setSheet) => Padding(
+          builder: (ctx, setSheet) => Container(
+            decoration: const BoxDecoration(
+              color: KColors.surface,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(KSpacing.radiusLg)),
+            ),
             padding: EdgeInsets.only(
               left: KSpacing.lg,
               right: KSpacing.lg,
@@ -292,17 +329,26 @@ class _SerialNumberScreenState extends ConsumerState<SerialNumberScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('Receive serials — ${_itemName ?? ''}',
-                      style: KTypography.h3),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text('Receive Serials — ${_itemName ?? ''}',
+                            style: KTypography.titleLarge),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
                   KSpacing.vGapMd,
                   if (warehouses.isNotEmpty)
                     DropdownButtonFormField<String>(
                       initialValue: warehouseId,
                       isExpanded: true,
                       decoration: const InputDecoration(
-                        labelText: 'Warehouse (optional)',
+                        labelText: 'Warehouse Destination',
                         border: OutlineInputBorder(),
-                        isDense: true,
                       ),
                       items: warehouses.map((w) {
                         final m = Map<String, dynamic>.from(w as Map);
@@ -316,21 +362,16 @@ class _SerialNumberScreenState extends ConsumerState<SerialNumberScreen> {
                       onChanged: (v) => setSheet(() => warehouseId = v),
                     ),
                   KSpacing.vGapMd,
-                  TextField(
+                  KTextField(
                     controller: serialsCtrl,
                     autofocus: true,
-                    maxLines: 8,
-                    minLines: 4,
-                    decoration: const InputDecoration(
-                      labelText: 'Serial numbers',
-                      helperText: 'One per line (or comma-separated)',
-                      border: OutlineInputBorder(),
-                      alignLabelWithHint: true,
-                    ),
+                    maxLines: 6,
+                    label: 'Serial Numbers List',
+                    hint: 'Enter one serial number per line or comma-separated\ne.g.\nSN-2026-001\nSN-2026-002',
                   ),
                   KSpacing.vGapLg,
-                  KButton(
-                    label: 'Receive',
+                  KButton.primary(
+                    label: 'Receive Serial Units',
                     icon: Icons.check,
                     onPressed: () async {
                       final serials = serialsCtrl.text
@@ -363,13 +404,13 @@ class _SerialNumberScreenState extends ConsumerState<SerialNumberScreen> {
       },
     );
     if (received == true) {
-      _toast('Serials received');
+      _toast('Serial units received successfully');
       await _load();
     }
   }
 
   String _pretty(String status) => switch (status) {
-        'IN_STOCK' => 'In stock',
+        'IN_STOCK' => 'In Stock',
         'SOLD' => 'Sold',
         'DAMAGED' => 'Damaged',
         'RETURNED' => 'Returned',

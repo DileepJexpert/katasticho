@@ -25,13 +25,15 @@ class KCollapsibleSection extends StatelessWidget {
       data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
       child: ExpansionTile(
         initiallyExpanded: initiallyExpanded,
+        dense: true,
+        visualDensity: VisualDensity.compact,
         tilePadding: EdgeInsets.zero,
         childrenPadding:
             childrenPadding ?? const EdgeInsets.only(bottom: KSpacing.sm),
         leading: icon != null
-            ? Icon(icon, size: 20, color: cs.primary)
+            ? Icon(icon, size: 18, color: cs.primary)
             : null,
-        title: Text(title, style: KTypography.h4.copyWith(color: cs.onSurface)),
+        title: Text(title, style: KTypography.labelLarge.copyWith(color: cs.onSurface, fontWeight: FontWeight.w600)),
         shape: Border.all(color: Colors.transparent),
         collapsedShape: Border.all(color: Colors.transparent),
         children: children,

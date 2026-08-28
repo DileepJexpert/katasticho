@@ -440,6 +440,11 @@ class _SalesOrderDetailBody extends ConsumerWidget {
                       children: [
                         _FactsPanel(facts: facts),
                         KSpacing.vGapMd,
+                        KCustomFieldsCard(
+                          entityType: 'SALES_ORDER',
+                          entityId: salesOrderId,
+                        ),
+                        KSpacing.vGapMd,
                         _SalesOrderItemsPanel(
                           lines: lines,
                           dense: true,
@@ -468,6 +473,11 @@ class _SalesOrderDetailBody extends ConsumerWidget {
               )
             else ...[
               _FactsPanel(facts: facts),
+              KSpacing.vGapMd,
+              KCustomFieldsCard(
+                entityType: 'SALES_ORDER',
+                entityId: salesOrderId,
+              ),
               KSpacing.vGapMd,
               _SalesOrderItemsPanel(
                 lines: lines,

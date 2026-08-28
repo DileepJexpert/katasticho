@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../contacts/presentation/contact_picker_sheet.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/utils/api_error_parser.dart';
 import '../../../core/utils/currency_formatter.dart';
@@ -36,7 +37,7 @@ import '../../../core/shortcuts/k_shortcuts.dart';
 import '../../../core/storage/pos_database.dart';
 import '../data/thermal_print_service.dart';
 import '../data/offline_pos_service.dart';
-import 'pos_receipt_settings_screen.dart';
+import 'widgets/pos_sync_sheet.dart';
 import '../../inventory/presentation/batch_picker_sheet.dart';
 import '../../pricing/data/scheme_repository.dart';
 import '../../../core/auth/auth_state.dart';
@@ -946,27 +947,27 @@ class _PosScreenState extends ConsumerState<PosScreen> {
   /// without a connection). If no printer is connected, tell the cashier.
   Future<void> _handleOfflinePrint(Map<String, dynamic> receiptData) async {
     final printer = ThermalPrintService.instance;
-    if (!printer.isConnected && !await printer.reconnectSaved()) {
-      if (mounted) {
-        _showInfoSnackBar('Connect a thermal printer to print offline');
+    final printSettings = await printer.loadSettings();
+
+    if (printSettings.connectionType == PrinterConnectionType.bluetooth) {
+      if (!printer.isConnected && !await printer.reconnectSaved()) {
+        if (mounted) {
+          _showInfoSnackBar('Connect a Bluetooth thermal printer to print');
+        }
+        return;
       }
-      return;
     }
     try {
-      if (mounted) _showInfoSnackBar('Printing...');
+      if (mounted) {
+        _showInfoSnackBar(printSettings.connectionType == PrinterConnectionType.network
+            ? 'Printing to LAN Printer (${printSettings.networkIp})...'
+            : 'Printing...');
+      }
       final auth = ref.read(authProvider);
-      final settings = ref.read(receiptSettingsProvider);
       await printer.printReceipt(
         receipt: receiptData,
         org: {'name': auth.orgName ?? ''},
-        settings: ReceiptPrintSettings(
-          paperSize: settings.paperSize,
-          showStoreAddress: settings.showStoreAddress,
-          showGstin: settings.showGstin,
-          showHsnCode: settings.showHsnCode,
-          showTaxBreakdown: settings.showTaxBreakdown,
-          footerText: settings.footerText,
-        ),
+        settings: printSettings,
       );
       if (mounted) _showInfoSnackBar('Receipt printed');
     } catch (e) {
@@ -1375,24 +1376,24 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
   Future<void> _handlePrint(PosRepository repo, String receiptId, Map<String, dynamic> receiptData) async {
     final printer = ThermalPrintService.instance;
-    if (printer.isConnected || await printer.reconnectSaved()) {
+    final printSettings = await printer.loadSettings();
+    final isNetwork = printSettings.connectionType == PrinterConnectionType.network;
+    final isBt = printSettings.connectionType == PrinterConnectionType.bluetooth;
+
+    if (isNetwork || (isBt && (printer.isConnected || await printer.reconnectSaved()))) {
       try {
-        _showInfoSnackBar('Printing...');
+        if (mounted) {
+          _showInfoSnackBar(isNetwork
+              ? 'Printing to LAN Printer (${printSettings.networkIp})...'
+              : 'Printing...');
+        }
         final auth = ref.read(authProvider);
-        final settings = ref.read(receiptSettingsProvider);
         await printer.printReceipt(
           receipt: receiptData,
           org: {
             'name': auth.orgName ?? '',
           },
-          settings: ReceiptPrintSettings(
-            paperSize: settings.paperSize,
-            showStoreAddress: settings.showStoreAddress,
-            showGstin: settings.showGstin,
-            showHsnCode: settings.showHsnCode,
-            showTaxBreakdown: settings.showTaxBreakdown,
-            footerText: settings.footerText,
-          ),
+          settings: printSettings,
         );
         if (mounted) _showInfoSnackBar('Receipt printed');
       } catch (e) {
@@ -1510,6 +1511,23 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     );
   }
 
+  Future<void> _pickCustomerForPos() async {
+    final picked = await showContactPicker(
+      context,
+      contactType: 'CUSTOMER',
+      title: 'Select Customer',
+    );
+    if (picked != null && mounted) {
+      final name = picked['displayName'] as String? ??
+          picked['companyName'] as String? ??
+          picked['name'] as String? ??
+          '';
+      final phone = (picked['phone'] ?? picked['mobile'])?.toString();
+      final id = picked['id']?.toString() ?? '';
+      ref.read(posCartProvider.notifier).setContact(id, name, phone);
+    }
+  }
+
   // ── Keyboard shortcuts ───────────────────────────────────────
 
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
@@ -1576,6 +1594,10 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     }
     if (event.logicalKey == LogicalKeyboardKey.f7) {
       _scanBarcode();
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.f8) {
+      _pickCustomerForPos();
       return KeyEventResult.handled;
     }
     if (event.logicalKey == LogicalKeyboardKey.escape) {
@@ -2274,7 +2296,7 @@ class _OfflineSyncBadge extends ConsumerWidget {
                 : 'Online — sales post live',
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
-          onTap: () => _showSyncDialog(context, ref, count, online),
+          onTap: () => showPosSyncSheet(context),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
@@ -2305,42 +2327,6 @@ class _OfflineSyncBadge extends ConsumerWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  void _showSyncDialog(
-      BuildContext context, WidgetRef ref, int count, bool online) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(online ? 'Sync status' : 'Offline mode'),
-        content: Text(
-          !online
-              ? 'No network. Sales are saved on this terminal and printed '
-                  'locally${count > 0 ? ' ($count waiting)' : ''}. They upload '
-                  'automatically when the connection returns.'
-              : count > 0
-                  ? '$count receipt(s) saved offline and waiting to sync. They '
-                      'upload automatically, or tap Sync Now to try immediately.'
-                  : 'Online — sales are posting live. Nothing is waiting to sync.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Close'),
-          ),
-          if (count > 0)
-            FilledButton(
-              onPressed: () {
-                Navigator.pop(ctx);
-                OfflinePosService.instance
-                    .setApiClient(ref.read(apiClientProvider));
-                OfflinePosService.instance.syncPendingReceipts();
-              },
-              child: const Text('Sync Now'),
-            ),
-        ],
       ),
     );
   }

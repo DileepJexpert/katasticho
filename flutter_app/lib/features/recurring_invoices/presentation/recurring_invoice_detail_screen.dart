@@ -84,8 +84,6 @@ class _DetailsTab extends StatelessWidget {
     final lastGeneratedAt = template['lastGeneratedAt'] as String?;
     final lines = (template['lineItems'] as List?) ?? const [];
 
-    final statusColor = _statusColor(status);
-
     return SingleChildScrollView(
       padding: KSpacing.pagePadding,
       child: Column(
@@ -95,25 +93,14 @@ class _DetailsTab extends StatelessWidget {
           Center(
             child: Column(
               children: [
-                Text('₹${total.toStringAsFixed(2)}',
-                    style: KTypography.displayLarge),
+                KMoney(total, size: KMoneySize.large),
                 KSpacing.vGapXs,
                 Text(
                   'per ${_prettyFrequency(frequency)} invoice',
                   style: KTypography.bodyMedium,
                 ),
                 KSpacing.vGapSm,
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(status,
-                      style: KTypography.labelMedium
-                          .copyWith(color: statusColor)),
-                ),
+                KStatusChip(status: status),
               ],
             ),
           ),
@@ -150,16 +137,6 @@ class _DetailsTab extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  Color _statusColor(String status) {
-    return switch (status) {
-      'ACTIVE' => KColors.success,
-      'PAUSED' => KColors.warning,
-      'STOPPED' => KColors.error,
-      'EXPIRED' => KColors.textHint,
-      _ => KColors.textHint,
-    };
   }
 
   String _prettyFrequency(String f) {
@@ -218,8 +195,7 @@ class _LineTile extends StatelessWidget {
                 Expanded(
                   child: Text(description, style: KTypography.labelLarge),
                 ),
-                Text('₹${amount.toStringAsFixed(2)}',
-                    style: KTypography.labelLarge),
+                KMoney(amount, size: KMoneySize.small),
               ],
             ),
             KSpacing.vGapXs,
@@ -319,8 +295,7 @@ class _GeneratedInvoiceCard extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis),
                     ),
-                    Text('₹${total.toStringAsFixed(0)}',
-                        style: KTypography.labelLarge),
+                    KMoney(total, size: KMoneySize.small),
                   ],
                 ),
                 KSpacing.vGapXs,
@@ -345,19 +320,7 @@ class _GeneratedInvoiceCard extends StatelessWidget {
                                   .copyWith(color: KColors.info)),
                         ),
                       ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: statusColor.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        status,
-                        style: KTypography.labelSmall
-                            .copyWith(color: statusColor),
-                      ),
-                    ),
+                    KStatusChip(status: status),
                   ],
                 ),
               ],

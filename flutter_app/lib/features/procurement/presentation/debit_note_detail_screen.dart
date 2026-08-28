@@ -89,15 +89,18 @@ class DebitNoteDetailScreen extends ConsumerWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text('Total', style: KTypography.bodySmall),
-                      Text(
-                        CurrencyFormatter.formatIndian(
-                            (note['totalAmount'] as num?)?.toDouble() ?? 0),
-                        style: KTypography.amountLarge,
+                      KMoney(
+                        (note['totalAmount'] as num?)?.toDouble() ?? 0,
+                        size: KMoneySize.large,
+                        style: const TextStyle(
+                          color: KColors.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ],
                   ),
                   const Spacer(),
-                  KButton(
+                  KButton.primary(
                     label: 'Submit',
                     icon: Icons.send_outlined,
                     onPressed: () => _confirmSubmit(context, ref, note),
@@ -129,13 +132,14 @@ class DebitNoteDetailScreen extends ConsumerWidget {
           'You will not be able to edit it after submission.',
         ),
         actions: [
-          TextButton(
+          KButton.outlined(
+            label: 'Cancel',
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
           ),
-          FilledButton(
+          KSpacing.hGapSm,
+          KButton.primary(
+            label: 'Submit',
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Submit'),
           ),
         ],
       ),
@@ -173,14 +177,14 @@ class DebitNoteDetailScreen extends ConsumerWidget {
           'This action cannot be undone.',
         ),
         actions: [
-          TextButton(
+          KButton.outlined(
+            label: 'Cancel',
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
           ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: KColors.error),
+          KSpacing.hGapSm,
+          KButton.danger(
+            label: 'Delete',
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete'),
           ),
         ],
       ),
@@ -343,20 +347,22 @@ class _DnBody extends StatelessWidget {
           title: 'Summary',
           child: Column(
             children: [
-              const Divider(height: 8),
-              _SummaryRow(
-                label: 'Subtotal',
-                value: CurrencyFormatter.formatIndian(subtotal),
-              ),
-              _SummaryRow(
-                label: 'Tax',
-                value: CurrencyFormatter.formatIndian(taxAmount),
-              ),
-              const Divider(height: 8),
-              _SummaryRow(
-                label: 'Total',
-                value: CurrencyFormatter.formatIndian(totalAmount),
-                bold: true,
+              _DetailSummaryRow(label: 'Subtotal', amount: subtotal),
+              _DetailSummaryRow(label: 'Tax', amount: taxAmount),
+              const Divider(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Total', style: KTypography.labelLarge.copyWith(fontWeight: FontWeight.w700)),
+                  KMoney(
+                    totalAmount,
+                    size: KMoneySize.medium,
+                    style: const TextStyle(
+                      color: KColors.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -450,15 +456,14 @@ class _DnLinesPanel extends StatelessWidget {
                 DataCell(Text(expiryDisplay,
                     style: KTypography.bodySmall)),
                 DataCell(Text(qtyFmt)),
-                DataCell(Text(
-                    CurrencyFormatter.formatIndian(unitPrice))),
+                DataCell(KMoney(unitPrice, size: KMoneySize.small)),
                 DataCell(Text(
                     '${taxRate.toStringAsFixed(taxRate.truncateToDouble() == taxRate ? 0 : 1)}%')),
-                DataCell(Text(
-                    CurrencyFormatter.formatIndian(taxAmt))),
-                DataCell(Text(
-                  CurrencyFormatter.formatIndian(lineTotal),
-                  style: KTypography.amountSmall,
+                DataCell(KMoney(taxAmt, size: KMoneySize.small)),
+                DataCell(KMoney(
+                  lineTotal,
+                  size: KMoneySize.small,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
                 )),
               ],
             );
@@ -511,30 +516,24 @@ class _TextBlock extends StatelessWidget {
   }
 }
 
-class _SummaryRow extends StatelessWidget {
+class _DetailSummaryRow extends StatelessWidget {
   final String label;
-  final String value;
-  final bool bold;
+  final double amount;
 
-  const _SummaryRow({
+  const _DetailSummaryRow({
     required this.label,
-    required this.value,
-    this.bold = false,
+    required this.amount,
   });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label,
-              style:
-                  bold ? KTypography.labelLarge : KTypography.bodyMedium),
-          Text(value,
-              style:
-                  bold ? KTypography.amountMedium : KTypography.amountSmall),
+          Text(label, style: KTypography.bodyMedium.copyWith(color: KColors.textSecondary)),
+          KMoney(amount, size: KMoneySize.small),
         ],
       ),
     );

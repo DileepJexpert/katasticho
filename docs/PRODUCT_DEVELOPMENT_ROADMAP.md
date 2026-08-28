@@ -13,13 +13,21 @@ Katixo is a distributor-first ERP for Indian pharma, FMCG, and retail businesses
 - Make customer-specific behavior configurable before making it custom code.
 - Keep changes small enough that one domain bug does not force large refactors in other domains.
 
-## Current Phase
+## Current Phase & Session Checkpoint — 2026-08-18 (Phase 4 Subcontracting & Job Work)
 
-Phase 1: Core document state and approval workflow foundation is implemented across backend and first frontend screens.
+> [!IMPORTANT]
+> **Implementation Checkpoint (2026-08-18)**:
+> - **12 Modules Implemented & Verified**:
+>   - Phase 1: Dual-UoM Counter Entry (1.1), Keyboard Billing Mode (1.2), GSTR-2B ITC Matcher (1.3).
+>   - Phase 2: Quick Reorder Mobile Portal (2.1), Offline POS & Local Cache (2.2), ESC/POS Thermal Printing (2.3), Multi-Tier Trade Schemes (2.4).
+>   - Phase 3: Gateway Bank Payouts (3.1), WhatsApp Invoicing Bot (3.2), Biometric Attendance TCP & ADMS (3.3).
+>   - Phase 4: Multi-Barcode Packaging Hierarchy (4.1), Subcontracting & Job Work Challan 45 / ITC-04 (4.2).
+> - **App Status**: Backend `mvn -q compile` (0 errors) & Flutter `dart analyze lib/` (0 issues) cleanly validated.
+> - **To Resume Next Week**:
+>   - **Step 4.3**: User-Defined Custom Fields (UDF) Framework.
+>   - **Step 4.4**: Salesman Route GPS Breadcrumb Mapping & Merchandising.
 
-Current active work: distributor workflow controls and credit-control visibility are being layered onto existing documents without creating duplicate business flows.
-
-## Session Checkpoint - 2026-06-02
+## Historical Session Checkpoint - 2026-06-02
 
 Code is pushed to remote `main` through dealer collection follow-ups.
 

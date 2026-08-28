@@ -17,5 +17,30 @@ public record SchemeRequest(
     LocalDate validFrom,
     LocalDate validTo,
     UUID supplierId,
-    boolean active
-) {}
+    boolean active,
+    Boolean allowHalfScheme,
+    BigDecimal halfSchemeMinQty,
+    BigDecimal companySubsidyPercent,
+    BigDecimal specialNetRate,
+    BigDecimal maxFreeQuantityCap
+) {
+    public SchemeRequest(
+        String name,
+        String schemeType,
+        UUID itemId,
+        BigDecimal buyQuantity,
+        BigDecimal freeQuantity,
+        BigDecimal discountPercent,
+        BigDecimal minOrderQuantity,
+        LocalDate validFrom,
+        LocalDate validTo,
+        UUID supplierId,
+        boolean active
+    ) {
+        this(
+            name, schemeType, itemId, buyQuantity, freeQuantity, discountPercent,
+            minOrderQuantity, validFrom, validTo, supplierId, active,
+            true, null, new BigDecimal("100.00"), null, null
+        );
+    }
+}

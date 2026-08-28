@@ -5,7 +5,6 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../data/item_group_repository.dart';
 
 /// Detail view for an item group. Shows the template's defaults +
@@ -43,13 +42,16 @@ class ItemGroupDetailScreen extends ConsumerWidget {
                     content: const Text(
                         'A group can only be deleted once all its variants have been removed.'),
                     actions: [
-                      TextButton(
+                      KButton.outlined(
+                        label: 'Cancel',
+                        size: KButtonSize.small,
                         onPressed: () => Navigator.pop(ctx, false),
-                        child: const Text('Cancel'),
                       ),
-                      TextButton(
+                      KSpacing.hGapSm,
+                      KButton.danger(
+                        label: 'Delete',
+                        size: KButtonSize.small,
                         onPressed: () => Navigator.pop(ctx, true),
-                        child: const Text('Delete'),
                       ),
                     ],
                   ),
@@ -104,11 +106,12 @@ class ItemGroupDetailScreen extends ConsumerWidget {
                     Expanded(
                       child: Text('Variants', style: KTypography.h3),
                     ),
-                    TextButton.icon(
+                    KButton.outlined(
                       onPressed: () =>
                           context.push('/item-groups/$groupId/generate-variants'),
-                      icon: const Icon(Icons.grid_view, size: 18),
-                      label: const Text('Generate Matrix'),
+                      icon: Icons.grid_view,
+                      label: 'Generate Matrix',
+                      size: KButtonSize.small,
                     ),
                   ],
                 ),
@@ -245,12 +248,14 @@ class _GroupHeader extends StatelessWidget {
                 _MetaChip(label: 'UoM', value: uom),
               if (purchase != null)
                 _MetaChip(
-                    label: 'Purchase',
-                    value: CurrencyFormatter.formatIndian(purchase)),
+                  label: 'Purchase',
+                  valueWidget: KMoney(purchase, size: KMoneySize.small),
+                ),
               if (sale != null)
                 _MetaChip(
-                    label: 'Sale',
-                    value: CurrencyFormatter.formatIndian(sale)),
+                  label: 'Sale',
+                  valueWidget: KMoney(sale, size: KMoneySize.small),
+                ),
             ],
           ),
         ],
@@ -261,8 +266,9 @@ class _GroupHeader extends StatelessWidget {
 
 class _MetaChip extends StatelessWidget {
   final String label;
-  final String value;
-  const _MetaChip({required this.label, required this.value});
+  final String? value;
+  final Widget? valueWidget;
+  const _MetaChip({required this.label, this.value, this.valueWidget});
 
   @override
   Widget build(BuildContext context) {
@@ -270,7 +276,7 @@ class _MetaChip extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: KTypography.labelSmall),
-        Text(value, style: KTypography.labelLarge),
+        valueWidget ?? Text(value ?? '', style: KTypography.labelLarge),
       ],
     );
   }
@@ -364,7 +370,10 @@ class _VariantRow extends StatelessWidget {
               children: [
                 Text(name, style: KTypography.labelLarge),
                 KSpacing.vGapXs,
-                Text('SKU: $sku', style: KTypography.bodySmall),
+                Text(
+                  sku,
+                  style: KTypography.mono(size: 11, color: KColors.textSecondary),
+                ),
                 if (attrs.isNotEmpty) ...[
                   KSpacing.vGapXs,
                   Wrap(
@@ -388,8 +397,7 @@ class _VariantRow extends StatelessWidget {
             ),
           ),
           KSpacing.hGapSm,
-          Text(CurrencyFormatter.formatIndian(salePrice),
-              style: KTypography.amountSmall),
+          KMoney(salePrice, size: KMoneySize.small, style: const TextStyle(fontWeight: FontWeight.w700)),
           const Icon(Icons.chevron_right, color: KColors.textHint),
         ],
       ),

@@ -637,11 +637,6 @@ class _InfoChipRow extends StatelessWidget {
   }
 }
 
-extension on String {
-  String capitalize() =>
-      isEmpty ? this : '${this[0].toUpperCase()}${substring(1).toLowerCase()}';
-}
-
 List<String> _contactRoleLabels(String type, bool supplierEnabled) {
   final labels = <String>[];
   if (type == 'CUSTOMER' || type == 'BOTH') labels.add('Customer');

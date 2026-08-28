@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/k_colors.dart';
+import '../../../core/theme/k_spacing.dart';
+import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../inventory/presentation/item_picker_sheet.dart';
 import '../data/scrap_repository.dart';
@@ -63,12 +66,16 @@ class _ScrapScreenState extends ConsumerState<ScrapScreen>
       ),
       floatingActionButton: isReasonTab
           ? FloatingActionButton.extended(
+              backgroundColor: KColors.primary,
+              foregroundColor: Colors.white,
               onPressed: () => _showAddReasonCodeSheet(context),
               icon: const Icon(Icons.add),
               label: const Text('Add Reason Code'),
               tooltip: 'Add Reason Code (N)',
             )
           : FloatingActionButton.extended(
+              backgroundColor: KColors.primary,
+              foregroundColor: Colors.white,
               onPressed: () => _showRecordScrapDialog(context),
               icon: const Icon(Icons.warning_amber_rounded),
               label: const Text('Record Scrap'),
@@ -101,79 +108,83 @@ class _ScrapScreenState extends ConsumerState<ScrapScreen>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-              TextFormField(
-                controller: woCtl,
-                decoration: const InputDecoration(
-                  labelText: 'Work Order ID *',
-                  hintText: 'Paste UUID',
-                ),
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Required' : null,
-              ),
-              const SizedBox(height: 12),
-              InkWell(
-                borderRadius: BorderRadius.circular(8),
-                onTap: () async {
-                  final picked = await showItemPicker(dialogCtx);
-                  if (picked != null) setSheetState(() => scrapItem = picked);
-                },
-                child: InputDecorator(
+                TextFormField(
+                  controller: woCtl,
                   decoration: const InputDecoration(
-                    labelText: 'Item *',
-                    prefixIcon: Icon(Icons.inventory_2_outlined),
-                    border: OutlineInputBorder(),
-                    suffixIcon: Icon(Icons.arrow_drop_down),
+                    labelText: 'Work Order ID *',
+                    hintText: 'Paste UUID',
                   ),
-                  child: Text(scrapItem?['name']?.toString() ?? 'Tap to select'),
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Required' : null,
                 ),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: qtyCtl,
-                decoration: const InputDecoration(labelText: 'Scrap Qty *'),
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'Required';
-                  if (double.tryParse(v.trim()) == null) return 'Enter a number';
-                  if (double.parse(v.trim()) <= 0) return 'Must be > 0';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-              KEntityPickerField(
-                label: 'Reason Code *',
-                icon: Icons.label_outline,
-                value: reason,
-                search: _searchReasonCodes,
-                onChanged: (o) => setSheetState(() => reason = o),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: jobCardCtl,
-                decoration: const InputDecoration(
-                  labelText: 'Job Card ID (optional)',
-                  hintText: 'Paste UUID',
+                KSpacing.vGapSm,
+                InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () async {
+                    final picked = await showItemPicker(dialogCtx);
+                    if (picked != null) setSheetState(() => scrapItem = picked);
+                  },
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Item *',
+                      prefixIcon: Icon(Icons.inventory_2_outlined),
+                      border: OutlineInputBorder(),
+                      suffixIcon: Icon(Icons.arrow_drop_down),
+                    ),
+                    child: Text(scrapItem?['name']?.toString() ?? 'Tap to select'),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: notesCtl,
-                decoration: const InputDecoration(
-                  labelText: 'Notes (optional)',
+                KSpacing.vGapSm,
+                TextFormField(
+                  controller: qtyCtl,
+                  decoration: const InputDecoration(labelText: 'Scrap Qty *'),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return 'Required';
+                    if (double.tryParse(v.trim()) == null) return 'Enter a number';
+                    if (double.parse(v.trim()) <= 0) return 'Must be > 0';
+                    return null;
+                  },
                 ),
-                maxLines: 2,
-              ),
-            ],
+                KSpacing.vGapSm,
+                KEntityPickerField(
+                  label: 'Reason Code *',
+                  icon: Icons.label_outline,
+                  value: reason,
+                  search: _searchReasonCodes,
+                  onChanged: (o) => setSheetState(() => reason = o),
+                ),
+                KSpacing.vGapSm,
+                TextFormField(
+                  controller: jobCardCtl,
+                  decoration: const InputDecoration(
+                    labelText: 'Job Card ID (optional)',
+                    hintText: 'Paste UUID',
+                  ),
+                ),
+                KSpacing.vGapSm,
+                TextFormField(
+                  controller: notesCtl,
+                  decoration: const InputDecoration(
+                    labelText: 'Notes (optional)',
+                  ),
+                  maxLines: 2,
+                ),
+              ],
+            ),
           ),
-        ),
         ),
         actions: [
-          TextButton(
+          KButton.outlined(
+            size: KButtonSize.small,
+            label: 'Cancel',
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
           ),
-          FilledButton(
+          KSpacing.hGapSm,
+          KButton.primary(
+            size: KButtonSize.small,
+            label: 'Submit',
             onPressed: () {
               final ok = formKey.currentState!.validate();
               if (ok && scrapItem != null && reason != null) {
@@ -188,7 +199,6 @@ class _ScrapScreenState extends ConsumerState<ScrapScreen>
                 );
               }
             },
-            child: const Text('Submit'),
           ),
         ],
       ),
@@ -210,21 +220,19 @@ class _ScrapScreenState extends ConsumerState<ScrapScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Scrap recorded successfully'),
-            backgroundColor: Colors.green,
+            backgroundColor: KColors.success,
           ),
         );
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed: $e')),
+          SnackBar(content: Text('Failed: $e'), backgroundColor: KColors.error),
         );
       }
     }
   }
 
-  /// Backs the reason-code [KEntityPickerField] — searches the org's scrap
-  /// reason codes (the same list the "Reason Codes" tab manages).
   Future<List<EntityOption>> _searchReasonCodes(String query) async {
     final codes = await ref.read(scrapReasonCodesProvider.future);
     final q = query.toLowerCase();
@@ -270,13 +278,8 @@ class _ScrapScreenState extends ConsumerState<ScrapScreen>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                'Add Reason Code',
-                style: Theme.of(sheetCtx).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-              const SizedBox(height: 16),
+              Text('Add Reason Code', style: KTypography.h3),
+              KSpacing.vGapMd,
               TextFormField(
                 controller: codeCtl,
                 decoration: const InputDecoration(
@@ -287,7 +290,7 @@ class _ScrapScreenState extends ConsumerState<ScrapScreen>
                 validator: (v) =>
                     (v == null || v.trim().isEmpty) ? 'Required' : null,
               ),
-              const SizedBox(height: 12),
+              KSpacing.vGapSm,
               TextFormField(
                 controller: descCtl,
                 decoration: const InputDecoration(
@@ -297,8 +300,8 @@ class _ScrapScreenState extends ConsumerState<ScrapScreen>
                 validator: (v) =>
                     (v == null || v.trim().isEmpty) ? 'Required' : null,
               ),
-              const SizedBox(height: 20),
-              FilledButton(
+              KSpacing.vGapLg,
+              KButton.primary(
                 onPressed: () async {
                   if (!formKey.currentState!.validate()) return;
                   Navigator.pop(sheetCtx);
@@ -312,19 +315,19 @@ class _ScrapScreenState extends ConsumerState<ScrapScreen>
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Reason code added'),
-                          backgroundColor: Colors.green,
+                          backgroundColor: KColors.success,
                         ),
                       );
                     }
                   } catch (e) {
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Failed: $e')),
+                        SnackBar(content: Text('Failed: $e'), backgroundColor: KColors.error),
                       );
                     }
                   }
                 },
-                child: const Text('Add Reason Code'),
+                label: 'Add Reason Code',
               ),
             ],
           ),
@@ -346,7 +349,7 @@ class _ScrapRecordsTab extends ConsumerWidget {
     final async = ref.watch(scrapListProvider);
 
     return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const Center(child: KLoading(message: 'Loading scrap records...')),
       error: (e, _) => KErrorView(
         message: e.toString(),
         onRetry: () => ref.invalidate(scrapListProvider),
@@ -362,7 +365,7 @@ class _ScrapRecordsTab extends ConsumerWidget {
         return RefreshIndicator(
           onRefresh: () async => ref.invalidate(scrapListProvider),
           child: ListView.builder(
-            padding: const EdgeInsets.all(16),
+            padding: KSpacing.pagePadding,
             itemCount: records.length,
             itemBuilder: (ctx, i) => _ScrapCard(record: records[i]),
           ),
@@ -378,12 +381,10 @@ class _ScrapCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     final workOrderId = _trunc(record['workOrderId']?.toString());
     final itemId = _trunc(record['itemId']?.toString());
     final scrapQty = record['scrapQty']?.toString() ?? '0';
-    final scrapCost = record['scrapCost'];
+    final scrapCost = (record['scrapCost'] as num?)?.toDouble();
     final reasonCodeId = _trunc(record['reasonCodeId']?.toString());
     final scrappedAt = _formatDate(record['scrappedAt']?.toString());
 
@@ -391,50 +392,58 @@ class _ScrapCard extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: KCard(
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(KSpacing.md),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
                   const Icon(Icons.warning_amber_rounded,
-                      size: 18, color: Colors.orange),
-                  const SizedBox(width: 8),
+                      size: 18, color: KColors.warning),
+                  KSpacing.hGapSm,
                   Expanded(
-                    child: Text(
-                      'WO: $workOrderId',
-                      style: theme.textTheme.titleSmall
-                          ?.copyWith(fontWeight: FontWeight.w600),
+                    child: Row(
+                      children: [
+                        Text('WO: ', style: KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
+                        Text(
+                          workOrderId,
+                          style: KTypography.mono(fontSize: 14, fontWeight: FontWeight.w700),
+                        ),
+                      ],
                     ),
                   ),
                   Text(
                     scrappedAt,
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: Colors.grey[600]),
+                    style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              KSpacing.vGapSm,
               Wrap(
                 spacing: 16,
                 runSpacing: 4,
                 children: [
                   _Field(label: 'Item', value: itemId),
                   _Field(label: 'Qty', value: scrapQty),
-                  _Field(
-                    label: 'Cost',
-                    value: scrapCost != null ? '₹$scrapCost' : '—',
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('Cost: ', style: KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
+                      if (scrapCost != null)
+                        KMoney(scrapCost, size: KMoneySize.small)
+                      else
+                        Text('—', style: KTypography.bodySmall),
+                    ],
                   ),
                   _Field(label: 'Reason', value: reasonCodeId),
                 ],
               ),
               if (record['notes'] != null &&
                   (record['notes'] as String).isNotEmpty) ...[
-                const SizedBox(height: 4),
+                KSpacing.vGapXs,
                 Text(
                   record['notes'].toString(),
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: Colors.grey[600]),
+                  style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -446,7 +455,6 @@ class _ScrapCard extends StatelessWidget {
     );
   }
 
-  /// Show first 8 chars of a UUID followed by '…'
   String _trunc(String? id) {
     if (id == null || id.isEmpty) return '—';
     return id.length > 8 ? '${id.substring(0, 8)}…' : id;
@@ -477,7 +485,7 @@ class _ReasonCodesTab extends ConsumerWidget {
     final async = ref.watch(scrapReasonCodesProvider);
 
     return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const Center(child: KLoading(message: 'Loading reason codes...')),
       error: (e, _) => KErrorView(
         message: e.toString(),
         onRetry: () => ref.invalidate(scrapReasonCodesProvider),
@@ -493,7 +501,7 @@ class _ReasonCodesTab extends ConsumerWidget {
         return RefreshIndicator(
           onRefresh: () async => ref.invalidate(scrapReasonCodesProvider),
           child: ListView.builder(
-            padding: const EdgeInsets.all(16),
+            padding: KSpacing.pagePadding,
             itemCount: codes.length,
             itemBuilder: (ctx, i) => _ReasonCodeCard(code: codes[i]),
           ),
@@ -509,7 +517,6 @@ class _ReasonCodeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final codeStr = code['code']?.toString() ?? '';
     final description = code['description']?.toString() ?? '';
     final isActive = code['isActive'] == true;
@@ -522,44 +529,29 @@ class _ReasonCodeCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Icon(Icons.label_outline, size: 20, color: Colors.blueGrey),
-              const SizedBox(width: 12),
+              const Icon(Icons.label_outline, size: 20, color: KColors.primary),
+              KSpacing.hGapMd,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       codeStr,
-                      style: theme.textTheme.titleSmall
-                          ?.copyWith(fontWeight: FontWeight.w600),
+                      style: KTypography.mono(fontSize: 14, fontWeight: FontWeight.w700),
                     ),
                     if (description.isNotEmpty) ...[
-                      const SizedBox(height: 2),
+                      KSpacing.vGapXxs,
                       Text(
                         description,
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: Colors.grey[600]),
+                        style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
                       ),
                     ],
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              Chip(
-                label: Text(
-                  isActive ? 'Active' : 'Inactive',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: isActive ? Colors.green[800] : Colors.grey[700],
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                backgroundColor: isActive
-                    ? Colors.green.withValues(alpha: 0.12)
-                    : Colors.grey.withValues(alpha: 0.15),
-                side: BorderSide.none,
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                visualDensity: VisualDensity.compact,
+              KSpacing.hGapSm,
+              KStatusChip(
+                status: isActive ? 'ACTIVE' : 'INACTIVE',
               ),
             ],
           ),
@@ -580,18 +572,17 @@ class _Field extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return RichText(
       text: TextSpan(
-        style: theme.textTheme.bodySmall,
+        style: KTypography.bodySmall,
         children: [
           TextSpan(
             text: '$label: ',
-            style: const TextStyle(color: Colors.grey),
+            style: const TextStyle(color: KColors.textSecondary),
           ),
           TextSpan(
             text: value,
-            style: const TextStyle(fontWeight: FontWeight.w500),
+            style: const TextStyle(fontWeight: FontWeight.w600, color: KColors.textPrimary),
           ),
         ],
       ),

@@ -7,10 +7,7 @@ import '../../../core/auth/auth_state.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/api_error_parser.dart';
 import '../../../core/utils/currency_formatter.dart';
-import '../../../core/widgets/k_card.dart';
-import '../../../core/widgets/k_loading.dart';
-import '../../../core/widgets/k_error_view.dart';
-import '../../../core/widgets/k_text_field.dart';
+import '../../../core/widgets/widgets.dart';
 
 // ── Providers ──────────────────────────────────────────────────────────────
 
@@ -819,25 +816,10 @@ class _StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isOpen = status == 'OPEN';
-    return Container(
-      padding: EdgeInsets.symmetric(
-          horizontal: compact ? 6 : 10, vertical: compact ? 2 : 4),
-      decoration: BoxDecoration(
-        color: (isOpen ? Colors.green : Colors.grey).withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: (isOpen ? Colors.green : Colors.grey).withValues(alpha: 0.4),
-        ),
-      ),
-      child: Text(
-        status,
-        style: TextStyle(
-          fontSize: compact ? 10 : 12,
-          fontWeight: FontWeight.w700,
-          color: isOpen ? Colors.green.shade700 : Colors.grey.shade700,
-        ),
-      ),
+    return KStatusChip(
+      status: status == 'OPEN' ? 'ACTIVE' : 'COMPLETED',
+      label: status,
+      dense: compact,
     );
   }
 }

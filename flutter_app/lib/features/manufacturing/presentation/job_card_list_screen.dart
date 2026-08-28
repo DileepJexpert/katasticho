@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/k_colors.dart';
+import '../../../core/theme/k_spacing.dart';
+import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/routing_repository.dart';
 
@@ -43,7 +46,7 @@ class _JobCardListScreenState extends ConsumerState<JobCardListScreen> {
           title: Text('Job Cards — ${widget.workOrderNumber}'),
         ),
         body: cardsAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => const Center(child: KLoading(message: 'Loading job cards...')),
           error: (e, _) => KErrorView(
             message: e.toString(),
             onRetry: () => ref.invalidate(jobCardsProvider(widget.workOrderId)),
@@ -57,7 +60,6 @@ class _JobCardListScreenState extends ConsumerState<JobCardListScreen> {
                     'Tap the button below to create job cards from a routing.',
               );
             }
-            // Sort by sequence number
             final sorted = [...cards]
               ..sort((a, b) =>
                   ((a['sequenceNumber'] as num?)?.compareTo(
@@ -67,7 +69,7 @@ class _JobCardListScreenState extends ConsumerState<JobCardListScreen> {
               onRefresh: () async =>
                   ref.invalidate(jobCardsProvider(widget.workOrderId)),
               child: ListView.builder(
-                padding: const EdgeInsets.all(16),
+                padding: KSpacing.pagePadding,
                 itemCount: sorted.length,
                 itemBuilder: (ctx, i) => _JobCardItem(
                   card: sorted[i],
@@ -80,6 +82,8 @@ class _JobCardListScreenState extends ConsumerState<JobCardListScreen> {
         floatingActionButton: cardsAsync.maybeWhen(
           data: (cards) => cards.isEmpty
               ? FloatingActionButton.extended(
+                  backgroundColor: KColors.primary,
+                  foregroundColor: Colors.white,
                   onPressed: _showCreateJobCardsDialog,
                   icon: const Icon(Icons.post_add),
                   label: const Text('Create Job Cards'),
@@ -133,7 +137,7 @@ class _JobCardListScreenState extends ConsumerState<JobCardListScreen> {
               ),
               autofocus: true,
             ),
-            const SizedBox(height: 12),
+            KSpacing.vGapSm,
             TextField(
               controller: qtyCtl,
               decoration: const InputDecoration(labelText: 'Quantity *'),
@@ -142,13 +146,16 @@ class _JobCardListScreenState extends ConsumerState<JobCardListScreen> {
           ],
         ),
         actions: [
-          TextButton(
+          KButton.outlined(
+            label: 'Cancel',
+            size: KButtonSize.small,
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
           ),
-          FilledButton(
+          KSpacing.hGapSm,
+          KButton.primary(
+            label: 'Create',
+            size: KButtonSize.small,
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Create'),
           ),
         ],
       ),
@@ -177,19 +184,18 @@ class _JobCardListScreenState extends ConsumerState<JobCardListScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Job cards created successfully'),
-            backgroundColor: Colors.green,
+            backgroundColor: KColors.success,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Failed: $e')));
+            .showSnackBar(SnackBar(content: Text('Failed: $e'), backgroundColor: KColors.error));
       }
     }
   }
 }
-
 // ---------------------------------------------------------------------------
 // Job card list item
 // ---------------------------------------------------------------------------
@@ -201,7 +207,6 @@ class _JobCardItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final seq = card['sequenceNumber']?.toString() ?? '-';
     final opId = card['operationId']?.toString() ?? '';
     final opName = card['operationName']?.toString();
@@ -218,27 +223,26 @@ class _JobCardItem extends StatelessWidget {
       child: KCard(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(KSpacing.md),
           child: Row(
             children: [
-              // Sequence badge
               Container(
                 width: 36,
                 height: 36,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: _statusColor(status).withValues(alpha: 0.12),
+                  color: KColors.primary.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
                 child: Text(
                   seq,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: _statusColor(status),
+                  style: KTypography.labelMedium.copyWith(
+                    color: KColors.primary,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              KSpacing.hGapMd,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -249,43 +253,32 @@ class _JobCardItem extends StatelessWidget {
                           Expanded(
                             child: Text(
                               truncOpId,
-                              style: theme.textTheme.bodyMedium
-                                  ?.copyWith(fontWeight: FontWeight.w500),
+                              style: KTypography.labelLarge,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         KStatusChip(status: status),
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    KSpacing.vGapXs,
                     Wrap(
                       spacing: 16,
                       children: [
-                        Text('Planned: $plannedQty',
-                            style: theme.textTheme.bodySmall),
-                        Text('Done: $completedQty',
-                            style: theme.textTheme.bodySmall),
-                        Text('Time: ${timeLogged}m',
-                            style: theme.textTheme.bodySmall),
+                        Text('Planned: $plannedQty', style: KTypography.bodySmall),
+                        Text('Done: $completedQty', style: KTypography.bodySmall),
+                        Text('Time: ${timeLogged}m', style: KTypography.bodySmall),
                       ],
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
+              const Icon(Icons.chevron_right, color: KColors.textHint, size: 20),
             ],
           ),
         ),
       ),
     );
   }
-
-  Color _statusColor(String status) => switch (status) {
-        'PENDING' => Colors.grey,
-        'IN_PROGRESS' => Colors.blue,
-        'COMPLETED' => Colors.green,
-        _ => Colors.grey,
-      };
 }
 
 // ---------------------------------------------------------------------------
@@ -299,7 +292,6 @@ class _JobCardSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
     final status = card['status']?.toString() ?? 'PENDING';
     final id = card['id']?.toString() ?? '';
     final seq = card['sequenceNumber']?.toString() ?? '-';
@@ -328,22 +320,18 @@ class _JobCardSheet extends ConsumerWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header
           Row(
             children: [
-              Text('Step $seq',
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w600)),
-              const SizedBox(width: 12),
+              Text('Step $seq', style: KTypography.h3),
+              KSpacing.hGapMd,
               KStatusChip(status: status),
             ],
           ),
-          const SizedBox(height: 12),
+          KSpacing.vGapMd,
 
-          // Details grid
           KCard(
             child: Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(KSpacing.md),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -360,35 +348,36 @@ class _JobCardSheet extends ConsumerWidget {
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          KSpacing.vGapLg,
 
-          // Actions
           if (status == 'PENDING')
-            FilledButton.icon(
+            KButton.primary(
               onPressed: () => _startCard(context, ref, id),
-              icon: const Icon(Icons.play_arrow),
-              label: const Text('Start Job Card'),
+              icon: Icons.play_arrow,
+              label: 'Start Job Card',
             ),
           if (status == 'IN_PROGRESS')
-            FilledButton.icon(
+            KButton.primary(
               onPressed: () => _showCompleteDialog(context, ref, id),
-              icon: const Icon(Icons.check_circle_outline),
-              label: const Text('Complete Job Card'),
+              icon: Icons.check_circle_outline,
+              label: 'Complete Job Card',
             ),
           if (status == 'COMPLETED')
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(KSpacing.md),
               decoration: BoxDecoration(
-                color: Colors.green.withValues(alpha: 0.1),
+                color: KColors.success.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: KColors.success.withValues(alpha: 0.2)),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.check_circle, color: Colors.green),
-                  const SizedBox(width: 8),
-                  Text('This job card is completed.',
-                      style: theme.textTheme.bodyMedium
-                          ?.copyWith(color: Colors.green.shade800)),
+                  const Icon(Icons.check_circle, color: KColors.success),
+                  KSpacing.hGapSm,
+                  Text(
+                    'This job card is completed.',
+                    style: KTypography.bodyMedium.copyWith(color: KColors.success),
+                  ),
                 ],
               ),
             ),
@@ -403,14 +392,14 @@ class _JobCardSheet extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Job card started'), backgroundColor: Colors.blue),
+              content: Text('Job card started'), backgroundColor: KColors.info),
         );
       }
       onAction();
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Failed: $e')));
+            .showSnackBar(SnackBar(content: Text('Failed: $e'), backgroundColor: KColors.error));
       }
     }
   }
@@ -438,21 +427,21 @@ class _JobCardSheet extends ConsumerWidget {
                 keyboardType: TextInputType.number,
                 autofocus: true,
               ),
-              const SizedBox(height: 12),
+              KSpacing.vGapSm,
               TextField(
                 controller: scrapQtyCtl,
                 decoration:
                     const InputDecoration(labelText: 'Scrap Qty'),
                 keyboardType: TextInputType.number,
               ),
-              const SizedBox(height: 12),
+              KSpacing.vGapSm,
               TextField(
                 controller: timeCtl,
                 decoration: const InputDecoration(
                     labelText: 'Time Logged (minutes)'),
                 keyboardType: TextInputType.number,
               ),
-              const SizedBox(height: 12),
+              KSpacing.vGapSm,
               TextField(
                 controller: notesCtl,
                 decoration: const InputDecoration(labelText: 'Notes'),
@@ -462,13 +451,16 @@ class _JobCardSheet extends ConsumerWidget {
           ),
         ),
         actions: [
-          TextButton(
+          KButton.outlined(
+            label: 'Cancel',
+            size: KButtonSize.small,
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
           ),
-          FilledButton(
+          KSpacing.hGapSm,
+          KButton.primary(
+            label: 'Complete',
+            size: KButtonSize.small,
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Complete'),
           ),
         ],
       ),
@@ -496,14 +488,14 @@ class _JobCardSheet extends ConsumerWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
               content: Text('Job card completed'),
-              backgroundColor: Colors.green),
+              backgroundColor: KColors.success),
         );
       }
       onAction();
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Failed: $e')));
+            .showSnackBar(SnackBar(content: Text('Failed: $e'), backgroundColor: KColors.error));
       }
     }
   }
@@ -517,22 +509,16 @@ class _InfoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.only(bottom: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 110,
-            child: Text(label,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: Colors.grey)),
+            width: 120,
+            child: Text(label, style: KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
           ),
           Expanded(
-            child: Text(value,
-                style: Theme.of(context).textTheme.bodySmall,
-                overflow: TextOverflow.ellipsis),
+            child: Text(value, style: KTypography.bodyMedium, overflow: TextOverflow.ellipsis),
           ),
         ],
       ),

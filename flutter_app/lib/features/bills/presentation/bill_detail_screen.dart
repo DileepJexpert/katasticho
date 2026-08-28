@@ -17,6 +17,7 @@ import '../data/bill_repository.dart';
 import 'widgets/bill_status_chip.dart';
 import 'widgets/record_payment_bottom_sheet.dart';
 import '../../ap/presentation/widgets/three_way_match_detail_sheet.dart';
+import '../../banking/presentation/payout_disbursement_screen.dart';
 
 class BillDetailScreen extends ConsumerWidget {
   final String billId;
@@ -56,6 +57,16 @@ class BillDetailScreen extends ConsumerWidget {
                             value: 'delete',
                             child: Text('Delete Bill',
                                 style: TextStyle(color: KColors.error))),
+                      if (b.isPayable)
+                        const PopupMenuItem(
+                            value: 'payout',
+                            child: Row(
+                              children: [
+                                Icon(Icons.flash_on, size: 16, color: KColors.primary),
+                                SizedBox(width: 8),
+                                Text('Direct Bank Payout'),
+                              ],
+                            )),
                       if (b.isPayable)
                         const PopupMenuItem(
                             value: 'void',
@@ -107,20 +118,39 @@ class BillDetailScreen extends ConsumerWidget {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Balance Due', style: KTypography.bodySmall),
-                        Text(
-                          CurrencyFormatter.formatIndian(b.balanceDue),
-                          style: KTypography.amountMedium.copyWith(
-                            color: KColors.error,
+                        Text('Balance Due', style: KTypography.caption),
+                        KMoney(
+                          b.balanceDue,
+                          size: KMoneySize.large,
+                          style: TextStyle(
+                            color: b.isOverdue ? KColors.error : KColors.warning,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ],
                     ),
                     const Spacer(),
-                    KButton(
+                    KButton.secondary(
+                      label: 'Direct Payout',
+                      icon: Icons.flash_on,
+                      onPressed: () => showDisbursePayoutModal(
+                        context,
+                        initialBillId: b.id,
+                        initialBillNumber: b.billNumber,
+                        initialAmount: b.balanceDue,
+                        initialContact: {
+                          'id': b.contactId,
+                          'displayName': b.vendorName,
+                          'name': b.vendorName,
+                        },
+                        onDisbursed: () =>
+                            ref.invalidate(billDetailProvider(billId)),
+                      ),
+                    ),
+                    KSpacing.hGapSm,
+                    KButton.primary(
                       label: 'Record Payment',
-                      icon: Icons.payments,
-                      variant: KButtonVariant.secondary,
+                      icon: Icons.payments_outlined,
                       onPressed: () =>
                           showRecordPaymentSheet(context, ref, bill),
                     ),
@@ -154,6 +184,20 @@ class BillDetailScreen extends ConsumerWidget {
             ),
           );
         }
+        break;
+      case 'payout':
+        showDisbursePayoutModal(
+          context,
+          initialBillId: b.id,
+          initialBillNumber: b.billNumber,
+          initialAmount: b.balanceDue,
+          initialContact: {
+            'id': b.contactId,
+            'displayName': b.vendorName,
+            'name': b.vendorName,
+          },
+          onDisbursed: () => ref.invalidate(billDetailProvider(billId)),
+        );
         break;
       case 'share':
         if (context.mounted) {
@@ -345,61 +389,80 @@ class _BillDetailBody extends ConsumerWidget {
                 // Details tab
                 SingleChildScrollView(
                   padding: KSpacing.pagePadding,
-                  child: KCard(
-                    child: Column(
-                      children: [
-                        KDetailRow(label: 'Bill Number', value: b.billNumber),
-                        KDetailRow(label: 'Vendor', value: b.vendorName),
-                        KDetailRow(
-                          label: 'Vendor Bill #',
-                          value: b.vendorBillNumber.isEmpty
-                              ? '--'
-                              : b.vendorBillNumber,
+                  child: Column(
+                    children: [
+                      KCard(
+                        child: Column(
+                          children: [
+                            KDetailRow(
+                              label: 'Bill Number',
+                              valueWidget: Text(b.billNumber, style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w600)),
+                            ),
+                            KDetailRow(label: 'Vendor', value: b.vendorName),
+                            KDetailRow(
+                              label: 'Vendor Bill #',
+                              valueWidget: b.vendorBillNumber.isEmpty
+                                  ? const Text('--')
+                                  : Text(b.vendorBillNumber, style: KTypography.mono(fontSize: 13)),
+                            ),
+                            KDetailRow(
+                              label: 'Bill Date',
+                              value: b.billDate.isEmpty ? '--' : b.billDate,
+                            ),
+                            KDetailRow(
+                              label: 'Due Date',
+                              value: b.dueDate.isEmpty ? '--' : b.dueDate,
+                            ),
+                            KDetailRow(
+                              label: 'Place of Supply',
+                              value:
+                                  b.placeOfSupply.isEmpty ? '--' : b.placeOfSupply,
+                            ),
+                            if (b.reverseCharge)
+                              const KDetailRow(
+                                  label: 'Reverse Charge', value: 'Yes'),
+                            const Divider(),
+                            KDetailRow(
+                              label: 'Subtotal',
+                              valueWidget: KMoney(b.subtotal, size: KMoneySize.small),
+                            ),
+                            KDetailRow(
+                              label: 'Tax',
+                              valueWidget: KMoney(b.taxAmount, size: KMoneySize.small),
+                            ),
+                            const Divider(),
+                            KDetailRow(
+                              label: 'Total',
+                              valueWidget: KMoney(
+                                b.totalAmount,
+                                size: KMoneySize.medium,
+                                style: const TextStyle(fontWeight: FontWeight.w700),
+                              ),
+                            ),
+                            KDetailRow(
+                              label: 'Amount Paid',
+                              valueWidget: KMoney(
+                                b.amountPaid,
+                                size: KMoneySize.small,
+                                style: const TextStyle(
+                                  color: KColors.success,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            if (b.notes.isNotEmpty) ...[
+                              const Divider(),
+                              KDetailRow(label: 'Notes', value: b.notes),
+                            ],
+                          ],
                         ),
-                        KDetailRow(
-                          label: 'Bill Date',
-                          value: b.billDate.isEmpty ? '--' : b.billDate,
-                        ),
-                        KDetailRow(
-                          label: 'Due Date',
-                          value: b.dueDate.isEmpty ? '--' : b.dueDate,
-                        ),
-                        KDetailRow(
-                          label: 'Place of Supply',
-                          value:
-                              b.placeOfSupply.isEmpty ? '--' : b.placeOfSupply,
-                        ),
-                        if (b.reverseCharge)
-                          const KDetailRow(
-                              label: 'Reverse Charge', value: 'Yes'),
-                        const Divider(),
-                        KDetailRow(
-                          label: 'Subtotal',
-                          value: CurrencyFormatter.formatIndian(b.subtotal),
-                        ),
-                        KDetailRow(
-                          label: 'Tax',
-                          value: CurrencyFormatter.formatIndian(b.taxAmount),
-                        ),
-                        const Divider(),
-                        KDetailRow(
-                          label: 'Total',
-                          value: CurrencyFormatter.formatIndian(b.totalAmount),
-                          valueStyle: KTypography.amountMedium,
-                        ),
-                        KDetailRow(
-                          label: 'Amount Paid',
-                          value: CurrencyFormatter.formatIndian(b.amountPaid),
-                          valueStyle: KTypography.amountSmall.copyWith(
-                            color: KColors.success,
-                          ),
-                        ),
-                        if (b.notes.isNotEmpty) ...[
-                          const Divider(),
-                          KDetailRow(label: 'Notes', value: b.notes),
-                        ],
-                      ],
-                    ),
+                      ),
+                      KSpacing.vGapMd,
+                      KCustomFieldsCard(
+                        entityType: 'BILL',
+                        entityId: billId,
+                      ),
+                    ],
                   ),
                 ),
 
@@ -463,9 +526,10 @@ class _LinesTab extends StatelessWidget {
                       ],
                     ),
                   ),
-                  Text(
-                    CurrencyFormatter.formatIndian(line.lineTotal),
-                    style: KTypography.amountSmall,
+                  KMoney(
+                    line.lineTotal,
+                    size: KMoneySize.small,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                 ],
               ),
@@ -473,9 +537,17 @@ class _LinesTab extends StatelessWidget {
               Row(
                 children: [
                   Text(
-                    '${line.quantity.toStringAsFixed(line.quantity.truncateToDouble() == line.quantity ? 0 : 2)} x ${CurrencyFormatter.formatIndian(line.unitPrice)}',
+                    '${line.quantity.toStringAsFixed(line.quantity.truncateToDouble() == line.quantity ? 0 : 2)} x ',
                     style: KTypography.bodySmall.copyWith(
                       color: KColors.textSecondary,
+                    ),
+                  ),
+                  KMoney(
+                    line.unitPrice,
+                    size: KMoneySize.small,
+                    style: TextStyle(
+                      color: KColors.textSecondary,
+                      fontSize: 12,
                     ),
                   ),
                   if (line.taxGroupName != null) ...[
@@ -556,7 +628,7 @@ class _PaymentsTab extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(payment.paymentNumber,
-                            style: KTypography.labelLarge),
+                            style: KTypography.mono(fontSize: 13, weight: FontWeight.w600)),
                         Text(
                           '${payment.paymentMethod.replaceAll('_', ' ')}${payment.paymentDate.isNotEmpty ? ' · ${DateFormatter.display(DateTime.parse(payment.paymentDate))}' : ''}',
                           style: KTypography.bodySmall.copyWith(
@@ -566,10 +638,12 @@ class _PaymentsTab extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  Text(
-                    CurrencyFormatter.formatIndian(payment.amount),
-                    style: KTypography.amountSmall.copyWith(
+                  KMoney(
+                    payment.amount,
+                    size: KMoneySize.small,
+                    style: const TextStyle(
                       color: KColors.success,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ],

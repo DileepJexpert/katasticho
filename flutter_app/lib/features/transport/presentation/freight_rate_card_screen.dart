@@ -69,12 +69,14 @@ class _FreightRateCardScreenState extends ConsumerState<FreightRateCardScreen> {
         actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh))],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: KColors.primary,
+        foregroundColor: Colors.white,
         onPressed: _openCreate,
         icon: const Icon(Icons.add),
         label: const Text('New rate'),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: KLoading())
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView(
@@ -288,7 +290,7 @@ class _CreateRateCardSheetState extends ConsumerState<_CreateRateCardSheet> {
                       keyboardType: const TextInputType.numberWithOptions(decimal: true))),
             ]),
             KSpacing.vGapLg,
-            KButton(
+            KButton.primary(
               label: _saving ? 'Saving…' : 'Save rate card',
               icon: Icons.save,
               isLoading: _saving,

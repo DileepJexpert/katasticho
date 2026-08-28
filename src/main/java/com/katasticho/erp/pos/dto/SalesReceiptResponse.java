@@ -11,6 +11,7 @@ import java.util.UUID;
 public record SalesReceiptResponse(
         UUID id,
         String receiptNumber,
+        String offlineReceiptNumber,
         LocalDate receiptDate,
         UUID branchId,
         UUID contactId,

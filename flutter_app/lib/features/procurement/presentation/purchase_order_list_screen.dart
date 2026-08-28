@@ -5,7 +5,6 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../data/purchase_order_repository.dart';
@@ -122,6 +121,8 @@ class _PurchaseOrderListScreenState
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.go(Routes.purchaseOrderCreate),
+        backgroundColor: KColors.primary,
+        foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
         label: const Text('New PO'),
         tooltip: 'New PO (N)',
@@ -207,7 +208,7 @@ class _PoCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Text(poNumber, style: KTypography.labelLarge),
+                    Text(poNumber, style: KTypography.mono(fontSize: 14, fontWeight: FontWeight.w700)),
                     KSpacing.hGapSm,
                     KStatusChip(status: status),
                   ],
@@ -222,7 +223,7 @@ class _PoCard extends StatelessWidget {
                   KSpacing.vGapXs,
                   Text(
                     '${DateFormatter.display(DateTime.parse(orderDateRaw))}'
-                    '${lineCount != null ? ' • $lineCount item${lineCount == 1 ? '' : 's'}' : ''}',
+                    '${lineCount != null ? ' · $lineCount item${lineCount == 1 ? '' : 's'}' : ''}',
                     style: KTypography.bodySmall,
                   ),
                 ],
@@ -232,11 +233,8 @@ class _PoCard extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                CurrencyFormatter.formatIndian(total),
-                style: KTypography.amountMedium,
-              ),
-              Text('Total', style: KTypography.labelSmall),
+              KMoney(total),
+              Text('Total', style: KTypography.caption),
             ],
           ),
           KSpacing.hGapSm,

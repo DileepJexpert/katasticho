@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
@@ -189,7 +190,7 @@ class _RackLocationsScreenState extends ConsumerState<RackLocationsScreen> {
                   else ...[
                     KCard(
                       title: 'Configured Racks',
-                      action: KButton(
+                      action: KButton.outlined(
                         label: 'Add Rack',
                         icon: Icons.add,
                         size: KButtonSize.small,
@@ -212,7 +213,7 @@ class _RackLocationsScreenState extends ConsumerState<RackLocationsScreen> {
                                 ),
                                 title: Text(
                                   rack['code']?.toString() ?? 'Rack',
-                                  style: KTypography.labelMedium,
+                                  style: KTypography.mono(size: 13, weight: FontWeight.w600),
                                 ),
                                 subtitle: Text(
                                   [
@@ -252,6 +253,8 @@ class _RackLocationsScreenState extends ConsumerState<RackLocationsScreen> {
       floatingActionButton: _racks.isEmpty
           ? null
           : FloatingActionButton.extended(
+              backgroundColor: KColors.primary,
+              foregroundColor: Colors.white,
               onPressed: _openCreateSheet,
               icon: const Icon(Icons.add),
               label: const Text('Add Rack'),
@@ -407,21 +410,18 @@ class _CreateRackSheetState extends ConsumerState<_CreateRackSheet> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton(
+                  KButton.outlined(
+                    label: 'Cancel',
+                    size: KButtonSize.small,
                     onPressed: _saving ? null : () => Navigator.of(context).pop(false),
-                    child: const Text('Cancel'),
                   ),
                   KSpacing.hGapSm,
-                  FilledButton.icon(
+                  KButton.primary(
+                    label: 'Save',
+                    icon: Icons.save_outlined,
+                    size: KButtonSize.small,
+                    isLoading: _saving,
                     onPressed: _saving ? null : _save,
-                    icon: _saving
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.save_outlined),
-                    label: const Text('Save'),
                   ),
                 ],
               ),

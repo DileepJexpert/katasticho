@@ -296,6 +296,71 @@ class _SalesOrderCreateScreenState extends ConsumerState<SalesOrderCreateScreen>
     if (_currentStep > 0) setState(() => _currentStep--);
   }
 
+  Future<void> _openOrderDatePicker() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _orderDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null && mounted) {
+      setState(() => _orderDate = picked);
+    }
+  }
+
+  Future<void> _triggerItemPicker() async {
+    if (_currentStep != 1) {
+      setState(() => _currentStep = 1);
+    }
+    final picked = await showItemPicker(context);
+    if (picked == null || !mounted) return;
+    final item = _LineItem();
+    item.itemId = picked['id']?.toString();
+    item.description = picked['name']?.toString() ?? '';
+    item.hsnCode = picked['hsnCode']?.toString() ?? '';
+    item.rate = (picked['salePrice'] as num?)?.toDouble() ?? 0;
+    item.unit = picked['unit']?.toString() ?? 'PCS';
+    final pickedTaxGroupId = picked['defaultTaxGroupId']?.toString();
+    if (pickedTaxGroupId != null) {
+      item.taxGroupId = pickedTaxGroupId;
+      final pickedGst = (picked['gstRate'] as num?)?.toDouble();
+      item._taxRate = pickedGst ?? 0;
+    }
+    final baseUnit = item.unit;
+    final rawSec = (picked['secondaryUnits'] as List?) ?? [];
+    final secUnits = rawSec
+        .map((u) => (u as Map<String, dynamic>)['uomAbbreviation']?.toString())
+        .whereType<String>()
+        .toList();
+    item.availableUnits = [
+      baseUnit,
+      ...secUnits.where((u) => u != baseUnit),
+    ];
+    double factor = 1.0;
+    String? sub;
+    for (final s in rawSec) {
+      if (s is Map<String, dynamic>) {
+        final f = (s['conversionFactor'] as num?)?.toDouble() ?? 1.0;
+        if (f > 1.0) {
+          factor = f;
+          sub = s['uomAbbreviation']?.toString();
+          break;
+        }
+      }
+    }
+    item.conversionFactor = factor;
+    item.subUnit = sub;
+    setState(() {
+      if (_lineItems.length == 1 &&
+          _lineItems.first.itemId == null &&
+          _lineItems.first.description.isEmpty) {
+        _lineItems[0] = item;
+      } else {
+        _lineItems.add(item);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return KKeyboardFormWrapper(
@@ -303,6 +368,11 @@ class _SalesOrderCreateScreenState extends ConsumerState<SalesOrderCreateScreen>
       onNextStep: _nextStep,
       onPrevStep: _prevStep,
       onCancel: () => context.go(Routes.salesOrders),
+      onDateJump: _openOrderDatePicker,
+      onItemPicker: _triggerItemPicker,
+      onQuickCreate: _openAddCustomerSheet,
+      onAddRow: () => setState(() => _lineItems.add(_LineItem())),
+      onSaveAndPrint: _handleSubmit,
       child: Scaffold(
       appBar: AppBar(
         title: const Text('Create Sales Order'),
@@ -578,6 +648,14 @@ class _SalesOrderCreateScreenState extends ConsumerState<SalesOrderCreateScreen>
             onChanged: (value) => setState(() => _selectedWarehouseId = value),
           ),
         KSpacing.vGapLg,
+        KBillingShortcutBar(
+          onDateJump: _openOrderDatePicker,
+          onItemLookup: _triggerItemPicker,
+          onQuickCreate: _openAddCustomerSheet,
+          onAddRow: () => setState(() => _lineItems.add(_LineItem())),
+          onSubmit: _handleSubmit,
+        ),
+        KSpacing.vGapMd,
         Text('Line Items', style: KTypography.h2),
         KSpacing.vGapMd,
         ...List.generate(_lineItems.length, (index) {
@@ -586,6 +664,8 @@ class _SalesOrderCreateScreenState extends ConsumerState<SalesOrderCreateScreen>
             index: index,
             schemeApplyMode: schemeApplyMode,
             warehouseId: _selectedWarehouseId,
+            isLastRow: index == _lineItems.length - 1,
+            onAddRow: () => setState(() => _lineItems.add(_LineItem())),
             onRemove: _lineItems.length > 1
                 ? () => setState(() => _lineItems.removeAt(index))
                 : null,
@@ -820,6 +900,8 @@ class _LineItem {
   String unit = 'PCS';
   double discountPct = 0;
   double _taxRate = 0;
+  double conversionFactor = 1.0;
+  String? subUnit;
   List<String> availableUnits = const [];
   String? appliedSchemeId;
   String? appliedSchemeName;
@@ -840,6 +922,8 @@ class _LineItemCard extends ConsumerStatefulWidget {
   final int index;
   final String schemeApplyMode;
   final String? warehouseId;
+  final bool isLastRow;
+  final VoidCallback? onAddRow;
   final VoidCallback? onRemove;
   final ValueChanged<_LineItem> onAddFreeLine;
   final VoidCallback onRemoveLinkedSchemeLines;
@@ -850,6 +934,8 @@ class _LineItemCard extends ConsumerStatefulWidget {
     required this.index,
     required this.schemeApplyMode,
     this.warehouseId,
+    this.isLastRow = false,
+    this.onAddRow,
     this.onRemove,
     required this.onAddFreeLine,
     required this.onRemoveLinkedSchemeLines,
@@ -1151,6 +1237,16 @@ class _LineItemCardState extends ConsumerState<_LineItemCard> {
               enabled: !widget.item.isFreeSchemeLine,
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
+              textInputAction: widget.isLastRow
+                  ? TextInputAction.done
+                  : TextInputAction.next,
+              onFieldSubmitted: (_) {
+                if (widget.isLastRow) {
+                  widget.onAddRow?.call();
+                } else {
+                  FocusScope.of(context).nextFocus();
+                }
+              },
               onChanged: (v) {
                 _clearAppliedScheme(removeLinkedFreeLines: false);
                 widget.item.discountPct = double.tryParse(v) ?? 0;

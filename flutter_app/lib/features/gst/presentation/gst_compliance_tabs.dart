@@ -253,6 +253,34 @@ class _Gstr2bTabState extends ConsumerState<Gstr2bTab> {
         ),
         KSpacing.vGapSm,
         InkWell(
+          onTap: () => context.push(Routes.gstr2bReconciliation),
+          borderRadius: KSpacing.borderRadiusMd,
+          child: KCard(
+            child: Row(
+              children: [
+                const Icon(Icons.difference_outlined, color: KColors.primary),
+                KSpacing.hGapSm,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Open GSTR-2B ITC Matcher & Vendor Follow-Up',
+                          style: KTypography.labelLarge),
+                      Text(
+                        'Full-screen reconciliation grid with one-click WhatsApp/Email vendor follow-ups',
+                        style: KTypography.bodySmall
+                            .copyWith(color: KColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right),
+              ],
+            ),
+          ),
+        ),
+        KSpacing.vGapSm,
+        InkWell(
           onTap: () => context.push(Routes.gstItcRisk),
           borderRadius: KSpacing.borderRadiusMd,
           child: KCard(

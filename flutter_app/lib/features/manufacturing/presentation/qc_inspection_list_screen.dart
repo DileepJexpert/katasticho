@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/theme/k_colors.dart';
+import '../../../core/theme/k_spacing.dart';
+import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/qc_repository.dart';
 
@@ -35,140 +38,142 @@ class _QcInspectionListScreenState
         }
       },
       child: Scaffold(
-      body: Column(
-        children: [
-          const KListPageHeader(
-            title: 'QC Inspections',
-          ),
-
-          // ── Status filter row ──────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _FilterChip(
-                    label: 'All',
-                    selected: _statusFilter == null,
-                    onTap: () => _setStatus(null),
-                  ),
-                  const SizedBox(width: 8),
-                  _FilterChip(
-                    label: 'Pending',
-                    selected: _statusFilter == 'PENDING',
-                    onTap: () => _setStatus('PENDING'),
-                  ),
-                  const SizedBox(width: 8),
-                  _FilterChip(
-                    label: 'In Progress',
-                    selected: _statusFilter == 'IN_PROGRESS',
-                    onTap: () => _setStatus('IN_PROGRESS'),
-                  ),
-                  const SizedBox(width: 8),
-                  _FilterChip(
-                    label: 'Passed',
-                    selected: _statusFilter == 'PASSED',
-                    onTap: () => _setStatus('PASSED'),
-                  ),
-                  const SizedBox(width: 8),
-                  _FilterChip(
-                    label: 'Failed',
-                    selected: _statusFilter == 'FAILED',
-                    onTap: () => _setStatus('FAILED'),
-                  ),
-                  const SizedBox(width: 8),
-                  _FilterChip(
-                    label: 'Partial',
-                    selected: _statusFilter == 'PARTIAL',
-                    onTap: () => _setStatus('PARTIAL'),
-                  ),
-                ],
-              ),
+        body: Column(
+          children: [
+            const KListPageHeader(
+              title: 'QC Inspections',
             ),
-          ),
 
-          // ── Type filter row ────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _FilterChip(
-                    label: 'All Types',
-                    selected: _typeFilter == null,
-                    onTap: () => _setType(null),
-                  ),
-                  const SizedBox(width: 8),
-                  _FilterChip(
-                    label: 'Incoming',
-                    selected: _typeFilter == 'INCOMING',
-                    onTap: () => _setType('INCOMING'),
-                  ),
-                  const SizedBox(width: 8),
-                  _FilterChip(
-                    label: 'In-Process',
-                    selected: _typeFilter == 'IN_PROCESS',
-                    onTap: () => _setType('IN_PROCESS'),
-                  ),
-                  const SizedBox(width: 8),
-                  _FilterChip(
-                    label: 'Outgoing',
-                    selected: _typeFilter == 'OUTGOING',
-                    onTap: () => _setType('OUTGOING'),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // ── List ───────────────────────────────────────────────────────
-          Expanded(
-            child: inspectionsAsync.when(
-              loading: () =>
-                  const Center(child: CircularProgressIndicator()),
-              error: (e, _) => KErrorView(
-                message: e.toString(),
-                onRetry: () => ref.invalidate(qcInspectionsProvider(filter)),
-              ),
-              data: (inspections) {
-                if (inspections.isEmpty) {
-                  return const KEmptyState(
-                    icon: Icons.science_outlined,
-                    title: 'No inspections',
-                    subtitle: 'Create an inspection to begin quality control.',
-                  );
-                }
-                return RefreshIndicator(
-                  onRefresh: () async =>
-                      ref.invalidate(qcInspectionsProvider(filter)),
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: inspections.length,
-                    itemBuilder: (ctx, i) => _InspectionCard(
-                      inspection: inspections[i],
-                      onTap: () {
-                        final id = inspections[i]['id']?.toString();
-                        if (id != null) {
-                          context.go('/manufacturing/qc-inspections/$id');
-                        }
-                      },
+            // ── Status filter row ──────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _FilterChip(
+                      label: 'All',
+                      selected: _statusFilter == null,
+                      onTap: () => _setStatus(null),
                     ),
-                  ),
-                );
-              },
+                    KSpacing.hGapSm,
+                    _FilterChip(
+                      label: 'Pending',
+                      selected: _statusFilter == 'PENDING',
+                      onTap: () => _setStatus('PENDING'),
+                    ),
+                    KSpacing.hGapSm,
+                    _FilterChip(
+                      label: 'In Progress',
+                      selected: _statusFilter == 'IN_PROGRESS',
+                      onTap: () => _setStatus('IN_PROGRESS'),
+                    ),
+                    KSpacing.hGapSm,
+                    _FilterChip(
+                      label: 'Passed',
+                      selected: _statusFilter == 'PASSED',
+                      onTap: () => _setStatus('PASSED'),
+                    ),
+                    KSpacing.hGapSm,
+                    _FilterChip(
+                      label: 'Failed',
+                      selected: _statusFilter == 'FAILED',
+                      onTap: () => _setStatus('FAILED'),
+                    ),
+                    KSpacing.hGapSm,
+                    _FilterChip(
+                      label: 'Partial',
+                      selected: _statusFilter == 'PARTIAL',
+                      onTap: () => _setStatus('PARTIAL'),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
-        ],
+
+            // ── Type filter row ────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _FilterChip(
+                      label: 'All Types',
+                      selected: _typeFilter == null,
+                      onTap: () => _setType(null),
+                    ),
+                    KSpacing.hGapSm,
+                    _FilterChip(
+                      label: 'Incoming',
+                      selected: _typeFilter == 'INCOMING',
+                      onTap: () => _setType('INCOMING'),
+                    ),
+                    KSpacing.hGapSm,
+                    _FilterChip(
+                      label: 'In-Process',
+                      selected: _typeFilter == 'IN_PROCESS',
+                      onTap: () => _setType('IN_PROCESS'),
+                    ),
+                    KSpacing.hGapSm,
+                    _FilterChip(
+                      label: 'Outgoing',
+                      selected: _typeFilter == 'OUTGOING',
+                      onTap: () => _setType('OUTGOING'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // ── List ───────────────────────────────────────────────────────
+            Expanded(
+              child: inspectionsAsync.when(
+                loading: () =>
+                    const Center(child: KLoading(message: 'Loading inspections...')),
+                error: (e, _) => KErrorView(
+                  message: e.toString(),
+                  onRetry: () => ref.invalidate(qcInspectionsProvider(filter)),
+                ),
+                data: (inspections) {
+                  if (inspections.isEmpty) {
+                    return const KEmptyState(
+                      icon: Icons.science_outlined,
+                      title: 'No inspections',
+                      subtitle: 'Create an inspection to begin quality control.',
+                    );
+                  }
+                  return RefreshIndicator(
+                    onRefresh: () async =>
+                        ref.invalidate(qcInspectionsProvider(filter)),
+                    child: ListView.builder(
+                      padding: KSpacing.pagePadding,
+                      itemCount: inspections.length,
+                      itemBuilder: (ctx, i) => _InspectionCard(
+                        inspection: inspections[i],
+                        onTap: () {
+                          final id = inspections[i]['id']?.toString();
+                          if (id != null) {
+                            context.go('/manufacturing/qc-inspections/$id');
+                          }
+                        },
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+        floatingActionButton: FloatingActionButton.extended(
+          backgroundColor: KColors.primary,
+          foregroundColor: Colors.white,
+          onPressed: () => _showCreateSheet(context),
+          icon: const Icon(Icons.add),
+          label: const Text('New Inspection'),
+          tooltip: 'New Inspection (N)',
+        ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showCreateSheet(context),
-        icon: const Icon(Icons.add),
-        label: const Text('New Inspection'),
-        tooltip: 'New Inspection (N)',
-      ),
-    ),
     );
   }
 
@@ -226,7 +231,6 @@ class _InspectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final number =
         inspection['inspectionNumber']?.toString() ?? 'QC-?';
     final status = inspection['status']?.toString() ?? '';
@@ -244,7 +248,7 @@ class _InspectionCard extends StatelessWidget {
       child: KCard(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(KSpacing.md),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -253,38 +257,36 @@ class _InspectionCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       number,
-                      style: theme.textTheme.titleSmall
-                          ?.copyWith(fontWeight: FontWeight.w600),
+                      style: KTypography.mono(fontSize: 14, fontWeight: FontWeight.w700),
                     ),
                   ),
                   KStatusChip(status: status),
                 ],
               ),
-              const SizedBox(height: 8),
+              KSpacing.vGapSm,
               Row(
                 children: [
                   _TypeBadge(type: type),
-                  const SizedBox(width: 12),
+                  KSpacing.hGapMd,
                   if (itemId.isNotEmpty)
                     Text(
                       'Item: $itemId',
-                      style: theme.textTheme.bodySmall,
+                      style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
                     ),
                 ],
               ),
-              const SizedBox(height: 4),
+              KSpacing.vGapXs,
               Wrap(
                 spacing: 16,
                 children: [
                   Text(
                     'Qty: $inspectedQty',
-                    style: theme.textTheme.bodySmall,
+                    style: KTypography.bodySmall,
                   ),
                   if (inspectedAt != null)
                     Text(
                       _formatDate(inspectedAt),
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: Colors.grey),
+                      style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
                     ),
                 ],
               ),
@@ -314,10 +316,10 @@ class _TypeBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, color) = switch (type) {
-      'INCOMING' => ('IQC', Colors.teal),
-      'IN_PROCESS' => ('IPQC', Colors.orange),
-      'OUTGOING' => ('OQC', Colors.indigo),
-      _ => (type, Colors.grey),
+      'INCOMING' => ('IQC', KColors.info),
+      'IN_PROCESS' => ('IPQC', KColors.warning),
+      'OUTGOING' => ('OQC', KColors.primary),
+      _ => (type, KColors.textSecondary),
     };
 
     return Container(
@@ -329,10 +331,10 @@ class _TypeBadge extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w600,
-            ),
+        style: KTypography.labelSmall.copyWith(
+          color: color,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -373,7 +375,6 @@ class _CreateInspectionSheetState
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final bottom = MediaQuery.of(context).viewInsets.bottom;
 
     return Padding(
@@ -385,15 +386,10 @@ class _CreateInspectionSheetState
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Title row
               Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      'New Inspection',
-                      style: theme.textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w600),
-                    ),
+                    child: Text('New Inspection', style: KTypography.h3),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close),
@@ -401,9 +397,8 @@ class _CreateInspectionSheetState
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              KSpacing.vGapMd,
 
-              // Inspection type
               DropdownButtonFormField<String>(
                 initialValue: _inspectionType,
                 decoration: const InputDecoration(
@@ -422,9 +417,8 @@ class _CreateInspectionSheetState
                   if (v != null) setState(() => _inspectionType = v);
                 },
               ),
-              const SizedBox(height: 12),
+              KSpacing.vGapSm,
 
-              // Item ID
               TextFormField(
                 controller: _itemIdCtl,
                 decoration: const InputDecoration(
@@ -434,9 +428,8 @@ class _CreateInspectionSheetState
                 validator: (v) =>
                     (v == null || v.trim().isEmpty) ? 'Required' : null,
               ),
-              const SizedBox(height: 12),
+              KSpacing.vGapSm,
 
-              // Inspected qty
               TextFormField(
                 controller: _inspectedQtyCtl,
                 decoration: const InputDecoration(
@@ -453,9 +446,8 @@ class _CreateInspectionSheetState
                   return null;
                 },
               ),
-              const SizedBox(height: 12),
+              KSpacing.vGapSm,
 
-              // Template ID (optional)
               TextFormField(
                 controller: _templateIdCtl,
                 decoration: const InputDecoration(
@@ -463,9 +455,8 @@ class _CreateInspectionSheetState
                   border: OutlineInputBorder(),
                 ),
               ),
-              const SizedBox(height: 12),
+              KSpacing.vGapSm,
 
-              // Reference type (optional)
               TextFormField(
                 controller: _referenceTypeCtl,
                 decoration: const InputDecoration(
@@ -474,9 +465,8 @@ class _CreateInspectionSheetState
                   border: OutlineInputBorder(),
                 ),
               ),
-              const SizedBox(height: 12),
+              KSpacing.vGapSm,
 
-              // Reference ID (optional)
               TextFormField(
                 controller: _referenceIdCtl,
                 decoration: const InputDecoration(
@@ -484,21 +474,13 @@ class _CreateInspectionSheetState
                   border: OutlineInputBorder(),
                 ),
               ),
-              const SizedBox(height: 20),
+              KSpacing.vGapLg,
 
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _submitting ? null : _submit,
-                  child: _submitting
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Text('Create Inspection'),
-                ),
+              KButton.primary(
+                fullWidth: true,
+                onPressed: _submitting ? null : _submit,
+                isLoading: _submitting,
+                label: 'Create Inspection',
               ),
             ],
           ),
@@ -532,14 +514,14 @@ class _CreateInspectionSheetState
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Inspection created'),
-            backgroundColor: Colors.green,
+            backgroundColor: KColors.success,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed: $e')),
+          SnackBar(content: Text('Failed: $e'), backgroundColor: KColors.error),
         );
       }
     } finally {

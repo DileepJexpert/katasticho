@@ -32,6 +32,7 @@ import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
 import com.katasticho.erp.contact.dto.ContactLedgerResponse;
 import com.katasticho.erp.contact.service.ContactLedgerService;
+import com.katasticho.erp.pos.dto.BatchOfflineSyncResponse;
 import com.katasticho.erp.pos.dto.CreateSalesReceiptRequest;
 import com.katasticho.erp.pos.dto.CustomerHistoryResponse;
 import com.katasticho.erp.pos.dto.SalesReceiptResponse;
@@ -57,6 +58,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -110,6 +112,17 @@ public class SalesReceiptService {
     public SalesReceiptResponse create(CreateSalesReceiptRequest request) {
         UUID orgId = TenantContext.getCurrentOrgId();
         UUID userId = TenantContext.getCurrentUserId();
+
+        // Idempotency check for offline sync receipts
+        if (request.offlineReceiptNumber() != null && !request.offlineReceiptNumber().isBlank()) {
+            Optional<SalesReceipt> existing = receiptRepository
+                    .findByOrgIdAndOfflineReceiptNumberAndIsDeletedFalse(orgId, request.offlineReceiptNumber());
+            if (existing.isPresent()) {
+                log.info("Offline receipt {} already synced as {} for org {}",
+                        request.offlineReceiptNumber(), existing.get().getReceiptNumber(), orgId);
+                return toResponse(existing.get());
+            }
+        }
 
         // 1. Generate receipt number
         int year = request.receiptDate().getYear();
@@ -345,7 +358,20 @@ public class SalesReceiptService {
         }
 
         // 4. Persist receipt + lines
-        receipt = receiptRepository.save(receipt);
+        try {
+            receipt = receiptRepository.save(receipt);
+        } catch (org.springframework.dao.DataIntegrityViolationException dive) {
+            if (request.offlineReceiptNumber() != null && !request.offlineReceiptNumber().isBlank()) {
+                Optional<SalesReceipt> raced = receiptRepository
+                        .findByOrgIdAndOfflineReceiptNumberAndIsDeletedFalse(orgId, request.offlineReceiptNumber());
+                if (raced.isPresent()) {
+                    log.info("Concurrent sync caught by unique constraint for offline receipt {}: returning existing {}",
+                            request.offlineReceiptNumber(), raced.get().getReceiptNumber());
+                    return toResponse(raced.get());
+                }
+            }
+            throw dive;
+        }
 
         // Save tax line items
         final UUID receiptId = receipt.getId();
@@ -670,6 +696,7 @@ public class SalesReceiptService {
         return new SalesReceiptResponse(
                 receipt.getId(),
                 receipt.getReceiptNumber(),
+                receipt.getOfflineReceiptNumber(),
                 receipt.getReceiptDate(),
                 receipt.getBranchId(),
                 receipt.getContactId(),
@@ -749,5 +776,52 @@ public class SalesReceiptService {
                 receipts.size(),
                 days,
                 summaries);
+    }
+
+    /**
+     * Batch syncs offline-generated POS receipts. Each receipt is processed
+     * idempotently based on {@code offlineReceiptNumber}. Errors on one receipt
+     * do not abort the remaining queue items.
+     */
+    public BatchOfflineSyncResponse batchOfflineSync(List<CreateSalesReceiptRequest> requests) {
+        if (requests == null || requests.isEmpty()) {
+            return new BatchOfflineSyncResponse(0, 0, 0, 0, List.of(), List.of());
+        }
+
+        UUID orgId = TenantContext.getCurrentOrgId();
+        List<SalesReceiptResponse> synced = new java.util.ArrayList<>();
+        List<BatchOfflineSyncResponse.SyncError> errors = new java.util.ArrayList<>();
+        int duplicates = 0;
+
+        for (CreateSalesReceiptRequest req : requests) {
+            try {
+                if (req.offlineReceiptNumber() != null && !req.offlineReceiptNumber().isBlank()) {
+                    Optional<SalesReceipt> existing = receiptRepository
+                            .findByOrgIdAndOfflineReceiptNumberAndIsDeletedFalse(orgId, req.offlineReceiptNumber());
+                    if (existing.isPresent()) {
+                        duplicates++;
+                        synced.add(toResponse(existing.get()));
+                        continue;
+                    }
+                }
+                SalesReceiptResponse res = create(req);
+                synced.add(res);
+            } catch (Exception e) {
+                log.error("Failed to sync offline receipt {}: {}", req.offlineReceiptNumber(), e.getMessage());
+                errors.add(new BatchOfflineSyncResponse.SyncError(
+                        req.offlineReceiptNumber() != null ? req.offlineReceiptNumber() : "UNKNOWN",
+                        e.getMessage()
+                ));
+            }
+        }
+
+        return new BatchOfflineSyncResponse(
+                requests.size(),
+                synced.size() - duplicates,
+                duplicates,
+                errors.size(),
+                synced,
+                errors
+        );
     }
 }

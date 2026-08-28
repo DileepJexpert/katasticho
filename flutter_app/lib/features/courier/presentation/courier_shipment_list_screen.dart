@@ -95,7 +95,7 @@ class _CourierShipmentListScreenState
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: KLoading())
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView(
@@ -114,13 +114,13 @@ class _CourierShipmentListScreenState
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.assignment_return, color: KColors.error),
+                          const Icon(Icons.assignment_return, color: KColors.error),
                           KSpacing.hGapSm,
                           Expanded(
                             child: Text(
                               '$_pendingRto parcel(s) returned to you — issue a credit note and restock the items.',
                               style: KTypography.labelLarge
-                                  .copyWith(color: KColors.error),
+                                   .copyWith(color: KColors.error),
                             ),
                           ),
                         ],
@@ -202,25 +202,36 @@ class _CourierShipmentListScreenState
                   ),
                   if (awb != null && awb.isNotEmpty)
                     Text('AWB: $awb',
-                        style: KTypography.bodySmall
-                            .copyWith(color: KColors.textSecondary)),
+                        style: KTypography.mono(
+                            fontSize: 11, color: KColors.textSecondary)),
+                  KSpacing.vGapXxs,
                   Row(
                     children: [
-                      Text(status,
-                          style: KTypography.bodySmall.copyWith(color: color)),
+                      KStatusChip(status: status),
                       if (cod) ...[
                         KSpacing.hGapSm,
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 1),
+                              horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
                             color: KColors.warning.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: Text(
-                            'COD ₹${codAmt.toStringAsFixed(0)}',
-                            style: KTypography.bodySmall
-                                .copyWith(color: KColors.warning),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'COD ',
+                                style: KTypography.bodySmall
+                                    .copyWith(color: KColors.warning, fontWeight: FontWeight.w600),
+                              ),
+                              KMoney(
+                                codAmt,
+                                size: KMoneySize.small,
+                                style: KTypography.bodySmall
+                                    .copyWith(color: KColors.warning, fontWeight: FontWeight.w600),
+                              ),
+                            ],
                           ),
                         ),
                       ],

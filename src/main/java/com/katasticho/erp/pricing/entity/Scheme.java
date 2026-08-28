@@ -49,6 +49,23 @@ public class Scheme {
     @Column(name = "supplier_id")
     private UUID supplierId;
 
+    @Column(name = "allow_half_scheme", nullable = false)
+    @Builder.Default
+    private boolean allowHalfScheme = true;
+
+    @Column(name = "half_scheme_min_qty")
+    private BigDecimal halfSchemeMinQty;
+
+    @Column(name = "company_subsidy_percent")
+    @Builder.Default
+    private BigDecimal companySubsidyPercent = new BigDecimal("100.00");
+
+    @Column(name = "special_net_rate")
+    private BigDecimal specialNetRate;
+
+    @Column(name = "max_free_quantity_cap")
+    private BigDecimal maxFreeQuantityCap;
+
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private boolean active = true;

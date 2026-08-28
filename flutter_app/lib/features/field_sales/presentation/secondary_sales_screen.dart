@@ -6,7 +6,6 @@ import '../../../core/api/api_config.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/widgets.dart';
 
 /// Stockist Secondary Sales / Stock & Sales Statement (SSS).
@@ -214,12 +213,14 @@ class _StatementsTabState extends ConsumerState<_StatementsTab> {
   Widget build(BuildContext context) {
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: KColors.primary,
+        foregroundColor: Colors.white,
         onPressed: () => _openEditor(),
         icon: const Icon(Icons.add),
         label: const Text('New statement'),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: KLoading())
           : ListView(
               padding: KSpacing.pagePadding,
               children: [
@@ -227,7 +228,7 @@ class _StatementsTabState extends ConsumerState<_StatementsTab> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text('Stock & Sales Statement', style: KTypography.h3),
+                      Text('Stock & Sales Statement', style: KTypography.titleLarge),
                       KSpacing.vGapSm,
                       Row(
                         children: [
@@ -272,15 +273,12 @@ class _StatementsTabState extends ConsumerState<_StatementsTab> {
                 ),
                 KSpacing.vGapMd,
                 if (_statements.isEmpty)
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(32),
-                      child: Text(
-                        'No statements for ${_monthLabel(_month)}',
-                        style: KTypography.bodyMedium
-                            .copyWith(color: KColors.textHint),
-                      ),
-                    ),
+                  KEmptyState(
+                    icon: Icons.assignment_outlined,
+                    title: 'No statements found for ${_monthLabel(_month)}',
+                    subtitle: 'Create a stockist secondary sales statement by picking a stockist and clicking "New statement".',
+                    actionLabel: 'New statement',
+                    onAction: () => _openEditor(),
                   )
                 else
                   ..._statements.map(_statementCard),
@@ -296,6 +294,7 @@ class _StatementsTabState extends ConsumerState<_StatementsTab> {
     return Padding(
       padding: const EdgeInsets.only(bottom: KSpacing.sm),
       child: KCard(
+        statusAccent: color,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -304,19 +303,10 @@ class _StatementsTabState extends ConsumerState<_StatementsTab> {
                 Expanded(
                   child: Text(
                     _contactName(s['stockistContactId']?.toString()),
-                    style: KTypography.labelLarge,
+                    style: KTypography.labelLarge.copyWith(fontWeight: FontWeight.w700),
                   ),
                 ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(status,
-                      style: KTypography.labelSmall.copyWith(color: color)),
-                ),
+                KStatusChip(status: status),
               ],
             ),
             KSpacing.vGapXs,
@@ -333,27 +323,30 @@ class _StatementsTabState extends ConsumerState<_StatementsTab> {
             Row(
               children: [
                 Expanded(
-                  child: OutlinedButton.icon(
+                  child: KButton.outlined(
                     onPressed: () => _view(s),
-                    icon: const Icon(Icons.visibility, size: 16),
-                    label: const Text('View'),
+                    icon: Icons.visibility,
+                    size: KButtonSize.small,
+                    label: 'View',
                   ),
                 ),
                 if (isDraft) ...[
                   KSpacing.hGapSm,
                   Expanded(
-                    child: OutlinedButton.icon(
+                    child: KButton.outlined(
                       onPressed: () => _openEditor(existing: s),
-                      icon: const Icon(Icons.edit, size: 16),
-                      label: const Text('Edit'),
+                      icon: Icons.edit,
+                      size: KButtonSize.small,
+                      label: 'Edit',
                     ),
                   ),
                   KSpacing.hGapSm,
                   Expanded(
-                    child: FilledButton.icon(
+                    child: KButton.primary(
                       onPressed: () => _submit(s),
-                      icon: const Icon(Icons.check, size: 16),
-                      label: const Text('Submit'),
+                      icon: Icons.check,
+                      size: KButtonSize.small,
+                      label: 'Submit',
                     ),
                   ),
                 ],
@@ -721,9 +714,13 @@ class _StatementViewDialogState extends ConsumerState<_StatementViewDialog> {
                                   style: KTypography.bodySmall
                                       .copyWith(color: KColors.textSecondary),
                                 ),
-                                Text(
-                                  'Sales value: ${CurrencyFormatter.formatIndian(_num(l['salesValue']))}',
-                                  style: KTypography.bodySmall,
+                                Row(
+                                  children: [
+                                    Text('Sales value: ',
+                                        style: KTypography.bodySmall),
+                                    KMoney(_num(l['salesValue']),
+                                        size: KMoneySize.small),
+                                  ],
                                 ),
                                 const Divider(),
                               ],
@@ -850,74 +847,67 @@ class _ReportsTabState extends ConsumerState<_ReportsTab> {
             ),
           )
         else ...[
-          Text('Secondary sales', style: KTypography.h3),
+          Text('Secondary Sales', style: KTypography.h4),
           KSpacing.vGapSm,
           if (_sales.isEmpty)
             _empty('No secondary sales in this range')
           else
-            ..._sales.map((r) => Padding(
-                  padding: const EdgeInsets.only(bottom: KSpacing.sm),
-                  child: KCard(
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(r['productName']?.toString() ?? '',
-                                  style: KTypography.labelLarge),
-                              Text(
-                                'Sales ${_num(r['salesQty']).toStringAsFixed(0)} · '
-                                'Return ${_num(r['returnQty']).toStringAsFixed(0)} · '
-                                'Net ${_num(r['netSalesQty']).toStringAsFixed(0)}',
-                                style: KTypography.bodySmall
-                                    .copyWith(color: KColors.textSecondary),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Text(
-                          CurrencyFormatter.formatIndian(_num(r['salesValue'])),
-                          style: KTypography.labelLarge
-                              .copyWith(color: KColors.primary),
-                        ),
-                      ],
-                    ),
+            KDataTable(
+              columns: const [
+                KTableColumn(label: 'Product'),
+                KTableColumn(label: 'Sales Qty', numeric: true),
+                KTableColumn(label: 'Return Qty', numeric: true),
+                KTableColumn(label: 'Net Qty', numeric: true),
+                KTableColumn(label: 'Sales Value', numeric: true),
+              ],
+              rows: _sales.map((r) {
+                return [
+                  Text(
+                    r['productName']?.toString() ?? '',
+                    style: KTypography.bodySmall.copyWith(fontWeight: FontWeight.w600),
                   ),
-                )),
+                  Text(_num(r['salesQty']).toStringAsFixed(0), style: KTypography.bodySmall),
+                  Text(_num(r['returnQty']).toStringAsFixed(0), style: KTypography.bodySmall),
+                  Text(_num(r['netSalesQty']).toStringAsFixed(0), style: KTypography.bodySmall),
+                  KMoney(_num(r['salesValue']), size: KMoneySize.small),
+                ];
+              }).toList(),
+            ),
           KSpacing.vGapLg,
-          Text('Stock on hand · ${_monthLabel(_from)}', style: KTypography.h3),
+          Text('Stock on Hand · ${_monthLabel(_from)}', style: KTypography.h4),
           KSpacing.vGapSm,
           if (_stock.isEmpty)
             _empty('No stock-on-hand for this month')
           else
-            ..._stock.map((r) => Padding(
-                  padding: const EdgeInsets.only(bottom: KSpacing.sm),
-                  child: KCard(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(r['productName']?.toString() ?? '',
-                              style: KTypography.bodyMedium),
-                        ),
-                        Text(_num(r['closingQty']).toStringAsFixed(0),
-                            style: KTypography.labelLarge),
-                      ],
-                    ),
+            KDataTable(
+              columns: const [
+                KTableColumn(label: 'Product'),
+                KTableColumn(label: 'Closing Qty', numeric: true),
+              ],
+              rows: _stock.map((r) {
+                return [
+                  Text(
+                    r['productName']?.toString() ?? '',
+                    style: KTypography.bodySmall.copyWith(fontWeight: FontWeight.w600),
                   ),
-                )),
+                  Text(_num(r['closingQty']).toStringAsFixed(0), style: KTypography.bodySmall),
+                ];
+              }).toList(),
+            ),
         ],
       ],
     );
   }
 
-  Widget _empty(String msg) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        child: Center(
-          child: Text(msg,
-              style:
-                  KTypography.bodyMedium.copyWith(color: KColors.textHint)),
+  Widget _empty(String msg) => KCard(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Center(
+            child: Text(
+              msg,
+              style: KTypography.bodyMedium.copyWith(color: KColors.textSecondary),
+            ),
+          ),
         ),
       );
 }

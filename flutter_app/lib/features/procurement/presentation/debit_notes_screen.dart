@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../routing/app_router.dart';
@@ -103,6 +102,8 @@ class _DebitNotesScreenState extends ConsumerState<DebitNotesScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: KColors.primary,
+        foregroundColor: Colors.white,
         onPressed: () => context.go(Routes.debitNoteCreate),
         icon: const Icon(Icons.add),
         label: const Text('New Debit Note'),
@@ -190,7 +191,10 @@ class _DebitNoteCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Text(dnNumber, style: KTypography.labelLarge),
+                    Text(
+                      dnNumber,
+                      style: KTypography.mono(fontSize: 13, weight: FontWeight.w600),
+                    ),
                     KSpacing.hGapSm,
                     KStatusChip(status: status),
                   ],
@@ -225,15 +229,10 @@ class _DebitNoteCard extends StatelessWidget {
               ],
             ),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                CurrencyFormatter.formatIndian(total),
-                style: KTypography.amountMedium,
-              ),
-              Text('Total', style: KTypography.labelSmall),
-            ],
+          KMoney(
+            total,
+            size: KMoneySize.medium,
+            style: const TextStyle(fontWeight: FontWeight.w700),
           ),
           KSpacing.hGapSm,
           const Icon(Icons.chevron_right, color: KColors.textHint),

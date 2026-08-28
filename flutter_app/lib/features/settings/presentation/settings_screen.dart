@@ -154,6 +154,18 @@ class SettingsScreen extends ConsumerWidget {
               onTap: () => context.push(Routes.workflowSettings),
             ),
             _SettingsTile(
+              icon: Icons.alt_route_outlined,
+              title: 'Custom Workflow Rules',
+              subtitle: 'Event-driven webhooks, email alerts, and auto field mutations',
+              onTap: () => context.push(Routes.workflowRules),
+            ),
+            _SettingsTile(
+              icon: Icons.schedule_outlined,
+              title: 'Payment Terms & Dunning',
+              subtitle: 'Instalment schedules and automated overdue reminder notices',
+              onTap: () => context.push(Routes.paymentTerms),
+            ),
+            _SettingsTile(
               icon: Icons.table_chart_outlined,
               title: 'Chart of Accounts',
               subtitle: 'Manage account structure',
@@ -262,6 +274,13 @@ class SettingsScreen extends ConsumerWidget {
               subtitle:
                   'Hide menu entries from your team to declutter the sidebar',
               onTap: () => context.push(Routes.navCustomisation),
+            ),
+            _SettingsTile(
+              icon: Icons.tune_outlined,
+              title: 'User-Defined Custom Fields (UDF)',
+              subtitle:
+                  'Add custom metadata fields to Contacts, Items, Invoices & Orders',
+              onTap: () => context.push(Routes.customFields),
             ),
             _SettingsTile(
               icon: Icons.cloud_sync_outlined,

@@ -111,11 +111,17 @@ class KShortcutHelpOverlay extends StatelessWidget {
     }
 
     if (showFormShortcuts) {
-      groups.add(const _ShortcutGroup('Form', [
-        (KShortcuts.formSubmit, 'Submit / save'),
+      groups.add(const _ShortcutGroup('Form & Billing', [
+        (KShortcuts.formSubmit, 'Submit / save document'),
+        (KShortcuts.billingPrint, 'Save & Print'),
+        (KShortcuts.billingDateJump, 'Jump to Date picker'),
+        (KShortcuts.billingItemLookup, 'Item lookup / Add line'),
+        (KShortcuts.billingSchemeLookup, 'Schemes & Promotions'),
+        (KShortcuts.billingQuickCreate, 'Quick Create (Party/Item)'),
+        (KShortcuts.billingAddRow, 'Next field / Add line on last'),
         (KShortcuts.formNextStep, 'Next step'),
         (KShortcuts.formPrevStep, 'Previous step'),
-        (KShortcuts.formCancel, 'Cancel'),
+        (KShortcuts.formCancel, 'Cancel / Dismiss'),
       ]));
     }
 

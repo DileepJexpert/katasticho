@@ -148,7 +148,7 @@ class _StockAdjustSheetState extends ConsumerState<StockAdjustSheet> {
               maxLines: 2,
             ),
             KSpacing.vGapLg,
-            KButton(
+            KButton.primary(
               label: 'Save Adjustment',
               fullWidth: true,
               isLoading: _saving,

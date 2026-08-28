@@ -174,4 +174,15 @@ public interface ContactRepository extends JpaRepository<Contact, UUID> {
 
     /** Customers pinned to a specific price list (contact.defaultPriceListId). */
     List<Contact> findByOrgIdAndDefaultPriceListIdAndIsDeletedFalse(UUID orgId, UUID priceListId);
+
+    @Query("""
+            SELECT c FROM Contact c
+            WHERE c.orgId = :orgId
+              AND c.isDeleted = false
+              AND (c.phone = :phone OR c.mobile = :phone 
+                   OR c.phone LIKE CONCAT('%', :last10) OR c.mobile LIKE CONCAT('%', :last10))
+            ORDER BY c.createdAt ASC
+            LIMIT 1
+            """)
+    Optional<Contact> findByOrgIdAndPhoneMatch(@Param("orgId") UUID orgId, @Param("phone") String phone, @Param("last10") String last10);
 }

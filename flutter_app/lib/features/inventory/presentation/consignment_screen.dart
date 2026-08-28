@@ -1,7 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
@@ -24,9 +23,6 @@ class ConsignmentScreen extends ConsumerStatefulWidget {
 }
 
 class _ConsignmentScreenState extends ConsumerState<ConsignmentScreen> {
-  static final _money = NumberFormat.currency(
-      locale: 'en_IN', symbol: '₹', decimalDigits: 2);
-
   bool _loading = true;
   String? _error;
   List<Map<String, dynamic>> _stock = [];
@@ -163,7 +159,7 @@ class _ConsignmentScreenState extends ConsumerState<ConsignmentScreen> {
               KSpacing.vGapSm,
               KTextField(label: 'Agreement ref (optional)', controller: ref0),
               KSpacing.vGapMd,
-              KButton(
+              KButton.primary(
                 label: 'Receive',
                 icon: Icons.inventory_2_outlined,
                 onPressed: () => Navigator.pop(ctx, true),
@@ -206,12 +202,17 @@ class _ConsignmentScreenState extends ConsumerState<ConsignmentScreen> {
           decoration: const InputDecoration(labelText: 'Quantity sold'),
         ),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
-          FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Record')),
+          KButton.outlined(
+            label: 'Cancel',
+            size: KButtonSize.small,
+            onPressed: () => Navigator.pop(ctx, false),
+          ),
+          KSpacing.hGapSm,
+          KButton.primary(
+            label: 'Record',
+            size: KButtonSize.small,
+            onPressed: () => Navigator.pop(ctx, true),
+          ),
         ],
       ),
     );
@@ -296,6 +297,8 @@ class _ConsignmentScreenState extends ConsumerState<ConsignmentScreen> {
                 ? KErrorView(message: _error!, onRetry: _load)
                 : TabBarView(children: [_stockTab(), _settlementsTab()]),
         floatingActionButton: FloatingActionButton.extended(
+          backgroundColor: KColors.primary,
+          foregroundColor: Colors.white,
           onPressed: _receiveSheet,
           icon: const Icon(Icons.add),
           label: const Text('Receive'),
@@ -354,16 +357,25 @@ class _ConsignmentScreenState extends ConsumerState<ConsignmentScreen> {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          '${qty.toStringAsFixed(2)} @ ${_money.format(cost)}  =  ${_money.format(qty * cost)}',
-                          style: KTypography.bodyMedium,
+                        child: Row(
+                          children: [
+                            Text(
+                              '${qty.toStringAsFixed(2)} @ ',
+                              style: KTypography.bodyMedium,
+                            ),
+                            KMoney(cost, size: KMoneySize.small),
+                            Text(
+                              '  =  ',
+                              style: KTypography.bodyMedium,
+                            ),
+                            KMoney(qty * cost, size: KMoneySize.small, style: const TextStyle(fontWeight: FontWeight.w700)),
+                          ],
                         ),
                       ),
                       if (status == 'ACTIVE' && qty > 0)
-                        KButton(
+                        KButton.outlined(
                           label: 'Record sale',
                           size: KButtonSize.small,
-                          variant: KButtonVariant.outlined,
                           onPressed: () => _recordSale(r),
                         ),
                     ],
@@ -420,6 +432,8 @@ class _ConsignmentScreenState extends ConsumerState<ConsignmentScreen> {
                 final s = _settlements[i];
                 final amt = (s['totalAmount'] as num?)?.toDouble() ?? 0;
                 final qty = (s['quantitySold'] as num?)?.toDouble() ?? 0;
+                final settlementNumber = s['settlementNumber']?.toString() ?? 'Settlement';
+
                 return KCard(
                   child: Padding(
                     padding: const EdgeInsets.all(KSpacing.md),
@@ -430,9 +444,9 @@ class _ConsignmentScreenState extends ConsumerState<ConsignmentScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                  s['settlementNumber']?.toString() ??
-                                      'Settlement',
-                                  style: KTypography.labelLarge),
+                                settlementNumber,
+                                style: KTypography.mono(size: 13, weight: FontWeight.w700),
+                              ),
                               Text(
                                   '${qty.toStringAsFixed(2)} sold · ${s['settlementDate'] ?? ''}',
                                   style: KTypography.bodySmall.copyWith(
@@ -440,11 +454,9 @@ class _ConsignmentScreenState extends ConsumerState<ConsignmentScreen> {
                             ],
                           ),
                         ),
-                        Text(_money.format(amt),
-                            style: KTypography.labelLarge
-                                .copyWith(color: KColors.primary)),
+                        KMoney(amt, size: KMoneySize.small, style: const TextStyle(fontWeight: FontWeight.w700, color: KColors.primary)),
                         KSpacing.hGapSm,
-                        KButton(
+                        KButton.primary(
                           label: 'Settle',
                           size: KButtonSize.small,
                           onPressed: () => _settle(s),

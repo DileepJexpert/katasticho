@@ -3,16 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
+import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/api_error_parser.dart';
+import '../../../core/widgets/widgets.dart';
 
 /// Tracker #34: set an item's production mode (MTO / MTS / NONE).
-///
-/// Two replenishment automations now read this flag:
-/// - MTO  — only the SO→WO path fires for this item (reorder sweep skips).
-/// - MTS  — only the reorder sweep fires (SO→WO skips).
-/// - NONE — legacy: both fire (existing behaviour for unset items).
 class ProductionModeScreen extends ConsumerStatefulWidget {
   const ProductionModeScreen({super.key});
 
@@ -50,12 +47,12 @@ class _ProductionModeScreenState extends ConsumerState<ProductionModeScreen> {
         _msg = _mode == null
             ? 'Cleared — item reverts to legacy (both automations).'
             : 'Set to $_mode.';
-        _msgColor = Colors.green;
+        _msgColor = KColors.success;
       });
     } catch (e) {
       setState(() {
         _msg = ApiErrorParser.message(e);
-        _msgColor = Colors.red;
+        _msgColor = KColors.error;
       });
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -67,39 +64,42 @@ class _ProductionModeScreenState extends ConsumerState<ProductionModeScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Production Mode (MTO / MTS)')),
       body: Padding(
-        padding: const EdgeInsets.all(KSpacing.md),
+        padding: KSpacing.pagePadding,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Card(
-              color: Colors.blueGrey.shade50,
+            KCard(
               child: Padding(
                 padding: const EdgeInsets.all(KSpacing.md),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text('How replenishment fires for this composite item:',
-                        style: TextStyle(fontWeight: FontWeight.w600)),
-                    SizedBox(height: 6),
-                    Text('• MTO — only on a sale order. Reorder sweep skips.'),
-                    Text('• MTS — only when stock falls below reorder. SO→WO skips.'),
-                    Text('• NONE — both automations fire (legacy default).'),
+                  children: [
+                    Text(
+                      'How replenishment fires for this composite item:',
+                      style: KTypography.labelLarge,
+                    ),
+                    KSpacing.vGapSm,
+                    Text('• MTO — only on a sale order. Reorder sweep skips.', style: KTypography.bodySmall),
+                    KSpacing.vGapXxs,
+                    Text('• MTS — only when stock falls below reorder. SO→WO skips.', style: KTypography.bodySmall),
+                    KSpacing.vGapXxs,
+                    Text('• NONE — both automations fire (legacy default).', style: KTypography.bodySmall),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: KSpacing.md),
+            KSpacing.vGapMd,
             TextField(
               controller: _itemCtl,
               decoration: const InputDecoration(
-                labelText: 'Item id',
-                helperText: 'UUID of the composite item',
+                labelText: 'Item ID',
+                hintText: 'UUID of the composite item',
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: KSpacing.md),
-            Text('Production mode', style: KTypography.titleSmall),
-            const SizedBox(height: 6),
+            KSpacing.vGapMd,
+            Text('Production Mode', style: KTypography.titleSmall),
+            KSpacing.vGapXs,
             Wrap(
               spacing: 8,
               children: [
@@ -120,18 +120,20 @@ class _ProductionModeScreenState extends ConsumerState<ProductionModeScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: KSpacing.md),
-            FilledButton.icon(
+            KSpacing.vGapLg,
+            KButton.primary(
               onPressed: _saving ? null : _save,
-              icon: const Icon(Icons.save),
-              label: const Text('Save production mode'),
+              isLoading: _saving,
+              icon: Icons.save,
+              label: 'Save Production Mode',
             ),
             if (_msg != null)
               Padding(
                 padding: const EdgeInsets.only(top: KSpacing.md),
-                child: Text(_msg!,
-                    style: TextStyle(color: _msgColor,
-                        fontWeight: FontWeight.w600)),
+                child: Text(
+                  _msg!,
+                  style: TextStyle(color: _msgColor, fontWeight: FontWeight.w600),
+                ),
               ),
           ],
         ),

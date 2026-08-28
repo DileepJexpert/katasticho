@@ -142,25 +142,13 @@ class _BatchPickerSheetState extends ConsumerState<_BatchPickerSheet> {
                   return d == null || !_isBeforeToday(d);
                 }).toList();
                 if (batches.isEmpty) {
-                  return Padding(
-                    padding: const EdgeInsets.all(KSpacing.xl),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.inbox_outlined,
-                            size: 48, color: KColors.textSecondary),
-                        KSpacing.vGapMd,
-                        Text('No batch stock available',
-                            style: KTypography.labelLarge),
-                        KSpacing.vGapXs,
-                        Text(
-                          'This item is batch-tracked but has no on-hand '
-                          'stock. Receive a batch via Stock Receipt first.',
-                          textAlign: TextAlign.center,
-                          style: KTypography.bodySmall
-                              .copyWith(color: KColors.textSecondary),
-                        ),
-                      ],
+                  return const Padding(
+                    padding: EdgeInsets.all(KSpacing.xl),
+                    child: KEmptyState(
+                      icon: Icons.inbox_outlined,
+                      title: 'No batch stock available',
+                      subtitle:
+                          'This item is batch-tracked but has no on-hand stock. Receive a batch via Stock Receipt first.',
                     ),
                   );
                 }
@@ -213,7 +201,7 @@ class _BatchTile extends StatelessWidget {
           Expanded(
             child: Text(
               batch['batchNumber']?.toString() ?? '(no batch number)',
-              style: KTypography.labelLarge,
+              style: KTypography.mono(size: 13, weight: FontWeight.w600),
             ),
           ),
           if (isEarliest)
@@ -249,12 +237,10 @@ class _BatchTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            const Icon(Icons.currency_rupee,
-                size: 12, color: KColors.textSecondary),
-            Text(
-              unitCost.toStringAsFixed(2),
-              style:
-                  KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+            KMoney(
+              unitCost,
+              size: KMoneySize.small,
+              style: const TextStyle(fontSize: 12),
             ),
           ],
         ),

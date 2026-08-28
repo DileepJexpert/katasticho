@@ -81,7 +81,7 @@ class _StockReceiptDetailScreenState
         data: (data) {
           final receipt = (data['data'] ?? data) as Map<String, dynamic>;
           final status = receipt['status'] as String? ?? '';
-           if (status != 'DRAFT' || _receiveCompleted) return null;
+          if (status != 'DRAFT' || _receiveCompleted) return null;
           return Container(
             padding: const EdgeInsets.all(KSpacing.md),
             decoration: BoxDecoration(
@@ -101,16 +101,16 @@ class _StockReceiptDetailScreenState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text('Total', style: KTypography.bodySmall),
-                      Text(
-                        CurrencyFormatter.formatIndian(
-                            (receipt['totalAmount'] as num?)?.toDouble() ?? 0),
-                        style: KTypography.amountLarge,
+                      Text('Receipt Total', style: KTypography.caption),
+                      KMoney(
+                        (receipt['totalAmount'] as num?)?.toDouble() ?? 0,
+                        size: KMoneySize.large,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
                     ],
                   ),
                   const Spacer(),
-                  KButton(
+                  KButton.primary(
                     label: 'Receive Stock',
                     icon: Icons.check_circle_outline,
                     isLoading: _receiving,
@@ -147,13 +147,14 @@ class _StockReceiptDetailScreenState
           'and cannot be edited.',
         ),
         actions: [
-          TextButton(
+          KButton.outlined(
+            label: 'Cancel',
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
           ),
-          FilledButton(
+          KSpacing.hGapSm,
+          KButton.primary(
+            label: 'Receive Stock',
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Receive'),
           ),
         ],
       ),
@@ -196,9 +197,9 @@ class _StockReceiptDetailScreenState
             title: const Text('Receive Failed'),
             content: Text(errorMsg),
             actions: [
-              TextButton(
+              KButton.primary(
+                label: 'OK',
                 onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('OK'),
               ),
             ],
           ),
@@ -235,14 +236,14 @@ class _StockReceiptDetailScreenState
           ],
         ),
         actions: [
-          TextButton(
+          KButton.outlined(
+            label: 'Back',
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Back'),
           ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: KColors.error),
+          KSpacing.hGapSm,
+          KButton.danger(
+            label: 'Cancel Receipt',
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Cancel Receipt'),
           ),
         ],
       ),
@@ -271,8 +272,8 @@ class _StockReceiptDetailScreenState
       debugPrint('[GrnDetail] cancel failed: $e');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Failed to cancel receipt'),
+          const SnackBar(
+            content: Text('Failed to cancel receipt'),
             backgroundColor: KColors.error,
           ),
         );
@@ -515,12 +516,13 @@ class _ReceiptItemsPanel extends StatelessWidget {
                     ),
                   ),
                 ),
-                DataCell(Text('$qtyText $uom')),
-                DataCell(Text(CurrencyFormatter.formatIndian(unitPrice))),
-                DataCell(Text(CurrencyFormatter.formatIndian(taxAmount))),
-                DataCell(Text(
-                  CurrencyFormatter.formatIndian(lineTotal),
-                  style: KTypography.amountSmall,
+                DataCell(Text('$qtyText $uom', style: KTypography.mono(fontSize: 12))),
+                DataCell(KMoney(unitPrice, size: KMoneySize.small)),
+                DataCell(KMoney(taxAmount, size: KMoneySize.small)),
+                DataCell(KMoney(
+                  lineTotal,
+                  size: KMoneySize.small,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
                 )),
               ],
             );
@@ -548,15 +550,44 @@ class _ReceiptSummaryPanel extends StatelessWidget {
       title: 'Summary',
       child: Column(
         children: [
-          _SummaryRow(
-              label: 'Taxable',
-              value: CurrencyFormatter.formatIndian(subtotal)),
-          _SummaryRow(label: 'GST', value: CurrencyFormatter.formatIndian(tax)),
-          const Divider(height: 28),
-          _SummaryRow(
-              label: 'Total',
-              value: CurrencyFormatter.formatIndian(total),
-              bold: true),
+          _DetailRow(label: 'Taxable', amount: subtotal),
+          _DetailRow(label: 'GST Tax', amount: tax),
+          const Divider(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Total', style: KTypography.labelLarge.copyWith(fontWeight: FontWeight.w700)),
+              KMoney(
+                total,
+                size: KMoneySize.medium,
+                style: const TextStyle(
+                  color: KColors.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  final String label;
+  final double amount;
+
+  const _DetailRow({required this.label, required this.amount});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
+          KMoney(amount, size: KMoneySize.small),
         ],
       ),
     );
@@ -586,33 +617,6 @@ class _TextBlock extends StatelessWidget {
           Text(title, style: KTypography.labelMedium),
           KSpacing.vGapXs,
           Text(value, style: KTypography.bodyMedium),
-        ],
-      ),
-    );
-  }
-}
-
-class _SummaryRow extends StatelessWidget {
-  final String label;
-  final String value;
-  final bool bold;
-  const _SummaryRow({
-    required this.label,
-    required this.value,
-    this.bold = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label,
-              style: bold ? KTypography.labelLarge : KTypography.bodyMedium),
-          Text(value,
-              style: bold ? KTypography.amountMedium : KTypography.amountSmall),
         ],
       ),
     );

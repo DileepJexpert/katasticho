@@ -5,7 +5,6 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../data/credit_note_providers.dart';
@@ -165,7 +164,7 @@ class _CreditNoteCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Text(creditNoteNumber, style: KTypography.labelLarge),
+                    Text(creditNoteNumber, style: KTypography.mono(fontSize: 14, fontWeight: FontWeight.w600)),
                     KSpacing.hGapSm,
                     KStatusChip(status: status),
                   ],
@@ -178,9 +177,17 @@ class _CreditNoteCard extends StatelessWidget {
                 ),
                 if (invoiceNumber != null) ...[
                   KSpacing.vGapXs,
-                  Text(
-                    'Against: $invoiceNumber',
-                    style: KTypography.bodySmall,
+                  Text.rich(
+                    TextSpan(
+                      text: 'Against: ',
+                      style: KTypography.bodySmall,
+                      children: [
+                        TextSpan(
+                          text: invoiceNumber,
+                          style: KTypography.mono(fontSize: 12),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
                 if (reason.isNotEmpty) ...[
@@ -195,11 +202,10 @@ class _CreditNoteCard extends StatelessWidget {
               ],
             ),
           ),
-          Text(
-            CurrencyFormatter.formatIndian(totalAmount),
-            style: KTypography.amountMedium.copyWith(
-              color: KColors.error,
-            ),
+          KMoney(
+            totalAmount,
+            size: KMoneySize.medium,
+            style: const TextStyle(color: KColors.error),
           ),
           KSpacing.hGapSm,
           const Icon(Icons.chevron_right, color: KColors.textHint),
@@ -245,7 +251,7 @@ class _CreditNoteTable extends StatelessWidget {
           },
           color: kEntityRowColor(context),
           cells: [
-            DataCell(KTablePrimaryTextCell(value: number, width: 132)),
+            DataCell(KTableTextCell(value: number, width: 132, style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w600))),
             DataCell(KTableTextCell(value: customerName, width: 160)),
             DataCell(_CreditNoteReferenceCell(
               invoiceNumber: invoiceNumber,
@@ -288,7 +294,7 @@ class _CreditNoteReferenceCell extends StatelessWidget {
         children: [
           Text(
             invoiceNumber,
-            style: KTypography.bodyMedium,
+            style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w500),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),

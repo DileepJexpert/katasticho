@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/k_colors.dart';
+import '../../../core/theme/k_spacing.dart';
+import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/manufacturing_repository.dart';
 
@@ -38,9 +41,7 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (_loading) return const Scaffold(body: Center(child: KLoading(message: 'Loading work order...')));
     if (_error != null) return Scaffold(body: KErrorView(message: _error!, onRetry: _load));
     if (_order == null) return const Scaffold(body: KErrorView(message: 'Work order not found'));
 
@@ -63,18 +64,27 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: KSpacing.pagePadding,
           children: [
-            _StatusBanner(status: status),
-            const SizedBox(height: 16),
+            Row(
+              children: [
+                Text(
+                  order['workOrderNumber']?.toString() ?? 'Work Order',
+                  style: KTypography.mono(fontSize: 16, weight: FontWeight.w700),
+                ),
+                const Spacer(),
+                KStatusChip(status: status),
+              ],
+            ),
+            KSpacing.vGapMd,
 
             KCard(
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(KSpacing.md),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Overview', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                    Text('Overview', style: KTypography.titleSmall),
                     const Divider(height: 20),
                     _InfoRow('Status', status),
                     _InfoRow('Qty to Produce', order['quantityToProduce']?.toString() ?? '0'),
@@ -93,68 +103,75 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            KSpacing.vGapMd,
 
             KCard(
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(KSpacing.md),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Costing', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                    Text('Costing', style: KTypography.titleSmall),
                     const Divider(height: 20),
-                    _InfoRow('Raw Material', _currency(order['rawMaterialCost'])),
-                    _InfoRow('Direct Labor', _currency(order['directLaborCost'])),
-                    _InfoRow('Overhead', _currency(order['overheadCost'])),
+                    _MoneyInfoRow('Raw Material', (order['rawMaterialCost'] as num?)?.toDouble() ?? 0),
+                    _MoneyInfoRow('Direct Labor', (order['directLaborCost'] as num?)?.toDouble() ?? 0),
+                    _MoneyInfoRow('Overhead', (order['overheadCost'] as num?)?.toDouble() ?? 0),
                     const Divider(height: 12),
-                    _InfoRow('Total Cost', _currency(order['totalCost'])),
-                    _InfoRow('Unit Cost', _currency(order['unitCost'])),
+                    _MoneyInfoRow('Total Cost', (order['totalCost'] as num?)?.toDouble() ?? 0, isTotal: true),
+                    _MoneyInfoRow('Unit Cost', (order['unitCost'] as num?)?.toDouble() ?? 0),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            KSpacing.vGapMd,
 
-            Text('BOM Lines', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
+            Text('BOM Lines', style: KTypography.titleSmall),
+            KSpacing.vGapSm,
             if (lines.isEmpty)
-              const KEmptyState(icon: Icons.list, title: 'No lines', subtitle: '')
+              const KEmptyState(icon: Icons.list, title: 'No BOM lines', subtitle: 'No component items required.')
             else
-              ...lines.map((line) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: KCard(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                (line['itemName'] ?? line['itemId'])?.toString() ?? 'Item',
-                                style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+              ...lines.map((line) {
+                final unitCost = (line['unitCost'] as num?)?.toDouble() ?? 0;
+                final lineCost = (line['lineCost'] as num?)?.toDouble() ?? 0;
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: KCard(
+                    child: Padding(
+                      padding: const EdgeInsets.all(KSpacing.md),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  (line['itemName'] ?? line['itemId'])?.toString() ?? 'Item',
+                                  style: KTypography.labelLarge,
+                                ),
                               ),
-                            ),
-                            KStatusChip(status: line['status']?.toString() ?? ''),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Wrap(
-                          spacing: 16,
-                          children: [
-                            Text('Required: ${line['requiredQty']}', style: theme.textTheme.bodySmall),
-                            Text('Issued: ${line['issuedQty'] ?? 0}', style: theme.textTheme.bodySmall),
-                            Text('Unit: ${_currency(line['unitCost'])}', style: theme.textTheme.bodySmall),
-                            Text('Line: ${_currency(line['lineCost'])}',
-                                style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
-                          ],
-                        ),
-                      ],
+                              KStatusChip(status: line['status']?.toString() ?? ''),
+                            ],
+                          ),
+                          KSpacing.vGapSm,
+                          Row(
+                            children: [
+                              Text('Req: ${line['requiredQty']} · Issued: ${line['issuedQty'] ?? 0}',
+                                  style: KTypography.bodySmall),
+                              const Spacer(),
+                              Text('Unit: ', style: KTypography.bodySmall),
+                              KMoney(unitCost, size: KMoneySize.small),
+                              KSpacing.hGapSm,
+                              Text('Total: ', style: KTypography.bodySmall),
+                              KMoney(lineCost, size: KMoneySize.small, style: const TextStyle(fontWeight: FontWeight.w700)),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              )),
+                );
+              }),
           ],
         ),
       ),
@@ -219,8 +236,17 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
         title: Text(title),
         content: Text('Are you sure you want to $title?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Yes')),
+          KButton.outlined(
+            label: 'No',
+            size: KButtonSize.small,
+            onPressed: () => Navigator.pop(ctx, false),
+          ),
+          KSpacing.hGapSm,
+          KButton.primary(
+            label: 'Yes',
+            size: KButtonSize.small,
+            onPressed: () => Navigator.pop(ctx, true),
+          ),
         ],
       ),
     );
@@ -259,11 +285,11 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Quantity to keep on this WO; the residual goes to a new sibling DRAFT.',
-              style: TextStyle(fontSize: 12),
+              style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
             ),
-            const SizedBox(height: 8),
+            KSpacing.vGapSm,
             TextField(
               controller: ctl,
               keyboardType: TextInputType.number,
@@ -273,13 +299,19 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(
+          KButton.outlined(
+            label: 'Cancel',
+            size: KButtonSize.small,
+            onPressed: () => Navigator.pop(ctx),
+          ),
+          KSpacing.hGapSm,
+          KButton.primary(
+            label: 'Split',
+            size: KButtonSize.small,
             onPressed: () {
               final v = double.tryParse(ctl.text.trim());
               if (v != null && v > 0) Navigator.pop(ctx, v);
             },
-            child: const Text('Split'),
           ),
         ],
       ),
@@ -335,17 +367,16 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                   keyboardType: TextInputType.number,
                   autofocus: true,
                 ),
-                const SizedBox(height: 12),
-                const Text(
-                  'Batch (required when the FG item tracks batches — '
-                  'mandatory for pharma + food)',
-                  style: TextStyle(fontSize: 11, color: Colors.grey),
+                KSpacing.vGapSm,
+                Text(
+                  'Batch (required when the FG item tracks batches — mandatory for pharma + food)',
+                  style: KTypography.caption.copyWith(color: KColors.textHint),
                 ),
                 TextField(
                   controller: batchCtl,
                   decoration: const InputDecoration(labelText: 'Batch number'),
                 ),
-                const SizedBox(height: 6),
+                KSpacing.vGapSm,
                 Row(
                   children: [
                     Expanded(
@@ -371,8 +402,15 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-            FilledButton(
+            KButton.outlined(
+              label: 'Cancel',
+              size: KButtonSize.small,
+              onPressed: () => Navigator.pop(ctx),
+            ),
+            KSpacing.hGapSm,
+            KButton.primary(
+              label: 'Receive',
+              size: KButtonSize.small,
               onPressed: () {
                 final qty = double.tryParse(qtyCtl.text.trim());
                 if (qty != null && qty > 0) {
@@ -383,7 +421,6 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                   });
                 }
               },
-              child: const Text('Receive'),
             ),
           ],
         ),
@@ -420,22 +457,29 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(
+            KTextField.amount(
               controller: laborCtl,
-              decoration: const InputDecoration(labelText: 'Direct Labor Cost'),
-              keyboardType: TextInputType.number,
+              label: 'Direct Labor Cost',
             ),
-            const SizedBox(height: 12),
-            TextField(
+            KSpacing.vGapSm,
+            KTextField.amount(
               controller: overheadCtl,
-              decoration: const InputDecoration(labelText: 'Overhead Cost'),
-              keyboardType: TextInputType.number,
+              label: 'Overhead Cost',
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Update')),
+          KButton.outlined(
+            label: 'Cancel',
+            size: KButtonSize.small,
+            onPressed: () => Navigator.pop(ctx, false),
+          ),
+          KSpacing.hGapSm,
+          KButton.primary(
+            label: 'Update',
+            size: KButtonSize.small,
+            onPressed: () => Navigator.pop(ctx, true),
+          ),
         ],
       ),
     );
@@ -459,58 +503,15 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
     _load();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message), backgroundColor: Colors.green),
+        SnackBar(content: Text(message), backgroundColor: KColors.success),
       );
     }
   }
 
   void _showError(Object e) {
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e'), backgroundColor: KColors.error));
     }
-  }
-
-  String _currency(dynamic value) {
-    if (value == null) return '₹0';
-    return '₹$value';
-  }
-}
-
-class _StatusBanner extends StatelessWidget {
-  const _StatusBanner({required this.status});
-  final String status;
-
-  @override
-  Widget build(BuildContext context) {
-    final (color, icon) = switch (status) {
-      'DRAFT' => (Colors.grey, Icons.edit_note),
-      'IN_PROGRESS' => (Colors.blue, Icons.precision_manufacturing),
-      'COMPLETED' => (Colors.green, Icons.check_circle),
-      'CANCELLED' => (Colors.red, Icons.cancel),
-      _ => (Colors.grey, Icons.help_outline),
-    };
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: color),
-          const SizedBox(width: 12),
-          Text(
-            status.replaceAll('_', ' '),
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 
@@ -522,15 +523,51 @@ class _InfoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.only(bottom: 6),
       child: Row(
         children: [
           SizedBox(
-            width: 120,
-            child: Text(label,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey)),
+            width: 130,
+            child: Text(label, style: KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
           ),
-          Expanded(child: Text(value, style: Theme.of(context).textTheme.bodyMedium)),
+          Expanded(child: Text(value, style: KTypography.bodyMedium)),
+        ],
+      ),
+    );
+  }
+}
+
+class _MoneyInfoRow extends StatelessWidget {
+  const _MoneyInfoRow(this.label, this.amount, {this.isTotal = false});
+  final String label;
+  final double amount;
+  final bool isTotal;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 130,
+            child: Text(
+              label,
+              style: isTotal
+                  ? KTypography.labelMedium
+                  : KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+            ),
+          ),
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: KMoney(
+                amount,
+                size: isTotal ? KMoneySize.medium : KMoneySize.small,
+                style: isTotal ? const TextStyle(fontWeight: FontWeight.w700) : null,
+              ),
+            ),
+          ),
         ],
       ),
     );

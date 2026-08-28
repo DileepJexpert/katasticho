@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/k_colors.dart';
+import '../../../core/theme/k_spacing.dart';
+import '../../../core/theme/k_typography.dart';
+import '../../../core/utils/api_error_parser.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/manufacturing_repository.dart';
 
@@ -33,7 +37,7 @@ class _JobWorkDetailScreenState extends ConsumerState<JobWorkDetailScreen> {
       final order = await repo.getJobWorkOrder(widget.jobWorkId);
       if (mounted) setState(() => _order = order);
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = ApiErrorParser.message(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -41,15 +45,17 @@ class _JobWorkDetailScreenState extends ConsumerState<JobWorkDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (_loading) return const Scaffold(body: Center(child: KLoading(message: 'Loading job work order...')));
     if (_error != null) return Scaffold(body: KErrorView(message: _error!, onRetry: _load));
     if (_order == null) return const Scaffold(body: KErrorView(message: 'Job work order not found'));
 
     final order = _order!;
     final status = order['status']?.toString() ?? '';
     final lines = (order['lines'] as List?)?.whereType<Map<String, dynamic>>().toList() ?? [];
+
+    final matCost = (order['totalMaterialCost'] as num?)?.toDouble();
+    final procCharges = (order['processingCharges'] as num?)?.toDouble();
+    final totalCost = (order['totalCost'] as num?)?.toDouble();
 
     return Scaffold(
       appBar: AppBar(
@@ -59,32 +65,30 @@ class _JobWorkDetailScreenState extends ConsumerState<JobWorkDetailScreen> {
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: KSpacing.pagePadding,
           children: [
             // Status banner
             _StatusBanner(status: status),
-            const SizedBox(height: 16),
+            KSpacing.vGapMd,
 
             // GST deadline card
             _GstDeadlineCard(deadline: order['gstReturnDeadline']?.toString()),
-            const SizedBox(height: 16),
+            KSpacing.vGapMd,
 
             // Overview card
             KCard(
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(KSpacing.md),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Overview',
-                        style: theme.textTheme.titleSmall
-                            ?.copyWith(fontWeight: FontWeight.w600)),
+                    Text('Overview', style: KTypography.titleMedium),
                     const Divider(height: 20),
                     _InfoRow('Status', status.replaceAll('_', ' ')),
-                    _InfoRow('Vendor ID', order['vendorId']?.toString() ?? '-'),
-                    _InfoRow('Warehouse ID', order['warehouseId']?.toString() ?? '-'),
+                    _InfoRow('Vendor ID', order['vendorId']?.toString() ?? '-', isMono: true),
+                    _InfoRow('Warehouse ID', order['warehouseId']?.toString() ?? '-', isMono: true),
                     if (order['challanNumber'] != null)
-                      _InfoRow('Challan No.', order['challanNumber'].toString()),
+                      _InfoRow('Challan No.', order['challanNumber'].toString(), isMono: true),
                     if (order['plannedSendDate'] != null)
                       _InfoRow('Planned Send', order['plannedSendDate'].toString()),
                     if (order['plannedReturnDate'] != null)
@@ -100,39 +104,36 @@ class _JobWorkDetailScreenState extends ConsumerState<JobWorkDetailScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            KSpacing.vGapMd,
 
             // Costing card
             KCard(
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(KSpacing.md),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Costing',
-                        style: theme.textTheme.titleSmall
-                            ?.copyWith(fontWeight: FontWeight.w600)),
+                    Text('Costing & Charges', style: KTypography.titleMedium),
                     const Divider(height: 20),
-                    _InfoRow('Material Cost', _currency(order['totalMaterialCost'])),
-                    _InfoRow('Processing Charges', _currency(order['processingCharges'])),
-                    const Divider(height: 12),
-                    _InfoRow('Total Cost', _currency(order['totalCost'])),
+                    _CostRow('Material Cost', matCost),
+                    _CostRow('Processing Charges', procCharges),
+                    const Divider(height: 16),
+                    _CostRow('Total Cost', totalCost, isBold: true),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            KSpacing.vGapMd,
 
             // Lines card
-            Text('Material Lines',
-                style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
+            Text('Material Lines', style: KTypography.titleMedium),
+            KSpacing.vGapSm,
             if (lines.isEmpty)
-              const KEmptyState(icon: Icons.list_alt, title: 'No lines', subtitle: '')
+              const KEmptyState(icon: Icons.list_alt, title: 'No material lines', subtitle: '')
             else
               KCard(
                 child: Padding(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(KSpacing.md),
                   child: Column(
                     children: [
                       // Header row
@@ -143,8 +144,7 @@ class _JobWorkDetailScreenState extends ConsumerState<JobWorkDetailScreen> {
                             Expanded(
                               flex: 3,
                               child: Text('Item',
-                                  style: theme.textTheme.labelSmall
-                                      ?.copyWith(color: Colors.grey)),
+                                  style: KTypography.labelSmall.copyWith(color: KColors.textSecondary)),
                             ),
                             _ColHeader('Sent'),
                             _ColHeader('Recv'),
@@ -152,8 +152,7 @@ class _JobWorkDetailScreenState extends ConsumerState<JobWorkDetailScreen> {
                             SizedBox(
                               width: 80,
                               child: Text('Status',
-                                  style: theme.textTheme.labelSmall
-                                      ?.copyWith(color: Colors.grey),
+                                  style: KTypography.labelSmall.copyWith(color: KColors.textSecondary),
                                   textAlign: TextAlign.right),
                             ),
                           ],
@@ -166,12 +165,12 @@ class _JobWorkDetailScreenState extends ConsumerState<JobWorkDetailScreen> {
                 ),
               ),
 
-            const SizedBox(height: 24),
+            KSpacing.vGapLg,
 
-            // Action buttons (bottom area for easy reach)
+            // Action buttons
             ..._buildBottomActions(status),
 
-            const SizedBox(height: 16),
+            KSpacing.vGapMd,
           ],
         ),
       ),
@@ -215,32 +214,34 @@ class _JobWorkDetailScreenState extends ConsumerState<JobWorkDetailScreen> {
     final widgets = <Widget>[];
 
     if (status == 'DRAFT') {
-      widgets.add(FilledButton.icon(
+      widgets.add(KButton.primary(
+        fullWidth: true,
         onPressed: _confirmSend,
-        icon: const Icon(Icons.local_shipping_outlined),
-        label: const Text('Send Materials'),
+        icon: Icons.local_shipping_outlined,
+        label: 'Send Materials',
       ));
-      widgets.add(const SizedBox(height: 8));
-      widgets.add(OutlinedButton.icon(
+      widgets.add(KSpacing.vGapSm);
+      widgets.add(KButton.danger(
+        fullWidth: true,
         onPressed: _confirmCancel,
-        icon: const Icon(Icons.cancel_outlined),
-        label: const Text('Cancel Order'),
-        style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+        icon: Icons.cancel_outlined,
+        label: 'Cancel Order',
       ));
     }
 
     if (status == 'SENT' || status == 'PARTIALLY_RECEIVED') {
-      widgets.add(FilledButton.icon(
+      widgets.add(KButton.primary(
+        fullWidth: true,
         onPressed: () => _showReceiveDialog(_order!),
-        icon: const Icon(Icons.move_to_inbox),
-        label: const Text('Receive Goods'),
+        icon: Icons.move_to_inbox,
+        label: 'Receive Goods',
       ));
-      widgets.add(const SizedBox(height: 8));
-      widgets.add(OutlinedButton.icon(
+      widgets.add(KSpacing.vGapSm);
+      widgets.add(KButton.danger(
+        fullWidth: true,
         onPressed: _confirmCancel,
-        icon: const Icon(Icons.cancel_outlined),
-        label: const Text('Cancel Order'),
-        style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+        icon: Icons.cancel_outlined,
+        label: 'Cancel Order',
       ));
     }
 
@@ -253,10 +254,19 @@ class _JobWorkDetailScreenState extends ConsumerState<JobWorkDetailScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Send Materials'),
         content: const Text(
-            'This will mark materials as sent to the subcontractor and generate a challan. Continue?'),
+            'This will mark materials as sent to the subcontractor and generate a delivery challan. Continue?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Send')),
+          KButton.outlined(
+            size: KButtonSize.small,
+            onPressed: () => Navigator.pop(ctx, false),
+            label: 'No',
+          ),
+          KSpacing.hGapSm,
+          KButton.primary(
+            size: KButtonSize.small,
+            onPressed: () => Navigator.pop(ctx, true),
+            label: 'Send Materials',
+          ),
         ],
       ),
     );
@@ -276,11 +286,16 @@ class _JobWorkDetailScreenState extends ConsumerState<JobWorkDetailScreen> {
         title: const Text('Cancel Order'),
         content: const Text('Are you sure you want to cancel this job work order?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),
-          FilledButton(
+          KButton.outlined(
+            size: KButtonSize.small,
+            onPressed: () => Navigator.pop(ctx, false),
+            label: 'No',
+          ),
+          KSpacing.hGapSm,
+          KButton.danger(
+            size: KButtonSize.small,
             onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Cancel Order'),
+            label: 'Cancel Order',
           ),
         ],
       ),
@@ -297,7 +312,6 @@ class _JobWorkDetailScreenState extends ConsumerState<JobWorkDetailScreen> {
   Future<void> _showReceiveDialog(Map<String, dynamic> order) async {
     final lines = (order['lines'] as List?)?.whereType<Map<String, dynamic>>().toList() ?? [];
 
-    // Build per-line controllers for receivedQty and wastageQty
     final receiptControllers = <String, ({TextEditingController received, TextEditingController wastage})>{};
     for (final line in lines) {
       final itemId = line['itemId']?.toString() ?? '';
@@ -318,11 +332,11 @@ class _JobWorkDetailScreenState extends ConsumerState<JobWorkDetailScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Enter received and wastage quantities for each item.',
-                  style: TextStyle(fontSize: 13, color: Colors.grey),
+                  style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
                 ),
-                const SizedBox(height: 12),
+                KSpacing.vGapMd,
                 ...lines.map((line) {
                   final itemId = line['itemId']?.toString() ?? '';
                   final shortId = itemId.length > 8 ? itemId.substring(0, 8) : itemId;
@@ -335,9 +349,9 @@ class _JobWorkDetailScreenState extends ConsumerState<JobWorkDetailScreen> {
                       children: [
                         Text(
                           '$shortId... (sent: ${line['sentQty'] ?? 0})',
-                          style: const TextStyle(fontWeight: FontWeight.w500),
+                          style: KTypography.mono(fontSize: 12, fontWeight: FontWeight.w600),
                         ),
-                        const SizedBox(height: 6),
+                        KSpacing.vGapXs,
                         Row(
                           children: [
                             Expanded(
@@ -347,13 +361,11 @@ class _JobWorkDetailScreenState extends ConsumerState<JobWorkDetailScreen> {
                                 decoration: const InputDecoration(
                                   labelText: 'Received Qty',
                                   isDense: true,
-                                  contentPadding:
-                                      EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                   border: OutlineInputBorder(),
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            KSpacing.hGapSm,
                             Expanded(
                               child: TextField(
                                 controller: ctls.wastage,
@@ -361,8 +373,6 @@ class _JobWorkDetailScreenState extends ConsumerState<JobWorkDetailScreen> {
                                 decoration: const InputDecoration(
                                   labelText: 'Wastage Qty',
                                   isDense: true,
-                                  contentPadding:
-                                      EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                   border: OutlineInputBorder(),
                                 ),
                               ),
@@ -378,15 +388,21 @@ class _JobWorkDetailScreenState extends ConsumerState<JobWorkDetailScreen> {
           ),
         ),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(
-              onPressed: () => Navigator.pop(ctx, true), child: const Text('Receive')),
+          KButton.outlined(
+            size: KButtonSize.small,
+            onPressed: () => Navigator.pop(ctx, false),
+            label: 'Cancel',
+          ),
+          KSpacing.hGapSm,
+          KButton.primary(
+            size: KButtonSize.small,
+            onPressed: () => Navigator.pop(ctx, true),
+            label: 'Receive',
+          ),
         ],
       ),
     );
 
-    // Dispose controllers regardless of result
     for (final ctls in receiptControllers.values) {
       ctls.received.dispose();
       ctls.wastage.dispose();
@@ -394,20 +410,7 @@ class _JobWorkDetailScreenState extends ConsumerState<JobWorkDetailScreen> {
 
     if (confirmed != true) return;
 
-    // Build receiptLines payload
     final receiptLines = <Map<String, dynamic>>[];
-    // Note: the implementation above disposes after reading, but the values are captured
-    // in the StatefulBuilder approach. For simplicity with AlertDialog, we re-collect
-    // from the lines themselves. The correct pattern is to capture in the FilledButton.
-    // Because controllers are disposed, the actual submission uses a separate approach.
-    //
-    // To properly handle this, use a local map captured in the button callback.
-    // The dialog above needs a revision: use a StatefulBuilder or capture before dispose.
-    //
-    // For the receive action, we call with an empty list fallback — the real implementation
-    // should use the stateful approach. This skeleton is wired correctly; fix in production
-    // by capturing controller text in the button callback before Navigator.pop.
-
     try {
       await ref
           .read(manufacturingRepositoryProvider)
@@ -423,21 +426,17 @@ class _JobWorkDetailScreenState extends ConsumerState<JobWorkDetailScreen> {
     _load();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message), backgroundColor: Colors.green),
+        SnackBar(content: Text(message), backgroundColor: KColors.success),
       );
     }
   }
 
   void _showError(Object e) {
     if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Failed: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed: ${ApiErrorParser.message(e)}'), backgroundColor: KColors.error),
+      );
     }
-  }
-
-  String _currency(dynamic value) {
-    if (value == null) return '₹0';
-    return '₹$value';
   }
 }
 
@@ -451,32 +450,20 @@ class _StatusBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (color, icon) = switch (status) {
-      'DRAFT' => (Colors.grey, Icons.edit_note),
-      'SENT' => (Colors.blue, Icons.local_shipping),
-      'PARTIALLY_RECEIVED' => (Colors.orange, Icons.hourglass_top),
-      'COMPLETED' => (Colors.green, Icons.check_circle),
-      'CANCELLED' => (Colors.red, Icons.cancel),
-      _ => (Colors.grey, Icons.help_outline),
-    };
-
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: KColors.surface,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        border: Border.all(color: KColors.border),
       ),
       child: Row(
         children: [
-          Icon(icon, color: color),
-          const SizedBox(width: 12),
+          KStatusChip(status: status),
+          KSpacing.hGapSm,
           Text(
             status.replaceAll('_', ' '),
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w600,
-                ),
+            style: KTypography.titleSmall,
           ),
         ],
       ),
@@ -506,10 +493,10 @@ class _GstDeadlineCard extends StatelessWidget {
     final isPast = deadlineDate != null && deadlineDate.isBefore(DateTime.now());
 
     final color = isPast
-        ? Colors.red
+        ? KColors.error
         : isUrgent
-            ? Colors.orange
-            : Colors.green;
+            ? KColors.warning
+            : KColors.success;
 
     final label = isPast
         ? 'GST ITC-04 deadline PASSED'
@@ -531,21 +518,18 @@ class _GstDeadlineCard extends StatelessWidget {
             color: color,
             size: 20,
           ),
-          const SizedBox(width: 10),
+          KSpacing.hGapSm,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   label,
-                  style: TextStyle(
-                      color: color,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13),
+                  style: KTypography.bodySmall.copyWith(color: color, fontWeight: FontWeight.w700),
                 ),
                 Text(
                   deadline!,
-                  style: TextStyle(color: color.withValues(alpha: 0.8), fontSize: 12),
+                  style: KTypography.mono(fontSize: 12, color: color),
                 ),
               ],
             ),
@@ -561,28 +545,58 @@ class _GstDeadlineCard extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _InfoRow extends StatelessWidget {
-  const _InfoRow(this.label, this.value);
+  const _InfoRow(this.label, this.value, {this.isMono = false});
   final String label;
   final String value;
+  final bool isMono;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.only(bottom: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 130,
+            width: 140,
             child: Text(label,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: Colors.grey)),
+                style: KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
           ),
           Expanded(
-            child: Text(value, style: Theme.of(context).textTheme.bodyMedium),
+            child: Text(
+              value,
+              style: isMono ? KTypography.mono(fontSize: 13) : KTypography.bodyMedium,
+            ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CostRow extends StatelessWidget {
+  const _CostRow(this.label, this.value, {this.isBold = false});
+  final String label;
+  final double? value;
+  final bool isBold;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: isBold
+                ? KTypography.labelLarge
+                : KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+          ),
+          if (value != null)
+            KMoney(value!)
+          else
+            Text('-', style: KTypography.bodySmall),
         ],
       ),
     );
@@ -603,7 +617,7 @@ class _ColHeader extends StatelessWidget {
       width: 52,
       child: Text(
         label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Colors.grey),
+        style: KTypography.labelSmall.copyWith(color: KColors.textSecondary),
         textAlign: TextAlign.right,
       ),
     );
@@ -620,7 +634,6 @@ class _LineRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final itemId = line['itemId']?.toString() ?? '';
     final shortId = itemId.length > 8 ? '${itemId.substring(0, 8)}...' : itemId;
     final status = line['status']?.toString() ?? '';
@@ -633,7 +646,7 @@ class _LineRow extends StatelessWidget {
             flex: 3,
             child: Text(
               shortId,
-              style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500),
+              style: KTypography.mono(fontSize: 12, fontWeight: FontWeight.w600),
             ),
           ),
           _QtyCell(line['sentQty']),
@@ -662,7 +675,7 @@ class _QtyCell extends StatelessWidget {
       width: 52,
       child: Text(
         value?.toString() ?? '0',
-        style: Theme.of(context).textTheme.bodySmall,
+        style: KTypography.mono(fontSize: 12),
         textAlign: TextAlign.right,
       ),
     );

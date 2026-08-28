@@ -112,6 +112,8 @@ class _StockCountListScreenState extends ConsumerState<StockCountListScreen> {
           ],
         ),
         floatingActionButton: FloatingActionButton.extended(
+          backgroundColor: KColors.primary,
+          foregroundColor: Colors.white,
           onPressed: () async {
             await context.push(Routes.stockCountCreate);
             _fetchCounts();
@@ -213,7 +215,10 @@ class _StockCountCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Text(countNumber, style: KTypography.labelLarge),
+                    Text(
+                      countNumber,
+                      style: KTypography.mono(size: 14, weight: FontWeight.w700),
+                    ),
                     KSpacing.hGapSm,
                     KStatusChip(status: status),
                   ],

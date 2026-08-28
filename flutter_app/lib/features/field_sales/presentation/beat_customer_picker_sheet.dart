@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
+import '../../../core/utils/api_error_parser.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../contacts/data/contact_repository.dart';
 
@@ -112,7 +113,10 @@ class _BeatCustomerPickerSheetState
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not load customers: $error')),
+          SnackBar(
+            content: Text('Could not load customers: ${ApiErrorParser.message(error)}'),
+            backgroundColor: KColors.error,
+          ),
         );
       }
     } finally {
@@ -163,15 +167,6 @@ class _BeatCustomerPickerSheetState
         customer['contactName']?.toString() ??
         customer['companyName']?.toString() ??
         'Unnamed customer';
-  }
-
-  String _customerDetail(Map<String, dynamic> customer) {
-    final values = [
-      customer['companyName']?.toString(),
-      customer['phone']?.toString(),
-      customer['gstin']?.toString(),
-    ].where((value) => value != null && value.isNotEmpty).cast<String>();
-    return values.join(' | ');
   }
 
   @override
@@ -273,9 +268,8 @@ class _BeatCustomerPickerSheetState
                               return Padding(
                                 padding: const EdgeInsets.all(KSpacing.sm),
                                 child: Center(
-                                  child: KButton(
+                                  child: KButton.outlined(
                                     label: 'Load more customers',
-                                    variant: KButtonVariant.outlined,
                                     size: KButtonSize.small,
                                     onPressed: () => _loadCustomers(loadMore: true),
                                   ),
@@ -286,7 +280,11 @@ class _BeatCustomerPickerSheetState
                             final customer = _customers[index];
                             final id = customer['id']?.toString() ?? '';
                             final isSelected = _selectedById.containsKey(id);
-                            final detail = _customerDetail(customer);
+                            final phone = customer['phone']?.toString();
+                            final company = customer['companyName']?.toString();
+                            final gstin = customer['gstin']?.toString();
+                            final infoParts = [company, phone].where((v) => v != null && v.isNotEmpty).join(' • ');
+
                             return KCard(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: KSpacing.sm,
@@ -303,14 +301,34 @@ class _BeatCustomerPickerSheetState
                                     ListTileControlAffinity.trailing,
                                 title: Text(_customerName(customer),
                                     style: KTypography.labelLarge),
-                                subtitle: detail.isEmpty
+                                subtitle: (infoParts.isEmpty && (gstin == null || gstin.isEmpty))
                                     ? null
-                                    : Text(detail,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: KTypography.bodySmall.copyWith(
-                                          color: KColors.textSecondary,
-                                        )),
+                                    : Row(
+                                        children: [
+                                          if (infoParts.isNotEmpty)
+                                            Flexible(
+                                              child: Text(
+                                                infoParts,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: KTypography.bodySmall.copyWith(
+                                                  color: KColors.textSecondary,
+                                                ),
+                                              ),
+                                            ),
+                                          if (gstin != null && gstin.isNotEmpty) ...[
+                                            if (infoParts.isNotEmpty)
+                                              Text(' • ', style: KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
+                                            Text(
+                                              gstin,
+                                              style: KTypography.mono(
+                                                fontSize: 11,
+                                                color: KColors.textSecondary,
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
                                 onChanged: (_) => _toggleCustomer(customer),
                               ),
                             );
@@ -325,15 +343,14 @@ class _BeatCustomerPickerSheetState
                 child: Row(
                   children: [
                     Expanded(
-                      child: KButton(
+                      child: KButton.outlined(
                         label: 'Cancel',
-                        variant: KButtonVariant.outlined,
                         onPressed: () => Navigator.pop(context),
                       ),
                     ),
                     KSpacing.hGapSm,
                     Expanded(
-                      child: KButton(
+                      child: KButton.primary(
                         label: 'Use $selectedCount customer${selectedCount == 1 ? '' : 's'}',
                         onPressed: () => Navigator.pop(
                           context,

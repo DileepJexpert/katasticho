@@ -8,8 +8,13 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/api_error_parser.dart';
+import '../../../core/widgets/k_button.dart';
+import '../../../core/widgets/k_card.dart';
+import '../../../core/widgets/k_empty_state.dart';
+import '../../../core/widgets/k_loading.dart';
 import '../../../core/widgets/k_money.dart';
 import '../../../core/widgets/k_status_chip.dart';
+import '../../../core/widgets/k_text_field.dart';
 import '../../contacts/presentation/contact_picker_sheet.dart';
 import '../../inventory/presentation/item_picker_sheet.dart';
 
@@ -80,12 +85,21 @@ class _RateContractsScreenState extends ConsumerState<RateContractsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Supplier rate contracts'),
+        title: const Text('Supplier Rate Contracts'),
         actions: [
           IconButton(
             tooltip: 'Refresh',
             icon: const Icon(Icons.refresh),
             onPressed: _refresh,
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: KSpacing.md),
+            child: KButton.primary(
+              size: KButtonSize.small,
+              icon: Icons.add,
+              label: 'New Contract',
+              onPressed: _showCreate,
+            ),
           ),
         ],
       ),
@@ -97,21 +111,27 @@ class _RateContractsScreenState extends ConsumerState<RateContractsScreen> {
             Container(
               padding: const EdgeInsets.all(KSpacing.md),
               decoration: BoxDecoration(
-                color: KColors.bgApp,
+                color: KColors.primarySoft,
                 borderRadius: BorderRadius.circular(KSpacing.radiusSm),
                 border: Border.all(color: KColors.divider),
               ),
-              child: Text(
-                'Negotiated unit prices per (supplier, item). When a PO line\'s '
-                'price is left blank, the active contract rate auto-fills it.',
-                style: KTypography.bodySmall
-                    .copyWith(color: KColors.textSecondary),
+              child: Row(
+                children: [
+                  Icon(Icons.handshake_outlined, size: 20, color: KColors.primary),
+                  KSpacing.hGapSm,
+                  Expanded(
+                    child: Text(
+                      'Negotiated vendor pricing: long-term locked purchase rates per (supplier, item). When creating a PO, contract rates auto-apply.',
+                      style: KTypography.bodySmall.copyWith(color: KColors.textPrimary),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: KSpacing.md),
+            KSpacing.vGapMd,
             Expanded(
               child: _loading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const Center(child: KLoading())
                   : _err != null
                       ? Center(
                           child: Text('Failed: $_err',
@@ -119,10 +139,13 @@ class _RateContractsScreenState extends ConsumerState<RateContractsScreen> {
                                   .copyWith(color: KColors.error)))
                       : _rows.isEmpty
                           ? Center(
-                              child: Text(
-                                  'No contracts yet — tap "New contract" to draft one.',
-                                  style: KTypography.bodyMedium.copyWith(
-                                      color: KColors.textSecondary)),
+                              child: KEmptyState(
+                                icon: Icons.handshake_outlined,
+                                title: 'No Rate Contracts',
+                                subtitle: 'Lock in negotiated unit prices with your key suppliers.',
+                                actionLabel: 'Draft First Contract',
+                                onAction: _showCreate,
+                              ),
                             )
                           : ListView.separated(
                               itemBuilder: (_, i) {
@@ -130,55 +153,84 @@ class _RateContractsScreenState extends ConsumerState<RateContractsScreen> {
                                 final status =
                                     row['status']?.toString() ?? 'DRAFT';
                                 final lines = (row['lines'] as List?) ?? const [];
-                                return ListTile(
-                                  title: Row(
-                                    children: [
-                                      Text(row['contractNumber']?.toString() ?? '',
-                                          style: KTypography.mono(
-                                              weight: FontWeight.w600)),
-                                      const SizedBox(width: KSpacing.md),
-                                      KStatusChip(status: status),
-                                    ],
-                                  ),
-                                  subtitle: Text(
-                                    '${lines.length} line${lines.length == 1 ? '' : 's'} · '
-                                    'Valid ${row['validFrom'] ?? '—'} → ${row['validUntil'] ?? 'open'}',
-                                    style: KTypography.bodySmall,
-                                  ),
-                                  trailing: PopupMenuButton<String>(
-                                    onSelected: (op) =>
-                                        _action(row['id'].toString(), op),
-                                    itemBuilder: (_) => [
-                                      if (status == 'DRAFT')
-                                        const PopupMenuItem(
-                                            value: 'activate',
-                                            child: Text('Activate')),
-                                      if (status == 'ACTIVE')
-                                        const PopupMenuItem(
-                                            value: 'expire',
-                                            child: Text('Expire')),
-                                      if (status == 'DRAFT' ||
-                                          status == 'ACTIVE')
-                                        const PopupMenuItem(
-                                            value: 'cancel',
-                                            child: Text('Cancel')),
-                                    ],
-                                  ),
+                                return KCard(
                                   onTap: () => _showLines(row),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 40,
+                                        height: 40,
+                                        decoration: BoxDecoration(
+                                          color: KColors.primarySoft,
+                                          borderRadius: BorderRadius.circular(KSpacing.radiusSm),
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: Icon(Icons.handshake_outlined, color: KColors.primary, size: 20),
+                                      ),
+                                      KSpacing.hGapMd,
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Text(
+                                                  row['contractNumber']?.toString() ?? '',
+                                                  style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w700),
+                                                ),
+                                                KSpacing.hGapSm,
+                                                KStatusChip(status: status),
+                                              ],
+                                            ),
+                                            KSpacing.vGapXs,
+                                            Row(
+                                              children: [
+                                                Text(
+                                                  '${lines.length} Item Rate${lines.length == 1 ? '' : 's'}',
+                                                  style: KTypography.mono(fontSize: 12, fontWeight: FontWeight.w600),
+                                                ),
+                                                Text('  ·  ', style: KTypography.caption),
+                                                Icon(Icons.calendar_today_outlined, size: 12, color: KColors.textHint),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  'Valid: ${row['validFrom'] ?? '—'} → ${row['validUntil'] ?? 'Open'}',
+                                                  style: KTypography.mono(fontSize: 11),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      PopupMenuButton<String>(
+                                        icon: Icon(Icons.more_vert, color: KColors.textHint),
+                                        onSelected: (op) =>
+                                            _action(row['id'].toString(), op),
+                                        itemBuilder: (_) => [
+                                          if (status == 'DRAFT')
+                                            const PopupMenuItem(
+                                                value: 'activate',
+                                                child: Text('Activate Contract')),
+                                          if (status == 'ACTIVE')
+                                            const PopupMenuItem(
+                                                value: 'expire',
+                                                child: Text('Mark as Expired')),
+                                          if (status == 'DRAFT' ||
+                                              status == 'ACTIVE')
+                                            const PopupMenuItem(
+                                                value: 'cancel',
+                                                child: Text('Cancel Contract')),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
                                 );
                               },
-                              separatorBuilder: (_, __) =>
-                                  const Divider(height: 1),
+                              separatorBuilder: (_, __) => KSpacing.vGapSm,
                               itemCount: _rows.length,
                             ),
             ),
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showCreate,
-        icon: const Icon(Icons.add),
-        label: const Text('New contract'),
       ),
     );
   }
@@ -194,29 +246,69 @@ class _RateContractsScreenState extends ConsumerState<RateContractsScreen> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(KSpacing.radiusLg)),
+      ),
       builder: (_) => Padding(
         padding: const EdgeInsets.all(KSpacing.md),
         child: SizedBox(
-          height: 460,
+          height: 480,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(row['contractNumber']?.toString() ?? '',
-                  style: KTypography.h3.copyWith(fontWeight: FontWeight.w700)),
-              const SizedBox(height: KSpacing.sm),
-              Text('Lines (${lines.length})', style: KTypography.bodySmall),
+              Row(
+                children: [
+                  Text(row['contractNumber']?.toString() ?? '',
+                      style: KTypography.mono(fontSize: 18, fontWeight: FontWeight.w700)),
+                  KSpacing.hGapSm,
+                  KStatusChip(status: row['status']?.toString() ?? 'DRAFT'),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              KSpacing.vGapXs,
+              Text('Contracted Items & Rates (${lines.length})', style: KTypography.bodySmall),
+              KSpacing.vGapSm,
               const Divider(),
+              KSpacing.vGapSm,
               Expanded(
-                child: ListView.builder(
+                child: ListView.separated(
                   itemCount: lines.length,
+                  separatorBuilder: (_, __) => KSpacing.vGapSm,
                   itemBuilder: (_, i) {
                     final l = (lines[i] as Map).cast<String, dynamic>();
-                    return ListTile(
-                      dense: true,
-                      title: Text(l['itemId']?.toString() ?? '',
-                          style: KTypography.mono()),
-                      trailing: KMoney(_n(l['unitPrice'])),
-                      subtitle: Text('MOQ: ${l['minOrderQty'] ?? 0}'),
+                    return KCard(
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  l['itemId']?.toString() ?? 'Item',
+                                  style: KTypography.mono(fontWeight: FontWeight.w600),
+                                ),
+                                KSpacing.vGapXs,
+                                Text(
+                                  'Minimum Order Qty (MOQ): ${l['minOrderQty'] ?? 0}',
+                                  style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text('Contract Rate', style: KTypography.caption),
+                              KSpacing.vGapXs,
+                              KMoney(_n(l['unitPrice'])),
+                            ],
+                          ),
+                        ],
+                      ),
                     );
                   },
                 ),
@@ -278,7 +370,7 @@ class _CreateContractDialogState extends ConsumerState<_CreateContractDialog> {
       context,
       contactType: 'VENDOR',
       showQuickCreate: true,
-      title: 'Select supplier (VENDOR / BOTH)',
+      title: 'Select Supplier',
     );
     if (picked != null) setState(() => _supplier = picked);
   }
@@ -288,8 +380,6 @@ class _CreateContractDialogState extends ConsumerState<_CreateContractDialog> {
     if (picked == null) return;
     setState(() {
       line.item = picked;
-      // Pre-fill with the item's purchase price if available — planner
-      // can override before saving.
       final pp = (picked['purchasePrice'] as num?)?.toString();
       if (pp != null && line.priceCtrl.text.trim().isEmpty) {
         line.priceCtrl.text = pp;
@@ -362,113 +452,144 @@ class _CreateContractDialogState extends ConsumerState<_CreateContractDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('New supplier rate contract'),
-      content: SizedBox(
-        width: 520,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _ContractPickerRow(
-                label: 'Supplier',
-                value: _supplier?['displayName']?.toString() ??
-                    _supplier?['name']?.toString(),
-                placeholder: 'Pick a supplier (VENDOR / BOTH)',
-                icon: Icons.local_shipping_outlined,
-                onPick: _pickSupplier,
-              ),
-              const SizedBox(height: KSpacing.sm),
-              Row(children: [
-                Expanded(
-                    child: Text(
-                        _validFrom == null
-                            ? 'Valid from: today'
-                            : 'Valid from ${_validFrom!.toLocal().toString().substring(0, 10)}',
-                        style: KTypography.bodySmall)),
-                TextButton(
-                  onPressed: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: DateTime.now(),
-                      firstDate:
-                          DateTime.now().subtract(const Duration(days: 30)),
-                      lastDate:
-                          DateTime.now().add(const Duration(days: 365 * 3)),
-                    );
-                    if (picked != null) setState(() => _validFrom = picked);
-                  },
-                  child: const Text('Pick from'),
-                ),
-              ]),
-              Row(children: [
-                Expanded(
-                    child: Text(
-                        _validUntil == null
-                            ? 'Valid until: open'
-                            : 'Valid until ${_validUntil!.toLocal().toString().substring(0, 10)}',
-                        style: KTypography.bodySmall)),
-                TextButton(
-                  onPressed: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate:
-                          DateTime.now().add(const Duration(days: 365)),
-                      firstDate: DateTime.now(),
-                      lastDate:
-                          DateTime.now().add(const Duration(days: 365 * 5)),
-                    );
-                    if (picked != null) setState(() => _validUntil = picked);
-                  },
-                  child: const Text('Pick until'),
-                ),
-              ]),
-              const Divider(),
-              Text('Items & rates',
-                  style: KTypography.bodySmall
-                      .copyWith(color: KColors.textSecondary)),
-              const SizedBox(height: KSpacing.xs),
-              ..._lines.asMap().entries.map(
-                    (entry) => _ContractLineEditor(
-                      index: entry.key,
-                      line: entry.value,
-                      canRemove: _lines.length > 1,
-                      onPickItem: () => _pickItemForLine(entry.value),
-                      onRemove: () => _removeLine(entry.key),
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(KSpacing.radiusLg)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560),
+        child: Padding(
+          padding: const EdgeInsets.all(KSpacing.lg),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Text('New Supplier Rate Contract', style: KTypography.titleLarge),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(context).pop(false),
                     ),
-                  ),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: _addLine,
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text('Add line'),
+                  ],
                 ),
-              ),
-              if (_err != null) ...[
-                const SizedBox(height: KSpacing.sm),
-                Text(_err!,
-                    style: KTypography.bodySmall
-                        .copyWith(color: KColors.error)),
+                KSpacing.vGapMd,
+                _ContractPickerRow(
+                  label: 'Supplier',
+                  value: _supplier?['displayName']?.toString() ??
+                      _supplier?['name']?.toString(),
+                  placeholder: 'Select supplier for price agreement',
+                  icon: Icons.local_shipping_outlined,
+                  onPick: _pickSupplier,
+                ),
+                KSpacing.vGapSm,
+                Row(
+                  children: [
+                    Expanded(
+                      child: KCard(
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: DateTime.now(),
+                            firstDate: DateTime.now().subtract(const Duration(days: 30)),
+                            lastDate: DateTime.now().add(const Duration(days: 365 * 3)),
+                          );
+                          if (picked != null) setState(() => _validFrom = picked);
+                        },
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Valid From', style: KTypography.caption),
+                            KSpacing.vGapXs,
+                            Text(
+                              _validFrom == null
+                                  ? 'Today'
+                                  : _validFrom!.toLocal().toString().substring(0, 10),
+                              style: KTypography.mono(fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    KSpacing.hGapSm,
+                    Expanded(
+                      child: KCard(
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: DateTime.now().add(const Duration(days: 365)),
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
+                          );
+                          if (picked != null) setState(() => _validUntil = picked);
+                        },
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Valid Until', style: KTypography.caption),
+                            KSpacing.vGapXs,
+                            Text(
+                              _validUntil == null
+                                  ? 'Open / No Expiry'
+                                  : _validUntil!.toLocal().toString().substring(0, 10),
+                              style: KTypography.mono(fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                KSpacing.vGapMd,
+                Row(
+                  children: [
+                    Text('Contracted Items & Rates', style: KTypography.titleSmall),
+                    const Spacer(),
+                    KButton.outlined(
+                      size: KButtonSize.small,
+                      icon: Icons.add,
+                      label: 'Add Line',
+                      onPressed: _addLine,
+                    ),
+                  ],
+                ),
+                KSpacing.vGapSm,
+                ..._lines.asMap().entries.map(
+                      (entry) => _ContractLineEditor(
+                        index: entry.key,
+                        line: entry.value,
+                        canRemove: _lines.length > 1,
+                        onPickItem: () => _pickItemForLine(entry.value),
+                        onRemove: () => _removeLine(entry.key),
+                      ),
+                    ),
+                if (_err != null) ...[
+                  KSpacing.vGapSm,
+                  Text(_err!,
+                      style: KTypography.bodySmall
+                          .copyWith(color: KColors.error)),
+                ],
+                KSpacing.vGapLg,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    KButton.outlined(
+                      label: 'Cancel',
+                      onPressed: _busy ? null : () => Navigator.of(context).pop(false),
+                    ),
+                    KSpacing.hGapSm,
+                    KButton.primary(
+                      label: 'Save Contract',
+                      isLoading: _busy,
+                      onPressed: _busy ? null : _submit,
+                    ),
+                  ],
+                ),
               ],
-            ],
+            ),
           ),
         ),
       ),
-      actions: [
-        TextButton(
-            onPressed: _busy ? null : () => Navigator.of(context).pop(false),
-            child: const Text('Cancel')),
-        FilledButton(
-            onPressed: _busy ? null : _submit,
-            child: _busy
-                ? const SizedBox(
-                    height: 16,
-                    width: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2))
-                : const Text('Create draft')),
-      ],
     );
   }
 }
@@ -491,55 +612,56 @@ class _ContractLineEditor extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final picked = line.itemId != null;
-    return Container(
-      margin: const EdgeInsets.only(bottom: KSpacing.sm),
-      padding: const EdgeInsets.all(KSpacing.sm),
-      decoration: BoxDecoration(
-        color: KColors.bgApp,
-        borderRadius: BorderRadius.circular(KSpacing.radiusSm),
-        border: Border.all(color: KColors.divider),
-      ),
+    return KCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
-              Text('Line ${index + 1}',
-                  style: KTypography.labelMedium),
+              Text('Contract Item #${index + 1}', style: KTypography.labelMedium),
               const Spacer(),
-              TextButton.icon(
+              KButton.outlined(
+                size: KButtonSize.small,
+                icon: Icons.search,
+                label: picked ? 'Change Item' : 'Pick Item',
                 onPressed: onPickItem,
-                icon: const Icon(Icons.search, size: 14),
-                label: Text(picked ? 'Change item' : 'Pick item'),
               ),
-              if (canRemove)
+              if (canRemove) ...[
+                KSpacing.hGapSm,
                 IconButton(
                   iconSize: 18,
-                  icon: const Icon(Icons.close, color: KColors.error),
+                  icon: const Icon(Icons.delete_outline, color: KColors.error),
                   onPressed: onRemove,
                 ),
+              ],
             ],
           ),
-          if (picked)
-            Padding(
-              padding: const EdgeInsets.only(bottom: KSpacing.xs),
-              child: Text(
-                '${line.itemName ?? ''}'
-                '${line.itemSku != null ? ' · ${line.itemSku}' : ''}',
-                style: KTypography.bodySmall
-                    .copyWith(color: KColors.textSecondary),
-              ),
+          if (picked) ...[
+            KSpacing.vGapXs,
+            Text(
+              '${line.itemName ?? ''}'
+              '${line.itemSku != null ? ' · SKU: ${line.itemSku}' : ''}',
+              style: KTypography.mono(fontSize: 11, color: KColors.primary),
             ),
-          TextField(
-            controller: line.priceCtrl,
-            decoration: const InputDecoration(labelText: 'Unit price (₹)'),
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          ),
-          TextField(
-            controller: line.moqCtrl,
-            decoration:
-                const InputDecoration(labelText: 'Minimum order quantity'),
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          ],
+          KSpacing.vGapSm,
+          Row(
+            children: [
+              Expanded(
+                child: KTextField.amount(
+                  controller: line.priceCtrl,
+                  label: 'Agreed Unit Price *',
+                ),
+              ),
+              KSpacing.hGapSm,
+              Expanded(
+                child: KTextField(
+                  controller: line.moqCtrl,
+                  label: 'Min Order Qty (MOQ)',
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -547,9 +669,6 @@ class _ContractLineEditor extends StatelessWidget {
   }
 }
 
-/// Same compact picker row used by RFQ — kept private here so the
-/// rate-contract screen doesn't depend on the RFQ file. If a third
-/// screen needs the same shape we'll promote it to a shared widget.
 class _ContractPickerRow extends StatelessWidget {
   final String label;
   final String? value;
@@ -568,40 +687,33 @@ class _ContractPickerRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final picked = value != null && value!.isNotEmpty;
-    return Container(
-      padding: const EdgeInsets.symmetric(
-          horizontal: KSpacing.sm, vertical: KSpacing.xs),
-      decoration: BoxDecoration(
-        color: KColors.bgApp,
-        borderRadius: BorderRadius.circular(KSpacing.radiusSm),
-        border: Border.all(color: KColors.divider),
-      ),
+    return KCard(
+      onTap: onPick,
       child: Row(
         children: [
-          Icon(icon, size: 18, color: KColors.textSecondary),
-          const SizedBox(width: KSpacing.sm),
+          Icon(icon, size: 20, color: KColors.primary),
+          KSpacing.hGapMd,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label,
-                    style: KTypography.bodySmall
-                        .copyWith(color: KColors.textSecondary)),
+                Text(label, style: KTypography.caption),
+                KSpacing.vGapXs,
                 Text(
                   picked ? value! : placeholder,
                   style: picked
-                      ? KTypography.bodyMedium
-                      : KTypography.bodyMedium
-                          .copyWith(color: KColors.textHint),
+                      ? KTypography.labelMedium
+                      : KTypography.bodyMedium.copyWith(color: KColors.textHint),
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
-          TextButton.icon(
+          KSpacing.hGapSm,
+          KButton.outlined(
+            size: KButtonSize.small,
+            label: picked ? 'Change' : 'Select',
             onPressed: onPick,
-            icon: const Icon(Icons.search, size: 14),
-            label: Text(picked ? 'Change' : 'Pick'),
           ),
         ],
       ),

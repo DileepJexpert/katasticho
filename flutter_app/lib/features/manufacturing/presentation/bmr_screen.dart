@@ -7,18 +7,16 @@ import 'package:printing/printing.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
+import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/api_error_parser.dart';
+import '../../../core/widgets/widgets.dart';
 
 /// Pharma Batch Manufacturing Record (BMR) viewer + editor. Paste a
 /// work-order id to load the full BMR — step records, sign-offs,
 /// deviations, yield reconciliation. Each tab has its own quick-add
 /// dialog.
-///
-/// This is the document a Schedule M / WHO-GMP regulator's audit
-/// trail consumes. The PDF generator (separate piece, not in this
-/// commit) would consume the same snapshot endpoint.
 class BmrScreen extends ConsumerStatefulWidget {
   final String? initialWorkOrderId;
   const BmrScreen({super.key, this.initialWorkOrderId});
@@ -63,30 +61,39 @@ class _BmrScreenState extends ConsumerState<BmrScreen>
     final result = await showDialog<Map<String, String>>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Record parameter'),
+        title: const Text('Record Parameter'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: keyCtl,
               decoration: const InputDecoration(
-                labelText: 'Parameter (e.g. granulation_temp)'),
+                labelText: 'Parameter (e.g. granulation_temp)',
+                border: OutlineInputBorder(),
+              ),
               autofocus: true,
             ),
+            KSpacing.vGapSm,
             TextField(
               controller: valCtl,
-              decoration: const InputDecoration(labelText: 'Value'),
+              decoration: const InputDecoration(labelText: 'Value', border: OutlineInputBorder()),
             ),
+            KSpacing.vGapSm,
             TextField(
               controller: unitCtl,
-              decoration: const InputDecoration(labelText: 'Unit (°C, kPa…)'),
+              decoration: const InputDecoration(labelText: 'Unit (°C, kPa…)', border: OutlineInputBorder()),
             ),
           ],
         ),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(
+          KButton.outlined(
+            size: KButtonSize.small,
+            onPressed: () => Navigator.pop(ctx),
+            label: 'Cancel',
+          ),
+          KSpacing.hGapSm,
+          KButton.primary(
+            size: KButtonSize.small,
             onPressed: () {
               if (keyCtl.text.trim().isNotEmpty && valCtl.text.trim().isNotEmpty) {
                 Navigator.pop(ctx, {
@@ -96,7 +103,7 @@ class _BmrScreenState extends ConsumerState<BmrScreen>
                 });
               }
             },
-            child: const Text('Save'),
+            label: 'Save',
           ),
         ],
       ),
@@ -121,13 +128,13 @@ class _BmrScreenState extends ConsumerState<BmrScreen>
     final result = await showDialog<Map<String, String>>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Add sign-off'),
+        title: const Text('Add Sign-off'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             DropdownButtonFormField<String>(
               initialValue: 'OPERATOR',
-              decoration: const InputDecoration(labelText: 'Role'),
+              decoration: const InputDecoration(labelText: 'Role', border: OutlineInputBorder()),
               items: const [
                 DropdownMenuItem(value: 'OPERATOR', child: Text('Operator')),
                 DropdownMenuItem(value: 'SUPERVISOR', child: Text('Supervisor')),
@@ -138,21 +145,27 @@ class _BmrScreenState extends ConsumerState<BmrScreen>
                 if (v != null) roleCtl.text = v;
               },
             ),
+            KSpacing.vGapSm,
             TextField(
               controller: notesCtl,
-              decoration: const InputDecoration(labelText: 'Notes (optional)'),
+              decoration: const InputDecoration(labelText: 'Notes (optional)', border: OutlineInputBorder()),
             ),
           ],
         ),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(
+          KButton.outlined(
+            size: KButtonSize.small,
+            onPressed: () => Navigator.pop(ctx),
+            label: 'Cancel',
+          ),
+          KSpacing.hGapSm,
+          KButton.primary(
+            size: KButtonSize.small,
             onPressed: () => Navigator.pop(ctx, {
               'role': roleCtl.text.trim(),
               'notes': notesCtl.text.trim(),
             }),
-            child: const Text('Sign'),
+            label: 'Sign',
           ),
         ],
       ),
@@ -178,13 +191,13 @@ class _BmrScreenState extends ConsumerState<BmrScreen>
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSt) => AlertDialog(
-          title: const Text('Log deviation'),
+          title: const Text('Log Deviation'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButtonFormField<String>(
                 initialValue: severity,
-                decoration: const InputDecoration(labelText: 'Severity'),
+                decoration: const InputDecoration(labelText: 'Severity', border: OutlineInputBorder()),
                 items: const [
                   DropdownMenuItem(value: 'MINOR', child: Text('Minor')),
                   DropdownMenuItem(value: 'MAJOR', child: Text('Major')),
@@ -194,22 +207,29 @@ class _BmrScreenState extends ConsumerState<BmrScreen>
                   if (v != null) setSt(() => severity = v);
                 },
               ),
+              KSpacing.vGapSm,
               TextField(
                 controller: titleCtl,
-                decoration: const InputDecoration(labelText: 'Title'),
+                decoration: const InputDecoration(labelText: 'Title', border: OutlineInputBorder()),
               ),
+              KSpacing.vGapSm,
               TextField(
                 controller: descCtl,
-                decoration: const InputDecoration(labelText: 'Description'),
+                decoration: const InputDecoration(labelText: 'Description', border: OutlineInputBorder()),
                 minLines: 2,
                 maxLines: 4,
               ),
             ],
           ),
           actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-            FilledButton(
+            KButton.outlined(
+              size: KButtonSize.small,
+              onPressed: () => Navigator.pop(ctx),
+              label: 'Cancel',
+            ),
+            KSpacing.hGapSm,
+            KButton.primary(
+              size: KButtonSize.small,
               onPressed: () {
                 if (titleCtl.text.trim().isNotEmpty) {
                   Navigator.pop(ctx, {
@@ -219,7 +239,7 @@ class _BmrScreenState extends ConsumerState<BmrScreen>
                   });
                 }
               },
-              child: const Text('Log'),
+              label: 'Log',
             ),
           ],
         ),
@@ -248,16 +268,12 @@ class _BmrScreenState extends ConsumerState<BmrScreen>
     ref.invalidate(_deviationsProvider(_woId!));
   }
 
-  /// Pulls the regulator-ready BMR PDF from the server and pops it
-  /// through the native share/save sheet (or print preview on
-  /// desktop). Uses the existing Dio client so the bearer token is
-  /// attached automatically.
   Future<void> _downloadPdf() async {
     final woId = _woId;
     if (woId == null) return;
     final messenger = ScaffoldMessenger.of(context);
     messenger.showSnackBar(
-      const SnackBar(content: Text('Generating BMR PDF…')),
+      const SnackBar(content: Text('Generating BMR PDF…'), backgroundColor: KColors.info),
     );
     try {
       final res = await ref.read(apiClientProvider).get(
@@ -271,7 +287,7 @@ class _BmrScreenState extends ConsumerState<BmrScreen>
       );
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text(ApiErrorParser.message(e))),
+        SnackBar(content: Text(ApiErrorParser.message(e)), backgroundColor: KColors.error),
       );
     }
   }
@@ -279,7 +295,7 @@ class _BmrScreenState extends ConsumerState<BmrScreen>
   void _showError(Object e) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(ApiErrorParser.message(e))),
+      SnackBar(content: Text(ApiErrorParser.message(e)), backgroundColor: KColors.error),
     );
   }
 
@@ -319,7 +335,7 @@ class _BmrScreenState extends ConsumerState<BmrScreen>
                   child: TextField(
                     controller: _woCtl,
                     decoration: const InputDecoration(
-                      labelText: 'Work order id',
+                      labelText: 'Work Order ID',
                       helperText: 'The batch (work order) whose BMR you want to view',
                       prefixIcon: Icon(Icons.science_outlined),
                       border: OutlineInputBorder(),
@@ -327,22 +343,18 @@ class _BmrScreenState extends ConsumerState<BmrScreen>
                     onSubmitted: (_) => _load(),
                   ),
                 ),
-                const SizedBox(width: KSpacing.sm),
-                FilledButton(onPressed: _load, child: const Text('Load')),
+                KSpacing.hGapSm,
+                KButton.primary(onPressed: _load, label: 'Load'),
               ],
             ),
           ),
           Expanded(
             child: _woId == null
                 ? const Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.science_outlined,
-                            size: 64, color: Colors.grey),
-                        SizedBox(height: KSpacing.md),
-                        Text('Enter a work-order id to load its BMR'),
-                      ],
+                    child: KEmptyState(
+                      icon: Icons.science_outlined,
+                      title: 'Select Work Order',
+                      subtitle: 'Enter a work order ID above to load and audit its Batch Manufacturing Record.',
                     ),
                   )
                 : TabBarView(
@@ -367,17 +379,23 @@ class _BmrScreenState extends ConsumerState<BmrScreen>
       builder: (ctx, _) {
         return switch (_tabs.index) {
           1 => FloatingActionButton.extended(
+              backgroundColor: KColors.primary,
+              foregroundColor: Colors.white,
               onPressed: _addStepRecord,
               icon: const Icon(Icons.add),
-              label: const Text('Add parameter')),
+              label: const Text('Add Parameter')),
           2 => FloatingActionButton.extended(
+              backgroundColor: KColors.primary,
+              foregroundColor: Colors.white,
               onPressed: _addSignoff,
               icon: const Icon(Icons.draw_outlined),
-              label: const Text('Add sign-off')),
+              label: const Text('Add Sign-off')),
           3 => FloatingActionButton.extended(
+              backgroundColor: KColors.primary,
+              foregroundColor: Colors.white,
               onPressed: _addDeviation,
               icon: const Icon(Icons.warning_amber_outlined),
-              label: const Text('Log deviation')),
+              label: const Text('Log Deviation')),
           _ => const SizedBox.shrink(),
         };
       },
@@ -393,47 +411,41 @@ class _OverviewTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(_yieldProvider(woId));
     return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const Center(child: KLoading(message: 'Loading yield reconciliation...')),
       error: (e, _) => Center(child: Text(ApiErrorParser.message(e))),
       data: (y) {
         final status = y['status']?.toString() ?? 'PENDING';
-        final Color color = switch (status) {
-          'WITHIN_TOLERANCE' => Colors.green,
-          'OUT_OF_TOLERANCE' => Colors.red,
-          _ => Colors.amber,
-        };
         return ListView(
           padding: KSpacing.pagePadding,
           children: [
-            Card(
-              color: color.withValues(alpha: 0.08),
+            KCard(
               child: Padding(
                 padding: const EdgeInsets.all(KSpacing.md),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(children: [
-                      Icon(Icons.verified_outlined, color: color),
-                      const SizedBox(width: 8),
-                      Text('Yield: $status',
-                          style: KTypography.titleMedium.copyWith(color: color)),
+                      KStatusChip(status: status),
+                      KSpacing.hGapSm,
+                      Text('Yield Reconciliation',
+                          style: KTypography.titleMedium),
                     ]),
-                    const SizedBox(height: 12),
-                    _kv('Work order', y['workOrderNumber']),
-                    _kv('Planned qty', y['plannedQty']),
-                    _kv('Produced qty', y['producedQty']),
+                    KSpacing.vGapMd,
+                    _kv('Work Order', y['workOrderNumber']),
+                    _kv('Planned Qty', y['plannedQty']),
+                    _kv('Produced Qty', y['producedQty']),
                     _kv('Yield %', '${y['yieldPercent']}'),
                     _kv('Deviation %', '${y['deviationPercent']}'),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: KSpacing.md),
-            const Text(
+            KSpacing.vGapMd,
+            Text(
               'Use the tabs above to record parameters during each operation, '
               'capture operator/supervisor/QA sign-offs at each critical step, '
               'and log deviations from the master formula.',
-              style: TextStyle(color: Colors.grey),
+              style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
             ),
           ],
         );
@@ -442,10 +454,10 @@ class _OverviewTab extends ConsumerWidget {
   }
 
   Widget _kv(String k, Object? v) => Padding(
-        padding: const EdgeInsets.only(bottom: 4),
+        padding: const EdgeInsets.only(bottom: 6),
         child: Row(children: [
-          SizedBox(width: 110, child: Text(k, style: KTypography.bodySmall)),
-          Text('$v', style: KTypography.bodyMedium),
+          SizedBox(width: 120, child: Text(k, style: KTypography.bodySmall.copyWith(color: KColors.textSecondary))),
+          Text('$v', style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w600)),
         ]),
       );
 }
@@ -458,27 +470,34 @@ class _StepRecordsTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(_stepRecordsProvider(woId));
     return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const Center(child: KLoading(message: 'Loading step parameters...')),
       error: (e, _) => Center(child: Text(ApiErrorParser.message(e))),
       data: (rows) {
         if (rows.isEmpty) {
-          return const Center(child: Text('No parameters recorded yet'));
+          return const KEmptyState(
+            icon: Icons.thermostat_outlined,
+            title: 'No parameters recorded yet',
+            subtitle: 'Add process parameters (temperature, pressure, blending duration) during operations.',
+          );
         }
         return ListView.builder(
           padding: KSpacing.pagePadding,
           itemCount: rows.length,
           itemBuilder: (ctx, i) {
             final r = rows[i];
-            return Card(
-              margin: const EdgeInsets.only(bottom: KSpacing.sm),
-              child: ListTile(
-                leading: const Icon(Icons.thermostat_outlined),
-                title: Text('${r['parameterKey']}: ${r['parameterValue']}'
-                    '${r['unit'] != null ? ' ${r['unit']}' : ''}'),
-                subtitle: Text(
-                  'Observed at ${r['observedAt']}'
-                  '${r['notes'] != null ? '\n${r['notes']}' : ''}',
-                  style: KTypography.bodySmall,
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: KCard(
+                child: ListTile(
+                  leading: const Icon(Icons.thermostat_outlined, color: KColors.primary),
+                  title: Text(
+                    '${r['parameterKey']}: ${r['parameterValue']}${r['unit'] != null ? ' ${r['unit']}' : ''}',
+                    style: KTypography.labelLarge,
+                  ),
+                  subtitle: Text(
+                    'Observed at ${r['observedAt']}${r['notes'] != null ? '\n${r['notes']}' : ''}',
+                    style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                  ),
                 ),
               ),
             );
@@ -497,24 +516,32 @@ class _SignoffsTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(_signoffsProvider(woId));
     return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const Center(child: KLoading(message: 'Loading sign-offs...')),
       error: (e, _) => Center(child: Text(ApiErrorParser.message(e))),
       data: (rows) {
         if (rows.isEmpty) {
-          return const Center(child: Text('No sign-offs yet'));
+          return const KEmptyState(
+            icon: Icons.draw_outlined,
+            title: 'No sign-offs recorded',
+            subtitle: 'Capture critical QA / QC / Supervisor step sign-offs to complete the BMR audit trail.',
+          );
         }
         return ListView.builder(
           padding: KSpacing.pagePadding,
           itemCount: rows.length,
           itemBuilder: (ctx, i) {
             final r = rows[i];
-            return Card(
-              margin: const EdgeInsets.only(bottom: KSpacing.sm),
-              child: ListTile(
-                leading: const Icon(Icons.draw_outlined),
-                title: Text('${r['role']} sign-off'),
-                subtitle: Text('Signed at ${r['signedAt']}'
-                    '${r['notes'] != null ? '\n${r['notes']}' : ''}'),
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: KCard(
+                child: ListTile(
+                  leading: const Icon(Icons.draw_outlined, color: KColors.success),
+                  title: Text('${r['role']} sign-off', style: KTypography.labelLarge),
+                  subtitle: Text(
+                    'Signed at ${r['signedAt']}${r['notes'] != null ? '\n${r['notes']}' : ''}',
+                    style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                  ),
+                ),
               ),
             );
           },
@@ -532,11 +559,15 @@ class _DeviationsTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(_deviationsProvider(woId));
     return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const Center(child: KLoading(message: 'Loading deviations...')),
       error: (e, _) => Center(child: Text(ApiErrorParser.message(e))),
       data: (rows) {
         if (rows.isEmpty) {
-          return const Center(child: Text('No deviations logged'));
+          return const KEmptyState(
+            icon: Icons.check_circle_outline,
+            title: 'No deviations logged',
+            subtitle: 'No GMP or batch deviations were reported for this production run.',
+          );
         }
         return ListView.builder(
           padding: KSpacing.pagePadding,
@@ -544,20 +575,18 @@ class _DeviationsTab extends ConsumerWidget {
           itemBuilder: (ctx, i) {
             final r = rows[i];
             final severity = r['severity']?.toString() ?? 'MINOR';
-            final color = switch (severity) {
-              'CRITICAL' => Colors.red,
-              'MAJOR' => Colors.orange,
-              _ => Colors.amber,
-            };
             final status = r['status']?.toString() ?? 'OPEN';
-            return Card(
-              margin: const EdgeInsets.only(bottom: KSpacing.sm),
-              child: ListTile(
-                leading: Icon(Icons.warning_amber, color: color),
-                title: Text('[$severity] ${r['title']}'),
-                subtitle: Text(
-                  'Status: $status • ${r['reportedAt']}'
-                  '${r['description'] != null ? '\n${r['description']}' : ''}',
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: KCard(
+                child: ListTile(
+                  leading: const Icon(Icons.warning_amber, color: KColors.warning),
+                  title: Text('[$severity] ${r['title']}', style: KTypography.labelLarge),
+                  subtitle: Text(
+                    'Status: $status • ${r['reportedAt']}${r['description'] != null ? '\n${r['description']}' : ''}',
+                    style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                  ),
+                  trailing: KStatusChip(status: status),
                 ),
               ),
             );

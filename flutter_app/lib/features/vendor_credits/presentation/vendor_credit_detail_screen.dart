@@ -95,11 +95,10 @@ class VendorCreditDetailScreen extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('Balance', style: KTypography.bodySmall),
-                        Text(
-                          CurrencyFormatter.formatIndian(c.balance),
-                          style: KTypography.amountLarge.copyWith(
-                            color: KColors.primary,
-                          ),
+                        KMoney(
+                          c.balance,
+                          size: KMoneySize.large,
+                          style: const TextStyle(color: KColors.primary),
                         ),
                       ],
                     ),
@@ -283,7 +282,7 @@ class _CreditDetailBody extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: Text(c.creditNumber, style: KTypography.h2),
+                      child: Text(c.creditNumber, style: KTypography.mono(fontSize: 20, fontWeight: FontWeight.w600)),
                     ),
                     KStatusChip(status: c.status),
                   ],
@@ -291,10 +290,7 @@ class _CreditDetailBody extends StatelessWidget {
                 KSpacing.vGapSm,
                 Text(c.vendorName, style: KTypography.bodyLarge),
                 KSpacing.vGapMd,
-                Text(
-                  CurrencyFormatter.formatIndian(c.totalAmount),
-                  style: KTypography.amountLarge,
-                ),
+                KMoney(c.totalAmount, size: KMoneySize.large),
               ],
             ),
           ),
@@ -318,7 +314,7 @@ class _CreditDetailBody extends StatelessWidget {
                     child: Column(
                       children: [
                         KDetailRow(
-                            label: 'Credit Number', value: c.creditNumber),
+                            label: 'Credit Number', valueWidget: Text(c.creditNumber, style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w600))),
                         KDetailRow(label: 'Vendor', value: c.vendorName),
                         KDetailRow(
                           label: 'Credit Date',
@@ -333,31 +329,32 @@ class _CreditDetailBody extends StatelessWidget {
                         const Divider(),
                         KDetailRow(
                           label: 'Subtotal',
-                          value: CurrencyFormatter.formatIndian(c.subtotal),
+                          valueWidget: KMoney(c.subtotal),
                         ),
                         KDetailRow(
                           label: 'Tax',
-                          value: CurrencyFormatter.formatIndian(c.taxAmount),
+                          valueWidget: KMoney(c.taxAmount),
                         ),
                         const Divider(),
                         KDetailRow(
                           label: 'Total',
-                          value: CurrencyFormatter.formatIndian(c.totalAmount),
-                          valueStyle: KTypography.amountMedium,
+                          valueWidget: KMoney(c.totalAmount, size: KMoneySize.medium),
                         ),
                         KDetailRow(
                           label: 'Balance',
-                          value: CurrencyFormatter.formatIndian(c.balance),
-                          valueStyle: KTypography.amountSmall.copyWith(
-                            color: c.balance > 0
-                                ? KColors.primary
-                                : KColors.success,
+                          valueWidget: KMoney(
+                            c.balance,
+                            style: TextStyle(
+                              color: c.balance > 0
+                                  ? KColors.primary
+                                  : KColors.success,
+                            ),
                           ),
                         ),
                         if (c.journalEntryId != null) ...[
                           const Divider(),
                           KDetailRow(
-                              label: 'Journal Entry', value: c.journalEntryId!),
+                              label: 'Journal Entry', valueWidget: Text(c.journalEntryId!, style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w500))),
                         ],
                       ],
                     ),
@@ -415,17 +412,12 @@ class _LinesTab extends StatelessWidget {
                         if (line.hsnCode.isNotEmpty)
                           Text(
                             'HSN: ${line.hsnCode}',
-                            style: KTypography.bodySmall.copyWith(
-                              color: KColors.textSecondary,
-                            ),
+                            style: KTypography.mono(fontSize: 12),
                           ),
                       ],
                     ),
                   ),
-                  Text(
-                    CurrencyFormatter.formatIndian(line.lineTotal),
-                    style: KTypography.amountSmall,
-                  ),
+                  KMoney(line.lineTotal, size: KMoneySize.small),
                 ],
               ),
               KSpacing.vGapXs,

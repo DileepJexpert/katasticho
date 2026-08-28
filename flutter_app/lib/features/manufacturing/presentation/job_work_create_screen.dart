@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/theme/k_colors.dart';
+import '../../../core/theme/k_spacing.dart';
+import '../../../core/theme/k_typography.dart';
+import '../../../core/utils/api_error_parser.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/manufacturing_repository.dart';
 
@@ -51,227 +55,231 @@ class _JobWorkCreateScreenState extends ConsumerState<JobWorkCreateScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return KKeyboardFormWrapper(
       onSubmit: _submit,
       onCancel: () => context.pop(),
       child: Scaffold(
-      appBar: AppBar(title: const Text('New Job Work Order')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // Vendor
-          KTextField(
-            controller: _vendorCtl,
-            label: 'Vendor ID (UUID)',
-            hint: 'e.g. 3fa85f64-5717-4562-b3fc-2c963f66afa6',
-          ),
-
-          const SizedBox(height: 16),
-
-          // Warehouse
-          KTextField(
-            controller: _warehouseCtl,
-            label: 'Warehouse ID (UUID)',
-            hint: 'e.g. 3fa85f64-5717-4562-b3fc-2c963f66afa6',
-          ),
-
-          const SizedBox(height: 16),
-
-          // Processing charges
-          KTextField(
-            controller: _processingChargesCtl,
-            label: 'Processing Charges (₹)',
-            keyboardType: TextInputType.number,
-            hint: '0.00',
-          ),
-
-          const SizedBox(height: 16),
-
-          // Dates
-          Row(
-            children: [
-              Expanded(
-                child: _DateField(
-                  label: 'Planned Send Date',
-                  value: _plannedSendDate,
-                  onPick: (d) => setState(() => _plannedSendDate = d),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _DateField(
-                  label: 'Planned Return Date',
-                  value: _plannedReturnDate,
-                  onPick: (d) => setState(() => _plannedReturnDate = d),
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-
-          // Notes
-          KTextField(
-            controller: _notesCtl,
-            label: 'Notes',
-            maxLines: 3,
-          ),
-
-          const SizedBox(height: 24),
-
-          // Materials section
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Materials to Send',
-                  style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
-                ),
-              ),
-              TextButton.icon(
-                onPressed: () => setState(() => _materialRows.add(_MaterialRow())),
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Add Row'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-
-          // Column headers
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-            child: Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: Text('Item ID (UUID)',
-                      style: theme.textTheme.labelSmall?.copyWith(color: Colors.grey)),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text('Qty',
-                      style: theme.textTheme.labelSmall?.copyWith(color: Colors.grey)),
-                ),
-                const SizedBox(width: 36), // remove button space
-              ],
-            ),
-          ),
-
-          ..._materialRows.asMap().entries.map((entry) {
-            final index = entry.key;
-            final row = entry.value;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: TextField(
-                      controller: row.itemIdCtl,
-                      decoration: InputDecoration(
-                        hintText: 'Item UUID',
-                        isDense: true,
-                        contentPadding:
-                            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        border: const OutlineInputBorder(),
-                      ),
+        appBar: AppBar(title: const Text('New Job Work Order')),
+        body: ListView(
+          padding: KSpacing.pagePadding,
+          children: [
+            KCard(
+              child: Padding(
+                padding: const EdgeInsets.all(KSpacing.md),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Order Information', style: KTypography.titleMedium),
+                    KSpacing.vGapMd,
+                    // Vendor
+                    KTextField(
+                      controller: _vendorCtl,
+                      label: 'Vendor ID *',
+                      hint: 'e.g. 3fa85f64-5717-4562-b3fc-2c963f66afa6',
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: row.qtyCtl,
+
+                    KSpacing.vGapMd,
+
+                    // Warehouse
+                    KTextField(
+                      controller: _warehouseCtl,
+                      label: 'Warehouse ID *',
+                      hint: 'e.g. 3fa85f64-5717-4562-b3fc-2c963f66afa6',
+                    ),
+
+                    KSpacing.vGapMd,
+
+                    // Processing charges
+                    KTextField(
+                      controller: _processingChargesCtl,
+                      label: 'Processing Charges (₹)',
                       keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        hintText: '0',
-                        isDense: true,
-                        contentPadding:
-                            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        border: const OutlineInputBorder(),
-                      ),
+                      hint: '0.00',
                     ),
-                  ),
-                  const SizedBox(width: 4),
-                  IconButton(
-                    icon: const Icon(Icons.remove_circle_outline, size: 20),
-                    color: Colors.red.shade400,
-                    tooltip: 'Remove row',
-                    onPressed: _materialRows.length > 1
-                        ? () {
-                            setState(() {
-                              _materialRows[index].dispose();
-                              _materialRows.removeAt(index);
-                            });
-                          }
-                        : null,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                  ),
-                ],
-              ),
-            );
-          }),
 
-          const SizedBox(height: 24),
+                    KSpacing.vGapMd,
 
-          Text(
-            'Finished Good to Receive',
-            style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Select the item the external manufacturer will return. This is separate from raw materials sent out.',
-          ),
-          const SizedBox(height: 8),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                flex: 3,
-                child: TextField(
-                  controller: _outputItemCtl,
-                  decoration: const InputDecoration(
-                    labelText: 'Finished-good Item ID *',
-                    hintText: 'Item UUID',
-                    border: OutlineInputBorder(),
-                  ),
+                    // Dates
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _DateField(
+                            label: 'Planned Send Date',
+                            value: _plannedSendDate,
+                            onPick: (d) => setState(() => _plannedSendDate = d),
+                          ),
+                        ),
+                        KSpacing.hGapMd,
+                        Expanded(
+                          child: _DateField(
+                            label: 'Planned Return Date',
+                            value: _plannedReturnDate,
+                            onPick: (d) => setState(() => _plannedReturnDate = d),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    KSpacing.vGapMd,
+
+                    // Notes
+                    KTextField(
+                      controller: _notesCtl,
+                      label: 'Notes',
+                      maxLines: 3,
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextField(
-                  controller: _outputQtyCtl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Expected qty *',
-                    hintText: '0',
-                    border: OutlineInputBorder(),
-                  ),
+            ),
+
+            KSpacing.vGapMd,
+
+            // Materials section
+            KCard(
+              child: Padding(
+                padding: const EdgeInsets.all(KSpacing.md),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Materials to Send (Raw / Semi-finished)',
+                            style: KTypography.titleMedium,
+                          ),
+                        ),
+                        KButton.outlined(
+                          size: KButtonSize.small,
+                          onPressed: () => setState(() => _materialRows.add(_MaterialRow())),
+                          icon: Icons.add,
+                          label: 'Add Row',
+                        ),
+                      ],
+                    ),
+                    KSpacing.vGapMd,
+
+                    ..._materialRows.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final row = entry.value;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              flex: 3,
+                              child: TextField(
+                                controller: row.itemIdCtl,
+                                decoration: const InputDecoration(
+                                  labelText: 'Item ID (UUID) *',
+                                  hintText: 'Item UUID',
+                                  isDense: true,
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                            ),
+                            KSpacing.hGapSm,
+                            Expanded(
+                              child: TextField(
+                                controller: row.qtyCtl,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(
+                                  labelText: 'Qty *',
+                                  hintText: '0',
+                                  isDense: true,
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                            ),
+                            KSpacing.hGapXs,
+                            IconButton(
+                              icon: const Icon(Icons.remove_circle_outline, size: 20),
+                              color: KColors.error,
+                              tooltip: 'Remove row',
+                              onPressed: _materialRows.length > 1
+                                  ? () {
+                                      setState(() {
+                                        _materialRows[index].dispose();
+                                        _materialRows.removeAt(index);
+                                      });
+                                    }
+                                  : null,
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
                 ),
               ),
-            ],
-          ),
+            ),
 
-          const SizedBox(height: 24),
+            KSpacing.vGapMd,
 
-          FilledButton.icon(
-            onPressed: _submitting ? null : _submit,
-            icon: _submitting
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.check),
-            label: const Text('Create Job Work Order'),
-          ),
+            KCard(
+              child: Padding(
+                padding: const EdgeInsets.all(KSpacing.md),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Finished Good to Receive',
+                      style: KTypography.titleMedium,
+                    ),
+                    KSpacing.vGapXs,
+                    Text(
+                      'Specify the finished output item the subcontractor will return after processing.',
+                      style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                    ),
+                    KSpacing.vGapMd,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: TextField(
+                            controller: _outputItemCtl,
+                            decoration: const InputDecoration(
+                              labelText: 'Finished Good Item ID (UUID) *',
+                              hintText: 'Item UUID',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                        KSpacing.hGapSm,
+                        Expanded(
+                          child: TextField(
+                            controller: _outputQtyCtl,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Expected Qty *',
+                              hintText: '0',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
 
-          const SizedBox(height: 16),
-        ],
+            KSpacing.vGapLg,
+
+            KButton.primary(
+              fullWidth: true,
+              onPressed: _submitting ? null : _submit,
+              label: _submitting ? 'Creating Order...' : 'Create Job Work Order',
+            ),
+
+            KSpacing.vGapMd,
+          ],
+        ),
       ),
-    ));
+    );
   }
 
   Future<void> _submit() async {
@@ -280,7 +288,7 @@ class _JobWorkCreateScreenState extends ConsumerState<JobWorkCreateScreen> {
 
     if (vendorId.isEmpty || warehouseId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vendor ID and Warehouse ID are required')),
+        const SnackBar(content: Text('Vendor ID and Warehouse ID are required'), backgroundColor: KColors.error),
       );
       return;
     }
@@ -297,7 +305,7 @@ class _JobWorkCreateScreenState extends ConsumerState<JobWorkCreateScreen> {
 
     if (materials.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Add at least one material with a valid qty')),
+        const SnackBar(content: Text('Add at least one material with a valid qty'), backgroundColor: KColors.error),
       );
       return;
     }
@@ -306,7 +314,7 @@ class _JobWorkCreateScreenState extends ConsumerState<JobWorkCreateScreen> {
     final outputQty = double.tryParse(_outputQtyCtl.text.trim());
     if (outputItemId.isEmpty || outputQty == null || outputQty <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Add the finished-good item and expected quantity')),
+        const SnackBar(content: Text('Add the finished-good item and expected quantity'), backgroundColor: KColors.error),
       );
       return;
     }
@@ -331,7 +339,7 @@ class _JobWorkCreateScreenState extends ConsumerState<JobWorkCreateScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Job work order ${result['jobWorkNumber'] ?? ''} created'),
-            backgroundColor: Colors.green,
+            backgroundColor: KColors.success,
           ),
         );
         final id = result['id']?.toString();
@@ -344,7 +352,7 @@ class _JobWorkCreateScreenState extends ConsumerState<JobWorkCreateScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed: $e')),
+          SnackBar(content: Text('Failed: ${ApiErrorParser.message(e)}'), backgroundColor: KColors.error),
         );
       }
     } finally {
@@ -389,12 +397,13 @@ class _DateField extends StatelessWidget {
         decoration: InputDecoration(
           labelText: label,
           suffixIcon: const Icon(Icons.calendar_today, size: 18),
+          border: const OutlineInputBorder(),
         ),
         child: Text(
           value != null
               ? '${value!.year}-${value!.month.toString().padLeft(2, '0')}-${value!.day.toString().padLeft(2, '0')}'
               : 'Not set',
-          style: TextStyle(color: value != null ? null : Colors.grey),
+          style: TextStyle(color: value != null ? null : KColors.textSecondary),
         ),
       ),
     );

@@ -5,6 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
+import '../../../core/theme/k_colors.dart';
+import '../../../core/theme/k_spacing.dart';
+import '../../../core/theme/k_typography.dart';
+import '../../../core/widgets/widgets.dart';
 
 /// Proof of Delivery — back-office capture for delivered shipments.
 /// Lets staff record the recipient + delivery time + GPS for a delivery
@@ -71,23 +75,20 @@ class _ProofOfDeliveryScreenState extends ConsumerState<ProofOfDeliveryScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _rows.isEmpty
-              ? const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Text(
-                      'No PODs recorded yet.\n\nTap "Record POD" after a '
-                      'delivery to log who received it and attach the '
-                      'signature or photo.',
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
+              ? KEmptyState(
+                  icon: Icons.assignment_turned_in_outlined,
+                  title: 'No proof of delivery recorded yet',
+                  subtitle:
+                      'Tap "Record POD" after a delivery to log who received it and attach signatures or photos.',
+                  actionLabel: 'Record POD',
+                  onAction: _recordNew,
                 )
               : RefreshIndicator(
                   onRefresh: _load,
                   child: ListView.separated(
-                    padding: const EdgeInsets.all(12),
+                    padding: KSpacing.pagePadding,
                     itemCount: _rows.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    separatorBuilder: (_, __) => KSpacing.vGapSm,
                     itemBuilder: (_, i) => _podCard(_rows[i]),
                   ),
                 ),
@@ -101,62 +102,67 @@ class _ProofOfDeliveryScreenState extends ConsumerState<ProofOfDeliveryScreen> {
             ? 'Invoice ${_short(pod['invoiceId'])}'
             : '(unlinked)';
     final delivered = pod['deliveredAt']?.toString().replaceAll('T', ' ');
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    pod['recipientName']?.toString() ?? '(unknown)',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
+
+    return KCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  pod['recipientName']?.toString() ?? '(unknown)',
+                  style: KTypography.titleMedium,
                 ),
-                Text(link,
-                    style: Theme.of(context).textTheme.bodySmall),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              [
-                if (pod['recipientRelation'] != null) '${pod['recipientRelation']}',
-                if (pod['recipientPhone'] != null) '${pod['recipientPhone']}',
-                if (delivered != null) 'at $delivered',
-              ].join(' · '),
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            if (pod['notes'] != null && (pod['notes'] as String).isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(pod['notes'] as String),
               ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                OutlinedButton.icon(
-                  onPressed: () => _attach(pod),
-                  icon: const Icon(Icons.attach_file, size: 16),
-                  label: const Text('Attach file'),
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  onPressed: () => _viewAttachments(pod),
-                  icon: const Icon(Icons.folder_open, size: 16),
-                  label: const Text('Attachments'),
-                ),
-                const Spacer(),
-                IconButton(
-                  tooltip: 'Remove',
-                  icon: const Icon(Icons.delete_outline),
-                  onPressed: () => _delete(pod),
-                ),
-              ],
+              KStatusChip(
+                status: 'DELIVERED',
+                label: link,
+              ),
+            ],
+          ),
+          KSpacing.vGapXs,
+          Text(
+            [
+              if (pod['recipientRelation'] != null)
+                '${pod['recipientRelation']}',
+              if (pod['recipientPhone'] != null) '${pod['recipientPhone']}',
+              if (delivered != null) 'at $delivered',
+            ].join(' · '),
+            style: KTypography.bodySmall,
+          ),
+          if (pod['notes'] != null && (pod['notes'] as String).isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: KSpacing.xs),
+              child: Text(pod['notes'] as String, style: KTypography.bodyMedium),
             ),
-          ],
-        ),
+          KSpacing.vGapSm,
+          Row(
+            children: [
+              KButton(
+                label: 'Attach File',
+                icon: Icons.attach_file,
+                size: KButtonSize.small,
+                variant: KButtonVariant.outlined,
+                onPressed: () => _attach(pod),
+              ),
+              KSpacing.hGapSm,
+              KButton(
+                label: 'Attachments',
+                icon: Icons.folder_open,
+                size: KButtonSize.small,
+                variant: KButtonVariant.outlined,
+                onPressed: () => _viewAttachments(pod),
+              ),
+              const Spacer(),
+              IconButton(
+                tooltip: 'Remove',
+                icon: const Icon(Icons.delete_outline, color: KColors.error, size: 20),
+                onPressed: () => _delete(pod),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -175,7 +181,7 @@ class _ProofOfDeliveryScreenState extends ConsumerState<ProofOfDeliveryScreen> {
     try {
       await ref.read(apiClientProvider).post(ApiConfig.proofOfDelivery,
           data: result);
-      _toast('POD recorded');
+      _toast('POD recorded successfully');
       await _load();
     } on DioException catch (e) {
       _toast('Failed: ${e.response?.data['message'] ?? e.message}');
@@ -200,7 +206,7 @@ class _ProofOfDeliveryScreenState extends ConsumerState<ProofOfDeliveryScreen> {
             ApiConfig.proofOfDeliveryAttachments(pod['id'] as String),
             data: form,
           );
-      _toast('Attached');
+      _toast('File attached successfully');
     } on DioException catch (e) {
       _toast('Failed: ${e.response?.data['message'] ?? e.message}');
     } catch (e) {
@@ -219,13 +225,13 @@ class _ProofOfDeliveryScreenState extends ConsumerState<ProofOfDeliveryScreen> {
         context: context,
         builder: (_) => SafeArea(
           child: ListView(
-            padding: const EdgeInsets.all(16),
+            padding: KSpacing.pagePadding,
             children: [
               Text('Attachments for ${pod['recipientName']}',
-                  style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 12),
+                  style: KTypography.titleMedium),
+              KSpacing.vGapMd,
               if (atts.isEmpty)
-                const Text('None yet — tap "Attach file" on the card.')
+                const Text('No attachments yet — tap "Attach File" on the card.')
               else
                 ...atts.map((a) => ListTile(
                       leading: const Icon(Icons.insert_drive_file_outlined),
@@ -246,16 +252,19 @@ class _ProofOfDeliveryScreenState extends ConsumerState<ProofOfDeliveryScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
+        title: const Text('Remove Proof of Delivery'),
         content: Text(
             'Remove POD for ${pod['recipientName']}? '
             'Attached files stay on storage and can be cleaned later.'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Remove')),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Remove'),
+          ),
         ],
       ),
     );
@@ -296,6 +305,19 @@ class _RecordPodDialogState extends State<_RecordPodDialog> {
   String _fmt(DateTime d) =>
       '${d.year}-${_pad(d.month)}-${_pad(d.day)} ${_pad(d.hour)}:${_pad(d.minute)}';
 
+  @override
+  void dispose() {
+    _dcId.dispose();
+    _invoiceId.dispose();
+    _name.dispose();
+    _phone.dispose();
+    _relation.dispose();
+    _lat.dispose();
+    _lng.dispose();
+    _notes.dispose();
+    super.dispose();
+  }
+
   Future<void> _pickDeliveredAt() async {
     final d = await showDatePicker(
       context: context,
@@ -320,120 +342,183 @@ class _RecordPodDialogState extends State<_RecordPodDialog> {
     final ready =
         _name.text.trim().isNotEmpty &&
             (_dcId.text.trim().isNotEmpty || _invoiceId.text.trim().isNotEmpty);
-    return AlertDialog(
-      title: const Text('Record proof of delivery'),
-      content: SizedBox(
-        width: 480,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Link this POD to either a delivery challan or an invoice. '
-                'Paste the id from the corresponding screen.',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _dcId,
-                decoration: const InputDecoration(
-                  labelText: 'Delivery challan id',
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: KSpacing.borderRadiusMd),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: Padding(
+          padding: const EdgeInsets.all(KSpacing.lg),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text('Record Proof of Delivery', style: KTypography.h3),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 20),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
                 ),
-                onChanged: (_) => setState(() {}),
-              ),
-              TextField(
-                controller: _invoiceId,
-                decoration: const InputDecoration(labelText: 'Invoice id'),
-                onChanged: (_) => setState(() {}),
-              ),
-              const Divider(height: 24),
-              TextField(
-                controller: _name,
-                decoration: const InputDecoration(labelText: 'Recipient name *'),
-                onChanged: (_) => setState(() {}),
-              ),
-              TextField(
-                controller: _phone,
-                decoration: const InputDecoration(labelText: 'Recipient phone'),
-                keyboardType: TextInputType.phone,
-              ),
-              TextField(
-                controller: _relation,
-                decoration: const InputDecoration(
-                    labelText: 'Relationship (Self / Watchman / …)'),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _pickDeliveredAt,
-                      icon: const Icon(Icons.access_time),
-                      label: Text('Delivered: ${_fmt(_deliveredAt)}'),
+                KSpacing.vGapXs,
+                Text(
+                  'Link this POD to either a delivery challan or an invoice. Paste the ID below.',
+                  style: KTypography.bodySmall,
+                ),
+                KSpacing.vGapMd,
+
+                // Document Linking
+                KCompactRow(
+                  children: [
+                    KTextField(
+                      label: 'Delivery Challan ID',
+                      hint: 'e.g. dc_123',
+                      controller: _dcId,
+                      onChanged: (_) => setState(() {}),
                     ),
-                  ),
-                ],
-              ),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
+                    KTextField(
+                      label: 'Invoice ID',
+                      hint: 'e.g. inv_123',
+                      controller: _invoiceId,
+                      onChanged: (_) => setState(() {}),
+                    ),
+                  ],
+                ),
+                KSpacing.vGapSm,
+
+                // Recipient Info
+                KCompactRow(
+                  children: [
+                    KTextField(
+                      label: 'Recipient Name *',
+                      hint: 'Full name',
+                      controller: _name,
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    KTextField(
+                      label: 'Recipient Phone',
+                      hint: '10-digit phone',
+                      controller: _phone,
+                      keyboardType: TextInputType.phone,
+                    ),
+                  ],
+                ),
+                KSpacing.vGapSm,
+
+                KCompactRow(
+                  children: [
+                    KTextField(
+                      label: 'Relationship',
+                      hint: 'e.g. Self, Watchman, Manager',
+                      controller: _relation,
+                    ),
+                    InkWell(
+                      onTap: _pickDeliveredAt,
+                      borderRadius: KSpacing.borderRadiusMd,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Delivered At', style: KTypography.labelLarge),
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+                              borderRadius: KSpacing.borderRadiusMd,
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.access_time, size: 18, color: Theme.of(context).colorScheme.primary),
+                                KSpacing.hGapXs,
+                                Text(_fmt(_deliveredAt), style: KTypography.bodyMedium),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                KSpacing.vGapSm,
+
+                // GPS
+                KCompactRow(
+                  children: [
+                    KTextField(
+                      label: 'GPS Latitude',
+                      hint: 'e.g. 19.0760',
                       controller: _lat,
-                      decoration: const InputDecoration(labelText: 'GPS lat'),
                       keyboardType: const TextInputType.numberWithOptions(
-                          signed: true, decimal: true),
+                        signed: true,
+                        decimal: true,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
+                    KTextField(
+                      label: 'GPS Longitude',
+                      hint: 'e.g. 72.8777',
                       controller: _lng,
-                      decoration: const InputDecoration(labelText: 'GPS lng'),
                       keyboardType: const TextInputType.numberWithOptions(
-                          signed: true, decimal: true),
+                        signed: true,
+                        decimal: true,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              TextField(
-                controller: _notes,
-                decoration: const InputDecoration(labelText: 'Notes'),
-                maxLines: 2,
-              ),
-            ],
+                  ],
+                ),
+                KSpacing.vGapSm,
+
+                KTextField(
+                  label: 'Notes',
+                  hint: 'Special remarks, condition of package, etc.',
+                  controller: _notes,
+                  maxLines: 2,
+                ),
+                KSpacing.vGapLg,
+
+                // Actions
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    KButton(
+                      label: 'Cancel',
+                      variant: KButtonVariant.outlined,
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                    KSpacing.hGapSm,
+                    KButton(
+                      label: 'Save POD',
+                      icon: Icons.check,
+                      onPressed: !ready
+                          ? null
+                          : () => Navigator.pop(context, {
+                                if (_dcId.text.trim().isNotEmpty)
+                                  'deliveryChallanId': _dcId.text.trim(),
+                                if (_invoiceId.text.trim().isNotEmpty)
+                                  'invoiceId': _invoiceId.text.trim(),
+                                'recipientName': _name.text.trim(),
+                                if (_phone.text.trim().isNotEmpty)
+                                  'recipientPhone': _phone.text.trim(),
+                                if (_relation.text.trim().isNotEmpty)
+                                  'recipientRelation': _relation.text.trim(),
+                                'deliveredAt': _deliveredAt.toUtc().toIso8601String(),
+                                if (_lat.text.trim().isNotEmpty)
+                                  'geoLatitude': double.tryParse(_lat.text.trim()),
+                                if (_lng.text.trim().isNotEmpty)
+                                  'geoLongitude': double.tryParse(_lng.text.trim()),
+                                if (_notes.text.trim().isNotEmpty)
+                                  'notes': _notes.text.trim(),
+                              }),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: !ready
-              ? null
-              : () => Navigator.pop(context, {
-                    if (_dcId.text.trim().isNotEmpty)
-                      'deliveryChallanId': _dcId.text.trim(),
-                    if (_invoiceId.text.trim().isNotEmpty)
-                      'invoiceId': _invoiceId.text.trim(),
-                    'recipientName': _name.text.trim(),
-                    if (_phone.text.trim().isNotEmpty)
-                      'recipientPhone': _phone.text.trim(),
-                    if (_relation.text.trim().isNotEmpty)
-                      'recipientRelation': _relation.text.trim(),
-                    'deliveredAt': _deliveredAt.toUtc().toIso8601String(),
-                    if (_lat.text.trim().isNotEmpty)
-                      'geoLatitude': double.tryParse(_lat.text.trim()),
-                    if (_lng.text.trim().isNotEmpty)
-                      'geoLongitude': double.tryParse(_lng.text.trim()),
-                    if (_notes.text.trim().isNotEmpty)
-                      'notes': _notes.text.trim(),
-                  }),
-          child: const Text('Save'),
-        ),
-      ],
     );
   }
 }

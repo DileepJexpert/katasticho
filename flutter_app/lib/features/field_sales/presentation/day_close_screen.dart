@@ -3,8 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
-import '../../../core/utils/currency_formatter.dart';
-import '../../../core/widgets/widgets.dart';
+import '../../../core/widgets/k_button.dart';
+import '../../../core/widgets/k_card.dart';
+import '../../../core/widgets/k_empty_state.dart';
+import '../../../core/widgets/k_loading.dart';
+import '../../../core/widgets/k_money.dart';
+import '../../../core/widgets/k_status_chip.dart';
+import '../../../core/widgets/k_text_field.dart';
 import '../data/field_sales_repository.dart';
 
 class DayCloseScreen extends ConsumerStatefulWidget {
@@ -58,7 +63,10 @@ class _DayCloseScreenState extends ConsumerState<DayCloseScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load executions: $e')),
+          SnackBar(
+            content: Text('Failed to load executions: $e'),
+            backgroundColor: KColors.error,
+          ),
         );
       }
     } finally {
@@ -91,7 +99,10 @@ class _DayCloseScreenState extends ConsumerState<DayCloseScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to initiate day close: $e')),
+          SnackBar(
+            content: Text('Failed to initiate day close: $e'),
+            backgroundColor: KColors.error,
+          ),
         );
       }
     } finally {
@@ -119,7 +130,7 @@ class _DayCloseScreenState extends ConsumerState<DayCloseScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Day close submitted'),
+            content: Text('Day close submitted successfully'),
             backgroundColor: KColors.success,
           ),
         );
@@ -133,7 +144,10 @@ class _DayCloseScreenState extends ConsumerState<DayCloseScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to submit day close: $e')),
+          SnackBar(
+            content: Text('Failed to submit day close: $e'),
+            backgroundColor: KColors.error,
+          ),
         );
         setState(() => _isLoading = false);
       }
@@ -146,7 +160,7 @@ class _DayCloseScreenState extends ConsumerState<DayCloseScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Day close approved'),
+            content: Text('Day close approved successfully'),
             backgroundColor: KColors.success,
           ),
         );
@@ -155,7 +169,10 @@ class _DayCloseScreenState extends ConsumerState<DayCloseScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to approve: $e')),
+          SnackBar(
+            content: Text('Failed to approve: $e'),
+            backgroundColor: KColors.error,
+          ),
         );
       }
     }
@@ -166,14 +183,20 @@ class _DayCloseScreenState extends ConsumerState<DayCloseScreen> {
       await ref.read(fieldSalesRepositoryProvider).rejectDayClose(id);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Day close rejected')),
+          const SnackBar(
+            content: Text('Day close rejected'),
+            backgroundColor: KColors.warning,
+          ),
         );
       }
       await _loadData();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to reject: $e')),
+          SnackBar(
+            content: Text('Failed to reject: $e'),
+            backgroundColor: KColors.error,
+          ),
         );
       }
     }
@@ -183,7 +206,7 @@ class _DayCloseScreenState extends ConsumerState<DayCloseScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Day Close'),
+        title: const Text('Day Close & Cash Reconciliation'),
         leading: _isDayCloseMode
             ? IconButton(
                 icon: const Icon(Icons.arrow_back),
@@ -196,7 +219,7 @@ class _DayCloseScreenState extends ConsumerState<DayCloseScreen> {
             : null,
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: KLoading())
           : _isDayCloseMode
               ? _buildDayCloseForm()
               : _buildExecutionsList(),
@@ -205,7 +228,11 @@ class _DayCloseScreenState extends ConsumerState<DayCloseScreen> {
 
   Widget _buildExecutionsList() {
     if (_completedExecutions.isEmpty) {
-      return const Center(child: Text('No completed executions found'));
+      return const KEmptyState(
+        icon: Icons.checklist_rtl_outlined,
+        title: 'No completed executions found',
+        subtitle: 'Once field salespeople complete their daily routes, they will appear here for day-end reconciliation.',
+      );
     }
 
     return RefreshIndicator(
@@ -229,51 +256,60 @@ class _DayCloseScreenState extends ConsumerState<DayCloseScreen> {
           final dayCloseId = exec['dayCloseId']?.toString();
 
           return KCard(
+            titleWidget: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    routeName,
+                    style: KTypography.titleMedium,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (dayCloseStatus != null)
+                  KStatusChip(
+                    status: dayCloseStatus,
+                    label: dayCloseStatus.replaceAll('_', ' '),
+                  ),
+              ],
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Expanded(
-                      child: Text(routeName,
-                          style: KTypography.labelLarge,
-                          overflow: TextOverflow.ellipsis),
+                    Text('Date: ', style: KTypography.bodySmall),
+                    Text(
+                      execDate,
+                      style: KTypography.mono(fontSize: 12, fontWeight: FontWeight.w600),
                     ),
-                    if (dayCloseStatus != null)
-                      KStatusChip(
-                        status: dayCloseStatus,
-                        label: dayCloseStatus.replaceAll('_', ' '),
-                      ),
+                    const Text('  •  Visits: '),
+                    Text(
+                      '$completedVisits / $totalVisits completed',
+                      style: KTypography.mono(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
                   ],
                 ),
-                KSpacing.vGapXs,
-                Text('Date: $execDate',
-                    style: KTypography.bodySmall
-                        .copyWith(color: KColors.textSecondary)),
-                KSpacing.vGapXs,
-                Text('$completedVisits / $totalVisits visits completed',
-                    style: KTypography.bodySmall
-                        .copyWith(color: KColors.textSecondary)),
-                KSpacing.vGapSm,
+                KSpacing.vGapMd,
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    if (dayCloseStatus == null ||
-                        dayCloseStatus == 'DRAFT')
-                      FilledButton.tonal(
+                    if (dayCloseStatus == null || dayCloseStatus == 'DRAFT')
+                      KButton.primary(
+                        label: 'Initiate Day Close',
+                        icon: Icons.account_balance_wallet_outlined,
                         onPressed: () => _initiateDayClose(id),
-                        child: const Text('Initiate Day Close'),
                       ),
-                    if (dayCloseStatus == 'SUBMITTED' &&
-                        dayCloseId != null) ...[
-                      OutlinedButton(
+                    if (dayCloseStatus == 'SUBMITTED' && dayCloseId != null) ...[
+                      KButton.danger(
+                        label: 'Reject',
+                        icon: Icons.close,
                         onPressed: () => _rejectDayClose(dayCloseId),
-                        child: const Text('Reject'),
                       ),
                       KSpacing.hGapSm,
-                      FilledButton(
+                      KButton.primary(
+                        label: 'Approve',
+                        icon: Icons.check,
                         onPressed: () => _approveDayClose(dayCloseId),
-                        child: const Text('Approve'),
                       ),
                     ],
                   ],
@@ -307,46 +343,34 @@ class _DayCloseScreenState extends ConsumerState<DayCloseScreen> {
       padding: KSpacing.pagePadding,
       children: [
         // -- Cash Section --
-        Text('Cash', style: KTypography.labelLarge),
-        KSpacing.vGapSm,
         KCard(
+          title: 'Cash Reconciliation',
+          leading: const Icon(Icons.payments_outlined, color: KColors.primary),
           child: Column(
             children: [
-              TextField(
+              KTextField.amount(
+                label: 'Opening Cash',
                 controller: _openingCashCtl,
-                decoration: const InputDecoration(
-                  labelText: 'Opening Cash',
-                ),
-                keyboardType: TextInputType.number,
               ),
               KSpacing.vGapSm,
-              _ReadOnlyField(
+              _ReadOnlyMoneyField(
                 label: 'Cash Collections',
-                value: CurrencyFormatter.formatIndian(cashCollections),
+                amount: cashCollections,
               ),
               KSpacing.vGapSm,
-              TextField(
+              KTextField.amount(
+                label: 'Cash Expenses',
                 controller: _cashExpensesCtl,
-                decoration: const InputDecoration(
-                  labelText: 'Cash Expenses',
-                ),
-                keyboardType: TextInputType.number,
               ),
               KSpacing.vGapSm,
-              TextField(
+              KTextField.amount(
+                label: 'Closing Cash',
                 controller: _closingCashCtl,
-                decoration: const InputDecoration(
-                  labelText: 'Closing Cash',
-                ),
-                keyboardType: TextInputType.number,
               ),
               KSpacing.vGapSm,
-              TextField(
+              KTextField.amount(
+                label: 'Cash Deposited (Bank/Safe)',
                 controller: _cashDepositedCtl,
-                decoration: const InputDecoration(
-                  labelText: 'Cash Deposited',
-                ),
-                keyboardType: TextInputType.number,
               ),
             ],
           ),
@@ -354,65 +378,79 @@ class _DayCloseScreenState extends ConsumerState<DayCloseScreen> {
         KSpacing.vGapMd,
 
         // -- Stock Section --
-        Text('Stock', style: KTypography.labelLarge),
-        KSpacing.vGapSm,
         KCard(
+          title: 'Van Stock Reconciliation',
+          leading: const Icon(Icons.inventory_2_outlined, color: KColors.primary),
           child: Column(
             children: [
               _ReadOnlyField(
-                  label: 'Items Loaded', value: '$itemsLoaded'),
+                label: 'Items Loaded',
+                value: '$itemsLoaded',
+              ),
               KSpacing.vGapSm,
               _ReadOnlyField(
-                  label: 'Items Sold', value: '$itemsSold'),
+                label: 'Items Sold',
+                value: '$itemsSold',
+              ),
               KSpacing.vGapSm,
               _ReadOnlyField(
-                  label: 'Items Returned', value: '$itemsReturned'),
+                label: 'Items Returned',
+                value: '$itemsReturned',
+              ),
               KSpacing.vGapSm,
               _ReadOnlyField(
-                  label: 'Closing Stock', value: '$itemsClosing'),
+                label: 'Closing Stock (In Van)',
+                value: '$itemsClosing',
+              ),
             ],
           ),
         ),
         KSpacing.vGapMd,
 
         // -- Visit Section --
-        Text('Visits', style: KTypography.labelLarge),
-        KSpacing.vGapSm,
         KCard(
+          title: 'Visit Summary',
+          leading: const Icon(Icons.pin_drop_outlined, color: KColors.primary),
           child: Column(
             children: [
               _ReadOnlyField(
-                  label: 'Planned', value: '$plannedVisits'),
+                label: 'Planned Stops',
+                value: '$plannedVisits',
+              ),
               KSpacing.vGapSm,
               _ReadOnlyField(
-                  label: 'Completed', value: '$completedVisits'),
+                label: 'Completed Stops',
+                value: '$completedVisits',
+              ),
               KSpacing.vGapSm,
               _ReadOnlyField(
-                  label: 'Productive', value: '$productiveVisits'),
+                label: 'Productive Orders',
+                value: '$productiveVisits',
+              ),
             ],
           ),
         ),
         KSpacing.vGapMd,
 
         // -- Financial Section --
-        Text('Financial', style: KTypography.labelLarge),
-        KSpacing.vGapSm,
         KCard(
+          title: 'Financial Summary',
+          leading: const Icon(Icons.account_balance_outlined, color: KColors.primary),
           child: Column(
             children: [
-              _ReadOnlyField(
-                label: 'Orders Value',
-                value: CurrencyFormatter.formatIndian(ordersValue),
+              _ReadOnlyMoneyField(
+                label: 'Total Orders Booked',
+                amount: ordersValue,
               ),
               KSpacing.vGapSm,
-              _ReadOnlyField(
-                label: 'Collections',
-                value: CurrencyFormatter.formatIndian(totalCollections),
+              _ReadOnlyMoneyField(
+                label: 'Total Collections (Cash + Digital)',
+                amount: totalCollections,
               ),
               KSpacing.vGapSm,
-              _ReadOnlyField(
-                label: 'Returns',
-                value: CurrencyFormatter.formatIndian(returnsValue),
+              _ReadOnlyMoneyField(
+                label: 'Sales Returns',
+                amount: returnsValue,
               ),
             ],
           ),
@@ -420,12 +458,10 @@ class _DayCloseScreenState extends ConsumerState<DayCloseScreen> {
         KSpacing.vGapMd,
 
         // -- Notes --
-        TextField(
+        KTextField(
           controller: _notesCtl,
-          decoration: const InputDecoration(
-            labelText: 'Notes',
-            hintText: 'Any observations or remarks...',
-          ),
+          label: 'Notes & Observations',
+          hint: 'Any remarks or collection discrepancies...',
           maxLines: 3,
         ),
         KSpacing.vGapLg,
@@ -435,20 +471,22 @@ class _DayCloseScreenState extends ConsumerState<DayCloseScreen> {
           Row(
             children: [
               Expanded(
-                child: OutlinedButton(
+                child: KButton.danger(
+                  label: 'Reject',
+                  icon: Icons.close,
                   onPressed: _activeDayCloseId != null
                       ? () => _rejectDayClose(_activeDayCloseId!)
                       : null,
-                  child: const Text('Reject'),
                 ),
               ),
               KSpacing.hGapMd,
               Expanded(
-                child: FilledButton(
+                child: KButton.primary(
+                  label: 'Approve',
+                  icon: Icons.check,
                   onPressed: _activeDayCloseId != null
                       ? () => _approveDayClose(_activeDayCloseId!)
                       : null,
-                  child: const Text('Approve'),
                 ),
               ),
             ],
@@ -456,9 +494,10 @@ class _DayCloseScreenState extends ConsumerState<DayCloseScreen> {
         ] else
           SizedBox(
             width: double.infinity,
-            child: FilledButton(
+            child: KButton.primary(
+              label: 'Submit Day Close',
+              icon: Icons.send_outlined,
               onPressed: _submitDayClose,
-              child: const Text('Submit Day Close'),
             ),
           ),
         KSpacing.vGapLg,
@@ -478,10 +517,39 @@ class _ReadOnlyField extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label,
-            style: KTypography.bodySmall
-                .copyWith(color: KColors.textSecondary)),
-        Text(value, style: KTypography.labelMedium),
+        Text(
+          label,
+          style: KTypography.bodyMedium.copyWith(color: KColors.textSecondary),
+        ),
+        Text(
+          value,
+          style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w600),
+        ),
+      ],
+    );
+  }
+}
+
+class _ReadOnlyMoneyField extends StatelessWidget {
+  final String label;
+  final double amount;
+
+  const _ReadOnlyMoneyField({required this.label, required this.amount});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: KTypography.bodyMedium.copyWith(color: KColors.textSecondary),
+        ),
+        KMoney(
+          amount,
+          size: KMoneySize.small,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
       ],
     );
   }

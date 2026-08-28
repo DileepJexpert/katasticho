@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/field_sales_repository.dart';
 
@@ -100,8 +99,8 @@ class _SalesmanDashboardScreenState
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Field Sales Dashboard')),
-        body: const Center(child: CircularProgressIndicator()),
+        appBar: AppBar(title: const Text('Field Sales & Distribution Analytics')),
+        body: const Center(child: KLoading()),
       );
     }
 
@@ -157,55 +156,112 @@ class _SalesmanDashboardScreenState
             KSpacing.vGapMd,
 
             // -- Summary Cards --
-            Wrap(
-              spacing: KSpacing.sm,
-              runSpacing: KSpacing.sm,
-              children: [
-                _DashboardMetric(
-                  label: 'Total Routes',
-                  value: '$totalRoutes',
-                  icon: Icons.route_outlined,
-                  color: KColors.primary,
-                ),
-                _DashboardMetric(
-                  label: 'Total Visits',
-                  value: '$totalVisits',
-                  icon: Icons.store_outlined,
-                  color: KColors.info,
-                ),
-                _DashboardMetric(
-                  label: 'Productive %',
-                  value: '${productivePercent.toStringAsFixed(1)}%',
-                  icon: Icons.trending_up,
-                  color: KColors.success,
-                ),
-                _DashboardMetric(
-                  label: 'Avg Order Value',
-                  value: CurrencyFormatter.formatIndian(avgOrderValue),
-                  icon: Icons.receipt_long_outlined,
-                  color: KColors.warning,
-                ),
-                _DashboardMetric(
-                  label: 'Total Orders',
-                  value: CurrencyFormatter.formatIndian(totalOrders),
-                  icon: Icons.shopping_cart_outlined,
-                  color: KColors.primary,
-                ),
-                _DashboardMetric(
-                  label: 'Total Collections',
-                  value: CurrencyFormatter.formatIndian(totalCollections),
-                  icon: Icons.payments_outlined,
-                  color: KColors.success,
-                ),
-              ],
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth >= KSpacing.tabletBreakpoint;
+                final metrics = [
+                  _DashboardMetricData(
+                    label: 'Total Routes',
+                    valueWidget: Text('$totalRoutes', style: KTypography.h4.copyWith(color: KColors.primary)),
+                    icon: Icons.route_outlined,
+                    color: KColors.primary,
+                  ),
+                  _DashboardMetricData(
+                    label: 'Total Visits',
+                    valueWidget: Text('$totalVisits', style: KTypography.h4.copyWith(color: KColors.info)),
+                    icon: Icons.store_outlined,
+                    color: KColors.info,
+                  ),
+                  _DashboardMetricData(
+                    label: 'Productive %',
+                    valueWidget: Text('${productivePercent.toStringAsFixed(1)}%', style: KTypography.h4.copyWith(color: KColors.success)),
+                    icon: Icons.trending_up,
+                    color: KColors.success,
+                  ),
+                  _DashboardMetricData(
+                    label: 'Avg Order Value',
+                    valueWidget: KMoney(avgOrderValue, size: KMoneySize.medium, style: const TextStyle(fontWeight: FontWeight.w700)),
+                    icon: Icons.receipt_long_outlined,
+                    color: KColors.warning,
+                  ),
+                  _DashboardMetricData(
+                    label: 'Total Orders',
+                    valueWidget: KMoney(totalOrders, size: KMoneySize.medium, style: const TextStyle(fontWeight: FontWeight.w700)),
+                    icon: Icons.shopping_cart_outlined,
+                    color: KColors.primary,
+                  ),
+                  _DashboardMetricData(
+                    label: 'Total Collections',
+                    valueWidget: KMoney(totalCollections, size: KMoneySize.medium, style: const TextStyle(fontWeight: FontWeight.w700, color: KColors.success)),
+                    icon: Icons.payments_outlined,
+                    color: KColors.success,
+                  ),
+                ];
+
+                if (isWide) {
+                  return Wrap(
+                    spacing: KSpacing.sm,
+                    runSpacing: KSpacing.sm,
+                    children: metrics.map((m) {
+                      return SizedBox(
+                        width: (constraints.maxWidth - 2 * KSpacing.sm) / 3,
+                        child: KCard(
+                          statusAccent: m.color,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(m.icon, size: 16, color: m.color),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(m.label, style: KTypography.labelSmall, overflow: TextOverflow.ellipsis),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              m.valueWidget,
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  );
+                }
+
+                return Column(
+                  children: metrics.map((m) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: KSpacing.xs),
+                      child: KCard(
+                        statusAccent: m.color,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        child: Row(
+                          children: [
+                            Icon(m.icon, size: 16, color: m.color),
+                            const SizedBox(width: 8),
+                            Expanded(child: Text(m.label, style: KTypography.labelMedium)),
+                            m.valueWidget,
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
             ),
             KSpacing.vGapLg,
 
             // -- Salesman Targets Section --
-            Text('Salesman Targets', style: KTypography.labelLarge),
+            Text('Salesman Targets & Quotas', style: KTypography.titleLarge),
             KSpacing.vGapSm,
             if (_targets.isEmpty)
-              const Center(child: Text('No targets found'))
+              const KEmptyState(
+                icon: Icons.track_changes_outlined,
+                title: 'No sales quotas assigned',
+                subtitle: 'Targets and incentive structures configured for field reps will display here.',
+              )
             else
               ..._targets.map((target) {
                 final targetType = target['targetType']?.toString() ??
@@ -242,42 +298,42 @@ class _SalesmanDashboardScreenState
                 return Padding(
                   padding: const EdgeInsets.only(bottom: KSpacing.sm),
                   child: KCard(
+                    statusAccent: progressColor,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: KColors.primary.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(targetType,
-                                  style: KTypography.bodySmall.copyWith(
-                                      color: KColors.primary,
-                                      fontWeight: FontWeight.w600)),
+                            KStatusChip(
+                              status: 'TARGET',
+                              label: targetType,
                             ),
                             KSpacing.hGapSm,
-                            Text(period,
-                                style: KTypography.bodySmall.copyWith(
-                                    color: KColors.textSecondary)),
+                            Text(
+                              period,
+                              style: KTypography.mono(
+                                fontSize: 12,
+                                color: KColors.textSecondary,
+                              ),
+                            ),
                             const Spacer(),
-                            Text(percentText,
-                                style: KTypography.labelMedium
-                                    .copyWith(color: progressColor)),
+                            Text(
+                              percentText,
+                              style: KTypography.mono(
+                                fontSize: 13,
+                                color: progressColor,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                           ],
                         ),
                         KSpacing.vGapSm,
                         Row(
                           children: [
-                            Expanded(
-                              child: Text(
-                                '${CurrencyFormatter.formatIndian(achieved)} / ${CurrencyFormatter.formatIndian(targetValue)}',
-                                style: KTypography.bodySmall,
-                              ),
-                            ),
+                            Text('Achieved: ', style: KTypography.bodySmall),
+                            KMoney(achieved, size: KMoneySize.small),
+                            Text(' / Target: ', style: KTypography.bodySmall),
+                            KMoney(targetValue, size: KMoneySize.small),
                           ],
                         ),
                         KSpacing.vGapXs,
@@ -289,15 +345,20 @@ class _SalesmanDashboardScreenState
                                 progressColor.withValues(alpha: 0.15),
                             valueColor:
                                 AlwaysStoppedAnimation<Color>(progressColor),
-                            minHeight: 8,
+                            minHeight: 6,
                           ),
                         ),
                         if (incentive != null && incentive > 0) ...[
                           KSpacing.vGapXs,
-                          Text(
-                            'Incentive: ${CurrencyFormatter.formatIndian(incentive)}',
-                            style: KTypography.bodySmall
-                                .copyWith(color: KColors.success),
+                          Row(
+                            children: [
+                              Text('Incentive: ', style: KTypography.bodySmall),
+                              KMoney(
+                                incentive,
+                                size: KMoneySize.small,
+                                style: const TextStyle(color: KColors.success, fontWeight: FontWeight.w600),
+                              ),
+                            ],
                           ),
                         ],
                       ],
@@ -308,58 +369,42 @@ class _SalesmanDashboardScreenState
             KSpacing.vGapLg,
 
             // -- Recent Executions Section --
-            Text('Recent Executions', style: KTypography.labelLarge),
+            Text('Recent Route Executions', style: KTypography.titleLarge),
             KSpacing.vGapSm,
             if (_recentExecutions.isEmpty)
-              const Center(child: Text('No recent executions'))
+              const KEmptyState(
+                icon: Icons.history_outlined,
+                title: 'No recent route activity',
+                subtitle: 'Daily salesperson check-ins and order logs will appear here once trips commence.',
+              )
             else
-              ..._recentExecutions.map((exec) {
-                final execDate = exec['date']?.toString() ?? '--';
-                final routeName = exec['routeName']?.toString() ??
-                    exec['routeId']?.toString() ??
-                    '--';
-                final totalV =
-                    (exec['totalVisits'] as num?)?.toInt() ?? 0;
-                final completedV =
-                    (exec['completedVisits'] as num?)?.toInt() ?? 0;
-                final ordersVal =
-                    (exec['ordersValue'] as num?)?.toDouble() ?? 0;
+              KDataTable(
+                columns: const [
+                  KTableColumn(label: 'Route'),
+                  KTableColumn(label: 'Date'),
+                  KTableColumn(label: 'Visits'),
+                  KTableColumn(label: 'Orders Value', numeric: true),
+                ],
+                rows: _recentExecutions.map((exec) {
+                  final execDate = exec['date']?.toString() ?? '--';
+                  final routeName = exec['routeName']?.toString() ??
+                      exec['routeId']?.toString() ??
+                      '--';
+                  final totalV =
+                      (exec['totalVisits'] as num?)?.toInt() ?? 0;
+                  final completedV =
+                      (exec['completedVisits'] as num?)?.toInt() ?? 0;
+                  final ordersVal =
+                      (exec['ordersValue'] as num?)?.toDouble() ?? 0;
 
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: KSpacing.xs),
-                  child: KCard(
-                    child: Row(
-                      children: [
-                        Expanded(
-                          flex: 2,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(routeName,
-                                  style: KTypography.bodyMedium,
-                                  overflow: TextOverflow.ellipsis),
-                              Text(execDate,
-                                  style: KTypography.bodySmall.copyWith(
-                                      color: KColors.textSecondary)),
-                            ],
-                          ),
-                        ),
-                        Expanded(
-                          child: Text('$completedV/$totalV',
-                              style: KTypography.bodySmall,
-                              textAlign: TextAlign.center),
-                        ),
-                        Expanded(
-                          child: Text(
-                              CurrencyFormatter.formatIndian(ordersVal),
-                              style: KTypography.labelMedium,
-                              textAlign: TextAlign.end),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }),
+                  return [
+                    Text(routeName, style: KTypography.bodySmall.copyWith(fontWeight: FontWeight.w600)),
+                    Text(execDate, style: KTypography.bodySmall),
+                    Text('$completedV / $totalV', style: KTypography.bodySmall),
+                    KMoney(ordersVal, size: KMoneySize.small),
+                  ];
+                }).toList(),
+              ),
             KSpacing.vGapLg,
           ],
         ),
@@ -368,50 +413,16 @@ class _SalesmanDashboardScreenState
   }
 }
 
-class _DashboardMetric extends StatelessWidget {
+class _DashboardMetricData {
   final String label;
-  final String value;
+  final Widget valueWidget;
   final IconData icon;
   final Color color;
 
-  const _DashboardMetric({
+  const _DashboardMetricData({
     required this.label,
-    required this.value,
+    required this.valueWidget,
     required this.icon,
     required this.color,
   });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minWidth: 140),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.15)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 16, color: color),
-              const SizedBox(width: 6),
-              Flexible(
-                child: Text(label,
-                    style: KTypography.bodySmall
-                        .copyWith(color: KColors.textSecondary),
-                    overflow: TextOverflow.ellipsis),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(value,
-              style: KTypography.labelLarge.copyWith(color: color)),
-        ],
-      ),
-    );
-  }
 }

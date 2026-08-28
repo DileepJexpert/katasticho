@@ -58,7 +58,7 @@ class _CourierSettingsScreenState extends ConsumerState<CourierSettingsScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Courier Connections')),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: KLoading())
           : _error != null
               ? Center(
                   child: Padding(
@@ -68,7 +68,7 @@ class _CourierSettingsScreenState extends ConsumerState<CourierSettingsScreen> {
                       children: [
                         Text(_error!, textAlign: TextAlign.center),
                         KSpacing.vGapMd,
-                        KButton(label: 'Retry', onPressed: _load),
+                        KButton.primary(label: 'Retry', onPressed: _load),
                       ],
                     ),
                   ),
@@ -213,22 +213,29 @@ class _PartnerCardState extends ConsumerState<_PartnerCard> {
                   'Paste this path (prefixed with your server host) into the '
                   'courier dashboard\'s webhook config:'),
               const SizedBox(height: 12),
-              SelectableText(path,
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+              SelectableText(
+                path,
+                style: KTypography.mono(fontSize: 12),
+              ),
             ],
           ),
           actions: [
-            TextButton(
+            KButton.outlined(
+              size: KButtonSize.small,
               onPressed: () {
                 Clipboard.setData(ClipboardData(text: path));
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Webhook path copied')));
               },
-              child: const Text('Copy'),
+              label: 'Copy',
             ),
-            TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+            KSpacing.hGapSm,
+            KButton.outlined(
+              size: KButtonSize.small,
+              onPressed: () => Navigator.pop(ctx),
+              label: 'Close',
+            ),
           ],
         ),
       );
@@ -322,7 +329,7 @@ class _PartnerCardState extends ConsumerState<_PartnerCard> {
             Row(
               children: [
                 Expanded(
-                  child: KButton(
+                  child: KButton.primary(
                     label: _saving ? 'Saving…' : 'Save',
                     icon: Icons.save,
                     isLoading: _saving,
@@ -330,10 +337,10 @@ class _PartnerCardState extends ConsumerState<_PartnerCard> {
                   ),
                 ),
                 KSpacing.hGapSm,
-                OutlinedButton.icon(
+                KButton.outlined(
                   onPressed: (_testing || _saving) ? null : _test,
-                  icon: const Icon(Icons.wifi_tethering),
-                  label: Text(_testing ? 'Testing…' : 'Test'),
+                  icon: Icons.wifi_tethering,
+                  label: _testing ? 'Testing…' : 'Test',
                 ),
               ],
             ),

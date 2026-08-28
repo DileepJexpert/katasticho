@@ -249,7 +249,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen>
                 ),
                 KSpacing.vGapMd,
 
-                KButton(
+                KButton.primary(
                   label: 'Record Expense',
                   fullWidth: true,
                   isLoading: _submitting,

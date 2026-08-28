@@ -4,6 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
+import '../../../core/theme/k_colors.dart';
+import '../../../core/theme/k_spacing.dart';
+import '../../../core/theme/k_typography.dart';
+import '../../../core/widgets/k_button.dart';
+import '../../../core/widgets/k_card.dart';
+import '../../../core/widgets/k_empty_state.dart';
+import '../../../core/widgets/k_loading.dart';
+import '../../../core/widgets/k_status_chip.dart';
 
 /// Field reporting hierarchy: view the org chart (MR -> ABM -> RBM ...) as an
 /// indented tree and assign each user's reporting manager. Works for all
@@ -56,9 +64,9 @@ class _FieldOrgChartScreenState extends ConsumerState<FieldOrgChartScreen> {
             .toList();
       });
     } on DioException catch (e) {
-      _toast('Failed to load org chart: ${_dioMessage(e)}');
+      _toast('Failed to load org chart: ${_dioMessage(e)}', isError: true);
     } catch (e) {
-      _toast('Failed to load org chart: $e');
+      _toast('Failed to load org chart: $e', isError: true);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -72,9 +80,14 @@ class _FieldOrgChartScreenState extends ConsumerState<FieldOrgChartScreen> {
     return e.message ?? 'request failed';
   }
 
-  void _toast(String msg) {
+  void _toast(String msg, {bool isError = false}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: isError ? KColors.error : KColors.success,
+      ),
+    );
   }
 
   String? _userId(Map<String, dynamic> n) => n['userId']?.toString();
@@ -161,11 +174,11 @@ class _FieldOrgChartScreenState extends ConsumerState<FieldOrgChartScreen> {
                   initialValue: value ?? noneSentinel,
                   isExpanded: true,
                   decoration:
-                      const InputDecoration(labelText: 'Reports to'),
+                      const InputDecoration(labelText: 'Reports to', border: OutlineInputBorder()),
                   items: [
                     const DropdownMenuItem(
                       value: noneSentinel,
-                      child: Text('None (top of tree)'),
+                      child: Text('None (Top of hierarchy)'),
                     ),
                     ...options.map((u) {
                       final uid =
@@ -186,17 +199,20 @@ class _FieldOrgChartScreenState extends ConsumerState<FieldOrgChartScreen> {
             ),
           ),
           actions: [
-            TextButton(
+            KButton.outlined(
+              size: KButtonSize.small,
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
+              label: 'Cancel',
             ),
-            FilledButton(
+            KSpacing.hGapSm,
+            KButton.primary(
+              label: 'Save',
+              size: KButtonSize.small,
               onPressed: () {
                 final managerId =
                     (value == null || value == noneSentinel) ? null : value;
                 Navigator.pop(ctx, _ManagerChoice(managerId));
               },
-              child: const Text('Save'),
             ),
           ],
         );
@@ -211,11 +227,12 @@ class _FieldOrgChartScreenState extends ConsumerState<FieldOrgChartScreen> {
         ApiConfig.fieldHierarchySetManager(targetId),
         data: {'managerId': selected.managerId},
       );
+      _toast('Manager updated successfully');
       await _loadAll();
     } on DioException catch (e) {
-      _toast(_dioMessage(e));
+      _toast(_dioMessage(e), isError: true);
     } catch (e) {
-      _toast('Failed to assign manager: $e');
+      _toast('Failed to assign manager: $e', isError: true);
     }
   }
 
@@ -223,7 +240,7 @@ class _FieldOrgChartScreenState extends ConsumerState<FieldOrgChartScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Field Org Chart'),
+        title: const Text('Field Sales Org Chart'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -233,7 +250,7 @@ class _FieldOrgChartScreenState extends ConsumerState<FieldOrgChartScreen> {
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: KLoading())
           : _body(),
     );
   }
@@ -241,14 +258,18 @@ class _FieldOrgChartScreenState extends ConsumerState<FieldOrgChartScreen> {
   Widget _body() {
     final rows = _buildTree();
     if (rows.isEmpty) {
-      return const Center(child: Text('No field users yet'));
+      return const KEmptyState(
+        icon: Icons.account_tree_outlined,
+        title: 'No field users in org chart',
+        subtitle: 'Add field sales users and assign their reporting hierarchy.',
+      );
     }
     return RefreshIndicator(
       onRefresh: _loadAll,
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: KSpacing.pagePadding,
         itemCount: rows.length,
-        separatorBuilder: (_, __) => const Divider(height: 1),
+        separatorBuilder: (_, __) => KSpacing.vGapSm,
         itemBuilder: (ctx, i) {
           final row = rows[i];
           final node = row.node;
@@ -261,25 +282,72 @@ class _FieldOrgChartScreenState extends ConsumerState<FieldOrgChartScreen> {
                   )['fullName']
                   ?.toString()
               : null;
+          final role = node['role']?.toString();
+          final isTop = managerName == null || managerName.isEmpty;
+
           return Padding(
-            padding: EdgeInsets.only(left: 16.0 * row.depth),
-            child: ListTile(
-              leading: const CircleAvatar(child: Icon(Icons.person)),
-              title: Text(_name(node)),
-              subtitle: Text([
-                if ((node['role']?.toString().isNotEmpty ?? false))
-                  node['role'].toString(),
-                if (managerName != null && managerName.isNotEmpty)
-                  'Reports to $managerName'
-                else
-                  'Top of tree',
-              ].join(' • ')),
-              trailing: TextButton.icon(
-                icon: const Icon(Icons.account_tree_outlined, size: 18),
-                label: const Text('Manager'),
-                onPressed: () => _assignManager(node),
+            padding: EdgeInsets.only(left: 20.0 * row.depth),
+            child: KCard(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: KColors.primary.withValues(alpha: 0.12),
+                    child: Icon(
+                      row.depth == 0 ? Icons.military_tech_outlined : Icons.person_outline,
+                      color: KColors.primary,
+                      size: 20,
+                    ),
+                  ),
+                  KSpacing.hGapMd,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              _name(node),
+                              style: KTypography.titleMedium,
+                            ),
+                            KSpacing.hGapSm,
+                            if (role != null && role.isNotEmpty)
+                              KStatusChip(
+                                status: role,
+                                label: role,
+                              ),
+                          ],
+                        ),
+                        KSpacing.vGapXxs,
+                        Row(
+                          children: [
+                            Icon(
+                              isTop ? Icons.star_border : Icons.subdirectory_arrow_right,
+                              size: 14,
+                              color: KColors.textSecondary,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              isTop ? 'Top of hierarchy' : 'Reports to $managerName',
+                              style: KTypography.bodySmall.copyWith(
+                                color: KColors.textSecondary,
+                                fontStyle: isTop ? FontStyle.italic : FontStyle.normal,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  KButton.outlined(
+                    label: 'Manager',
+                    icon: Icons.account_tree_outlined,
+                    size: KButtonSize.small,
+                    onPressed: () => _assignManager(node),
+                  ),
+                ],
               ),
-              onTap: () => _assignManager(node),
             ),
           );
         },
@@ -298,3 +366,4 @@ class _ManagerChoice {
   final String? managerId;
   const _ManagerChoice(this.managerId);
 }
+

@@ -9,7 +9,6 @@ import '../../../core/utils/api_error_parser.dart';
 import '../../../core/utils/form_error_handler.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
-import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../../contacts/presentation/contact_picker_sheet.dart';
 import '../../inventory/data/item_repository.dart';
@@ -34,7 +33,6 @@ class InvoiceCreateScreen extends ConsumerStatefulWidget {
 class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
     with FormErrorHandler {
   final _formKey = GlobalKey<FormState>();
-  int _currentStep = 0;
   bool _isSubmitting = false;
   String? _errorMessage;
 
@@ -158,18 +156,16 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
     // Guard: Ctrl+Enter can invoke this directly while a submit is in
     // flight; without this check a second press creates a duplicate document.
     if (_isSubmitting) return;
+    if (_selectedContactId == null) {
+      setState(() => _errorMessage = 'Please select a customer.');
+      return;
+    }
     if (!_formKey.currentState!.validate()) {
-      setState(() {
-        _currentStep = 1;
-        _errorMessage = 'Please fix the highlighted fields.';
-      });
+      setState(() => _errorMessage = 'Please fix the highlighted fields.');
       return;
     }
     if (_grandTotal <= 0) {
-      setState(() {
-        _currentStep = 1;
-        _errorMessage = 'Invoice total must be greater than zero.';
-      });
+      setState(() => _errorMessage = 'Invoice total must be greater than zero.');
       return;
     }
 
@@ -234,267 +230,290 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
     }
   }
 
-  void _nextStep() {
-    if (_currentStep >= 2) return;
-    if (_currentStep == 0 && _selectedContactId == null) {
-      setState(() => _errorMessage = 'Please select a customer');
-      return;
-    }
-    setState(() => _currentStep++);
-  }
-
-  void _prevStep() {
-    if (_currentStep > 0) setState(() => _currentStep--);
-  }
-
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final hasCustomer = _selectedContactId != null;
+
     return KKeyboardFormWrapper(
-      onSubmit: _currentStep == 2 ? _handleSubmit : _nextStep,
-      onNextStep: _nextStep,
-      onPrevStep: _prevStep,
+      onSubmit: _handleSubmit,
       onCancel: () => context.go(Routes.invoices),
       child: Scaffold(
-      appBar: AppBar(
-        title: Text(_isEdit ? 'Edit Invoice' : 'Create Invoice'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          tooltip: 'Back to invoices',
-          onPressed: () => context.go(Routes.invoices),
-        ),
-      ),
-      body: Form(
-        key: _formKey,
-        child: Column(
-          children: [
-            // Step indicator
-            Container(
-              color: KColors.surface,
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _StepTab(
-                    label: 'Customer',
-                    index: 0,
-                    current: _currentStep,
-                    onTap: () => setState(() => _currentStep = 0),
-                  ),
-                  _stepConnector(),
-                  _StepTab(
-                    label: 'Items',
-                    index: 1,
-                    current: _currentStep,
-                    onTap: () => setState(() => _currentStep = 1),
-                  ),
-                  _stepConnector(),
-                  _StepTab(
-                    label: 'Review',
-                    index: 2,
-                    current: _currentStep,
-                    onTap: () => setState(() => _currentStep = 2),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-
-            if (_errorMessage != null)
-              Padding(
-                padding: const EdgeInsets.all(KSpacing.md),
-                child: KErrorBanner(
-                  message: _errorMessage!,
-                  onDismiss: () => setState(() => _errorMessage = null),
-                ),
-              ),
-
-            // Step content
-            Expanded(
-              child: SingleChildScrollView(
-                padding: KSpacing.pagePadding,
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 1120),
-                    child: switch (_currentStep) {
-                      0 => _buildCustomerStep(),
-                      1 => _buildItemsStep(),
-                      2 => _buildReviewStep(),
-                      _ => const SizedBox(),
-                    },
-                  ),
-                ),
-              ),
-            ),
-
-            // Bottom bar
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: KSpacing.md,
-                vertical: KSpacing.sm,
-              ),
-              decoration: BoxDecoration(
-                color: KColors.surface,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 8,
-                    offset: const Offset(0, -2),
-                  ),
-                ],
-              ),
-              child: SafeArea(
-                child: Row(
-                  children: [
-                    // Total
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text('Total', style: KTypography.bodySmall),
-                        Text(
-                          CurrencyFormatter.formatIndian(_grandTotal),
-                          style: KTypography.amountMedium,
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
-                    if (_currentStep > 0)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: KButton(
-                          label: 'Back',
-                          variant: KButtonVariant.outlined,
-                          onPressed: () => setState(() => _currentStep--),
-                        ),
-                      ),
-                    if (_currentStep < 2)
-                      KButton(
-                        label: 'Next',
-                        onPressed: _nextStep,
-                      )
-                    else
-                      KButton(
-                        label: _isEdit ? 'Save Changes' : 'Create Invoice',
-                        onPressed: _handleSubmit,
-                        isLoading: _isSubmitting,
-                        icon: Icons.check,
-                      ),
-                  ],
+        appBar: AppBar(
+          title: Text(_isEdit ? 'Edit Invoice' : 'Create Invoice'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            tooltip: 'Back to invoices',
+            onPressed: () => context.go(Routes.invoices),
+          ),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: Center(
+                child: KButton(
+                  label: _isEdit ? 'Save Changes' : 'Save Invoice',
+                  icon: Icons.check,
+                  variant: KButtonVariant.primary,
+                  onPressed: _handleSubmit,
+                  isLoading: _isSubmitting,
                 ),
               ),
             ),
           ],
         ),
-      ),
-    ));
-  }
-
-  Widget _stepConnector() {
-    return Container(
-      width: 32,
-      height: 2,
-      color: KColors.divider,
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-    );
-  }
-
-  // ── Step 0: Customer Selection ──
-  Widget _buildCustomerStep() {
-    final hasCustomer = _selectedContactId != null;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Customer', style: KTypography.h2),
-        KSpacing.vGapMd,
-
-        // Compact selected-customer card OR "Select customer" CTA
-        InkWell(
-          onTap: _openCustomerPicker,
-          borderRadius: KSpacing.borderRadiusMd,
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-                horizontal: KSpacing.md, vertical: KSpacing.md),
-            decoration: BoxDecoration(
-              color: hasCustomer
-                  ? KColors.primary.withValues(alpha: 0.05)
-                  : KColors.surface,
-              borderRadius: KSpacing.borderRadiusMd,
-              border: Border.all(
-                color: hasCustomer ? KColors.primary : KColors.divider,
-                width: hasCustomer ? 1.5 : 1,
-              ),
-            ),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 22,
-                  backgroundColor: KColors.primary.withValues(alpha: 0.12),
-                  child: Icon(
-                    hasCustomer ? Icons.person : Icons.person_add_alt_1,
-                    color: KColors.primary,
+        body: Form(
+          key: _formKey,
+          child: Column(
+            children: [
+              if (_errorMessage != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: KSpacing.md,
+                    vertical: KSpacing.sm,
+                  ),
+                  child: KErrorBanner(
+                    message: _errorMessage!,
+                    onDismiss: () => setState(() => _errorMessage = null),
                   ),
                 ),
-                KSpacing.hGapMd,
-                Expanded(
+
+              // Document Body
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: KSpacing.pagePadding,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        hasCustomer ? _contactName : 'Select customer',
-                        style: KTypography.labelLarge,
-                        overflow: TextOverflow.ellipsis,
+                      // Card 1: Customer & Invoice Meta
+                      KCard(
+                        title: 'Invoice Details',
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            KCompactRow(
+                              flex: const [4, 2, 2],
+                              stackBelow: 720,
+                              children: [
+                                // Customer Picker
+                                InkWell(
+                                  onTap: _openCustomerPicker,
+                                  borderRadius: KSpacing.borderRadiusMd,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: KSpacing.sm,
+                                      vertical: 8,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: hasCustomer
+                                          ? cs.primary.withValues(alpha: 0.04)
+                                          : cs.surfaceContainerHighest.withValues(alpha: 0.3),
+                                      borderRadius: KSpacing.borderRadiusMd,
+                                      border: Border.all(
+                                        color: hasCustomer ? cs.primary : cs.outlineVariant,
+                                        width: hasCustomer ? 1.5 : 1,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 16,
+                                          backgroundColor: cs.primary.withValues(alpha: 0.12),
+                                          child: Icon(
+                                            hasCustomer ? Icons.person : Icons.person_add_alt_1,
+                                            color: cs.primary,
+                                            size: 16,
+                                          ),
+                                        ),
+                                        KSpacing.hGapSm,
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                hasCustomer ? _contactName : 'Select Customer *',
+                                                style: KTypography.labelLarge.copyWith(
+                                                  color: hasCustomer ? cs.onSurface : cs.error,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              Text(
+                                                hasCustomer
+                                                    ? _customerSubtitle()
+                                                    : 'Tap to pick customer from directory',
+                                                style: KTypography.bodySmall.copyWith(
+                                                  color: cs.onSurfaceVariant,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        Text(
+                                          hasCustomer ? 'Change' : 'Browse',
+                                          style: KTypography.labelMedium.copyWith(color: cs.primary),
+                                        ),
+                                        const Icon(Icons.chevron_right, size: 16),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                // Invoice Date
+                                KDatePicker(
+                                  label: 'Invoice Date',
+                                  value: _invoiceDate,
+                                  isRequired: true,
+                                  onChanged: (d) => setState(() => _invoiceDate = d),
+                                ),
+                                // Due Date
+                                KDatePicker(
+                                  label: 'Due Date',
+                                  value: _dueDate,
+                                  isRequired: true,
+                                  onChanged: (d) => setState(() => _dueDate = d),
+                                  firstDate: _invoiceDate,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                      KSpacing.vGapXs,
-                      Text(
-                        hasCustomer
-                            ? _customerSubtitle()
-                            : 'Tap to search from your contacts',
-                        style: KTypography.bodySmall
-                            .copyWith(color: KColors.textSecondary),
-                        overflow: TextOverflow.ellipsis,
+                      KSpacing.vGapMd,
+
+                      // Price List Banner (if active)
+                      _buildPriceListHint(),
+
+                      // Card 2: Line Items Grid
+                      KCard(
+                        title: 'Line Items (${_lineItems.length})',
+                        action: KButton(
+                          label: 'Add Item',
+                          icon: Icons.add,
+                          size: KButtonSize.small,
+                          variant: KButtonVariant.outlined,
+                          onPressed: () => setState(() => _lineItems.add(_LineItem())),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ...List.generate(_lineItems.length, (index) {
+                              return _LineItemCard(
+                                key: ObjectKey(_lineItems[index]),
+                                item: _lineItems[index],
+                                index: index,
+                                onRemove: _lineItems.length > 1
+                                    ? () => setState(() => _lineItems.removeAt(index))
+                                    : null,
+                                onChanged: () => setState(() {}),
+                              );
+                            }),
+                            KSpacing.vGapSm,
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: TextButton.icon(
+                                onPressed: () => setState(() => _lineItems.add(_LineItem())),
+                                icon: const Icon(Icons.add_circle_outline, size: 18),
+                                label: const Text('Add Another Line Item'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      KSpacing.vGapMd,
+
+                      // Card 3: Financial Summary & Notes
+                      KCard(
+                        title: 'Notes & Summary',
+                        child: KCompactRow(
+                          flex: const [3, 2],
+                          stackBelow: 720,
+                          children: [
+                            KTextField(
+                              label: 'Customer Notes & Terms',
+                              hint: 'Add payment instructions, delivery terms, or bank account notes...',
+                              maxLines: 4,
+                              initialValue: _notes,
+                              onChanged: (v) => _notes = v,
+                            ),
+                            Container(
+                              padding: const EdgeInsets.all(KSpacing.sm),
+                              decoration: BoxDecoration(
+                                color: cs.surfaceContainerHighest.withValues(alpha: 0.25),
+                                borderRadius: KSpacing.borderRadiusMd,
+                                border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  _SummaryRow(
+                                    label: 'Subtotal (Taxable)',
+                                    value: _subtotal,
+                                  ),
+                                  _SummaryRow(
+                                    label: 'Total GST',
+                                    value: _totalTax,
+                                  ),
+                                  const Divider(height: 12),
+                                  _SummaryRow(
+                                    label: 'Grand Total',
+                                    value: _grandTotal,
+                                    bold: true,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      KSpacing.vGapXl,
+                    ],
+                  ),
+                ),
+              ),
+
+              // Bottom Sticky Bar
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: KSpacing.md,
+                  vertical: KSpacing.sm,
+                ),
+                decoration: BoxDecoration(
+                  color: cs.surface,
+                  border: Border(top: BorderSide(color: cs.outlineVariant)),
+                ),
+                child: SafeArea(
+                  child: Row(
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('Grand Total', style: KTypography.bodySmall),
+                          KMoney(_grandTotal, size: KMoneySize.medium),
+                        ],
+                      ),
+                      const Spacer(),
+                      KButton(
+                        label: 'Cancel',
+                        variant: KButtonVariant.outlined,
+                        onPressed: () => context.go(Routes.invoices),
+                      ),
+                      KSpacing.hGapSm,
+                      KButton(
+                        label: _isEdit ? 'Save Changes' : 'Create Invoice',
+                        icon: Icons.check,
+                        variant: KButtonVariant.primary,
+                        onPressed: _handleSubmit,
+                        isLoading: _isSubmitting,
                       ),
                     ],
                   ),
                 ),
-                Text(
-                  hasCustomer ? 'Change' : 'Pick',
-                  style:
-                      KTypography.labelMedium.copyWith(color: KColors.primary),
-                ),
-                KSpacing.hGapXs,
-                const Icon(Icons.chevron_right,
-                    color: KColors.primary, size: 18),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
-
-        KSpacing.vGapLg,
-        const Divider(),
-        KSpacing.vGapMd,
-
-        // Invoice dates
-        Row(
-          children: [
-            Expanded(
-              child: KDatePicker(
-                label: 'Invoice Date',
-                value: _invoiceDate,
-                onChanged: (d) => setState(() => _invoiceDate = d),
-              ),
-            ),
-            KSpacing.hGapMd,
-            Expanded(
-              child: KDatePicker(
-                label: 'Due Date',
-                value: _dueDate,
-                onChanged: (d) => setState(() => _dueDate = d),
-                firstDate: _invoiceDate,
-              ),
-            ),
-          ],
-        ),
-      ],
+      ),
     );
   }
 
@@ -576,158 +595,7 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
     );
   }
 
-  // ── Step 1: Line Items ──
-  Widget _buildItemsStep() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Line Items', style: KTypography.h2),
-        KSpacing.vGapMd,
 
-        _buildPriceListHint(),
-
-        ...List.generate(_lineItems.length, (index) {
-          return _LineItemCard(
-            // Key by item identity so prefilled values render after an edit
-            // load (replacing _lineItems gives each card fresh State).
-            key: ObjectKey(_lineItems[index]),
-            item: _lineItems[index],
-            index: index,
-            onRemove: _lineItems.length > 1
-                ? () => setState(() => _lineItems.removeAt(index))
-                : null,
-            onChanged: () => setState(() {}),
-          );
-        }),
-
-        KSpacing.vGapMd,
-        KButton(
-          label: 'Add Line Item',
-          icon: Icons.add,
-          variant: KButtonVariant.outlined,
-          onPressed: () => setState(() => _lineItems.add(_LineItem())),
-        ),
-
-        KSpacing.vGapLg,
-
-        // Summary
-        KCard(
-          child: Column(
-            children: [
-              _SummaryRow(
-                  label: 'Subtotal',
-                  value: CurrencyFormatter.formatIndian(_subtotal)),
-              _SummaryRow(
-                  label: 'Tax',
-                  value: CurrencyFormatter.formatIndian(_totalTax)),
-              const Divider(),
-              _SummaryRow(
-                label: 'Grand Total',
-                value: CurrencyFormatter.formatIndian(_grandTotal),
-                bold: true,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ── Step 2: Review ──
-  Widget _buildReviewStep() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Review Invoice', style: KTypography.h2),
-        KSpacing.vGapMd,
-        KCard(
-          title: 'Customer',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _contactName.isEmpty ? 'Selected Customer' : _contactName,
-                style: KTypography.bodyLarge,
-              ),
-              KSpacing.vGapSm,
-              KDetailRow(
-                label: 'Invoice Date',
-                value: DateFormatter.display(_invoiceDate),
-              ),
-              KDetailRow(
-                label: 'Due Date',
-                value: DateFormatter.display(_dueDate),
-              ),
-            ],
-          ),
-        ),
-        KSpacing.vGapMd,
-        KCard(
-          title: 'Items (${_lineItems.length})',
-          child: Column(
-            children: _lineItems.asMap().entries.map((entry) {
-              final item = entry.value;
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            item.description.isEmpty
-                                ? 'Item ${entry.key + 1}'
-                                : item.description,
-                            style: KTypography.bodyMedium,
-                          ),
-                          Text(
-                            '${item.quantity} x ${CurrencyFormatter.formatIndian(item.unitPrice)}',
-                            style: KTypography.bodySmall,
-                          ),
-                        ],
-                      ),
-                    ),
-                    Text(
-                      CurrencyFormatter.formatIndian(item.lineTotal),
-                      style: KTypography.amountSmall,
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
-          ),
-        ),
-        KSpacing.vGapMd,
-        KCard(
-          child: Column(
-            children: [
-              _SummaryRow(
-                  label: 'Subtotal',
-                  value: CurrencyFormatter.formatIndian(_subtotal)),
-              _SummaryRow(
-                  label: 'GST',
-                  value: CurrencyFormatter.formatIndian(_totalTax)),
-              const Divider(),
-              _SummaryRow(
-                label: 'Total',
-                value: CurrencyFormatter.formatIndian(_grandTotal),
-                bold: true,
-              ),
-            ],
-          ),
-        ),
-        KSpacing.vGapMd,
-        KTextField(
-          label: 'Notes (optional)',
-          hint: 'Add any notes for this invoice',
-          maxLines: 3,
-          initialValue: _notes,
-          onChanged: (v) => _notes = v,
-        ),
-      ],
-    );
-  }
 }
 
 // ── Helper Widgets ──
@@ -1272,7 +1140,7 @@ class _LineItemCardState extends ConsumerState<_LineItemCard> {
 
 class _SummaryRow extends StatelessWidget {
   final String label;
-  final String value;
+  final num value;
   final bool bold;
 
   const _SummaryRow({
@@ -1290,68 +1158,14 @@ class _SummaryRow extends StatelessWidget {
         children: [
           Text(
             label,
-            style: bold ? KTypography.labelLarge : KTypography.bodyMedium,
+            style: bold
+                ? KTypography.labelLarge.copyWith(fontWeight: FontWeight.w700)
+                : KTypography.bodyMedium,
           ),
-          Text(
+          KMoney(
             value,
-            style: bold ? KTypography.amountMedium : KTypography.amountSmall,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StepTab extends StatelessWidget {
-  final String label;
-  final int index;
-  final int current;
-  final VoidCallback onTap;
-
-  const _StepTab({
-    required this.label,
-    required this.index,
-    required this.current,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isActive = index == current;
-    final isCompleted = index < current;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Row(
-        children: [
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              color:
-                  isActive || isCompleted ? KColors.primary : KColors.divider,
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: isCompleted
-                  ? const Icon(Icons.check, color: Colors.white, size: 16)
-                  : Text(
-                      '${index + 1}',
-                      style: TextStyle(
-                        color: isActive ? Colors.white : KColors.textSecondary,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                      ),
-                    ),
-            ),
-          ),
-          KSpacing.hGapXs,
-          Text(
-            label,
-            style: KTypography.labelMedium.copyWith(
-              color: isActive ? KColors.primary : KColors.textSecondary,
-              fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-            ),
+            size: bold ? KMoneySize.medium : KMoneySize.small,
+            style: bold ? const TextStyle(fontWeight: FontWeight.w700) : null,
           ),
         ],
       ),

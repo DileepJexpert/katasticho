@@ -445,56 +445,73 @@ class _DeliveryChallanDetailBody extends ConsumerWidget {
                 // ── Details tab ──
                 SingleChildScrollView(
                   padding: KSpacing.pagePadding,
-                  child: KCard(
-                    child: Column(
-                      children: [
-                        KDetailRow(
-                          label: 'Challan Number',
-                          value: challanNumber,
+                  child: Column(
+                    children: [
+                      KCard(
+                        child: Column(
+                          children: [
+                            KDetailRow(
+                              label: 'Challan Number',
+                              valueWidget: Text(challanNumber, style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w600)),
+                            ),
+                            KDetailRow(
+                              label: 'Sales Order',
+                              valueWidget: Text(salesOrderNumber, style: KTypography.mono(fontSize: 13)),
+                            ),
+                            KDetailRow(
+                              label: 'Customer',
+                              value: customerName,
+                            ),
+                            KDetailRow(
+                              label: 'Challan Date',
+                              value:
+                                  challan['challanDate'] as String? ?? '--',
+                            ),
+                            if ((challan['dispatchDate'] as String? ?? '')
+                                .isNotEmpty)
+                              KDetailRow(
+                                label: 'Dispatch Date',
+                                value:
+                                    challan['dispatchDate'] as String? ?? '--',
+                              ),
+                            KDetailRow(
+                              label: 'Delivery Method',
+                              value: challan['deliveryMethod'] as String? ??
+                                  '--',
+                            ),
+                            if ((challan['vehicleNumber'] as String? ?? '')
+                                .isNotEmpty)
+                              KDetailRow(
+                                label: 'Vehicle Number',
+                                valueWidget: Text(
+                                  challan['vehicleNumber'] as String,
+                                  style: KTypography.mono(fontSize: 12, fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                            if ((challan['trackingNumber'] as String? ?? '')
+                                .isNotEmpty)
+                              KDetailRow(
+                                label: 'Tracking / E-Way Bill #',
+                                valueWidget: Text(
+                                  challan['trackingNumber'] as String,
+                                  style: KTypography.mono(fontSize: 12),
+                                ),
+                              ),
+                            if ((challan['notes'] as String? ?? '')
+                                .isNotEmpty)
+                              KDetailRow(
+                                label: 'Notes',
+                                value: challan['notes'] as String? ?? '',
+                              ),
+                          ],
                         ),
-                        KDetailRow(
-                          label: 'Sales Order',
-                          value: salesOrderNumber,
-                        ),
-                        KDetailRow(
-                          label: 'Customer',
-                          value: customerName,
-                        ),
-                        KDetailRow(
-                          label: 'Challan Date',
-                          value:
-                              challan['challanDate'] as String? ?? '--',
-                        ),
-                        if ((challan['dispatchDate'] as String? ?? '')
-                            .isNotEmpty)
-                          KDetailRow(
-                            label: 'Dispatch Date',
-                            value:
-                                challan['dispatchDate'] as String? ?? '--',
-                          ),
-                        KDetailRow(
-                          label: 'Delivery Method',
-                          value: challan['deliveryMethod'] as String? ??
-                              '--',
-                        ),
-                        KDetailRow(
-                          label: 'Vehicle Number',
-                          value: challan['vehicleNumber'] as String? ??
-                              '--',
-                        ),
-                        KDetailRow(
-                          label: 'Tracking Number',
-                          value: challan['trackingNumber'] as String? ??
-                              '--',
-                        ),
-                        if ((challan['notes'] as String? ?? '')
-                            .isNotEmpty)
-                          KDetailRow(
-                            label: 'Notes',
-                            value: challan['notes'] as String? ?? '',
-                          ),
-                      ],
-                    ),
+                      ),
+                      KSpacing.vGapMd,
+                      KCustomFieldsCard(
+                        entityType: 'DELIVERY_CHALLAN',
+                        entityId: challanId,
+                      ),
+                    ],
                   ),
                 ),
 

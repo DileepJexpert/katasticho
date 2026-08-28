@@ -34,6 +34,7 @@ class KTextField extends StatefulWidget {
   final bool selectAllOnFocus;
   final bool isRequired;
   final String? serverError;
+  final bool autofocus;
 
   const KTextField({
     super.key,
@@ -62,6 +63,7 @@ class KTextField extends StatefulWidget {
     this.selectAllOnFocus = true,
     this.isRequired = false,
     this.serverError,
+    this.autofocus = false,
   });
 
   @override
@@ -71,22 +73,29 @@ class KTextField extends StatefulWidget {
   factory KTextField.amount({
     Key? key,
     required String label,
+    String? hint,
     TextEditingController? controller,
     String? Function(String?)? validator,
     ValueChanged<String>? onChanged,
     bool readOnly = false,
+    bool enabled = true,
     String currencySymbol = '\u20B9',
     bool isRequired = false,
     String? serverError,
+    TextInputAction? textInputAction,
+    ValueChanged<String>? onFieldSubmitted,
     int? maxLength,
+    bool autofocus = false,
   }) {
     return KTextField(
       key: key,
       label: label,
+      hint: hint,
       controller: controller,
       validator: validator,
       onChanged: onChanged,
       readOnly: readOnly,
+      enabled: enabled,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       inputFormatters: [
         FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
@@ -95,7 +104,10 @@ class KTextField extends StatefulWidget {
       selectAllOnFocus: true,
       isRequired: isRequired,
       serverError: serverError,
+      textInputAction: textInputAction,
+      onFieldSubmitted: onFieldSubmitted,
       maxLength: maxLength,
+      autofocus: autofocus,
     );
   }
 
@@ -201,11 +213,18 @@ class _KTextFieldState extends State<KTextField> {
       enabled: widget.enabled,
       maxLines: widget.maxLines,
       maxLength: widget.maxLength,
+      autofocus: widget.autofocus,
       focusNode:
           widget.selectAllOnFocus ? _effectiveFocusNode : widget.focusNode,
-      textInputAction: widget.textInputAction,
+      textInputAction: widget.textInputAction ??
+          (isMultiline ? TextInputAction.newline : TextInputAction.next),
       onTap: widget.onTap,
-      onFieldSubmitted: widget.onFieldSubmitted,
+      onFieldSubmitted: widget.onFieldSubmitted ??
+          (isMultiline
+              ? null
+              : (_) {
+                  FocusScope.of(context).nextFocus();
+                }),
       style: KTypography.bodyMedium.copyWith(color: cs.onSurface),
       decoration: InputDecoration(
         // Top-aligned label is rendered above via Column; suppress Material's

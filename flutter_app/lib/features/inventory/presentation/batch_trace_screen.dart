@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/api_error_parser.dart';
@@ -57,8 +58,8 @@ class _BatchTraceScreenState extends ConsumerState<BatchTraceScreen>
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
-            Tab(text: 'Forward Trace'),
-            Tab(text: 'Backward Trace'),
+            Tab(text: 'Forward Trace (Sale & Dispatch)'),
+            Tab(text: 'Backward Trace (Receipt & Supply)'),
           ],
         ),
       ),
@@ -69,36 +70,28 @@ class _BatchTraceScreenState extends ConsumerState<BatchTraceScreen>
             child: Row(
               children: [
                 Expanded(
-                  child: TextField(
+                  child: KTextField(
                     controller: _searchCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Batch ID / Batch Number',
-                      prefixIcon: Icon(Icons.qr_code_scanner_outlined),
-                      border: OutlineInputBorder(),
-                    ),
-                    onSubmitted: (_) => _search(),
+                    label: 'Batch ID / Batch Number',
+                    hint: 'e.g. BATCH-2026-001',
+                    prefixIcon: Icons.qr_code_scanner_outlined,
                   ),
                 ),
-                const SizedBox(width: KSpacing.sm),
-                FilledButton(
+                KSpacing.hGapSm,
+                KButton.primary(
+                  icon: Icons.search,
+                  label: 'Trace Batch',
                   onPressed: _search,
-                  child: const Text('Trace'),
                 ),
               ],
             ),
           ),
           Expanded(
             child: !_searched
-                ? const Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.track_changes_outlined,
-                            size: 64, color: Colors.grey),
-                        SizedBox(height: KSpacing.md),
-                        Text('Enter a batch ID to trace its movement'),
-                      ],
-                    ),
+                ? const KEmptyState(
+                    icon: Icons.track_changes_outlined,
+                    title: 'Enter a Batch Number',
+                    subtitle: 'Search any lot number to view full backward supplier origin or forward customer distribution genealogy.',
                   )
                 : TabBarView(
                     controller: _tabController,
@@ -141,7 +134,7 @@ class _TraceView extends ConsumerWidget {
         : ref.watch(_backwardTraceProvider(batchId));
 
     return traceAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const Center(child: KLoading(message: 'Tracing batch genealogy...')),
       error: (e, _) => Center(child: Text(ApiErrorParser.message(e))),
       data: (trace) {
         final movements = trace['movements'] as List? ?? [];
@@ -149,32 +142,55 @@ class _TraceView extends ConsumerWidget {
         final itemName = trace['itemName'] as String? ?? 'Unknown Item';
 
         if (movements.isEmpty) {
-          return Center(
-            child: Text(
-              traceType == 'forward'
-                  ? 'No outgoing movements found for batch $batchNumber'
-                  : 'No incoming movements found for batch $batchNumber',
-            ),
+          return KEmptyState(
+            icon: Icons.history_toggle_off_outlined,
+            title: 'No Movements Found',
+            subtitle: traceType == 'forward'
+                ? 'No outgoing sales or dispatch movements found for batch $batchNumber.'
+                : 'No incoming supplier receipt or production movements found for batch $batchNumber.',
           );
         }
 
         return ListView(
           padding: KSpacing.pagePadding,
           children: [
-            Card(
-              color: Theme.of(context).colorScheme.primaryContainer,
-              child: Padding(
-                padding: const EdgeInsets.all(KSpacing.md),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(itemName, style: KTypography.titleMedium),
-                    Text('Batch: $batchNumber', style: KTypography.bodySmall),
-                  ],
-                ),
+            KCard(
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(KSpacing.sm),
+                    decoration: BoxDecoration(
+                      color: KColors.primary.withValues(alpha: 0.12),
+                      borderRadius: KSpacing.borderRadiusSm,
+                    ),
+                    child: const Icon(Icons.inventory_2_outlined, color: KColors.primary, size: 24),
+                  ),
+                  KSpacing.hGapMd,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(itemName, style: KTypography.titleMedium),
+                        KSpacing.vGapXs,
+                        Row(
+                          children: [
+                            Text('Batch Number: ', style: KTypography.caption),
+                            Text(
+                              batchNumber,
+                              style: KTypography.mono(fontSize: 12, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  KStatusChip(status: traceType == 'forward' ? 'OUTGOING' : 'INCOMING'),
+                ],
               ),
             ),
-            const SizedBox(height: KSpacing.md),
+            KSpacing.vGapMd,
+            Text('Movement Timeline (${movements.length} events)', style: KTypography.titleSmall),
+            KSpacing.vGapSm,
             ...movements.asMap().entries.map((entry) {
               final idx = entry.key;
               final m = entry.value as Map<String, dynamic>;
@@ -197,39 +213,40 @@ class _TraceNode extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final movementType = movement['movementType'] as String? ?? '';
+    final qty = movement['quantity'];
+    final refNo = movement['referenceNumber']?.toString();
 
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 40,
+            width: 36,
             child: Column(
               children: [
                 CircleAvatar(
-                  radius: 12,
-                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  radius: 11,
+                  backgroundColor: KColors.primary,
                   child: Text(
                     '${index + 1}',
-                    style: const TextStyle(color: Colors.white, fontSize: 10),
+                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                   ),
                 ),
                 if (!isLast)
                   Expanded(
                     child: Container(
                       width: 2,
-                      color: Colors.grey.shade300,
+                      color: KColors.border,
                     ),
                   ),
               ],
             ),
           ),
-          const SizedBox(width: KSpacing.sm),
+          KSpacing.hGapSm,
           Expanded(
-            child: Card(
-              margin: const EdgeInsets.only(bottom: KSpacing.sm),
-              child: Padding(
-                padding: const EdgeInsets.all(KSpacing.sm),
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: KSpacing.sm),
+              child: KCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -237,18 +254,37 @@ class _TraceNode extends StatelessWidget {
                       children: [
                         KStatusChip(status: movementType),
                         const Spacer(),
-                        Text(
-                          movement['movementDate'] as String? ?? '',
-                          style: KTypography.bodySmall,
-                        ),
+                        if (movement['movementDate'] != null)
+                          Text(
+                            movement['movementDate'].toString(),
+                            style: KTypography.mono(fontSize: 11, color: KColors.textSecondary),
+                          ),
                       ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                        'Qty: ${movement['quantity']} • ${movement['warehouseName'] ?? 'N/A'}'),
-                    if (movement['referenceNumber'] != null)
-                      Text('Ref: ${movement['referenceNumber']}',
-                          style: KTypography.bodySmall),
+                    KSpacing.vGapXs,
+                    Row(
+                      children: [
+                        Text('Quantity: ', style: KTypography.caption),
+                        Text('$qty', style: KTypography.mono(fontSize: 12, fontWeight: FontWeight.w600)),
+                        if (movement['warehouseName'] != null) ...[
+                          KSpacing.hGapMd,
+                          Text('Warehouse: ', style: KTypography.caption),
+                          Text('${movement['warehouseName']}', style: KTypography.bodySmall),
+                        ],
+                      ],
+                    ),
+                    if (refNo != null && refNo.isNotEmpty) ...[
+                      KSpacing.vGapXs,
+                      Row(
+                        children: [
+                          Text('Reference: ', style: KTypography.caption),
+                          Text(
+                            refNo,
+                            style: KTypography.mono(fontSize: 11, color: KColors.primary),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),

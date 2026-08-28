@@ -279,16 +279,12 @@ class _ItemImportScreenState extends ConsumerState<ItemImportScreen> {
                     ),
                   ),
                   KSpacing.vGapMd,
-                  OutlinedButton.icon(
+                  KButton.outlined(
                     onPressed: _isDownloadingTemplate ? null : _downloadTemplate,
-                    icon: _isDownloadingTemplate
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.download, size: 18),
-                    label: const Text('Download Template'),
+                    icon: Icons.download,
+                    label: 'Download Template',
+                    size: KButtonSize.small,
+                    isLoading: _isDownloadingTemplate,
                   ),
                 ],
               ),
@@ -426,7 +422,7 @@ class _ItemImportScreenState extends ConsumerState<ItemImportScreen> {
             Row(
               children: [
                 const Spacer(),
-                KButton(
+                KButton.primary(
                   label: 'Import',
                   icon: Icons.cloud_upload_outlined,
                   onPressed: _upload,
@@ -628,10 +624,11 @@ class _PickPrompt extends StatelessWidget {
           textAlign: TextAlign.center,
         ),
         KSpacing.vGapSm,
-        FilledButton.tonalIcon(
+        KButton.outlined(
           onPressed: onPick,
-          icon: const Icon(Icons.folder_open_outlined, size: 18),
-          label: const Text('Browse files'),
+          icon: Icons.folder_open_outlined,
+          label: 'Browse files',
+          size: KButtonSize.small,
         ),
       ],
     );

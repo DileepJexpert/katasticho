@@ -3,19 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
+import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/api_error_parser.dart';
+import '../../../core/widgets/widgets.dart';
 
-/// Parameterized BOM resolver preview (tracker #42). Engineering pastes
-/// a parent (composite) item id and a set of variant attributes, then
-/// sees the filtered BOM lines that would apply.
-///
-/// Useful for:
-///   - validating a parameterized BOM after authoring the variant
-///     filters
-///   - explaining to a planner "what does a Red-M actually use?"
-///     before they kick a work order
+/// Parameterized BOM resolver preview (tracker #42).
 class ParameterizedBomScreen extends ConsumerStatefulWidget {
   const ParameterizedBomScreen({super.key});
 
@@ -81,25 +75,25 @@ class _ParameterizedBomScreenState
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(KSpacing.md),
+            padding: KSpacing.pagePadding,
             child: Column(
               children: [
                 TextField(
                   controller: _itemCtl,
                   decoration: const InputDecoration(
-                    labelText: 'Parent (composite) item id',
+                    labelText: 'Parent (composite) Item ID',
                     helperText:
                         'The COMPOSITE item whose BOM you want to resolve for a variant',
                     prefixIcon: Icon(Icons.account_tree_outlined),
                     border: OutlineInputBorder(),
                   ),
                 ),
-                const SizedBox(height: KSpacing.sm),
+                KSpacing.vGapSm,
                 ..._pairs.asMap().entries.map((e) {
                   final i = e.key;
                   final p = e.value;
                   return Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
+                    padding: const EdgeInsets.only(bottom: 6),
                     child: Row(
                       children: [
                         Expanded(
@@ -107,17 +101,17 @@ class _ParameterizedBomScreenState
                             controller: p.key,
                             decoration: const InputDecoration(
                               labelText: 'Attribute key',
-                              hintText: 'size',
+                              hintText: 'e.g. size',
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        KSpacing.hGapSm,
                         Expanded(
                           child: TextField(
                             controller: p.val,
                             decoration: const InputDecoration(
                               labelText: 'Value',
-                              hintText: 'M',
+                              hintText: 'e.g. M',
                             ),
                           ),
                         ),
@@ -130,34 +124,34 @@ class _ParameterizedBomScreenState
                     ),
                   );
                 }),
+                KSpacing.vGapSm,
                 Row(
                   children: [
-                    TextButton.icon(
+                    KButton.outlined(
+                      size: KButtonSize.small,
                       onPressed: _addPair,
-                      icon: const Icon(Icons.add),
-                      label: const Text('Add attribute'),
+                      icon: Icons.add,
+                      label: 'Add Attribute',
                     ),
                     const Spacer(),
-                    FilledButton(
-                        onPressed: _resolve, child: const Text('Resolve')),
+                    KButton.primary(
+                      size: KButtonSize.small,
+                      onPressed: _resolve,
+                      icon: Icons.tune,
+                      label: 'Resolve BOM',
+                    ),
                   ],
                 ),
               ],
             ),
           ),
+          const Divider(height: 1),
           Expanded(
             child: _query == null
-                ? const Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.filter_alt_outlined,
-                            size: 64, color: Colors.grey),
-                        SizedBox(height: KSpacing.md),
-                        Text(
-                            'Enter a parent item id + variant attributes to preview the BOM'),
-                      ],
-                    ),
+                ? const KEmptyState(
+                    icon: Icons.filter_alt_outlined,
+                    title: 'No parameters specified',
+                    subtitle: 'Enter a parent item ID and attributes to preview the dynamic BOM.',
                   )
                 : _ResolvedView(query: _query!),
           ),
@@ -175,12 +169,14 @@ class _ResolvedView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(_resolveProvider(query));
     return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const Center(child: KLoading(message: 'Resolving BOM...')),
       error: (e, _) => Center(child: Text(ApiErrorParser.message(e))),
       data: (rows) {
         if (rows.isEmpty) {
-          return const Center(
-            child: Text('No BOM lines match these attributes'),
+          return const KEmptyState(
+            icon: Icons.search_off,
+            title: 'No matching lines',
+            subtitle: 'No BOM lines match the specified attribute combination.',
           );
         }
         return ListView.builder(
@@ -191,19 +187,36 @@ class _ResolvedView extends ConsumerWidget {
             final filter = r['variantFilter'];
             final isUniversal = filter == null ||
                 (filter is Map && filter.isEmpty);
-            return Card(
-              margin: const EdgeInsets.only(bottom: KSpacing.sm),
-              child: ListTile(
-                leading: Icon(isUniversal
-                    ? Icons.check_circle_outline
-                    : Icons.tune,
-                    color: isUniversal ? Colors.green : Colors.blue),
-                title: Text('Child ${r['childItemId']}'),
-                subtitle: Text(
-                  'Qty ${r['quantity']}'
-                  '${r['scrapPercent'] != null ? ' • scrap ${r['scrapPercent']}%' : ''}'
-                  '${!isUniversal ? '\nFilter: $filter' : ''}',
-                  style: KTypography.bodySmall,
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: KCard(
+                child: Padding(
+                  padding: const EdgeInsets.all(KSpacing.md),
+                  child: Row(
+                    children: [
+                      Icon(
+                        isUniversal ? Icons.check_circle_outline : Icons.tune,
+                        color: isUniversal ? KColors.success : KColors.primary,
+                      ),
+                      KSpacing.hGapMd,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Child: ${r['childItemId']}',
+                              style: KTypography.labelLarge,
+                            ),
+                            KSpacing.vGapXs,
+                            Text(
+                              'Qty ${r['quantity']}${r['scrapPercent'] != null ? ' • Scrap ${r['scrapPercent']}%' : ''}${!isUniversal ? '\nFilter: $filter' : ''}',
+                              style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );

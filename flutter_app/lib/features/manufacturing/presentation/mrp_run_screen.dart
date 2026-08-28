@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
-import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/api_error_parser.dart';
+import '../../../core/widgets/widgets.dart';
 import '../data/manufacturing_repository.dart';
 
 final _mrpRunsProvider = FutureProvider.autoDispose<List<dynamic>>((ref) {
@@ -24,29 +25,22 @@ class MrpRunScreen extends ConsumerWidget {
       child: Scaffold(
         appBar: AppBar(title: const Text('MRP Runs')),
         floatingActionButton: FloatingActionButton.extended(
+          backgroundColor: KColors.primary,
+          foregroundColor: Colors.white,
           tooltip: 'Run MRP (N)',
           onPressed: () => _runMrp(context, ref),
           icon: const Icon(Icons.play_arrow_rounded),
           label: const Text('Run MRP'),
         ),
         body: runsAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => const Center(child: KLoading(message: 'Loading MRP runs...')),
           error: (e, _) => Center(child: Text(ApiErrorParser.message(e))),
           data: (runs) {
             if (runs.isEmpty) {
-              return Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.precision_manufacturing_outlined,
-                        size: 64, color: Colors.grey),
-                    const SizedBox(height: KSpacing.md),
-                    const Text('No MRP runs yet'),
-                    const SizedBox(height: KSpacing.sm),
-                    const Text('Tap "Run MRP" to generate planned orders',
-                        style: TextStyle(color: Colors.grey)),
-                  ],
-                ),
+              return const KEmptyState(
+                icon: Icons.precision_manufacturing_outlined,
+                title: 'No MRP runs yet',
+                subtitle: 'Tap "Run MRP" to analyze inventory demand and generate planned orders.',
               );
             }
             return RefreshIndicator(
@@ -70,16 +64,24 @@ class MrpRunScreen extends ConsumerWidget {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Run MRP'),
-        content: const Text(
-            'This will analyze demand forecasts and open purchase orders to generate planned orders. Continue?'),
+        title: const Text('Run MRP Analysis'),
+        content: Text(
+          'This will analyze demand forecasts, BOM explosions, and current inventory balances to generate planned orders. Continue?',
+          style: KTypography.bodyMedium,
+        ),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
-          FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Run MRP')),
+          KButton.outlined(
+            size: KButtonSize.small,
+            label: 'Cancel',
+            onPressed: () => Navigator.pop(context, false),
+          ),
+          KSpacing.hGapSm,
+          KButton.primary(
+            size: KButtonSize.small,
+            icon: Icons.play_arrow,
+            label: 'Run MRP',
+            onPressed: () => Navigator.pop(context, true),
+          ),
         ],
       ),
     );
@@ -91,15 +93,16 @@ class MrpRunScreen extends ConsumerWidget {
       ref.invalidate(_mrpRunsProvider);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('MRP run completed')),
+          const SnackBar(content: Text('MRP run completed successfully'), backgroundColor: KColors.success),
         );
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text(ApiErrorParser.message(e)),
-              backgroundColor: KColors.error),
+            content: Text(ApiErrorParser.message(e)),
+            backgroundColor: KColors.error,
+          ),
         );
       }
     }
@@ -118,43 +121,55 @@ class _MrpRunCard extends StatelessWidget {
     final plannedOrders = run['plannedOrderCount'] as int? ?? 0;
     final runDate = run['createdAt'] as String? ?? '';
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: KSpacing.sm),
-      child: ExpansionTile(
-        leading: const Icon(Icons.calculate_outlined),
-        title: Row(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: KCard(
+        child: ExpansionTile(
+          shape: const Border(),
+          collapsedShape: const Border(),
+          leading: const Icon(Icons.calculate_outlined, color: KColors.primary),
+          title: Row(
+            children: [
+              Text(
+                runNumber,
+                style: KTypography.mono(fontSize: 14, fontWeight: FontWeight.w700),
+              ),
+              KSpacing.hGapSm,
+              KStatusChip(status: status),
+            ],
+          ),
+          subtitle: Text(
+            '$plannedOrders planned orders • $runDate',
+            style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+          ),
           children: [
-            Text(runNumber, style: KTypography.titleSmall),
-            const SizedBox(width: KSpacing.sm),
-            KStatusChip(status: status),
+            if (run['plannedOrders'] is List)
+              ...(run['plannedOrders'] as List).map((order) {
+                final o = order as Map<String, dynamic>;
+                return ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.assignment_outlined, size: 16),
+                  title: Text(o['itemName'] as String? ?? 'Item', style: KTypography.labelMedium),
+                  subtitle: Text('Qty: ${o['quantity']} • ${o['orderType'] ?? 'PURCHASE'}', style: KTypography.bodySmall),
+                  trailing: KButton.outlined(
+                    size: KButtonSize.small,
+                    onPressed: () => _convertOrder(context, o['id'] as String? ?? ''),
+                    label: 'Convert',
+                  ),
+                );
+              }),
+            if (run['plannedOrders'] == null)
+              Padding(
+                padding: const EdgeInsets.all(KSpacing.md),
+                child: KButton.outlined(
+                  size: KButtonSize.small,
+                  onPressed: () => _viewPlannedOrders(context, run['id'] as String? ?? ''),
+                  icon: Icons.list_alt_outlined,
+                  label: 'View Planned Orders',
+                ),
+              ),
           ],
         ),
-        subtitle: Text('$plannedOrders planned orders • $runDate'),
-        children: [
-          if (run['plannedOrders'] is List)
-            ...(run['plannedOrders'] as List).map((order) {
-              final o = order as Map<String, dynamic>;
-              return ListTile(
-                dense: true,
-                leading: const Icon(Icons.assignment_outlined, size: 16),
-                title: Text(o['itemName'] as String? ?? 'Item'),
-                subtitle: Text('Qty: ${o['quantity']} • ${o['orderType'] ?? 'PURCHASE'}'),
-                trailing: TextButton(
-                  onPressed: () => _convertOrder(context, o['id'] as String? ?? ''),
-                  child: const Text('Convert'),
-                ),
-              );
-            }),
-          if (run['plannedOrders'] == null)
-            Padding(
-              padding: const EdgeInsets.all(KSpacing.md),
-              child: TextButton.icon(
-                onPressed: () => _viewPlannedOrders(context, run['id'] as String? ?? ''),
-                icon: const Icon(Icons.list_alt_outlined),
-                label: const Text('View Planned Orders'),
-              ),
-            ),
-        ],
       ),
     );
   }
@@ -164,15 +179,16 @@ class _MrpRunCard extends StatelessWidget {
       await ref.read(manufacturingRepositoryProvider).convertMrpOrder(orderId);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Order converted to Purchase Order')),
+          const SnackBar(content: Text('Order converted to Purchase Order'), backgroundColor: KColors.success),
         );
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text(ApiErrorParser.message(e)),
-              backgroundColor: KColors.error),
+            content: Text(ApiErrorParser.message(e)),
+            backgroundColor: KColors.error,
+          ),
         );
       }
     }
@@ -191,8 +207,9 @@ class _MrpRunCard extends StatelessWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text(ApiErrorParser.message(e)),
-              backgroundColor: KColors.error),
+            content: Text(ApiErrorParser.message(e)),
+            backgroundColor: KColors.error,
+          ),
         );
       }
     }
@@ -212,22 +229,26 @@ class _PlannedOrdersSheet extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.all(KSpacing.md),
-            child: Text('Planned Orders', style: KTypography.titleMedium),
+            child: Text('Planned Orders', style: KTypography.h3),
           ),
           Expanded(
             child: ListView.builder(
               controller: ctrl,
+              padding: KSpacing.pagePadding,
               itemCount: orders.length,
               itemBuilder: (_, i) {
                 final o = orders[i] as Map<String, dynamic>;
-                return ListTile(
-                  leading: const Icon(Icons.shopping_cart_outlined),
-                  title: Text(o['itemName'] as String? ?? 'Item'),
-                  subtitle:
-                      Text('Qty: ${o['quantity']} • Due: ${o['dueDate'] ?? 'N/A'}'),
-                  trailing: Chip(
-                    label: Text(o['orderType'] as String? ?? 'PURCHASE'),
-                    backgroundColor: KColors.info.withValues(alpha: 0.12),
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: KCard(
+                    child: ListTile(
+                      leading: const Icon(Icons.shopping_cart_outlined, color: KColors.primary),
+                      title: Text(o['itemName'] as String? ?? 'Item', style: KTypography.labelMedium),
+                      subtitle: Text('Qty: ${o['quantity']} • Due: ${o['dueDate'] ?? 'N/A'}', style: KTypography.bodySmall),
+                      trailing: KStatusChip(
+                        status: o['orderType'] as String? ?? 'PURCHASE',
+                      ),
+                    ),
                   ),
                 );
               },

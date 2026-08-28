@@ -58,4 +58,11 @@ public class SchemeController {
             @RequestParam(required = false) BigDecimal quantity) {
         return ResponseEntity.ok(ApiResponse.ok(schemeService.getApplicable(itemId, quantity)));
     }
+
+    @PostMapping("/evaluate")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','OPERATOR','VIEWER')")
+    public ResponseEntity<ApiResponse<com.katasticho.erp.pricing.dto.SchemeCalculationResult>> evaluate(
+            @Valid @RequestBody com.katasticho.erp.pricing.dto.SchemeEvaluationRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(schemeService.evaluateScheme(request)));
+    }
 }

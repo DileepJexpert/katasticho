@@ -46,4 +46,11 @@ public class WhatsAppMessage extends BaseEntity {
 
     @Column(name = "sent_at")
     private Instant sentAt;
+
+    @Column(name = "direction", length = 10)
+    @Builder.Default
+    private String direction = "OUTBOUND";
+
+    @Column(name = "body", columnDefinition = "TEXT")
+    private String body;
 }

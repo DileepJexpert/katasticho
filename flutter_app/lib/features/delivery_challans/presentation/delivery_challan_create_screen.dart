@@ -8,7 +8,6 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/api_error_parser.dart';
 import '../../../core/utils/form_error_handler.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/workflow/workflow_hint_resolver.dart';
 import '../../sales_orders/data/sales_order_repository.dart';
@@ -317,8 +316,7 @@ class _DeliveryChallanCreateScreenState
                   ],
                 ),
               ),
-              Text(CurrencyFormatter.formatIndian(total),
-                  style: KTypography.amountSmall),
+              KMoney(total, size: KMoneySize.small),
             ],
           ),
         );
@@ -449,25 +447,27 @@ class _DeliveryChallanCreateScreenState
           KSpacing.vGapMd,
           Text('Shipping Details', style: KTypography.h3),
           KSpacing.vGapSm,
-          KTextField(
-            label: 'Vehicle Number',
-            hint: 'e.g. KA-01-AB-1234',
-            controller: _vehicleCtrl,
-            prefixIcon: Icons.local_shipping,
-          ),
-          KSpacing.vGapSm,
-          KTextField(
-            label: 'Tracking Number',
-            hint: 'Enter tracking/AWB number',
-            controller: _trackingCtrl,
-            prefixIcon: Icons.qr_code,
-          ),
-          KSpacing.vGapSm,
-          KTextField(
-            label: 'Delivery Method',
-            hint: 'e.g. Courier, Hand Delivery',
-            controller: _deliveryMethodCtrl,
-            prefixIcon: Icons.delivery_dining,
+          KCompactRow(
+            children: [
+              KTextField(
+                label: 'Vehicle Number',
+                hint: 'e.g. KA-01-AB-1234',
+                controller: _vehicleCtrl,
+                prefixIcon: Icons.local_shipping,
+              ),
+              KTextField(
+                label: 'Tracking Number',
+                hint: 'Enter tracking/AWB number',
+                controller: _trackingCtrl,
+                prefixIcon: Icons.qr_code,
+              ),
+              KTextField(
+                label: 'Delivery Method',
+                hint: 'e.g. Courier, Hand Delivery',
+                controller: _deliveryMethodCtrl,
+                prefixIcon: Icons.delivery_dining,
+              ),
+            ],
           ),
           KSpacing.vGapSm,
           KTextField(

@@ -4,6 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
+import '../../../core/theme/k_colors.dart';
+import '../../../core/theme/k_spacing.dart';
+import '../../../core/theme/k_typography.dart';
+import '../../../core/widgets/k_card.dart';
+import '../../../core/widgets/k_empty_state.dart';
+import '../../../core/widgets/k_loading.dart';
+import '../../../core/widgets/k_money.dart';
+import '../../../core/widgets/k_status_chip.dart';
 import '../data/field_sales_repository.dart';
 
 /// Manager coverage analytics: team roll-up, tour-plan deviation, and
@@ -76,9 +84,9 @@ class _FieldCoverageScreenState extends ConsumerState<FieldCoverageScreen> {
         });
       }
     } on DioException catch (e) {
-      _toast('Failed to load coverage: ${e.message}');
+      _toast('Failed to load coverage: ${e.message}', isError: true);
     } catch (e) {
-      _toast('Failed to load coverage: $e');
+      _toast('Failed to load coverage: $e', isError: true);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -98,9 +106,14 @@ class _FieldCoverageScreenState extends ConsumerState<FieldCoverageScreen> {
     }
   }
 
-  void _toast(String msg) {
+  void _toast(String msg, {bool isError = false}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: isError ? KColors.error : KColors.success,
+      ),
+    );
   }
 
   @override
@@ -109,24 +122,30 @@ class _FieldCoverageScreenState extends ConsumerState<FieldCoverageScreen> {
       length: 3,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Field Coverage'),
+          title: const Text('Field Coverage & Analytics'),
           actions: [
             TextButton.icon(
               onPressed: _pickMonth,
-              icon: const Icon(Icons.calendar_month),
-              label: Text('${_month.month}/${_month.year}'),
+              icon: const Icon(Icons.calendar_month, color: KColors.primary),
+              label: Text(
+                '${_month.month.toString().padLeft(2, '0')}/${_month.year}',
+                style: KTypography.mono(fontWeight: FontWeight.w600, color: KColors.primary),
+              ),
             ),
             IconButton(
-                icon: const Icon(Icons.refresh), onPressed: _loadAll),
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Refresh',
+              onPressed: _loadAll,
+            ),
           ],
           bottom: const TabBar(tabs: [
-            Tab(text: 'Team'),
-            Tab(text: 'Deviation'),
-            Tab(text: 'Frequency'),
+            Tab(text: 'Team Overview'),
+            Tab(text: 'Tour Deviation'),
+            Tab(text: 'Visit Frequency'),
           ]),
         ),
         body: _loading
-            ? const Center(child: CircularProgressIndicator())
+            ? const Center(child: KLoading())
             : TabBarView(children: [
                 _teamTab(),
                 _deviationTab(),
@@ -138,39 +157,101 @@ class _FieldCoverageScreenState extends ConsumerState<FieldCoverageScreen> {
 
   Widget _teamTab() {
     if (_team.isEmpty) {
-      return const Center(child: Text('No route activity this month'));
+      return const KEmptyState(
+        icon: Icons.groups_outlined,
+        title: 'No route execution data found',
+        subtitle: 'No field visits or route executions recorded for this selected month.',
+      );
     }
-    return ListView(
-      padding: const EdgeInsets.all(12),
-      children: _team.map((r) {
-        return Card(
-          child: ListTile(
-            leading: const CircleAvatar(child: Icon(Icons.person)),
-            title: Text(r['salespersonName']?.toString().trim().isEmpty ?? true
-                ? 'Salesperson'
-                : r['salespersonName'].toString()),
-            subtitle: Text(
-                'Days ${r['routeDays']} • Visits ${r['visitsCompleted']}/${r['visitsPlanned']}'
-                ' (${r['completionPct']}%)'
-                ' • ${r['distanceKm']} km • DCRs ${r['dcrsSubmitted']}'),
-            trailing: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text('₹${r['ordersValue']}',
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
-                Text('Coll ₹${r['collections']}',
-                    style: Theme.of(context).textTheme.bodySmall),
-              ],
-            ),
-            onTap: () {
-              setState(() => _selectedUserId = r['salespersonId'].toString());
-              _loadAll();
-              DefaultTabController.of(context).animateTo(1);
-            },
+    return ListView.separated(
+      padding: KSpacing.pagePadding,
+      itemCount: _team.length,
+      separatorBuilder: (_, __) => KSpacing.vGapSm,
+      itemBuilder: (context, index) {
+        final r = _team[index];
+        final name = (r['salespersonName']?.toString().trim().isEmpty ?? true)
+            ? 'Salesperson'
+            : r['salespersonName'].toString();
+        final routeDays = r['routeDays'] ?? 0;
+        final visitsCompleted = r['visitsCompleted'] ?? 0;
+        final visitsPlanned = r['visitsPlanned'] ?? 0;
+        final completionPct = r['completionPct'] ?? 0;
+        final distanceKm = r['distanceKm'] ?? 0;
+        final dcrsSubmitted = r['dcrsSubmitted'] ?? 0;
+        final ordersValue = (r['ordersValue'] as num?)?.toDouble() ?? 0;
+        final collections = (r['collections'] as num?)?.toDouble() ?? 0;
+
+        return KCard(
+          onTap: () {
+            setState(() => _selectedUserId = r['salespersonId'].toString());
+            _loadAll();
+            DefaultTabController.of(context).animateTo(1);
+          },
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: KColors.primarySoft,
+                child: const Icon(Icons.person, color: KColors.primary, size: 20),
+              ),
+              KSpacing.hGapMd,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            name,
+                            style: KTypography.titleMedium,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        KSpacing.hGapSm,
+                        KStatusChip(
+                          status: completionPct >= 80 ? 'APPROVED' : 'PENDING_APPROVAL',
+                          label: '$completionPct% coverage',
+                        ),
+                      ],
+                    ),
+                    KSpacing.vGapXs,
+                    Text(
+                      'Days: $routeDays • Visits: $visitsCompleted / $visitsPlanned'
+                      ' • $distanceKm km • DCRs: $dcrsSubmitted',
+                      style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              KSpacing.hGapMd,
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  KMoney(
+                    ordersValue,
+                    size: KMoneySize.small,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  KSpacing.vGapXxs,
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('Coll: ', style: KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
+                      KMoney(
+                        collections,
+                        size: KMoneySize.small,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const Icon(Icons.chevron_right, color: KColors.textHint),
+            ],
           ),
         );
-      }).toList(),
+      },
     );
   }
 
@@ -178,14 +259,17 @@ class _FieldCoverageScreenState extends ConsumerState<FieldCoverageScreen> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(12),
+          padding: KSpacing.pagePadding,
           child: DropdownButtonFormField<String>(
             initialValue: _selectedUserId,
-            decoration: const InputDecoration(labelText: 'Salesperson'),
+            decoration: const InputDecoration(
+              labelText: 'Select Field Salesperson',
+              border: OutlineInputBorder(),
+            ),
             items: _users
                 .map((u) => DropdownMenuItem(
-                      value: u['id']?.toString(),
-                      child: Text('${u['fullName'] ?? u['email'] ?? ''}'),
+                      value: (u['userId'] ?? u['id'])?.toString(),
+                      child: Text('${u['fullName'] ?? u['displayName'] ?? u['email'] ?? ''}'),
                     ))
                 .toList(),
             onChanged: (v) {
@@ -196,51 +280,86 @@ class _FieldCoverageScreenState extends ConsumerState<FieldCoverageScreen> {
         ),
         if (_deviation == null)
           const Expanded(
-              child: Center(child: Text('Pick a salesperson to compare '
-                  'their tour plan against actual work')))
+            child: KEmptyState(
+              icon: Icons.alt_route_outlined,
+              title: 'Select a salesperson to view tour deviation',
+              subtitle: 'Compare monthly approved tour plans with daily check-ins and GPS routes.',
+            ),
+          )
         else ...[
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               children: [
-                Chip(label: Text('Plan: ${_deviation!['planStatus'] ?? '—'}')),
-                const SizedBox(width: 8),
-                Chip(
-                    label: Text('As planned: ${_deviation!['daysAsPlanned']}'),
-                    backgroundColor: Colors.green.shade50),
-                const SizedBox(width: 8),
-                Chip(
-                    label: Text('Deviated: ${_deviation!['daysDeviated']}'),
-                    backgroundColor: Colors.red.shade50),
+                KStatusChip(
+                  status: _deviation!['planStatus']?.toString() ?? 'DRAFT',
+                  label: 'Plan: ${_deviation!['planStatus'] ?? 'None'}',
+                ),
+                KSpacing.hGapSm,
+                KStatusChip(
+                  status: 'APPROVED',
+                  label: 'As Planned: ${_deviation!['daysAsPlanned'] ?? 0} days',
+                ),
+                KSpacing.hGapSm,
+                KStatusChip(
+                  status: 'OVERDUE',
+                  label: 'Deviated: ${_deviation!['daysDeviated'] ?? 0} days',
+                ),
               ],
             ),
           ),
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(12),
-              children: ((_deviation!['days'] as List?) ?? [])
-                  .whereType<Map>()
-                  .map((d) {
+            child: ListView.separated(
+              padding: KSpacing.pagePadding,
+              itemCount: ((_deviation!['days'] as List?) ?? []).whereType<Map>().length,
+              separatorBuilder: (_, __) => KSpacing.vGapSm,
+              itemBuilder: (context, index) {
+                final daysList = ((_deviation!['days'] as List?) ?? []).whereType<Map>().toList();
+                final d = daysList[index];
                 final status = d['status']?.toString() ?? '';
-                final color = switch (status) {
-                  'AS_PLANNED' => Colors.green,
-                  'MISSED' => Colors.red,
-                  'UNPLANNED_WORK' => Colors.orange,
-                  'WORKED_ON_NON_FIELD_DAY' => Colors.orange,
-                  _ => Colors.grey,
-                };
-                return ListTile(
-                  dense: true,
-                  leading: Icon(Icons.circle, size: 12, color: color),
-                  title: Text('${d['date']} — '
-                      '${d['plannedActivity'] ?? 'no plan'}'
-                      '${(d['plannedArea'] ?? '').toString().isNotEmpty ? ' @ ${d['plannedArea']}' : ''}'),
-                  subtitle: Text(
-                      d['worked'] == true ? 'Worked, ${d['visitsCompleted']} visits' : 'Did not work'),
-                  trailing: Text(status,
-                      style: TextStyle(color: color, fontSize: 11)),
+                final worked = d['worked'] == true;
+                final visits = d['visitsCompleted'] ?? 0;
+
+                return KCard(
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 16,
+                        backgroundColor: status == 'AS_PLANNED'
+                            ? KColors.success.withValues(alpha: 0.12)
+                            : KColors.warning.withValues(alpha: 0.12),
+                        child: Icon(
+                          status == 'AS_PLANNED' ? Icons.check : Icons.alt_route,
+                          size: 18,
+                          color: status == 'AS_PLANNED' ? KColors.success : KColors.warning,
+                        ),
+                      ),
+                      KSpacing.hGapMd,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${d['date']} — ${d['plannedActivity'] ?? 'Unplanned'}'
+                              '${(d['plannedArea'] ?? '').toString().isNotEmpty ? ' @ ${d['plannedArea']}' : ''}',
+                              style: KTypography.bodyMedium.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                            KSpacing.vGapXxs,
+                            Text(
+                              worked ? 'Worked ($visits visits logged)' : 'Did not work field route',
+                              style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
+                      KStatusChip(
+                        status: status,
+                        label: status.replaceAll('_', ' '),
+                      ),
+                    ],
+                  ),
                 );
-              }).toList(),
+              },
             ),
           ),
         ],
@@ -250,49 +369,91 @@ class _FieldCoverageScreenState extends ConsumerState<FieldCoverageScreen> {
 
   Widget _frequencyTab() {
     final f = _frequency;
-    if (f == null) return const Center(child: CircularProgressIndicator());
+    if (f == null) return const Center(child: KLoading());
     final contacts =
         ((f['contacts'] as List?) ?? []).whereType<Map>().toList();
+
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           child: Row(
             children: [
-              Chip(label: Text('Targets: ${f['totalTargets']}')),
-              const SizedBox(width: 8),
-              Chip(
-                  label: Text(
-                      'Compliant: ${f['compliant']} (${f['compliancePct']}%)'),
-                  backgroundColor: Colors.green.shade50),
+              KStatusChip(
+                status: 'INFO',
+                label: 'Targets: ${f['totalTargets'] ?? 0}',
+              ),
+              KSpacing.hGapSm,
+              KStatusChip(
+                status: 'APPROVED',
+                label: 'Compliant: ${f['compliant'] ?? 0} (${f['compliancePct'] ?? 0}%)',
+              ),
             ],
           ),
         ),
         Expanded(
           child: contacts.isEmpty
-              ? const Center(
-                  child: Text('No customers have a required visits/month '
-                      'set on the contact master'))
-              : ListView(
-                  children: contacts.map((c) {
+              ? const KEmptyState(
+                  icon: Icons.checklist_rtl_outlined,
+                  title: 'No customer frequency targets set',
+                  subtitle: 'Set required monthly visit frequencies in customer / doctor master profiles to track compliance.',
+                )
+              : ListView.separated(
+                  padding: KSpacing.pagePadding,
+                  itemCount: contacts.length,
+                  separatorBuilder: (_, __) => KSpacing.vGapSm,
+                  itemBuilder: (context, index) {
+                    final c = contacts[index];
                     final ok = c['compliant'] == true;
-                    return ListTile(
-                      dense: true,
-                      leading: Icon(
-                          ok ? Icons.check_circle : Icons.error_outline,
-                          color: ok ? Colors.green : Colors.red),
-                      title: Text(c['contactName']?.toString() ?? ''),
-                      subtitle: Text([
-                        c['category'],
-                        c['mrClass'] != null ? 'Class ${c['mrClass']}' : null,
-                      ].where((x) => x != null).join(' • ')),
-                      trailing: Text(
-                          '${c['actualVisits']} / ${c['requiredVisits']} visits',
-                          style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: ok ? Colors.green : Colors.red)),
+                    final actual = c['actualVisits'] ?? 0;
+                    final required = c['requiredVisits'] ?? 0;
+
+                    return KCard(
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 16,
+                            backgroundColor: ok
+                                ? KColors.success.withValues(alpha: 0.12)
+                                : KColors.error.withValues(alpha: 0.12),
+                            child: Icon(
+                              ok ? Icons.check_circle : Icons.warning_amber_rounded,
+                              size: 18,
+                              color: ok ? KColors.success : KColors.error,
+                            ),
+                          ),
+                          KSpacing.hGapMd,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  c['contactName']?.toString() ?? '',
+                                  style: KTypography.titleMedium,
+                                ),
+                                KSpacing.vGapXxs,
+                                Text(
+                                  [
+                                    c['category'],
+                                    c['mrClass'] != null ? 'Class ${c['mrClass']}' : null,
+                                  ].where((x) => x != null).join(' • '),
+                                  style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Text(
+                            '$actual / $required visits',
+                            style: KTypography.mono(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: ok ? KColors.success : KColors.error,
+                            ),
+                          ),
+                        ],
+                      ),
                     );
-                  }).toList(),
+                  },
                 ),
         ),
       ],

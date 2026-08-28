@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/k_colors.dart';
 import '../../../../core/theme/k_spacing.dart';
 import '../../../../core/theme/k_typography.dart';
-import '../../../../core/utils/currency_formatter.dart';
+import '../../../../core/widgets/widgets.dart';
 import '../../data/pos_cart_state.dart';
 import '../../data/pos_held_carts.dart';
 
@@ -102,59 +102,53 @@ class _HeldCartTile extends StatelessWidget {
             ? '${ago.inMinutes}m ago'
             : '${ago.inHours}h ago';
 
-    return Card(
+    return KCard(
       margin: const EdgeInsets.only(bottom: 8),
-      child: InkWell(
-        onTap: onRecall,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: cs.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Center(
-                  child: Text(
-                    '${held.cart.itemCount}',
-                    style: KTypography.labelLarge
-                        .copyWith(color: cs.primary),
-                  ),
-                ),
+      onTap: onRecall,
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: cs.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Center(
+              child: Text(
+                '${held.cart.itemCount}',
+                style: KTypography.labelLarge
+                    .copyWith(color: cs.primary),
               ),
-              KSpacing.hGapMd,
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(held.label, style: KTypography.labelMedium),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${held.cart.totalQuantity} items · $agoText',
-                      style: KTypography.bodySmall
-                          .copyWith(color: KColors.textSecondary),
-                    ),
-                  ],
-                ),
-              ),
-              Text(
-                CurrencyFormatter.formatIndian(held.cart.total),
-                style: KTypography.amountSmall,
-              ),
-              KSpacing.hGapSm,
-              IconButton(
-                icon: const Icon(Icons.close, size: 18),
-                onPressed: onDelete,
-                tooltip: 'Discard',
-                visualDensity: VisualDensity.compact,
-              ),
-            ],
+            ),
           ),
-        ),
+          KSpacing.hGapMd,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(held.label, style: KTypography.labelMedium),
+                const SizedBox(height: 2),
+                Text(
+                  '${held.cart.totalQuantity} items · $agoText',
+                  style: KTypography.bodySmall
+                      .copyWith(color: KColors.textSecondary),
+                ),
+              ],
+            ),
+          ),
+          KMoney(
+            held.cart.total,
+            size: KMoneySize.small,
+          ),
+          KSpacing.hGapSm,
+          IconButton(
+            icon: const Icon(Icons.close, size: 18),
+            onPressed: onDelete,
+            tooltip: 'Discard',
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
       ),
     );
   }

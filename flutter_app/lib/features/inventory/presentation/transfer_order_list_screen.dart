@@ -113,6 +113,8 @@ class _TransferOrderListScreenState
           ],
         ),
         floatingActionButton: FloatingActionButton.extended(
+          backgroundColor: KColors.primary,
+          foregroundColor: Colors.white,
           onPressed: () async {
             await context.push(Routes.transferOrderCreate);
             _fetchOrders();
@@ -227,9 +229,11 @@ class _TransferOrderCard extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: Text(transferNumber,
-                          style: KTypography.labelLarge,
-                          overflow: TextOverflow.ellipsis),
+                      child: Text(
+                        transferNumber,
+                        style: KTypography.mono(size: 13, weight: FontWeight.w700),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                     KSpacing.hGapSm,
                     KStatusChip(status: status),

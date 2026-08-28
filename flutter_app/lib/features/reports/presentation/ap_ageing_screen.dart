@@ -286,11 +286,10 @@ class _SummaryCard extends StatelessWidget {
               children: [
                 Text(label, style: KTypography.labelSmall),
                 const SizedBox(height: 2),
-                Text(
-                  CurrencyFormatter.formatIndian(value),
-                  style: KTypography.amountSmall.copyWith(color: color),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                KMoney(
+                  value,
+                  size: KMoneySize.small,
+                  style: TextStyle(color: color, fontWeight: FontWeight.w700),
                 ),
               ],
             ),
@@ -339,10 +338,10 @@ class _VendorAgeingTile extends StatelessWidget {
         ),
         trailing: SizedBox(
           width: 132,
-          child: Text(
-            CurrencyFormatter.formatIndian(total),
-            style: KTypography.amountSmall.copyWith(color: KColors.error),
-            textAlign: TextAlign.end,
+          child: KMoney(
+            total,
+            size: KMoneySize.small,
+            style: const TextStyle(color: KColors.error, fontWeight: FontWeight.w700),
           ),
         ),
         children: [
@@ -443,13 +442,18 @@ class _BillDetailTable extends StatelessWidget {
               final id = bill['billId']?.toString();
               return DataRow(
                 cells: [
-                  DataCell(Text(bill['billNumber']?.toString() ?? '--')),
+                  DataCell(Text(
+                    bill['billNumber']?.toString() ?? '--',
+                    style: KTypography.mono(fontSize: 12, weight: FontWeight.w600),
+                  )),
                   DataCell(Text(_ageLabel(bill['daysOverdue']))),
                   DataCell(_BucketLabel(bucket: bill['bucket']?.toString())),
-                  DataCell(Text(
-                    CurrencyFormatter.formatIndian(_num(bill['balanceDue'])),
-                    style: KTypography.amountSmall.copyWith(
+                  DataCell(KMoney(
+                    _num(bill['balanceDue']),
+                    size: KMoneySize.small,
+                    style: const TextStyle(
                       color: KColors.error,
+                      fontWeight: FontWeight.w700,
                     ),
                   )),
                   DataCell(IconButton(
@@ -483,11 +487,12 @@ class _BillDocumentCard extends StatelessWidget {
     return ListTile(
       dense: true,
       contentPadding: EdgeInsets.zero,
-      title: Text(number, style: KTypography.labelLarge),
+      title: Text(number, style: KTypography.mono(fontSize: 13, weight: FontWeight.w600)),
       subtitle: Text(_ageLabel(source['daysOverdue'])),
-      trailing: Text(
-        CurrencyFormatter.formatIndian(balance),
-        style: KTypography.amountSmall.copyWith(color: KColors.error),
+      trailing: KMoney(
+        balance,
+        size: KMoneySize.small,
+        style: const TextStyle(color: KColors.error, fontWeight: FontWeight.w700),
       ),
       onTap: id == null ? null : () => context.go('/bills/$id'),
     );

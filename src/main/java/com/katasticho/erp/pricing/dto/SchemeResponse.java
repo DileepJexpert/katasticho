@@ -20,5 +20,34 @@ public record SchemeResponse(
     UUID supplierId,
     String supplierName,
     boolean active,
-    Instant createdAt
-) {}
+    Instant createdAt,
+    boolean allowHalfScheme,
+    BigDecimal halfSchemeMinQty,
+    BigDecimal companySubsidyPercent,
+    BigDecimal specialNetRate,
+    BigDecimal maxFreeQuantityCap
+) {
+    public SchemeResponse(
+        UUID id,
+        String name,
+        String schemeType,
+        UUID itemId,
+        String itemName,
+        BigDecimal buyQuantity,
+        BigDecimal freeQuantity,
+        BigDecimal discountPercent,
+        BigDecimal minOrderQuantity,
+        LocalDate validFrom,
+        LocalDate validTo,
+        UUID supplierId,
+        String supplierName,
+        boolean active,
+        Instant createdAt
+    ) {
+        this(
+            id, name, schemeType, itemId, itemName, buyQuantity, freeQuantity, discountPercent,
+            minOrderQuantity, validFrom, validTo, supplierId, supplierName, active, createdAt,
+            true, null, new BigDecimal("100.00"), null, null
+        );
+    }
+}

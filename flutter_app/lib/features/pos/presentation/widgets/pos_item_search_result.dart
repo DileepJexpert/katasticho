@@ -3,6 +3,7 @@ import '../../../../core/theme/k_colors.dart';
 import '../../../../core/theme/k_spacing.dart';
 import '../../../../core/theme/k_typography.dart';
 import '../../../../core/utils/currency_formatter.dart';
+import '../../../../core/widgets/widgets.dart';
 
 /// Single search result row — tap to add to cart.
 /// Shows stock badges (out-of-stock, low stock) and expiry warnings.
@@ -72,17 +73,25 @@ class PosItemSearchResult extends StatelessWidget {
                     const SizedBox(height: 2),
                     Row(
                       children: [
-                        Text(sku,
-                            style: KTypography.bodySmall
-                                .copyWith(color: KColors.textSecondary)),
+                        Text(
+                          sku,
+                          style: KTypography.mono(
+                            size: 11,
+                            color: KColors.textSecondary,
+                          ),
+                        ),
                         if (barcode != null && barcode.isNotEmpty) ...[
                           const SizedBox(width: 8),
                           Icon(Icons.qr_code,
                               size: 12, color: KColors.textHint),
                           const SizedBox(width: 2),
-                          Text(barcode,
-                              style: KTypography.labelSmall
-                                  .copyWith(color: KColors.textHint)),
+                          Text(
+                            barcode,
+                            style: KTypography.mono(
+                              size: 10,
+                              color: KColors.textHint,
+                            ),
+                          ),
                         ],
                       ],
                     ),
@@ -99,7 +108,7 @@ class PosItemSearchResult extends StatelessWidget {
                                 composition,
                                 style: KTypography.labelSmall.copyWith(
                                   fontSize: 10,
-                                  color: KColors.textSecondary,
+                                  color: KColors.textHint,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -113,17 +122,19 @@ class PosItemSearchResult extends StatelessWidget {
                         padding: const EdgeInsets.only(top: 1),
                         child: Row(
                           children: [
-                            Icon(Icons.factory_outlined,
+                            Icon(Icons.business_outlined,
                                 size: 10, color: KColors.textHint),
                             const SizedBox(width: 3),
-                            Text(
-                              manufacturer,
-                              style: KTypography.labelSmall.copyWith(
-                                fontSize: 10,
-                                color: KColors.textHint,
+                            Expanded(
+                              child: Text(
+                                manufacturer,
+                                style: KTypography.labelSmall.copyWith(
+                                  fontSize: 10,
+                                  color: KColors.textHint,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         ),
@@ -133,17 +144,15 @@ class PosItemSearchResult extends StatelessWidget {
                         padding: const EdgeInsets.only(top: 1),
                         child: Row(
                           children: [
-                            Icon(Icons.place_outlined,
+                            Icon(Icons.shelves,
                                 size: 10, color: KColors.textHint),
                             const SizedBox(width: 3),
                             Text(
-                              'Rack $rackLocationCode',
-                              style: KTypography.labelSmall.copyWith(
-                                fontSize: 10,
+                              rackLocationCode,
+                              style: KTypography.mono(
+                                size: 10,
                                 color: KColors.textHint,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         ),
@@ -197,19 +206,28 @@ class PosItemSearchResult extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   if (mrp != null && mrp > 0 && mrp != rate)
-                    Text(
-                      'MRP ${CurrencyFormatter.formatIndian(mrp)}',
+                    Text.rich(
+                      TextSpan(
+                        children: [
+                          const TextSpan(text: 'MRP '),
+                          TextSpan(
+                            text: CurrencyFormatter.formatIndian(mrp),
+                            style: const TextStyle(decoration: TextDecoration.lineThrough),
+                          ),
+                        ],
+                      ),
                       style: KTypography.labelSmall.copyWith(
                         color: KColors.textHint,
                         fontSize: 9,
-                        decoration: TextDecoration.lineThrough,
                       ),
                     ),
-                  Text(
-                    isWeightBased
-                        ? '${CurrencyFormatter.formatIndian(rate)}/kg'
-                        : CurrencyFormatter.formatIndian(rate),
-                    style: KTypography.amountSmall,
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      KMoney(rate, size: KMoneySize.small),
+                      if (isWeightBased)
+                        Text('/kg', style: KTypography.labelSmall),
+                    ],
                   ),
                 ],
               ),

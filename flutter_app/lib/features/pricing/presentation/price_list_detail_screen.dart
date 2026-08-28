@@ -6,7 +6,6 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../inventory/presentation/item_picker_sheet.dart';
 import '../data/price_list_repository.dart';
 
@@ -257,14 +256,11 @@ class _HeaderCard extends StatelessWidget {
                             style: KTypography.bodySmall),
                         if (isDefault) ...[
                           KSpacing.hGapSm,
-                          _StatusChip(
-                              label: 'Default', color: KColors.primary),
+                          const KStatusChip(status: 'DEFAULT', dense: true),
                         ],
                         if (!active) ...[
                           KSpacing.hGapSm,
-                          _StatusChip(
-                              label: 'Inactive',
-                              color: KColors.textSecondary),
+                          const KStatusChip(status: 'CANCELLED', label: 'Inactive', dense: true),
                         ],
                       ],
                     ),
@@ -279,26 +275,6 @@ class _HeaderCard extends StatelessWidget {
           ],
         ],
       ),
-    );
-  }
-}
-
-class _StatusChip extends StatelessWidget {
-  final String label;
-  final Color color;
-  const _StatusChip({required this.label, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(label,
-          style: KTypography.labelSmall
-              .copyWith(color: color, fontWeight: FontWeight.w700)),
     );
   }
 }
@@ -389,10 +365,10 @@ class _ItemTierGroup extends StatelessWidget {
                   ),
                   KSpacing.hGapMd,
                   Expanded(
-                    child: Text(
-                      CurrencyFormatter.formatIndian(
-                          (tier['price'] as num?)?.toDouble() ?? 0),
-                      style: KTypography.amountSmall,
+                    child: KMoney(
+                      (tier['price'] as num?)?.toDouble() ?? 0,
+                      size: KMoneySize.small,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
                   ),
                   IconButton(

@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * The logged-in portal user's own data — invoices/outstanding/ledger (customer)
@@ -49,6 +50,35 @@ public class PortalSelfController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
         return ResponseEntity.ok(ApiResponse.ok(dataService.statement(from, to)));
+    }
+
+    @GetMapping("/catalog")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> catalog(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String category,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        return ResponseEntity.ok(ApiResponse.ok(dataService.catalog(search, category, page, size)));
+    }
+
+    @GetMapping("/frequent-items")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> frequentItems() {
+        return ResponseEntity.ok(ApiResponse.ok(dataService.frequentItems()));
+    }
+
+    @PostMapping("/orders")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> placeOrder(@RequestBody Map<String, Object> body) {
+        return ResponseEntity.ok(ApiResponse.ok(dataService.placeOrder(body), "Order placed successfully"));
+    }
+
+    @GetMapping("/orders")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> orders() {
+        return ResponseEntity.ok(ApiResponse.ok(dataService.orders()));
+    }
+
+    @GetMapping("/orders/{id}")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> orderDetail(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok(dataService.orderDetail(id)));
     }
 
     // Vendor

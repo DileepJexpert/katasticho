@@ -1,19 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/api_error_parser.dart';
+import '../../../core/widgets/widgets.dart';
 import '../data/routing_repository.dart';
 
 /// Manage predecessor / successor links on a routing operation
 /// (tracker #16). Paste a routing-operation id, see what must finish
 /// before it and what depends on it, add a new predecessor edge, or
 /// remove an existing one.
-///
-/// The current data model holds a single routing-operation id at a
-/// time. Future Gantt UI can call the same endpoints to render the
-/// whole DAG visually.
 class OperationDependenciesScreen extends ConsumerStatefulWidget {
   final String? initialRoutingOperationId;
   const OperationDependenciesScreen({super.key, this.initialRoutingOperationId});
@@ -56,24 +54,30 @@ class _OperationDependenciesScreenState
     final predId = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Add predecessor'),
+        title: const Text('Add Predecessor'),
         content: TextField(
           controller: ctl,
           decoration: const InputDecoration(
-            labelText: 'Predecessor routing-operation id',
+            labelText: 'Predecessor Routing-Operation ID',
             helperText: 'Must belong to the same routing',
+            border: OutlineInputBorder(),
           ),
           autofocus: true,
         ),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(
+          KButton.outlined(
+            size: KButtonSize.small,
+            onPressed: () => Navigator.pop(ctx),
+            label: 'Cancel',
+          ),
+          KSpacing.hGapSm,
+          KButton.primary(
+            size: KButtonSize.small,
             onPressed: () {
               final v = ctl.text.trim();
               if (v.isNotEmpty) Navigator.pop(ctx, v);
             },
-            child: const Text('Add'),
+            label: 'Add',
           ),
         ],
       ),
@@ -88,12 +92,12 @@ class _OperationDependenciesScreenState
       ref.invalidate(_predecessorsProvider(opId));
       ref.invalidate(_successorsProvider(predId));
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Dependency added')),
+        const SnackBar(content: Text('Dependency added'), backgroundColor: KColors.success),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(ApiErrorParser.message(e))),
+        SnackBar(content: Text(ApiErrorParser.message(e)), backgroundColor: KColors.error),
       );
     }
   }
@@ -107,12 +111,12 @@ class _OperationDependenciesScreenState
       ref.invalidate(_predecessorsProvider(opId));
       ref.invalidate(_successorsProvider(opId));
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Dependency removed')),
+        const SnackBar(content: Text('Dependency removed'), backgroundColor: KColors.success),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(ApiErrorParser.message(e))),
+        SnackBar(content: Text(ApiErrorParser.message(e)), backgroundColor: KColors.error),
       );
     }
   }
@@ -131,7 +135,7 @@ class _OperationDependenciesScreenState
                   child: TextField(
                     controller: _opCtl,
                     decoration: const InputDecoration(
-                      labelText: 'Routing-operation id',
+                      labelText: 'Routing-Operation ID',
                       helperText:
                           'The op whose predecessors / successors you want to manage',
                       prefixIcon: Icon(Icons.account_tree_outlined),
@@ -140,22 +144,18 @@ class _OperationDependenciesScreenState
                     onSubmitted: (_) => _load(),
                   ),
                 ),
-                const SizedBox(width: KSpacing.sm),
-                FilledButton(onPressed: _load, child: const Text('Open')),
+                KSpacing.hGapSm,
+                KButton.primary(onPressed: _load, label: 'Open'),
               ],
             ),
           ),
           Expanded(
             child: _routingOperationId == null
                 ? const Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.account_tree_outlined,
-                            size: 64, color: Colors.grey),
-                        SizedBox(height: KSpacing.md),
-                        Text('Enter a routing-operation id to view its DAG neighbours'),
-                      ],
+                    child: KEmptyState(
+                      icon: Icons.account_tree_outlined,
+                      title: 'Select Routing Operation',
+                      subtitle: 'Enter a routing-operation ID above to view and manage its DAG dependencies.',
                     ),
                   )
                 : _DependencyView(
@@ -168,9 +168,11 @@ class _OperationDependenciesScreenState
       floatingActionButton: _routingOperationId == null
           ? null
           : FloatingActionButton.extended(
+              backgroundColor: KColors.primary,
+              foregroundColor: Colors.white,
               onPressed: _addPredecessor,
               icon: const Icon(Icons.add),
-              label: const Text('Add predecessor'),
+              label: const Text('Add Predecessor'),
             ),
     );
   }
@@ -191,51 +193,66 @@ class _DependencyView extends ConsumerWidget {
       children: [
         Text('Predecessors (must finish first)',
             style: KTypography.titleMedium),
-        const SizedBox(height: KSpacing.sm),
+        KSpacing.vGapSm,
         preds.when(
           loading: () => const LinearProgressIndicator(),
           error: (e, _) => Text(ApiErrorParser.message(e)),
           data: (rows) => rows.isEmpty
-              ? const Card(
-                  child: ListTile(
-                      title: Text('No predecessors — this op can start at any time')),
+              ? const KCard(
+                  child: Padding(
+                    padding: EdgeInsets.all(KSpacing.md),
+                    child: Text('No predecessors — this op can start at any time'),
+                  ),
                 )
               : Column(
                   children: rows.map((r) {
                     final Map<String, dynamic> m = r;
-                    return Card(
-                      child: ListTile(
-                        leading: const Icon(Icons.arrow_back),
-                        title: Text(
-                            'Pred: ${m['predecessorRoutingOperationId']}'),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete_outline,
-                              color: Colors.red),
-                          onPressed: () => onRemove(m['id'].toString()),
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: KCard(
+                        child: ListTile(
+                          leading: const Icon(Icons.arrow_back, color: KColors.primary),
+                          title: Text(
+                            'Pred: ${m['predecessorRoutingOperationId']}',
+                            style: KTypography.mono(fontSize: 12),
+                          ),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.delete_outline,
+                                color: KColors.error),
+                            onPressed: () => onRemove(m['id'].toString()),
+                          ),
                         ),
                       ),
                     );
                   }).toList(),
                 ),
         ),
-        const SizedBox(height: KSpacing.md),
+        KSpacing.vGapLg,
         Text('Successors (waiting for this op)', style: KTypography.titleMedium),
-        const SizedBox(height: KSpacing.sm),
+        KSpacing.vGapSm,
         succs.when(
           loading: () => const LinearProgressIndicator(),
           error: (e, _) => Text(ApiErrorParser.message(e)),
           data: (rows) => rows.isEmpty
-              ? const Card(
-                  child: ListTile(
-                      title: Text('No downstream operations depend on this one')),
+              ? const KCard(
+                  child: Padding(
+                    padding: EdgeInsets.all(KSpacing.md),
+                    child: Text('No downstream operations depend on this one'),
+                  ),
                 )
               : Column(
                   children: rows.map((r) {
                     final Map<String, dynamic> m = r;
-                    return Card(
-                      child: ListTile(
-                        leading: const Icon(Icons.arrow_forward),
-                        title: Text('Succ: ${m['routingOperationId']}'),
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: KCard(
+                        child: ListTile(
+                          leading: const Icon(Icons.arrow_forward, color: KColors.info),
+                          title: Text(
+                            'Succ: ${m['routingOperationId']}',
+                            style: KTypography.mono(fontSize: 12),
+                          ),
+                        ),
                       ),
                     );
                   }).toList(),

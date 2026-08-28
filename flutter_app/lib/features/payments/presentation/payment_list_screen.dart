@@ -4,7 +4,6 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
-import '../../../core/utils/currency_formatter.dart';
 
 /// Payments list for a specific invoice.
 /// This is typically shown within the Invoice Detail screen's Payments tab,
@@ -82,7 +81,7 @@ class _PaymentCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(paymentNumber, style: KTypography.labelLarge),
+                Text(paymentNumber, style: KTypography.mono(fontSize: 14, fontWeight: FontWeight.w600)),
                 KSpacing.vGapXs,
                 Row(
                   children: [
@@ -101,15 +100,16 @@ class _PaymentCard extends StatelessWidget {
                   KSpacing.vGapXs,
                   Text(
                     'Ref: $reference',
-                    style: KTypography.bodySmall,
+                    style: KTypography.mono(fontSize: 12),
                   ),
                 ],
               ],
             ),
           ),
-          Text(
-            CurrencyFormatter.formatIndian(amount),
-            style: KTypography.amountMedium.copyWith(
+          KMoney(
+            amount,
+            size: KMoneySize.medium,
+            style: TextStyle(
               color: isPending ? KColors.warning : KColors.success,
             ),
           ),

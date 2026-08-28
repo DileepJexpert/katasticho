@@ -4,7 +4,6 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../data/transport_repository.dart';
 
 /// Own-fleet running-cost ledger + per-vehicle TCO (₹/km, mileage). Filter by a
@@ -71,12 +70,14 @@ class _VehicleLogScreenState extends ConsumerState<VehicleLogScreen> {
         actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh))],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: KColors.primary,
+        foregroundColor: Colors.white,
         onPressed: _openCreate,
         icon: const Icon(Icons.add),
         label: const Text('Add entry'),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: KLoading())
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView(
@@ -126,9 +127,18 @@ class _VehicleLogScreenState extends ConsumerState<VehicleLogScreen> {
               style: KTypography.titleSmall),
           KSpacing.vGapSm,
           Wrap(spacing: 16, runSpacing: 8, children: [
-            _metric('Total spend',
-                CurrencyFormatter.formatIndian(
-                    (s['totalSpend'] as num?)?.toDouble() ?? 0)),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Total spend',
+                    style: KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
+                KMoney(
+                  (s['totalSpend'] as num?)?.toDouble() ?? 0,
+                  size: KMoneySize.small,
+                  style: KTypography.titleSmall,
+                ),
+              ],
+            ),
             _metric('Distance', '${(s['distanceKm'] as num?)?.toDouble() ?? 0} km'),
             _metric('Running cost',
                 perKm > 0 ? '₹${perKm.toStringAsFixed(2)}/km' : '—'),
@@ -174,10 +184,11 @@ class _VehicleLogScreenState extends ConsumerState<VehicleLogScreen> {
                 ],
               ),
             ),
-            Text(
-                CurrencyFormatter.formatIndian(
-                    (l['amount'] as num?)?.toDouble() ?? 0),
-                style: KTypography.titleSmall),
+            KMoney(
+              (l['amount'] as num?)?.toDouble() ?? 0,
+              size: KMoneySize.small,
+              style: KTypography.titleSmall,
+            ),
           ],
         ),
       ),
@@ -326,7 +337,7 @@ class _CreateVehicleLogSheetState
               },
             ),
             KSpacing.vGapMd,
-            KButton(
+            KButton.primary(
               label: _saving ? 'Saving…' : 'Save entry',
               icon: Icons.save,
               isLoading: _saving,

@@ -24,7 +24,7 @@ class WarehouseManagementScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Warehouses'),
+        title: const Text('Warehouse Locations'),
         actions: [
           IconButton(
             tooltip: 'Refresh',
@@ -34,13 +34,15 @@ class WarehouseManagementScreen extends ConsumerWidget {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: KColors.primary,
+        foregroundColor: Colors.white,
         onPressed: () => _openForm(context, ref, null),
-        icon: const Icon(Icons.add),
-        label: const Text('Add warehouse'),
+        icon: const Icon(Icons.add_business_outlined),
+        label: const Text('Add Warehouse'),
         tooltip: 'Add warehouse (N)',
       ),
       body: warehouses.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: KLoading(message: 'Loading warehouse locations...')),
         error: (e, _) => KErrorView(
           message: '$e',
           onRetry: () => ref.invalidate(warehouseManagementListProvider),
@@ -49,9 +51,9 @@ class WarehouseManagementScreen extends ConsumerWidget {
           if (rows.isEmpty) {
             return KEmptyState(
               icon: Icons.warehouse_outlined,
-              title: 'No warehouses yet',
-              subtitle: 'Add the locations you stock and ship from.',
-              actionLabel: 'Add warehouse',
+              title: 'No Warehouses Configured',
+              subtitle: 'Add the warehouse branches and distribution centers you stock and ship from.',
+              actionLabel: 'Add Warehouse',
               onAction: () => _openForm(context, ref, null),
             );
           }
@@ -59,9 +61,9 @@ class WarehouseManagementScreen extends ConsumerWidget {
             onRefresh: () async =>
                 ref.invalidate(warehouseManagementListProvider),
             child: ListView.separated(
-              padding: const EdgeInsets.all(KSpacing.md),
+              padding: KSpacing.pagePadding,
               itemCount: rows.length,
-              separatorBuilder: (_, __) => const SizedBox(height: KSpacing.sm),
+              separatorBuilder: (_, __) => KSpacing.vGapSm,
               itemBuilder: (_, i) =>
                   _card(context, ref, Map<String, dynamic>.from(rows[i] as Map)),
             ),
@@ -73,8 +75,6 @@ class WarehouseManagementScreen extends ConsumerWidget {
 
   Widget _card(BuildContext context, WidgetRef ref, Map<String, dynamic> w) {
     final isDefault = w['isDefault'] == true;
-    // The API response uses `active`; keep `isActive` as a compatibility
-    // fallback for older payloads.
     final isActive = w['active'] == true || w['isActive'] == true;
     final location = [w['city'], w['state']]
         .where((s) => s != null && (s as String).isNotEmpty)
@@ -83,46 +83,74 @@ class WarehouseManagementScreen extends ConsumerWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Container(
+            padding: const EdgeInsets.all(KSpacing.sm),
+            decoration: BoxDecoration(
+              color: (isDefault ? KColors.primary : KColors.textSecondary).withValues(alpha: 0.12),
+              borderRadius: KSpacing.borderRadiusSm,
+            ),
+            child: Icon(
+              Icons.warehouse_outlined,
+              color: isDefault ? KColors.primary : KColors.textSecondary,
+              size: 24,
+            ),
+          ),
+          KSpacing.hGapMd,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(children: [
-                  Flexible(
-                    child: Text(w['name']?.toString() ?? '—',
-                        style: KTypography.labelLarge,
-                        overflow: TextOverflow.ellipsis),
-                  ),
-                  const SizedBox(width: KSpacing.sm),
-                  if (isDefault) const KStatusChip(status: 'DEFAULT'),
-                  if (!isActive) ...[
-                    const SizedBox(width: 4),
-                    const KStatusChip(status: 'INACTIVE'),
-                  ],
-                ]),
-                const SizedBox(height: 2),
-                Row(children: [
-                  Text(w['code']?.toString() ?? '',
-                      style: KTypography.mono(size: 12, color: KColors.textSecondary)),
-                  if (location.isNotEmpty) ...[
-                    const SizedBox(width: KSpacing.sm),
+                Row(
+                  children: [
                     Flexible(
-                      child: Text(location,
-                          style: KTypography.bodySmall
-                              .copyWith(color: KColors.textSecondary),
-                          overflow: TextOverflow.ellipsis),
+                      child: Text(
+                        w['name']?.toString() ?? '—',
+                        style: KTypography.titleMedium,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
+                    KSpacing.hGapSm,
+                    if (isDefault) const KStatusChip(status: 'DEFAULT'),
+                    if (!isActive) ...[
+                      KSpacing.hGapXs,
+                      const KStatusChip(status: 'INACTIVE'),
+                    ],
                   ],
-                ]),
+                ),
+                KSpacing.vGapXs,
+                Row(
+                  children: [
+                    Text('Code: ', style: KTypography.caption),
+                    Text(
+                      w['code']?.toString() ?? '',
+                      style: KTypography.mono(fontSize: 12, fontWeight: FontWeight.w600, color: KColors.primary),
+                    ),
+                    if (location.isNotEmpty) ...[
+                      KSpacing.hGapMd,
+                      const Icon(Icons.location_on_outlined, size: 14, color: KColors.textSecondary),
+                      const SizedBox(width: 2),
+                      Flexible(
+                        child: Text(
+                          location,
+                          style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ],
             ),
           ),
           PopupMenuButton<String>(
             onSelected: (v) => _onAction(context, ref, w, v),
             itemBuilder: (_) => [
-              const PopupMenuItem(value: 'edit', child: Text('Edit')),
+              const PopupMenuItem(value: 'edit', child: Text('Edit Warehouse')),
               if (!isDefault)
-                const PopupMenuItem(value: 'delete', child: Text('Remove')),
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Text('Remove Location', style: TextStyle(color: KColors.error)),
+                ),
             ],
           ),
         ],
@@ -140,15 +168,19 @@ class WarehouseManagementScreen extends ConsumerWidget {
       final ok = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('Remove warehouse?'),
-          content: Text('"${w['name']}" will be removed. This is blocked if it '
-              'still holds stock.'),
+          title: Text('Remove Warehouse Location?', style: KTypography.titleLarge),
+          content: Text('"${w['name']}" will be removed. This action is blocked if the warehouse still holds on-hand stock or pending movements.'),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-            TextButton(
+            KButton.outlined(
+              label: 'Cancel',
+              size: KButtonSize.small,
+              onPressed: () => Navigator.pop(ctx, false),
+            ),
+            KSpacing.hGapSm,
+            KButton.danger(
+              label: 'Confirm Remove',
+              size: KButtonSize.small,
               onPressed: () => Navigator.pop(ctx, true),
-              style: TextButton.styleFrom(foregroundColor: KColors.error),
-              child: const Text('Remove'),
             ),
           ],
         ),
@@ -172,6 +204,7 @@ class WarehouseManagementScreen extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
+      backgroundColor: Colors.transparent,
       builder: (_) => _WarehouseFormSheet(existing: existing),
     );
     if (saved == true) ref.invalidate(warehouseManagementListProvider);
@@ -270,65 +303,75 @@ class _WarehouseFormSheetState extends ConsumerState<_WarehouseFormSheet> {
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.of(context).viewInsets.bottom;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(KSpacing.md, KSpacing.md, KSpacing.md, bottom + KSpacing.md),
+    return Container(
+      decoration: const BoxDecoration(
+        color: KColors.surface,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(KSpacing.radiusLg)),
+      ),
+      padding: EdgeInsets.fromLTRB(KSpacing.lg, KSpacing.lg, KSpacing.lg, bottom + KSpacing.lg),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(_isEdit ? 'Edit warehouse' : 'New warehouse',
-                style: KTypography.labelLarge),
-            const SizedBox(height: KSpacing.md),
-            Row(children: [
-              Expanded(child: KTextField(label: 'Code', controller: _code, hint: 'WH1')),
-              const SizedBox(width: KSpacing.sm),
-              Expanded(flex: 2, child: KTextField(label: 'Name', controller: _name)),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(_isEdit ? 'Edit Warehouse Location' : 'New Warehouse Location',
+                      style: KTypography.titleLarge),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            KSpacing.vGapMd,
+            KCompactRow(children: [
+              KTextField(label: 'Warehouse Code', controller: _code, hint: 'e.g. WH-MUM-01'),
+              KTextField(label: 'Warehouse Name', controller: _name, hint: 'e.g. Mumbai Central Depot'),
             ]),
-            const SizedBox(height: KSpacing.sm),
-            KTextField(label: 'Address line 1', controller: _addr1),
-            const SizedBox(height: KSpacing.sm),
-            KTextField(label: 'Address line 2', controller: _addr2),
-            const SizedBox(height: KSpacing.sm),
-            Row(children: [
-              Expanded(child: KTextField(label: 'City', controller: _city)),
-              const SizedBox(width: KSpacing.sm),
-              Expanded(child: KTextField(label: 'State', controller: _state)),
+            KSpacing.vGapSm,
+            KTextField(label: 'Address Line 1', controller: _addr1, hint: 'Plot / Building / Street'),
+            KSpacing.vGapSm,
+            KTextField(label: 'Address Line 2', controller: _addr2, hint: 'Area / Industrial Estate'),
+            KSpacing.vGapSm,
+            KCompactRow(children: [
+              KTextField(label: 'City', controller: _city),
+              KTextField(label: 'State', controller: _state),
             ]),
-            const SizedBox(height: KSpacing.sm),
-            Row(children: [
-              Expanded(child: KTextField(label: 'State code', controller: _stateCode, hint: '27')),
-              const SizedBox(width: KSpacing.sm),
-              Expanded(child: KTextField(label: 'PIN', controller: _postal)),
-              const SizedBox(width: KSpacing.sm),
-              Expanded(child: KTextField(label: 'Country', controller: _country)),
+            KSpacing.vGapSm,
+            KCompactRow(children: [
+              KTextField(label: 'State Code (GST)', controller: _stateCode, hint: '27'),
+              KTextField(label: 'PIN Code', controller: _postal, hint: '400001'),
             ]),
+            KSpacing.vGapSm,
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Default warehouse'),
-              subtitle: Text('Used when no warehouse is picked',
-                  style: KTypography.bodySmall.copyWith(color: KColors.textHint)),
+              title: Text('Default Dispatch Warehouse', style: KTypography.titleSmall),
+              subtitle: Text('Default source location for sales orders and shipments',
+                  style: KTypography.caption.copyWith(color: KColors.textSecondary)),
               value: _isDefault,
               onChanged: (v) => setState(() => _isDefault = v),
             ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Active warehouse'),
-              subtitle: Text('Available for stock, purchasing, and sales',
-                  style: KTypography.bodySmall.copyWith(color: KColors.textHint)),
+              title: Text('Active for Stock & Transactions', style: KTypography.titleSmall),
+              subtitle: Text('Available for purchasing, transfers, and order fulfillment',
+                  style: KTypography.caption.copyWith(color: KColors.textSecondary)),
               value: _isActive,
               onChanged: (v) {
                 if (!v && _isDefault) {
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content: Text('Choose another default warehouse first')));
+                      content: Text('Select another default warehouse before deactivating this one')));
                   return;
                 }
                 setState(() => _isActive = v);
               },
             ),
-            const SizedBox(height: KSpacing.sm),
-            KButton(
-              label: _isEdit ? 'Save' : 'Create',
+            KSpacing.vGapLg,
+            KButton.primary(
+              label: _isEdit ? 'Save Warehouse Changes' : 'Create Warehouse Location',
               icon: Icons.check,
               isLoading: _saving,
               onPressed: _saving ? null : _submit,

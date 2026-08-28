@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
+import '../../../core/theme/k_colors.dart';
+import '../../../core/theme/k_spacing.dart';
+import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../routing/app_router.dart';
 import '../data/manufacturing_repository.dart';
@@ -93,18 +96,16 @@ class _WorkOrderCreateScreenState extends ConsumerState<WorkOrderCreateScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return KKeyboardFormWrapper(
       onSubmit: _submit,
       onCancel: () => context.pop(),
       child: Scaffold(
       appBar: AppBar(title: const Text('New Work Order')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: KSpacing.pagePadding,
         children: [
-          Text('Finished Good (Composite Item)', style: theme.textTheme.labelMedium),
-          const SizedBox(height: 4),
+          Text('Finished Good (Composite Item)', style: KTypography.labelMedium),
+          KSpacing.vGapXs,
           if (_selectedItemId != null)
             KCard(
               child: ListTile(
@@ -155,9 +156,9 @@ class _WorkOrderCreateScreenState extends ConsumerState<WorkOrderCreateScreen> {
               ),
           ],
 
-          const SizedBox(height: 16),
-          Text('Warehouse', style: theme.textTheme.labelMedium),
-          const SizedBox(height: 4),
+          KSpacing.vGapMd,
+          Text('Warehouse', style: KTypography.labelMedium),
+          KSpacing.vGapXs,
           DropdownButtonFormField<String>(
             initialValue: _selectedWarehouseId,
             decoration: const InputDecoration(hintText: 'Select warehouse'),
@@ -171,14 +172,14 @@ class _WorkOrderCreateScreenState extends ConsumerState<WorkOrderCreateScreen> {
             }),
           ),
 
-          const SizedBox(height: 16),
+          KSpacing.vGapMd,
           KTextField(
             controller: _qtyCtl,
             label: 'Quantity to Produce',
             keyboardType: TextInputType.number,
           ),
 
-          const SizedBox(height: 16),
+          KSpacing.vGapMd,
           Row(
             children: [
               Expanded(
@@ -188,7 +189,7 @@ class _WorkOrderCreateScreenState extends ConsumerState<WorkOrderCreateScreen> {
                   onPick: (d) => setState(() => _plannedStart = d),
                 ),
               ),
-              const SizedBox(width: 12),
+              KSpacing.hGapMd,
               Expanded(
                 child: _DateField(
                   label: 'Planned End',
@@ -199,49 +200,47 @@ class _WorkOrderCreateScreenState extends ConsumerState<WorkOrderCreateScreen> {
             ],
           ),
 
-          const SizedBox(height: 16),
+          KSpacing.vGapMd,
           Row(
             children: [
               Expanded(
-                child: KTextField(
+                child: KTextField.amount(
                   controller: _laborCtl,
                   label: 'Direct Labor Cost',
-                  keyboardType: TextInputType.number,
                 ),
               ),
-              const SizedBox(width: 12),
+              KSpacing.hGapMd,
               Expanded(
-                child: KTextField(
+                child: KTextField.amount(
                   controller: _overheadCtl,
                   label: 'Overhead Cost',
-                  keyboardType: TextInputType.number,
                 ),
               ),
             ],
           ),
 
-          const SizedBox(height: 16),
+          KSpacing.vGapMd,
           SwitchListTile(
             title: const Text('Backflush Mode'),
             subtitle: const Text('Auto-issue materials on FG receipt instead of upfront'),
             value: _backflushMode,
+            activeThumbColor: KColors.primary,
             onChanged: (v) => setState(() => _backflushMode = v),
           ),
 
-          const SizedBox(height: 16),
+          KSpacing.vGapMd,
           KTextField(
             controller: _notesCtl,
             label: 'Notes',
             maxLines: 3,
           ),
 
-          const SizedBox(height: 24),
-          FilledButton.icon(
+          KSpacing.vGapLg,
+          KButton.primary(
             onPressed: _submitting ? null : _submit,
-            icon: _submitting
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.check),
-            label: const Text('Create Work Order'),
+            isLoading: _submitting,
+            icon: Icons.check,
+            label: 'Create Work Order',
           ),
         ],
       ),

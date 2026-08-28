@@ -1,10 +1,11 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
+import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
+import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/reimbursement_repository.dart';
 
@@ -143,11 +144,27 @@ class _EmployeeReimbursementScreenState extends ConsumerState<EmployeeReimbursem
 
   Future<String?> _askReason() async {
     final controller = TextEditingController();
-    return showDialog<String>(context: context, builder: (ctx) => AlertDialog(
-      title: const Text('Reject reimbursement'),
-      content: KTextField(label: 'Reason', controller: controller, maxLines: 3, isRequired: true),
-      actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')), ElevatedButton(onPressed: () => Navigator.pop(ctx, controller.text), child: const Text('Reject'))],
-    ));
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Reject reimbursement'),
+        content: KTextField(
+            label: 'Reason', controller: controller, maxLines: 3, isRequired: true),
+        actions: [
+          KButton.outlined(
+            label: 'Cancel',
+            size: KButtonSize.small,
+            onPressed: () => Navigator.pop(ctx),
+          ),
+          KSpacing.hGapSm,
+          KButton.danger(
+            label: 'Reject',
+            size: KButtonSize.small,
+            onPressed: () => Navigator.pop(ctx, controller.text),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showError(Object error) {
@@ -172,9 +189,9 @@ class _EmployeeReimbursementScreenState extends ConsumerState<EmployeeReimbursem
               ButtonSegment(value: 'PAID', label: Text('Paid')),
             ], selected: {_filter}, onSelectionChanged: (v) { setState(() => _filter = v.first); _load(); }),
             const Spacer(),
-            KButton(label: 'New Advance', icon: Icons.account_balance_wallet_outlined, variant: KButtonVariant.outlined, onPressed: _openAdvanceSheet),
+            KButton.outlined(label: 'New Advance', icon: Icons.account_balance_wallet_outlined, onPressed: _openAdvanceSheet),
             const SizedBox(width: KSpacing.sm),
-            KButton(label: 'New Claim', icon: Icons.add, onPressed: _openSubmitSheet),
+            KButton.primary(label: 'New Claim', icon: Icons.add, onPressed: _openSubmitSheet),
           ]),
         ),
         Expanded(child: _loading ? const KShimmerList() : _error != null ? KErrorView(message: _error!, onRetry: _load) : _claims.isEmpty
@@ -191,17 +208,58 @@ class _EmployeeReimbursementScreenState extends ConsumerState<EmployeeReimbursem
     final payable = (claim['payableAmount'] as num?)?.toDouble() ?? amount;
     return KCard(
       title: claim['employeeName']?.toString() ?? 'Employee',
-      subtitle: '${claim['expenseDate'] ?? ''}  Ã¢â‚¬Â¢  ${claim['category'] ?? 'Business expense'}',
-      action: Row(mainAxisSize: MainAxisSize.min, children: [KStatusChip(status: status), const SizedBox(width: 12), KMoney(amount)]),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(claim['description']?.toString() ?? ''),
-        if ((claim['receiptUrl']?.toString() ?? '').isNotEmpty) const Padding(padding: EdgeInsets.only(top: 4), child: Text('Receipt attached')),
-        if (status == 'APPROVED' && payable > 0) Padding(padding: const EdgeInsets.only(top: 6), child: Text('Payable after advance settlement: Ã¢â€šÂ¹${payable.toStringAsFixed(2)}')),
-        if (status == 'SUBMITTED' || status == 'APPROVED') Padding(padding: const EdgeInsets.only(top: 10), child: Wrap(spacing: 8, children: [
-          if (status == 'SUBMITTED') ...[KButton(label: 'Approve', size: KButtonSize.small, onPressed: () => _approve(id)), KButton(label: 'Reject', size: KButtonSize.small, variant: KButtonVariant.outlined, onPressed: () => _reject(id))],
-          if (status == 'APPROVED') KButton(label: 'Mark Paid', size: KButtonSize.small, onPressed: () => _pay(id)),
-        ])),
-      ]),
+      subtitle: '${claim['expenseDate'] ?? ''} · ${claim['category'] ?? 'Business expense'}',
+      action: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          KStatusChip(status: status),
+          const SizedBox(width: 12),
+          KMoney(amount, size: KMoneySize.small, style: const TextStyle(fontWeight: FontWeight.w700)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if ((claim['description']?.toString() ?? '').isNotEmpty)
+            Text(claim['description']!.toString(), style: KTypography.bodyMedium),
+          if ((claim['receiptUrl']?.toString() ?? '').isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Row(
+                children: [
+                  Icon(Icons.attach_file, size: 14, color: KColors.primary),
+                  const SizedBox(width: 4),
+                  Text('Receipt attached', style: KTypography.bodySmall.copyWith(color: KColors.primary)),
+                ],
+              ),
+            ),
+          if (status == 'APPROVED' && payable > 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Row(
+                children: [
+                  Text('Payable after advance settlement: ', style: KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
+                  KMoney(payable, size: KMoneySize.small, style: TextStyle(fontWeight: FontWeight.w700, color: KColors.success)),
+                ],
+              ),
+            ),
+          if (status == 'SUBMITTED' || status == 'APPROVED')
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Wrap(
+                spacing: 8,
+                children: [
+                  if (status == 'SUBMITTED') ...[
+                    KButton.primary(label: 'Approve', size: KButtonSize.small, onPressed: () => _approve(id)),
+                    KButton.outlined(label: 'Reject', size: KButtonSize.small, onPressed: () => _reject(id)),
+                  ],
+                  if (status == 'APPROVED')
+                    KButton.primary(label: 'Mark Paid', size: KButtonSize.small, onPressed: () => _pay(id)),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -235,15 +293,15 @@ class _SubmitReimbursementSheetState extends State<_SubmitReimbursementSheet> {
   }
   @override Widget build(BuildContext context) => Padding(padding: EdgeInsets.only(left: 20, right: 20, top: 8, bottom: MediaQuery.viewInsetsOf(context).bottom + 20), child: SingleChildScrollView(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
     Text('New Employee Reimbursement', style: Theme.of(context).textTheme.headlineSmall), const SizedBox(height: 16),
-    DropdownButtonFormField<String>(decoration: const InputDecoration(labelText: 'Employee / salesperson (optional)'), value: _employeeId, isExpanded: true, items: widget.employees.map((e) => DropdownMenuItem(value: e['id']?.toString(), child: Text('${e['fullName'] ?? ''} ${e['employeeCode'] == null ? '' : '(${e['employeeCode']})'}'))).toList(), onChanged: (v) => setState(() => _employeeId = v)),
+    DropdownButtonFormField<String>(decoration: const InputDecoration(labelText: 'Employee / salesperson (optional)'), initialValue: _employeeId, isExpanded: true, items: widget.employees.map((e) => DropdownMenuItem(value: e['id']?.toString(), child: Text('${e['fullName'] ?? ''} ${e['employeeCode'] == null ? '' : '(${e['employeeCode']})'}'))).toList(), onChanged: (v) => setState(() => _employeeId = v)),
     const SizedBox(height: 10),
-    DropdownButtonFormField<String>(decoration: const InputDecoration(labelText: 'Expense account *'), value: _accountId, isExpanded: true, items: widget.expenseAccounts.map((a) => DropdownMenuItem(value: a['id']?.toString(), child: Text('${a['code']} Ã¢â‚¬â€ ${a['name']}'))).toList(), onChanged: (v) => setState(() => _accountId = v)),
+    DropdownButtonFormField<String>(decoration: const InputDecoration(labelText: 'Expense account *'), initialValue: _accountId, isExpanded: true, items: widget.expenseAccounts.map((a) => DropdownMenuItem(value: a['id']?.toString(), child: Text('${a['code']} — ${a['name']}'))).toList(), onChanged: (v) => setState(() => _accountId = v)),
     const SizedBox(height: 10),
     KTextField(label: 'Category', controller: _category), const SizedBox(height: 10),
     KTextField.amount(label: 'Amount', controller: _amount, isRequired: true), const SizedBox(height: 10),
     KTextField(label: 'Description', controller: _description, maxLines: 3, isRequired: true), const SizedBox(height: 12),
     OutlinedButton.icon(onPressed: _pickReceipt, icon: const Icon(Icons.attach_file), label: Text(_receipt == null ? 'Attach receipt' : _receipt!.name)), const SizedBox(height: 18),
-    KButton(label: _saving ? 'Submitting...' : 'Submit for approval', onPressed: _saving ? null : _submit, fullWidth: true),
+    KButton.primary(label: _saving ? 'Submitting...' : 'Submit for approval', onPressed: _saving ? null : _submit, fullWidth: true),
   ])));
 }
 
@@ -313,7 +371,7 @@ class _CreateAdvanceSheetState extends State<_CreateAdvanceSheet> {
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               decoration: const InputDecoration(labelText: 'Employee / salesperson *'),
-              value: _employeeId,
+              initialValue: _employeeId,
               isExpanded: true,
               items: widget.employees.map((e) => DropdownMenuItem(
                 value: e['id']?.toString(),
@@ -324,7 +382,7 @@ class _CreateAdvanceSheetState extends State<_CreateAdvanceSheet> {
             const SizedBox(height: 10),
             DropdownButtonFormField<String>(
               decoration: const InputDecoration(labelText: 'Pay from *'),
-              value: _paidThroughId,
+              initialValue: _paidThroughId,
               isExpanded: true,
               items: widget.paidThroughAccounts.map((a) => DropdownMenuItem(
                 value: a['id']?.toString(),
@@ -337,9 +395,9 @@ class _CreateAdvanceSheetState extends State<_CreateAdvanceSheet> {
             const SizedBox(height: 10),
             KTextField(label: 'Notes', controller: _notes, maxLines: 3),
             const SizedBox(height: 18),
-            KButton(label: _saving ? 'Creating...' : 'Create advance', onPressed: _saving ? null : _create, fullWidth: true),
+            KButton.primary(label: _saving ? 'Creating...' : 'Create advance', onPressed: _saving ? null : _create, fullWidth: true),
           ]),
         ),
       );
 }
-class _AccountDialog extends StatelessWidget { final List<Map<String, dynamic>> accounts; final String title; const _AccountDialog({required this.accounts, required this.title}); @override Widget build(BuildContext context) => AlertDialog(title: Text(title), content: SizedBox(width: 400, child: ListView(shrinkWrap: true, children: accounts.map((a) => ListTile(title: Text('${a['code']} Ã¢â‚¬â€ ${a['name']}'), onTap: () => Navigator.pop(context, a['id']?.toString()))).toList()))); }
+class _AccountDialog extends StatelessWidget { final List<Map<String, dynamic>> accounts; final String title; const _AccountDialog({required this.accounts, required this.title}); @override Widget build(BuildContext context) => AlertDialog(title: Text(title), content: SizedBox(width: 400, child: ListView(shrinkWrap: true, children: accounts.map((a) => ListTile(title: Text('${a['code']} — ${a['name']}'), onTap: () => Navigator.pop(context, a['id']?.toString()))).toList()))); }

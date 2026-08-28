@@ -5,7 +5,6 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../data/vendor_payment_dto.dart';
 import '../data/vendor_payment_providers.dart';
@@ -75,11 +74,13 @@ class VendorPaymentDetailScreen extends ConsumerWidget {
           'This action cannot be undone.',
         ),
         actions: [
-          TextButton(
+          KButton.outlined(
+            label: 'Keep',
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Keep'),
           ),
-          TextButton(
+          KSpacing.hGapSm,
+          KButton.danger(
+            label: 'Void Payment',
             onPressed: () async {
               Navigator.pop(ctx);
               try {
@@ -103,8 +104,6 @@ class VendorPaymentDetailScreen extends ConsumerWidget {
                 }
               }
             },
-            style: TextButton.styleFrom(foregroundColor: KColors.error),
-            child: const Text('Void Payment'),
           ),
         ],
       ),
@@ -131,14 +130,16 @@ class _PaymentDetailBody extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(payment.paymentNumber, style: KTypography.h2),
+                Text(payment.paymentNumber, style: KTypography.mono(fontSize: 20, weight: FontWeight.w700)),
                 KSpacing.vGapSm,
                 Text(payment.vendorName, style: KTypography.bodyLarge),
                 KSpacing.vGapMd,
-                Text(
-                  CurrencyFormatter.formatIndian(payment.amount),
-                  style: KTypography.amountLarge.copyWith(
+                KMoney(
+                  payment.amount,
+                  size: KMoneySize.large,
+                  style: const TextStyle(
                     color: KColors.success,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
@@ -165,7 +166,10 @@ class _PaymentDetailBody extends StatelessWidget {
                       children: [
                         KDetailRow(
                           label: 'Payment #',
-                          value: payment.paymentNumber,
+                          valueWidget: Text(
+                            payment.paymentNumber,
+                            style: KTypography.mono(fontSize: 13, weight: FontWeight.w600),
+                          ),
                         ),
                         KDetailRow(
                           label: 'Vendor',
@@ -185,7 +189,10 @@ class _PaymentDetailBody extends StatelessWidget {
                         if (payment.referenceNumber.isNotEmpty)
                           KDetailRow(
                             label: 'Reference #',
-                            value: payment.referenceNumber,
+                            valueWidget: Text(
+                              payment.referenceNumber,
+                              style: KTypography.mono(fontSize: 13),
+                            ),
                           ),
                         KDetailRow(
                           label: 'Currency',
@@ -194,17 +201,25 @@ class _PaymentDetailBody extends StatelessWidget {
                         const Divider(),
                         KDetailRow(
                           label: 'Amount',
-                          value:
-                              CurrencyFormatter.formatIndian(payment.amount),
-                          valueStyle: KTypography.amountMedium,
+                          valueWidget: KMoney(
+                            payment.amount,
+                            size: KMoneySize.medium,
+                            style: const TextStyle(
+                              color: KColors.success,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         ),
                         if (payment.tdsAmount > 0)
                           KDetailRow(
                             label: 'TDS Deducted',
-                            value: CurrencyFormatter.formatIndian(
-                                payment.tdsAmount),
-                            valueStyle: KTypography.amountSmall.copyWith(
-                              color: KColors.warning,
+                            valueWidget: KMoney(
+                              payment.tdsAmount,
+                              size: KMoneySize.small,
+                              style: const TextStyle(
+                                color: KColors.warning,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         if (payment.notes.isNotEmpty) ...[
@@ -275,8 +290,10 @@ class _AllocationsTab extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(alloc.billNumber,
-                        style: KTypography.labelLarge),
+                    Text(
+                      alloc.billNumber,
+                      style: KTypography.mono(fontSize: 13, weight: FontWeight.w600),
+                    ),
                     Text(
                       'Tap to view bill',
                       style: KTypography.bodySmall.copyWith(
@@ -286,9 +303,10 @@ class _AllocationsTab extends StatelessWidget {
                   ],
                 ),
               ),
-              Text(
-                CurrencyFormatter.formatIndian(alloc.amountApplied),
-                style: KTypography.amountSmall,
+              KMoney(
+                alloc.amountApplied,
+                size: KMoneySize.small,
+                style: const TextStyle(fontWeight: FontWeight.w700),
               ),
               KSpacing.hGapSm,
               const Icon(Icons.chevron_right, color: KColors.textHint),

@@ -5,7 +5,6 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../data/credit_reminder_repository.dart';
 import '../../reports/data/report_repository.dart';
 
@@ -264,9 +263,9 @@ class _CreditLedgerScreenState extends ConsumerState<CreditLedgerScreen> {
                           Text('Total Outstanding',
                               style: KTypography.bodySmall),
                           KSpacing.vGapXs,
-                          Text(
-                            CurrencyFormatter.formatIndian(totalOutstanding),
-                            style: KTypography.amountLarge,
+                          KMoney(
+                            totalOutstanding,
+                            size: KMoneySize.large,
                           ),
                         ],
                       ),
@@ -340,10 +339,12 @@ class _CreditLedgerScreenState extends ConsumerState<CreditLedgerScreen> {
                       ],
                     ),
                   ),
-                  Text(
-                    CurrencyFormatter.formatIndian(total),
-                    style: KTypography.amountSmall.copyWith(
+                  KMoney(
+                    total,
+                    size: KMoneySize.small,
+                    style: TextStyle(
                       color: _riskColor(riskLevel, maxAge),
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(width: 4),

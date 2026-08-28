@@ -13,6 +13,7 @@ const _dbName = 'katasticho_offline.db';
 const _table = 'pending_receipts';
 const _itemTable = 'pos_item_cache';
 const _metaTable = 'pos_meta';
+const _customerTable = 'pos_customer_cache';
 
 class PendingReceipt {
   final int? id;
@@ -51,7 +52,7 @@ class OfflinePosService {
     final dbPath = await getDatabasesPath();
     _db = await openDatabase(
       p.join(dbPath, _dbName),
-      version: 3,
+      version: 4,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE $_table (
@@ -64,10 +65,12 @@ class OfflinePosService {
         ''');
         await _createItemCache(db);
         await _createMeta(db);
+        await _createCustomerCache(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) await _createItemCache(db);
         if (oldVersion < 3) await _createMeta(db);
+        if (oldVersion < 4) await _createCustomerCache(db);
       },
     );
     return _db!;
@@ -80,6 +83,22 @@ class OfflinePosService {
         name TEXT,
         sku TEXT,
         barcode TEXT,
+        search_text TEXT,
+        result_json TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    ''');
+  }
+
+  Future<void> _createCustomerCache(Database db) {
+    return db.execute('''
+      CREATE TABLE $_customerTable (
+        customer_id TEXT PRIMARY KEY,
+        name TEXT,
+        phone TEXT,
+        gstin TEXT,
+        credit_limit REAL,
+        outstanding_balance REAL,
         search_text TEXT,
         result_json TEXT NOT NULL,
         updated_at TEXT NOT NULL
@@ -260,6 +279,118 @@ class OfflinePosService {
     }
   }
 
+  /// Upsert customers into the local customer cache.
+  Future<void> cacheCustomers(List<Map<String, dynamic>> customers) async {
+    if (!posOfflineSupported || customers.isEmpty) return;
+    try {
+      final db = await _getDb();
+      final batch = db.batch();
+      final now = DateTime.now().toIso8601String();
+      for (final c in customers) {
+        final id = (c['id'] ?? c['contactId'])?.toString();
+        if (id == null || id.isEmpty) continue;
+        final name = (c['displayName'] ?? c['name'] ?? '').toString();
+        final phone = (c['phone'] ?? '').toString();
+        final gstin = (c['taxNumber'] ?? c['gstin'] ?? '').toString();
+        final creditLimit = (c['creditLimit'] as num?)?.toDouble() ?? 0.0;
+        final balance = (c['outstandingBalance'] as num?)?.toDouble() ?? 0.0;
+        batch.insert(
+          _customerTable,
+          {
+            'customer_id': id,
+            'name': name,
+            'phone': phone,
+            'gstin': gstin,
+            'credit_limit': creditLimit,
+            'outstanding_balance': balance,
+            'search_text': '$name $phone $gstin'.toLowerCase(),
+            'result_json': jsonEncode(c),
+            'updated_at': now,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      await batch.commit(noResult: true);
+    } catch (e) {
+      debugPrint('[OfflinePOS] cacheCustomers failed: $e');
+    }
+  }
+
+  /// Offline ranked search over the cached customers: phone exact > name prefix > text contains.
+  Future<List<Map<String, dynamic>>> searchLocalCustomers(String query,
+      {int limit = 20}) async {
+    if (!posOfflineSupported) return [];
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) {
+      try {
+        final db = await _getDb();
+        final rows = await db.query(_customerTable, limit: limit, orderBy: 'name ASC');
+        return rows
+            .map((r) => jsonDecode(r['result_json'] as String) as Map<String, dynamic>)
+            .toList();
+      } catch (e) {
+        debugPrint('[OfflinePOS] searchLocalCustomers all failed: $e');
+        return [];
+      }
+    }
+    try {
+      final db = await _getDb();
+      final rows = await db.rawQuery(
+        '''
+        SELECT result_json,
+          CASE
+            WHEN lower(phone) = ? THEN 0
+            WHEN lower(name) LIKE ? THEN 1
+            WHEN search_text LIKE ? THEN 2
+            ELSE 3
+          END AS rank
+        FROM $_customerTable
+        WHERE lower(phone) = ? OR lower(name) LIKE ? OR search_text LIKE ?
+        ORDER BY rank, name
+        LIMIT ?
+        ''',
+        [q, '$q%', '%$q%', q, '$q%', '%$q%', limit],
+      );
+      return rows
+          .map((r) => jsonDecode(r['result_json'] as String) as Map<String, dynamic>)
+          .toList();
+    } catch (e) {
+      debugPrint('[OfflinePOS] searchLocalCustomers failed: $e');
+      return [];
+    }
+  }
+
+  Future<int> cachedCustomerCount() async {
+    if (!posOfflineSupported) return 0;
+    final db = await _getDb();
+    return Sqflite.firstIntValue(
+            await db.rawQuery('SELECT COUNT(*) FROM $_customerTable')) ??
+        0;
+  }
+
+  Future<void> updateCachedCustomerBalance(String customerId, double addedOutstanding) async {
+    if (!posOfflineSupported) return;
+    try {
+      final db = await _getDb();
+      final rows = await db.query(_customerTable, where: 'customer_id = ?', whereArgs: [customerId]);
+      if (rows.isEmpty) return;
+      final json = jsonDecode(rows.first['result_json'] as String) as Map<String, dynamic>;
+      final cur = (json['outstandingBalance'] as num?)?.toDouble() ?? 0;
+      json['outstandingBalance'] = cur + addedOutstanding;
+      await db.update(
+        _customerTable,
+        {
+          'outstanding_balance': cur + addedOutstanding,
+          'result_json': jsonEncode(json),
+        },
+        where: 'customer_id = ?',
+        whereArgs: [customerId],
+      );
+    } catch (e) {
+      debugPrint('[OfflinePOS] updateCachedCustomerBalance failed: $e');
+    }
+  }
+
   Future<int> cachedItemCount() async {
     if (!posOfflineSupported) return 0;
     final db = await _getDb();
@@ -303,40 +434,73 @@ class OfflinePosService {
         return;
       }
 
-      int synced = 0;
-      int failed = 0;
-
-      for (final row in rows) {
-        final id = row['id'] as int;
-        final body = jsonDecode(row['request_json'] as String) as Map<String, dynamic>;
-
-        try {
-          final client = _getApiClient(ref);
-          if (client == null) {
-            debugPrint('[OfflinePOS] No API client available for sync');
-            break;
-          }
-          await client.post(ApiConfig.salesReceipts, data: body);
-          await db.delete(_table, where: 'id = ?', whereArgs: [id]);
-          synced++;
-        } catch (e) {
-          final retryCount = (row['retry_count'] as int? ?? 0) + 1;
-          await db.update(
-            _table,
-            {'retry_count': retryCount, 'last_error': e.toString()},
-            where: 'id = ?',
-            whereArgs: [id],
-          );
-          failed++;
-          if (retryCount >= 5) {
-            debugPrint('[OfflinePOS] Receipt $id exceeded max retries');
-          }
-        }
+      final client = _getApiClient(ref);
+      if (client == null) {
+        debugPrint('[OfflinePOS] No API client available for sync');
+        _syncStatusController.add(SyncStatus.error);
+        return;
       }
 
-      debugPrint('[OfflinePOS] Sync complete: $synced synced, $failed failed');
+      // Try batch sync endpoint first
+      final receiptBodies = <Map<String, dynamic>>[];
+      final rowIds = <int>[];
+      for (final row in rows) {
+        rowIds.add(row['id'] as int);
+        receiptBodies.add(jsonDecode(row['request_json'] as String) as Map<String, dynamic>);
+      }
+
+      bool batchSucceeded = false;
+      try {
+        final res = await client.post('${ApiConfig.salesReceipts}/offline-sync', data: receiptBodies);
+        if (res.statusCode == 200 || res.statusCode == 201) {
+          final resData = res.data is Map<String, dynamic> ? res.data['data'] ?? res.data : null;
+          if (resData != null) {
+            for (final id in rowIds) {
+              await db.delete(_table, where: 'id = ?', whereArgs: [id]);
+            }
+            batchSucceeded = true;
+            debugPrint('[OfflinePOS] Batch sync succeeded: ${resData['syncedCount']} synced, ${resData['duplicateCount']} dupes');
+          }
+        }
+      } catch (batchErr) {
+        debugPrint('[OfflinePOS] Batch sync error, falling back to individual sync: $batchErr');
+      }
+
+      if (!batchSucceeded) {
+        int synced = 0;
+        int failed = 0;
+
+        for (final row in rows) {
+          final id = row['id'] as int;
+          final body = jsonDecode(row['request_json'] as String) as Map<String, dynamic>;
+
+          try {
+            await client.post(ApiConfig.salesReceipts, data: body);
+            await db.delete(_table, where: 'id = ?', whereArgs: [id]);
+            synced++;
+          } catch (e) {
+            final retryCount = (row['retry_count'] as int? ?? 0) + 1;
+            await db.update(
+              _table,
+              {'retry_count': retryCount, 'last_error': e.toString()},
+              where: 'id = ?',
+              whereArgs: [id],
+            );
+            failed++;
+            if (retryCount >= 5) {
+              debugPrint('[OfflinePOS] Receipt $id exceeded max retries');
+            }
+          }
+        }
+
+        debugPrint('[OfflinePOS] Sync complete: $synced synced, $failed failed');
+        _emitCount();
+        _syncStatusController.add(failed > 0 ? SyncStatus.error : SyncStatus.idle);
+        return;
+      }
+
       _emitCount();
-      _syncStatusController.add(failed > 0 ? SyncStatus.error : SyncStatus.idle);
+      _syncStatusController.add(SyncStatus.idle);
     } catch (e) {
       debugPrint('[OfflinePOS] Sync error: $e');
       _syncStatusController.add(SyncStatus.error);

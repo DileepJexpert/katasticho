@@ -62,13 +62,16 @@ class ItemDetailScreen extends ConsumerWidget {
                     content: const Text(
                         'This will mark the item inactive. Items with stock on hand cannot be deleted.'),
                     actions: [
-                      TextButton(
+                      KButton.outlined(
+                        label: 'Cancel',
+                        size: KButtonSize.small,
                         onPressed: () => Navigator.pop(ctx, false),
-                        child: const Text('Cancel'),
                       ),
-                      TextButton(
+                      KSpacing.hGapSm,
+                      KButton.danger(
+                        label: 'Delete',
+                        size: KButtonSize.small,
                         onPressed: () => Navigator.pop(ctx, true),
-                        child: const Text('Delete'),
                       ),
                     ],
                   ),
@@ -127,16 +130,30 @@ class _ItemDetailBody extends ConsumerWidget {
     final itemType = item['itemType']?.toString() ?? 'GOODS';
     final trackInventory = item['trackInventory'] as bool? ?? true;
     final trackBatches = item['trackBatches'] as bool? ?? false;
+    final active = item['active'] as bool? ?? true;
     final canUseBatchExpiry =
         ref.watch(businessCapabilitiesProvider).canUseBatchExpiry;
     final onHand = (item['totalOnHand'] as num?)?.toDouble() ?? 0;
     final reorderLevel = (item['reorderLevel'] as num?)?.toDouble() ?? 0;
+    final reorderQty = (item['reorderQuantity'] as num?)?.toDouble() ?? 0;
     final rackCode = item['rackLocationCode']?.toString() ?? '';
     final rackName = item['rackLocationName']?.toString() ?? '';
+    final salePrice = (item['salePrice'] as num?)?.toDouble() ?? 0;
+    final purchasePrice = (item['purchasePrice'] as num?)?.toDouble() ?? 0;
+    final mrp = (item['mrp'] as num?)?.toDouble() ?? 0;
+    final uom = item['unitOfMeasure']?.toString() ?? 'PCS';
+    final isNegative = trackInventory && onHand < 0;
     final isLowStock =
-        trackInventory && reorderLevel > 0 && onHand <= reorderLevel;
+        trackInventory && reorderLevel > 0 && onHand <= reorderLevel && !isNegative;
     final isPharmacy =
         ref.watch(authProvider).industry?.toUpperCase() == 'PHARMACY';
+
+    final totalStockValue = onHand > 0 ? onHand * purchasePrice : 0.0;
+    final margin = (mrp > 0 && purchasePrice > 0)
+        ? ((mrp - purchasePrice) / mrp * 100)
+        : ((salePrice > 0 && purchasePrice > 0)
+            ? ((salePrice - purchasePrice) / salePrice * 100)
+            : 0.0);
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -145,52 +162,167 @@ class _ItemDetailBody extends ConsumerWidget {
       child: ListView(
         padding: KSpacing.pagePadding,
         children: [
-          // Header
-          Center(
-            child: Column(
+          // ── Header Hero Card ──
+          KCard(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  width: 72,
-                  height: 72,
+                  width: 56,
+                  height: 56,
                   decoration: BoxDecoration(
                     color: KColors.primaryLight.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(18),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
-                    itemType == 'SERVICE' ? Icons.build : Icons.inventory_2,
-                    size: 36,
+                    itemType == 'SERVICE' ? Icons.build_outlined : Icons.inventory_2_outlined,
+                    size: 28,
                     color: KColors.primary,
                   ),
                 ),
-                KSpacing.vGapSm,
-                Text(name, style: KTypography.h1, textAlign: TextAlign.center),
-                Text('SKU: $sku', style: KTypography.bodySmall),
-                if (barcode.isNotEmpty)
-                  Text('Barcode: $barcode', style: KTypography.bodySmall),
-                if (brand.isNotEmpty || manufacturer.isNotEmpty)
-                  Text(
-                    [
-                      if (brand.isNotEmpty) brand,
-                      if (manufacturer.isNotEmpty) manufacturer
-                    ].join(' · '),
-                    style: KTypography.bodySmall,
+                KSpacing.hGapMd,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              name,
+                              style: KTypography.h2.copyWith(fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                          KStatusChip(
+                            status: active ? 'PAID' : 'CANCELLED',
+                            label: active ? 'Active' : 'Inactive',
+                          ),
+                        ],
+                      ),
+                      KSpacing.vGapXs,
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 4,
+                        children: [
+                          if (sku.isNotEmpty)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text('SKU: ', style: KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
+                                Text(sku, style: KTypography.mono(size: 12, weight: FontWeight.w600)),
+                              ],
+                            ),
+                          if (barcode.isNotEmpty)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.qr_code_2, size: 14, color: KColors.textSecondary),
+                                const SizedBox(width: 4),
+                                Text(barcode, style: KTypography.mono(size: 12)),
+                              ],
+                            ),
+                          if (brand.isNotEmpty || manufacturer.isNotEmpty)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.business_outlined, size: 14, color: KColors.textSecondary),
+                                const SizedBox(width: 4),
+                                Text(
+                                  [if (brand.isNotEmpty) brand, if (manufacturer.isNotEmpty) manufacturer].join(' · '),
+                                  style: KTypography.bodySmall,
+                                ),
+                              ],
+                            ),
+                          if (rackCode.isNotEmpty)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.grid_view_outlined, size: 14, color: KColors.textSecondary),
+                                const SizedBox(width: 4),
+                                Text(
+                                  rackName.isEmpty ? 'Rack: $rackCode' : 'Rack: $rackCode • $rackName',
+                                  style: KTypography.bodySmall,
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                    ],
                   ),
-                if (rackCode.isNotEmpty)
-                  Text(
-                    rackName.isEmpty
-                        ? 'Rack: $rackCode'
-                        : 'Rack: $rackCode • $rackName',
-                    style: KTypography.bodySmall,
-                  ),
+                ),
               ],
             ),
           ),
-          KSpacing.vGapLg,
+          KSpacing.vGapMd,
 
-          // Stock summary
+          // ── ERP KPI Metrics Grid ──
+          Row(
+            children: [
+              Expanded(
+                child: _KpiMetricCard(
+                  title: 'Stock on Hand',
+                  value: trackInventory ? '${_fmtQty(onHand)} $uom' : 'Not Tracked',
+                  subtitle: isNegative
+                      ? 'Needs stock reconciliation'
+                      : (isLowStock ? 'Below reorder point' : 'Available for sale'),
+                  status: isNegative
+                      ? 'OVERDUE'
+                      : (isLowStock ? 'WARNING' : (trackInventory ? 'PAID' : 'DRAFT')),
+                  statusLabel: isNegative
+                      ? 'Negative'
+                      : (isLowStock ? 'Low Stock' : (trackInventory ? 'In Stock' : 'Service')),
+                ),
+              ),
+              KSpacing.hGapSm,
+              Expanded(
+                child: _KpiMetricCard(
+                  title: 'Stock Valuation',
+                  valueWidget: KMoney(
+                    totalStockValue,
+                    size: KMoneySize.medium,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: '@ ${CurrencyFormatter.formatIndian(purchasePrice)}/unit cost',
+                  icon: Icons.account_balance_wallet_outlined,
+                  iconColor: KColors.success,
+                ),
+              ),
+            ],
+          ),
+          KSpacing.vGapSm,
+          Row(
+            children: [
+              Expanded(
+                child: _KpiMetricCard(
+                  title: 'Sale Price',
+                  valueWidget: KMoney(
+                    salePrice,
+                    size: KMoneySize.medium,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: mrp > 0 ? 'MRP: ₹${mrp.toStringAsFixed(2)}' : 'Default retail rate',
+                  icon: Icons.sell_outlined,
+                  iconColor: KColors.primary,
+                ),
+              ),
+              KSpacing.hGapSm,
+              Expanded(
+                child: _KpiMetricCard(
+                  title: 'Gross Margin',
+                  value: '${margin.toStringAsFixed(1)}%',
+                  subtitle: margin >= 0 ? 'Profit markup' : 'Negative spread',
+                  icon: Icons.trending_up,
+                  iconColor: margin >= 0 ? KColors.success : KColors.error,
+                ),
+              ),
+            ],
+          ),
+          KSpacing.vGapMd,
+
+          // ── Stock Summary & Warehouse Breakdown ──
           if (trackInventory) ...[
             KCard(
-              title: 'Stock',
+              title: 'Inventory & Reorder Levels',
               action: KButton(
                 label: 'Adjust Stock',
                 icon: Icons.tune,
@@ -200,42 +332,22 @@ class _ItemDetailBody extends ConsumerWidget {
               ),
               child: Column(
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('On Hand', style: KTypography.labelSmall),
-                          KSpacing.vGapXs,
-                          Text(
-                            _fmtQty(onHand),
-                            style: KTypography.h2.copyWith(
-                              color: isLowStock ? KColors.warning : null,
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (isLowStock)
-                        const KStatusChip(
-                            status: 'OVERDUE', label: 'Low stock'),
-                    ],
-                  ),
-                  KSpacing.vGapMd,
                   KDetailRow(
-                    label: 'Reorder Level',
-                    value: _fmtQty(reorderLevel),
+                    label: 'Current On-Hand',
+                    value: '${_fmtQty(onHand)} $uom',
                   ),
                   KDetailRow(
-                    label: 'Reorder Qty',
-                    value: _fmtQty(
-                        (item['reorderQuantity'] as num?)?.toDouble() ?? 0),
+                    label: 'Reorder Point (Min Alert)',
+                    value: reorderLevel > 0 ? '${_fmtQty(reorderLevel)} $uom' : 'Disabled (0)',
+                  ),
+                  KDetailRow(
+                    label: 'Default Reorder Quantity',
+                    value: reorderQty > 0 ? '${_fmtQty(reorderQty)} $uom' : 'Not set',
                   ),
                   if (rackCode.isNotEmpty)
                     KDetailRow(
-                      label: 'Rack',
-                      value:
-                          rackName.isEmpty ? rackCode : '$rackCode • $rackName',
+                      label: 'Bin / Rack Location',
+                      value: rackName.isEmpty ? rackCode : '$rackCode • $rackName',
                     ),
                 ],
               ),
@@ -243,97 +355,73 @@ class _ItemDetailBody extends ConsumerWidget {
             KSpacing.vGapSm,
             _WarehouseBalancesCard(
               itemId: itemId,
-              unit: item['unitOfMeasure']?.toString() ?? 'PCS',
+              unit: uom,
             ),
             KSpacing.vGapMd,
           ],
 
-          // Batches — only for batch-tracked items
+          // ── Batches (FEFO Tracking) ──
           if (trackBatches && canUseBatchExpiry) ...[
             _BatchesCard(itemId: itemId),
             KSpacing.vGapMd,
           ],
 
-          // Bill of Materials — only for composite items.
+          // ── Bill of Materials (Kit / Composite) ──
           if (itemType == 'COMPOSITE') ...[
             _BomEditorCard(parentId: itemId, parentSku: sku),
             KSpacing.vGapMd,
           ],
 
-          // Pricing
+          // ── Pricing & Tax Compliance ──
           KCard(
-            title: 'Pricing',
+            title: 'Pricing & Tax Compliance',
             child: Column(
               children: [
-                KDetailRow(
-                  label: 'Sale Price',
-                  value: CurrencyFormatter.formatIndian(
-                    (item['salePrice'] as num?)?.toDouble() ?? 0,
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Sale Price', style: KTypography.bodyMedium),
+                      KMoney(salePrice, size: KMoneySize.small, style: const TextStyle(fontWeight: FontWeight.w700)),
+                    ],
                   ),
                 ),
-                KDetailRow(
-                  label: 'Purchase Price',
-                  value: CurrencyFormatter.formatIndian(
-                    (item['purchasePrice'] as num?)?.toDouble() ?? 0,
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Purchase Cost', style: KTypography.bodyMedium),
+                      KMoney(purchasePrice, size: KMoneySize.small, style: const TextStyle(fontWeight: FontWeight.w700)),
+                    ],
                   ),
                 ),
-                if (item['mrp'] != null) ...[
-                  KDetailRow(
-                    label: 'MRP',
-                    value: CurrencyFormatter.formatIndian(
-                      (item['mrp'] as num).toDouble(),
+                if (mrp > 0)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('MRP', style: KTypography.bodyMedium),
+                        KMoney(mrp, size: KMoneySize.small),
+                      ],
                     ),
                   ),
-                  Builder(builder: (_) {
-                    final mrp = (item['mrp'] as num).toDouble();
-                    final purchase =
-                        (item['purchasePrice'] as num?)?.toDouble() ?? 0;
-                    if (purchase <= 0 || mrp <= 0) {
-                      return const SizedBox.shrink();
-                    }
-                    final margin = ((mrp - purchase) / mrp * 100);
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: Row(
-                        children: [
-                          const SizedBox(width: 0),
-                          Expanded(
-                            child: Row(
-                              children: [
-                                Icon(Icons.trending_up,
-                                    size: 14,
-                                    color: margin >= 0
-                                        ? KColors.success
-                                        : KColors.error),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'Margin: ${margin.toStringAsFixed(1)}%',
-                                  style: KTypography.labelSmall.copyWith(
-                                    color: margin >= 0
-                                        ? KColors.success
-                                        : KColors.error,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
-                ],
                 KDetailRow(
                   label: 'GST Rate',
                   value: '${(item['gstRate'] as num?)?.toString() ?? '0'}%',
                 ),
                 KDetailRow(
-                  label: 'HSN Code',
-                  value: item['hsnCode']?.toString() ?? '--',
+                  label: 'HSN / SAC Code',
+                  valueWidget: Text(
+                    item['hsnCode']?.toString() ?? '--',
+                    style: KTypography.mono(fontSize: 13),
+                  ),
                 ),
                 KDetailRow(
-                  label: 'Unit',
-                  value: item['unitOfMeasure']?.toString() ?? 'PCS',
+                  label: 'Primary Unit (UOM)',
+                  value: uom,
                 ),
                 if (trackBatches && canUseBatchExpiry)
                   const KDetailRow(
@@ -439,6 +527,12 @@ class _ItemDetailBody extends ConsumerWidget {
             ),
             KSpacing.vGapMd,
           ],
+
+          KCustomFieldsCard(
+            entityType: 'ITEM',
+            entityId: itemId,
+          ),
+          KSpacing.vGapMd,
 
           // Movements (FutureBuilder, lazy load)
           if (trackInventory) ...[
@@ -637,21 +731,6 @@ class _MovementsList extends ConsumerWidget {
       },
     );
   }
-
-  void _openAdjustSheet(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => StockAdjustSheet(
-        itemId: itemId,
-        itemName: itemName,
-        initialUnitCost: null,
-        onSaved: () {
-          ref.invalidate(itemDetailProvider(itemId));
-        },
-      ),
-    );
-  }
 }
 
 class _MovementTile extends StatelessWidget {
@@ -756,6 +835,88 @@ class _BatchesCard extends ConsumerWidget {
   }
 }
 
+class _KpiMetricCard extends StatelessWidget {
+  final String title;
+  final String? value;
+  final Widget? valueWidget;
+  final String? subtitle;
+  final IconData? icon;
+  final Color? iconColor;
+  final String? status;
+  final String? statusLabel;
+
+  const _KpiMetricCard({
+    required this.title,
+    this.value,
+    this.valueWidget,
+    this.subtitle,
+    this.icon,
+    this.iconColor,
+    this.status,
+    this.statusLabel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(KSpacing.md),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(KSpacing.radiusSm),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 16, color: iconColor ?? KColors.primary),
+                const SizedBox(width: 6),
+              ],
+              Expanded(
+                child: Text(
+                  title,
+                  style: KTypography.labelSmall.copyWith(color: KColors.textSecondary),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (status != null)
+                KStatusChip(
+                  status: status!,
+                  label: statusLabel,
+                  dense: true,
+                ),
+            ],
+          ),
+          KSpacing.vGapSm,
+          valueWidget ??
+              Text(
+                value ?? '--',
+                style: KTypography.h2.copyWith(fontWeight: FontWeight.w700),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+          if (subtitle != null) ...[
+            KSpacing.vGapXs,
+            Text(
+              subtitle!,
+              style: KTypography.bodySmall.copyWith(
+                color: KColors.textSecondary,
+                fontSize: 11,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _BatchRow extends StatelessWidget {
   final Map<String, dynamic> batch;
   const _BatchRow({required this.batch});
@@ -767,15 +928,18 @@ class _BatchRow extends StatelessWidget {
     final expiryDate = batch['expiryDate']?.toString() ?? '';
     final qty = (batch['quantityAvailable'] as num?)?.toDouble() ?? 0;
 
-    _BatchStatus status = _BatchStatus.ok;
+    String status = 'PAID';
+    String statusLabel = 'Active';
     if (expiryDate.isNotEmpty) {
       final expiry = DateTime.tryParse(expiryDate);
       if (expiry != null) {
         final daysUntil = expiry.difference(DateTime.now()).inDays;
         if (daysUntil < 0) {
-          status = _BatchStatus.expired;
+          status = 'CANCELLED';
+          statusLabel = 'Expired';
         } else if (daysUntil <= 30) {
-          status = _BatchStatus.expiringSoon;
+          status = 'OVERDUE';
+          statusLabel = 'Expiring in ${daysUntil}d';
         }
       }
     }
@@ -789,7 +953,10 @@ class _BatchRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(batchNumber, style: KTypography.labelMedium),
+                Text(
+                  batchNumber,
+                  style: KTypography.mono(size: 13, weight: FontWeight.w600),
+                ),
                 if (mfgDate.isNotEmpty || expiryDate.isNotEmpty)
                   Text(
                     [
@@ -797,9 +964,9 @@ class _BatchRow extends StatelessWidget {
                       if (expiryDate.isNotEmpty) 'Exp: $expiryDate',
                     ].join(' · '),
                     style: KTypography.bodySmall.copyWith(
-                      color: status == _BatchStatus.expired
+                      color: status == 'CANCELLED'
                           ? KColors.error
-                          : status == _BatchStatus.expiringSoon
+                          : status == 'OVERDUE'
                               ? KColors.warning
                               : null,
                     ),
@@ -807,30 +974,21 @@ class _BatchRow extends StatelessWidget {
               ],
             ),
           ),
-          SizedBox(
-            width: 50,
-            child: Text(
-              _fmtQty(qty),
-              textAlign: TextAlign.right,
-              style: KTypography.amountSmall,
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                _fmtQty(qty),
+                style: KTypography.labelMedium.copyWith(fontWeight: FontWeight.w700),
+              ),
+              Text('Available', style: KTypography.labelSmall),
+            ],
           ),
-          const SizedBox(width: 8),
-          _statusBadge(status),
+          const SizedBox(width: 12),
+          KStatusChip(status: status, label: statusLabel, dense: true),
         ],
       ),
     );
-  }
-
-  Widget _statusBadge(_BatchStatus status) {
-    switch (status) {
-      case _BatchStatus.ok:
-        return const Text('✅', style: TextStyle(fontSize: 14));
-      case _BatchStatus.expiringSoon:
-        return const Text('🟡', style: TextStyle(fontSize: 14));
-      case _BatchStatus.expired:
-        return const Text('🔴', style: TextStyle(fontSize: 14));
-    }
   }
 
   static String _fmtQty(double q) {
@@ -838,8 +996,6 @@ class _BatchRow extends StatelessWidget {
     return q.toStringAsFixed(2);
   }
 }
-
-enum _BatchStatus { ok, expiringSoon, expired }
 
 /// Bill of Materials editor for a composite (kit) item. Watches
 /// `bomComponentsProvider` and renders one row per child with a delete
@@ -981,16 +1137,19 @@ class _BomEditorCard extends ConsumerWidget {
           ],
         ),
         actions: [
-          TextButton(
+          KButton.outlined(
+            label: 'Cancel',
+            size: KButtonSize.small,
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
           ),
-          TextButton(
+          KSpacing.hGapSm,
+          KButton.primary(
+            label: 'Add',
+            size: KButtonSize.small,
             onPressed: () {
               final v = double.tryParse(controller.text.trim());
               Navigator.pop(ctx, v);
             },
-            child: const Text('Add'),
           ),
         ],
       ),
@@ -1013,13 +1172,16 @@ class _BomEditorCard extends ConsumerWidget {
           '${row['childSku'] ?? ''} will be removed from $parentSku.',
         ),
         actions: [
-          TextButton(
+          KButton.outlined(
+            label: 'Cancel',
+            size: KButtonSize.small,
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
           ),
-          TextButton(
+          KSpacing.hGapSm,
+          KButton.danger(
+            label: 'Remove',
+            size: KButtonSize.small,
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Remove'),
           ),
         ],
       ),

@@ -6,7 +6,6 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../../inventory/presentation/item_picker_sheet.dart';
 import '../data/purchase_order_repository.dart';
@@ -168,195 +167,199 @@ class _PurchaseOrderCreateScreenState
           ),
         ),
         body: Column(
-        children: [
-          if (_errorMessage != null)
-            Padding(
-              padding: const EdgeInsets.all(KSpacing.md),
-              child: KErrorBanner(
-                message: _errorMessage!,
-                onDismiss: () => setState(() => _errorMessage = null),
+          children: [
+            if (_errorMessage != null)
+              Padding(
+                padding: const EdgeInsets.all(KSpacing.md),
+                child: KErrorBanner(
+                  message: _errorMessage!,
+                  onDismiss: () => setState(() => _errorMessage = null),
+                ),
               ),
-            ),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: KSpacing.pagePadding,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ── Supplier ──
-                  Text('Supplier', style: KTypography.h2),
-                  KSpacing.vGapSm,
-                  KCard(
-                    onTap: _pickSupplier,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: KSpacing.md,
-                      vertical: KSpacing.sm,
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: KColors.primaryLight.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(10),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: KSpacing.pagePadding,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ── Supplier ──
+                    Text('Supplier', style: KTypography.titleLarge),
+                    KSpacing.vGapSm,
+                    KCard(
+                      onTap: _pickSupplier,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: KSpacing.md,
+                        vertical: KSpacing.sm,
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: KColors.primarySoft,
+                              borderRadius: KSpacing.borderRadiusSm,
+                            ),
+                            child: const Icon(Icons.local_shipping_outlined,
+                                color: KColors.primary, size: 22),
                           ),
-                          child: const Icon(Icons.shopping_cart_outlined,
-                              color: KColors.primary, size: 20),
-                        ),
-                        KSpacing.hGapSm,
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                _supplier?['name']?.toString() ??
-                                    'Tap to pick supplier',
-                                style: KTypography.labelLarge,
-                              ),
-                              if (_supplier?['gstin'] != null &&
-                                  (_supplier!['gstin'] as String).isNotEmpty)
-                                Text('GSTIN: ${_supplier!['gstin']}',
-                                    style: KTypography.bodySmall),
-                            ],
+                          KSpacing.hGapMd,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _supplier?['name']?.toString() ??
+                                      'Select Supplier (Vendor)',
+                                  style: KTypography.titleMedium.copyWith(
+                                    color: _supplier == null
+                                        ? KColors.primary
+                                        : null,
+                                  ),
+                                ),
+                                if (_supplier?['gstin'] != null &&
+                                    (_supplier!['gstin'] as String).isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 2),
+                                    child: Text(
+                                      'GSTIN: ${_supplier!['gstin']}',
+                                      style: KTypography.mono(fontSize: 12),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
-                        ),
-                        const Icon(Icons.chevron_right, color: KColors.textHint),
-                      ],
+                          const Icon(Icons.chevron_right, color: KColors.textHint),
+                        ],
+                      ),
                     ),
-                  ),
-                  KSpacing.vGapMd,
+                    KSpacing.vGapMd,
 
-                  // ── Dates ──
-                  Text('Order Details', style: KTypography.labelLarge),
-                  KSpacing.vGapSm,
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final fields = [
+                    // ── Order Details ──
+                    Text('Order Details', style: KTypography.titleLarge),
+                    KSpacing.vGapSm,
+                    KCompactRow(
+                      children: [
                         KDatePicker(
                           label: 'Order Date',
                           value: _orderDate,
                           onChanged: (d) => setState(() => _orderDate = d),
                         ),
                         KDatePicker(
-                          label: 'Expected Delivery (optional)',
+                          label: 'Expected Delivery Date',
                           value: _expectedDeliveryDate ??
                               _orderDate.add(const Duration(days: 7)),
                           onChanged: (d) =>
                               setState(() => _expectedDeliveryDate = d),
                         ),
-                      ];
-                      if (constraints.maxWidth < 720) {
-                        return Column(
-                          children: [
-                            for (var i = 0; i < fields.length; i++) ...[
-                              fields[i],
-                              if (i != fields.length - 1) KSpacing.vGapSm,
-                            ],
-                          ],
-                        );
-                      }
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          for (var i = 0; i < fields.length; i++) ...[
-                            Expanded(child: fields[i]),
-                            if (i != fields.length - 1) KSpacing.hGapSm,
-                          ],
-                        ],
-                      );
-                    },
-                  ),
-                  KSpacing.vGapMd,
+                      ],
+                    ),
+                    KSpacing.vGapMd,
 
-                  // ── Line Items ──
-                  Text('Items to Order', style: KTypography.h2),
-                  KSpacing.vGapMd,
-                  ...List.generate(_lines.length, (i) {
-                    return _PoLineCard(
-                      line: _lines[i],
-                      index: i,
-                      onRemove: _lines.length > 1
-                          ? () => setState(() => _lines.removeAt(i))
-                          : null,
-                      onChanged: () => setState(() {}),
-                    );
-                  }),
-                  KSpacing.vGapMd,
-                  KButton(
-                    label: 'Add Line Item',
-                    icon: Icons.add,
-                    variant: KButtonVariant.outlined,
-                    onPressed: () => setState(() => _lines.add(_PoLine())),
-                  ),
-                  KSpacing.vGapLg,
-
-                  // ── Running total ──
-                  KCard(
-                    child: Column(
+                    // ── Line Items ──
+                    Row(
                       children: [
-                        _SummaryRow(
-                          label: 'Total',
-                          value: CurrencyFormatter.formatIndian(_grandTotal),
-                          bold: true,
+                        Text('Items to Order', style: KTypography.titleLarge),
+                        const Spacer(),
+                        KButton.outlined(
+                          label: 'Add Line Item',
+                          icon: Icons.add,
+                          size: KButtonSize.small,
+                          onPressed: () => setState(() => _lines.add(_PoLine())),
                         ),
                       ],
                     ),
-                  ),
-                  KSpacing.vGapMd,
+                    KSpacing.vGapSm,
+                    ...List.generate(_lines.length, (i) {
+                      return _PoLineCard(
+                        line: _lines[i],
+                        index: i,
+                        onRemove: _lines.length > 1
+                            ? () => setState(() => _lines.removeAt(i))
+                            : null,
+                        onChanged: () => setState(() {}),
+                      );
+                    }),
+                    KSpacing.vGapLg,
 
-                  // ── Notes ──
-                  KTextField(
-                    label: 'Notes (optional)',
-                    controller: _notesCtl,
-                    maxLines: 3,
-                  ),
-                  KSpacing.vGapLg,
-                ],
-              ),
-            ),
-          ),
-
-          // ── Bottom bar ──
-          Container(
-            padding: const EdgeInsets.all(KSpacing.md),
-            decoration: BoxDecoration(
-              color: KColors.surface,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 8,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: SafeArea(
-              child: Row(
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('Total', style: KTypography.bodySmall),
-                      Text(
-                        CurrencyFormatter.formatIndian(_grandTotal),
-                        style: KTypography.amountLarge,
+                    // ── Running total ──
+                    KCard(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Estimated Total', style: KTypography.titleMedium),
+                          KMoney(
+                            _grandTotal,
+                            size: KMoneySize.large,
+                            style: const TextStyle(
+                              color: KColors.primary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  const Spacer(),
-                  KButton(
-                    label: 'Save as Draft',
-                    icon: Icons.save_outlined,
-                    onPressed: _submit,
-                    isLoading: _isSubmitting,
-                  ),
-                ],
+                    ),
+                    KSpacing.vGapMd,
+
+                    // ── Notes ──
+                    KTextField(
+                      label: 'Notes / Payment Terms (optional)',
+                      controller: _notesCtl,
+                      maxLines: 3,
+                    ),
+                    KSpacing.vGapLg,
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
-      ),
+
+            // ── Sticky Bottom Bar ──
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: KSpacing.md,
+                vertical: KSpacing.sm,
+              ),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                border: Border(
+                  top: BorderSide(
+                    color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+              child: SafeArea(
+                child: Row(
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('Order Total', style: KTypography.caption),
+                        KMoney(
+                          _grandTotal,
+                          size: KMoneySize.medium,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    KButton.outlined(
+                      label: 'Cancel',
+                      onPressed: () => context.go(Routes.purchaseOrders),
+                    ),
+                    KSpacing.hGapSm,
+                    KButton.primary(
+                      label: 'Save as Draft',
+                      icon: Icons.save_outlined,
+                      onPressed: _submit,
+                      isLoading: _isSubmitting,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -433,49 +436,48 @@ class _PoLineCardState extends State<_PoLineCard> {
         children: [
           Row(
             children: [
-              Text('Line ${widget.index + 1}', style: KTypography.labelLarge),
+              Text('Line #${widget.index + 1}', style: KTypography.labelLarge),
               const Spacer(),
-              TextButton.icon(
+              KButton.outlined(
+                size: KButtonSize.small,
+                icon: Icons.search,
+                label: isPicked ? 'Change Item' : 'Pick Item',
                 onPressed: _pickItem,
-                icon: const Icon(Icons.search, size: 16),
-                label: Text(isPicked ? 'Change Item' : 'Pick Item'),
               ),
-              if (widget.onRemove != null)
+              if (widget.onRemove != null) ...[
+                KSpacing.hGapSm,
                 IconButton(
                   icon: const Icon(Icons.delete_outline,
                       color: KColors.error, size: 20),
                   onPressed: widget.onRemove,
                 ),
+              ],
             ],
           ),
           if (isPicked) ...[
             KSpacing.vGapXs,
-            Text(widget.line.description, style: KTypography.bodyMedium),
+            Text(widget.line.description,
+                style: KTypography.titleMedium),
             KSpacing.vGapSm,
-            Row(
+            KCompactRow(
               children: [
-                Expanded(
-                  child: KTextField(
-                    label: 'Quantity',
-                    controller: _qtyCtl,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    onChanged: (v) {
-                      widget.line.quantity = double.tryParse(v) ?? 0;
-                      widget.onChanged();
-                    },
-                  ),
+                KTextField(
+                  label: 'Quantity',
+                  controller: _qtyCtl,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (v) {
+                    widget.line.quantity = double.tryParse(v) ?? 0;
+                    widget.onChanged();
+                  },
                 ),
-                KSpacing.hGapSm,
-                Expanded(
-                  child: KTextField.amount(
-                    label: 'Unit Price',
-                    controller: _priceCtl,
-                    onChanged: (v) {
-                      widget.line.unitPrice = double.tryParse(v) ?? 0;
-                      widget.onChanged();
-                    },
-                  ),
+                KTextField.amount(
+                  label: 'Unit Price',
+                  controller: _priceCtl,
+                  onChanged: (v) {
+                    widget.line.unitPrice = double.tryParse(v) ?? 0;
+                    widget.onChanged();
+                  },
                 ),
               ],
             ),
@@ -483,45 +485,22 @@ class _PoLineCardState extends State<_PoLineCard> {
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                Text(
-                  'Line Total: ${CurrencyFormatter.formatIndian(widget.line.lineTotal)}',
-                  style:
-                      KTypography.amountSmall.copyWith(color: KColors.primary),
+                Text('Line Total: ', style: KTypography.caption),
+                KMoney(
+                  widget.line.lineTotal,
+                  size: KMoneySize.medium,
+                  style: const TextStyle(
+                    color: KColors.primary,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ],
             ),
           ] else ...[
             KSpacing.vGapXs,
-            Text('Pick an item to fill in quantity and price',
-                style: KTypography.bodySmall),
+            Text('Pick an item from catalog to fill in quantity and purchase rate',
+                style: KTypography.bodySmall.copyWith(color: KColors.textHint)),
           ],
-        ],
-      ),
-    );
-  }
-}
-
-class _SummaryRow extends StatelessWidget {
-  final String label;
-  final String value;
-  final bool bold;
-  const _SummaryRow({
-    required this.label,
-    required this.value,
-    this.bold = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label,
-              style: bold ? KTypography.labelLarge : KTypography.bodyMedium),
-          Text(value,
-              style: bold ? KTypography.amountMedium : KTypography.amountSmall),
         ],
       ),
     );

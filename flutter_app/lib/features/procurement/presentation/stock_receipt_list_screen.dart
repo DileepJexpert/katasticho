@@ -5,7 +5,6 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../data/stock_receipt_repository.dart';
@@ -131,6 +130,8 @@ class _StockReceiptListScreenState
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.go(Routes.stockReceiptCreate),
+        backgroundColor: KColors.primary,
+        foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
         label: const Text('New Receipt'),
         tooltip: 'New Receipt (N)',
@@ -179,7 +180,7 @@ class _ReceiptTable extends StatelessWidget {
             DataCell(KTablePrimaryTextCell(value: number, width: 155)),
             DataCell(KTableTextCell(value: supplierName, width: 210)),
             DataCell(KTableDateCell(value: dateRaw)),
-            DataCell(Text('$lineCount')),
+            DataCell(Text('$lineCount', style: KTypography.mono())),
             DataCell(KTableStatusCell(status: status)),
             DataCell(KTableAmountCell(value: total)),
             DataCell(KTableOpenActionCell(
@@ -222,7 +223,7 @@ class _ReceiptCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Text(number, style: KTypography.labelLarge),
+                    Text(number, style: KTypography.mono(fontSize: 14, fontWeight: FontWeight.w700)),
                     KSpacing.hGapSm,
                     KStatusChip(status: status),
                   ],
@@ -237,7 +238,7 @@ class _ReceiptCard extends StatelessWidget {
                   KSpacing.vGapXs,
                   Text(
                     '${DateFormatter.display(DateTime.parse(dateRaw))}'
-                    '${lineCount != null ? ' • $lineCount line${lineCount == 1 ? '' : 's'}' : ''}',
+                    '${lineCount != null ? ' · $lineCount line${lineCount == 1 ? '' : 's'}' : ''}',
                     style: KTypography.bodySmall,
                   ),
                 ],
@@ -247,11 +248,8 @@ class _ReceiptCard extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                CurrencyFormatter.formatIndian(total),
-                style: KTypography.amountMedium,
-              ),
-              Text('Total', style: KTypography.labelSmall),
+              KMoney(total),
+              Text('Total', style: KTypography.caption),
             ],
           ),
           KSpacing.hGapSm,

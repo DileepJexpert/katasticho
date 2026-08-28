@@ -5,7 +5,6 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../invoices/data/invoice_providers.dart';
 import '../../workflow/data/workflow_repository.dart';
@@ -94,18 +93,6 @@ class _RecordPaymentScreenState extends ConsumerState<RecordPaymentScreen> {
     }
   }
 
-  void _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _paymentDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 1)),
-    );
-    if (picked != null) {
-      setState(() => _paymentDate = picked);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final invoiceAsync = ref.watch(invoiceDetailProvider(widget.invoiceId));
@@ -147,7 +134,7 @@ class _RecordPaymentScreenState extends ConsumerState<RecordPaymentScreen> {
                     children: [
                       Text('Invoice', style: KTypography.bodySmall),
                       KSpacing.vGapXs,
-                      Text(invoiceNumber, style: KTypography.h3),
+                      Text(invoiceNumber, style: KTypography.mono(fontSize: 20, fontWeight: FontWeight.w700)),
                       KSpacing.vGapXs,
                       Text(customerName, style: KTypography.bodyMedium),
                       KSpacing.vGapMd,
@@ -155,12 +142,12 @@ class _RecordPaymentScreenState extends ConsumerState<RecordPaymentScreen> {
                         children: [
                           _InfoChip(
                             label: 'Total',
-                            value: CurrencyFormatter.formatIndian(total),
+                            amount: total,
                           ),
                           KSpacing.hGapMd,
                           _InfoChip(
                             label: 'Balance Due',
-                            value: CurrencyFormatter.formatIndian(balanceDue),
+                            amount: balanceDue,
                             color: KColors.error,
                           ),
                         ],
@@ -212,24 +199,21 @@ class _RecordPaymentScreenState extends ConsumerState<RecordPaymentScreen> {
                 ),
                 KSpacing.vGapMd,
 
-                // ── Date ──
-                KTextField(
-                  label: 'Payment Date',
-                  controller: TextEditingController(
-                    text: DateFormatter.display(_paymentDate),
-                  ),
-                  readOnly: true,
-                  prefixIcon: Icons.calendar_today,
-                  onTap: _pickDate,
-                ),
-                KSpacing.vGapMd,
-
-                // ── Reference Number ──
-                KTextField(
-                  label: 'Reference / Transaction Number',
-                  hint: 'e.g., UTR, cheque number',
-                  controller: _referenceController,
-                  prefixIcon: Icons.tag,
+                // ── Date & Reference ──
+                KCompactRow(
+                  children: [
+                    KDatePicker(
+                      label: 'Payment Date',
+                      value: _paymentDate,
+                      onChanged: (d) => setState(() => _paymentDate = d),
+                    ),
+                    KTextField(
+                      label: 'Reference / UTR',
+                      hint: 'e.g. UTR, cheque number',
+                      controller: _referenceController,
+                      prefixIcon: Icons.tag,
+                    ),
+                  ],
                 ),
                 KSpacing.vGapMd,
 
@@ -262,12 +246,12 @@ class _RecordPaymentScreenState extends ConsumerState<RecordPaymentScreen> {
 
 class _InfoChip extends StatelessWidget {
   final String label;
-  final String value;
+  final num amount;
   final Color? color;
 
   const _InfoChip({
     required this.label,
-    required this.value,
+    required this.amount,
     this.color,
   });
 
@@ -277,11 +261,10 @@ class _InfoChip extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: KTypography.bodySmall),
-        Text(
-          value,
-          style: KTypography.amountSmall.copyWith(
-            color: color ?? KColors.textPrimary,
-          ),
+        KMoney(
+          amount,
+          size: KMoneySize.small,
+          style: color != null ? TextStyle(color: color) : null,
         ),
       ],
     );

@@ -5,8 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/k_colors.dart';
 import '../../../../core/theme/k_spacing.dart';
 import '../../../../core/theme/k_typography.dart';
-import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/utils/date_formatter.dart';
+import '../../../../core/widgets/widgets.dart';
 import '../../data/sales_receipt_providers.dart';
 
 class PosRecentBills extends ConsumerWidget {
@@ -104,7 +104,10 @@ class _RecentBillRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(receiptNumber, style: KTypography.labelSmall),
+                  Text(
+                    receiptNumber,
+                    style: KTypography.mono(size: 11, weight: FontWeight.w700),
+                  ),
                   Text(
                     contactName ?? 'Walk-in',
                     style: KTypography.bodySmall.copyWith(
@@ -115,9 +118,9 @@ class _RecentBillRow extends StatelessWidget {
                 ],
               ),
             ),
-            Text(
-              CurrencyFormatter.formatCompact(total),
-              style: KTypography.amountSmall.copyWith(fontSize: 13),
+            KMoney(
+              total,
+              size: KMoneySize.small,
             ),
             if (timeText.isNotEmpty) ...[
               const SizedBox(width: 8),

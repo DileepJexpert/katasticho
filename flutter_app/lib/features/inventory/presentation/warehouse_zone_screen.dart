@@ -37,11 +37,14 @@ class _WarehouseZoneScreenState extends ConsumerState<WarehouseZoneScreen> {
       itemCount: () => (zonesAsync.valueOrNull)?.length ?? 0,
       onRefresh: () => ref.invalidate(_warehouseZonesProvider),
       child: Scaffold(
-        appBar: AppBar(title: const Text('Warehouse Zones')),
-        floatingActionButton: FloatingActionButton(
+        appBar: AppBar(title: const Text('Warehouse Storage Zones')),
+        floatingActionButton: FloatingActionButton.extended(
+          backgroundColor: KColors.primary,
+          foregroundColor: Colors.white,
           tooltip: 'Create Zone (N)',
           onPressed: () => _showCreateZoneSheet(context),
-          child: const Icon(Icons.add),
+          icon: const Icon(Icons.add),
+          label: const Text('New Zone'),
         ),
         body: Column(
           children: [
@@ -55,7 +58,7 @@ class _WarehouseZoneScreenState extends ConsumerState<WarehouseZoneScreen> {
                 child: DropdownButtonFormField<String>(
                   initialValue: _selectedWarehouseId,
                   decoration: const InputDecoration(
-                    labelText: 'Warehouse',
+                    labelText: 'Filter by Warehouse',
                     border: OutlineInputBorder(),
                   ),
                   hint: const Text('All Warehouses'),
@@ -73,20 +76,31 @@ class _WarehouseZoneScreenState extends ConsumerState<WarehouseZoneScreen> {
                 ),
               ),
             ),
+            KSpacing.vGapSm,
             // Zones list
             Expanded(
               child: zonesAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(child: Text(ApiErrorParser.message(e))),
+                loading: () => const Center(child: KLoading(message: 'Loading warehouse zones...')),
+                error: (e, _) => KErrorView(
+                  message: ApiErrorParser.message(e),
+                  onRetry: () => ref.invalidate(_warehouseZonesProvider),
+                ),
                 data: (zones) {
                   if (zones.isEmpty) {
-                    return const Center(child: Text('No zones defined for this warehouse'));
+                    return KEmptyState(
+                      icon: Icons.grid_view_outlined,
+                      title: 'No Warehouse Zones Found',
+                      subtitle: 'Divide warehouse floor space into functional zones (storage, receiving, dispatch, quarantine).',
+                      actionLabel: 'Create Zone',
+                      onAction: () => _showCreateZoneSheet(context),
+                    );
                   }
                   return RefreshIndicator(
                     onRefresh: () async => ref.invalidate(_warehouseZonesProvider),
-                    child: ListView.builder(
+                    child: ListView.separated(
                       padding: KSpacing.pagePadding,
                       itemCount: zones.length,
+                      separatorBuilder: (_, __) => KSpacing.vGapSm,
                       itemBuilder: (_, i) {
                         final zone = zones[i] as Map<String, dynamic>;
                         return _ZoneCard(zone: zone);
@@ -106,6 +120,7 @@ class _WarehouseZoneScreenState extends ConsumerState<WarehouseZoneScreen> {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (_) => _CreateZoneSheet(
         warehouseId: _selectedWarehouseId,
         onCreated: () => ref.invalidate(_warehouseZonesProvider),
@@ -122,27 +137,52 @@ class _ZoneCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final zoneType = zone['zoneType'] as String? ?? 'STORAGE';
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: KSpacing.sm),
-      child: ListTile(
-        leading: const Icon(Icons.grid_view_outlined),
-        title: Row(
-          children: [
-            Text(zone['name'] as String? ?? '', style: KTypography.titleSmall),
-            const SizedBox(width: KSpacing.sm),
-            KStatusChip(status: zoneType),
-          ],
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (zone['description'] != null)
-              Text(zone['description'] as String,
-                  maxLines: 1, overflow: TextOverflow.ellipsis),
-            Text('Warehouse: ${zone['warehouseName'] ?? 'N/A'}',
-                style: KTypography.bodySmall),
-          ],
-        ),
+    return KCard(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(KSpacing.sm),
+            decoration: BoxDecoration(
+              color: KColors.primary.withValues(alpha: 0.12),
+              borderRadius: KSpacing.borderRadiusSm,
+            ),
+            child: const Icon(Icons.grid_view_outlined, color: KColors.primary, size: 24),
+          ),
+          KSpacing.hGapMd,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(zone['name'] as String? ?? '', style: KTypography.titleMedium),
+                    KSpacing.hGapSm,
+                    KStatusChip(status: zoneType),
+                  ],
+                ),
+                if (zone['description'] != null) ...[
+                  KSpacing.vGapXs,
+                  Text(zone['description'] as String,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
+                ],
+                KSpacing.vGapXs,
+                Row(
+                  children: [
+                    const Icon(Icons.warehouse_outlined, size: 14, color: KColors.textSecondary),
+                    const SizedBox(width: 4),
+                    Text(
+                      zone['warehouseName']?.toString() ?? 'Default Warehouse',
+                      style: KTypography.caption.copyWith(color: KColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -159,72 +199,82 @@ class _CreateZoneSheet extends ConsumerStatefulWidget {
 
 class _CreateZoneSheetState extends ConsumerState<_CreateZoneSheet> {
   final _nameCtrl = TextEditingController();
+  final _descCtrl = TextEditingController();
   String _zoneType = 'STORAGE';
   bool _loading = false;
 
   @override
   void dispose() {
     _nameCtrl.dispose();
+    _descCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return Container(
+      decoration: const BoxDecoration(
+        color: KColors.surface,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(KSpacing.radiusLg)),
+      ),
       padding: EdgeInsets.fromLTRB(
-          KSpacing.md,
-          KSpacing.md,
-          KSpacing.md,
-          MediaQuery.of(context).viewInsets.bottom + KSpacing.md),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Create Zone', style: KTypography.titleMedium),
-          const SizedBox(height: KSpacing.md),
-          TextField(
-            controller: _nameCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Zone Name',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: KSpacing.sm),
-          DropdownButtonFormField<String>(
-            initialValue: _zoneType,
-            decoration: const InputDecoration(
-              labelText: 'Zone Type',
-              border: OutlineInputBorder(),
-            ),
-            items: const [
-              DropdownMenuItem(value: 'STORAGE', child: Text('Storage')),
-              DropdownMenuItem(value: 'QUARANTINE', child: Text('Quarantine')),
-              DropdownMenuItem(value: 'DISPATCH', child: Text('Dispatch')),
-              DropdownMenuItem(value: 'RECEIVING', child: Text('Receiving')),
-              DropdownMenuItem(value: 'RETURNS', child: Text('Returns')),
-            ],
-            onChanged: (v) => setState(() => _zoneType = v!),
-          ),
-          const SizedBox(height: KSpacing.md),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              TextButton(
+          KSpacing.lg,
+          KSpacing.lg,
+          KSpacing.lg,
+          MediaQuery.of(context).viewInsets.bottom + KSpacing.lg),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(child: Text('Create Warehouse Zone', style: KTypography.titleLarge)),
+                IconButton(
+                  icon: const Icon(Icons.close),
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel')),
-              const SizedBox(width: KSpacing.sm),
-              FilledButton(
-                onPressed: _loading ? null : _create,
-                child: _loading
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('Create'),
+                ),
+              ],
+            ),
+            KSpacing.vGapMd,
+            KTextField(
+              controller: _nameCtrl,
+              autofocus: true,
+              label: 'Zone Name / Identifier',
+              hint: 'e.g. Zone A - Cold Storage, High Rack North',
+            ),
+            KSpacing.vGapSm,
+            DropdownButtonFormField<String>(
+              initialValue: _zoneType,
+              decoration: const InputDecoration(
+                labelText: 'Zone Function Type',
+                border: OutlineInputBorder(),
               ),
-            ],
-          ),
-        ],
+              items: const [
+                DropdownMenuItem(value: 'STORAGE', child: Text('Standard Storage')),
+                DropdownMenuItem(value: 'QUARANTINE', child: Text('Quarantine & Inspection')),
+                DropdownMenuItem(value: 'DISPATCH', child: Text('Dispatch & Staging')),
+                DropdownMenuItem(value: 'RECEIVING', child: Text('Receiving Dock')),
+                DropdownMenuItem(value: 'RETURNS', child: Text('Returns & Quarantine')),
+              ],
+              onChanged: (v) => setState(() => _zoneType = v!),
+            ),
+            KSpacing.vGapSm,
+            KTextField(
+              controller: _descCtrl,
+              label: 'Zone Description (Optional)',
+              hint: 'Temperature rating, access restrictions, capacity limits',
+              maxLines: 2,
+            ),
+            KSpacing.vGapLg,
+            KButton.primary(
+              label: 'Create Zone',
+              icon: Icons.check,
+              isLoading: _loading,
+              onPressed: _loading ? null : _create,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -236,6 +286,7 @@ class _CreateZoneSheetState extends ConsumerState<_CreateZoneSheet> {
       await ref.read(inventoryRepositoryProvider).createWarehouseZone({
         'name': _nameCtrl.text.trim(),
         'zoneType': _zoneType,
+        'description': _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
         if (widget.warehouseId != null) 'warehouseId': widget.warehouseId,
       });
       widget.onCreated();

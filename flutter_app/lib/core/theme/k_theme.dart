@@ -167,14 +167,15 @@ class KTheme {
       ),
       dataTableTheme: DataTableThemeData(
         headingRowHeight: 38,
-        dataRowMinHeight: 42,
-        dataRowMaxHeight: 50,
-        columnSpacing: 12,
-        horizontalMargin: 10,
-        dividerThickness: 0.5,
+        dataRowMinHeight: 38,
+        dataRowMaxHeight: 46,
+        columnSpacing: 16,
+        horizontalMargin: 14,
+        dividerThickness: 1.0,
         headingTextStyle: GoogleFonts.inter(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.4,
           color: KColors.textSecondary, // warm #5F5F59
         ),
         dataTextStyle: GoogleFonts.inter(
@@ -204,7 +205,7 @@ class KTheme {
         brightness: Brightness.dark,
       ),
       surfaceMode: FlexSurfaceMode.levelSurfacesLowScaffold,
-      blendLevel: 12,
+      blendLevel: 10,
       appBarStyle: FlexAppBarStyle.surface,
       appBarOpacity: 1.0,
       appBarElevation: 0.0,
@@ -221,7 +222,7 @@ class KTheme {
       fontFamily: _fontFamily,
       useMaterial3: true,
       swapLegacyOnMaterial3: true,
-      scaffoldBackground: const Color(0xFF0B1120),
+      scaffoldBackground: const Color(0xFF0F172A), // slate-900
     );
 
     return theme.copyWith(
@@ -252,15 +253,16 @@ class KTheme {
       ),
       dataTableTheme: DataTableThemeData(
         headingRowHeight: 38,
-        dataRowMinHeight: 42,
-        dataRowMaxHeight: 50,
-        columnSpacing: 12,
-        horizontalMargin: 10,
-        dividerThickness: 0.5,
+        dataRowMinHeight: 38,
+        dataRowMaxHeight: 46,
+        columnSpacing: 16,
+        horizontalMargin: 14,
+        dividerThickness: 1.0,
         headingTextStyle: GoogleFonts.inter(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          color: const Color(0xFFCBD5E1),
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.4,
+          color: const Color(0xFF94A3B8),
         ),
         dataTextStyle: GoogleFonts.inter(
           fontSize: 13,

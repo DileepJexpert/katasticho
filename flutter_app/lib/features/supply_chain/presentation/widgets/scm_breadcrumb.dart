@@ -1,44 +1,57 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/theme/k_colors.dart';
+import '../../../../core/theme/k_spacing.dart';
+import '../../../../core/theme/k_typography.dart';
 import '../../../../routing/app_router.dart';
 
-/// Thin breadcrumb bar for Supply Chain sub-screens: "Supply Chain › {current}".
-/// "Supply Chain" taps back to the dashboard hub, so a sub-screen never feels
-/// like an orphan module. Drop into an AppBar's `bottom:`.
+/// Breadcrumb bar for Supply Chain sub-screens: "Supply Chain › {current}".
+/// Links back to the dashboard hub.
 PreferredSizeWidget scmBreadcrumb(BuildContext context, String current) {
+  final cs = Theme.of(context).colorScheme;
+
   return PreferredSize(
-    preferredSize: const Size.fromHeight(34),
+    preferredSize: const Size.fromHeight(36),
     child: Align(
       alignment: Alignment.centerLeft,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+        padding: const EdgeInsets.fromLTRB(KSpacing.md, 0, KSpacing.md, KSpacing.xs),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            InkWell(
-              onTap: () => context.go(Routes.supplyChainDashboard),
-              borderRadius: BorderRadius.circular(6),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.hub_outlined, size: 14, color: KColors.primary),
-                    const SizedBox(width: 4),
-                    Text('Supply Chain',
-                        style: TextStyle(
-                            color: KColors.primary,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 12)),
-                  ],
+            Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(KSpacing.radiusSm),
+              child: InkWell(
+                onTap: () => context.go(Routes.supplyChainDashboard),
+                borderRadius: BorderRadius.circular(KSpacing.radiusSm),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.hub_outlined, size: 14, color: cs.primary),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Supply Chain',
+                        style: KTypography.labelSmall.copyWith(
+                          color: cs.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-            Icon(Icons.chevron_right, size: 14, color: KColors.textSecondary),
+            Icon(Icons.chevron_right_rounded, size: 14, color: cs.onSurfaceVariant.withValues(alpha: 0.7)),
             const SizedBox(width: 2),
-            Text(current,
-                style: TextStyle(color: KColors.textSecondary, fontSize: 12)),
+            Text(
+              current,
+              style: KTypography.labelSmall.copyWith(
+                color: cs.onSurfaceVariant,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ],
         ),
       ),

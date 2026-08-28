@@ -4,6 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
+import '../../../core/theme/k_colors.dart';
+import '../../../core/theme/k_spacing.dart';
+import '../../../core/theme/k_typography.dart';
+import '../../../core/widgets/widgets.dart';
 
 /// HR self-service profile — Core HR module 2 UI.
 /// Any logged-in employee can read their full profile and edit safe
@@ -108,40 +112,38 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: KLoading(message: 'Loading employee profile...'))
           : _notLinked
               ? _NotLinkedView(
                   busy: _claiming,
                   onCreate: _claimProfile,
                 )
               : _error != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(_error!, textAlign: TextAlign.center),
-                  ),
+              ? KErrorView(
+                  message: _error!,
+                  onRetry: _load,
                 )
               : RefreshIndicator(
                   onRefresh: _load,
                   child: ListView(
-                    padding: const EdgeInsets.all(16),
+                    padding: KSpacing.pagePadding,
                     children: [
                       _headerCard(),
-                      const SizedBox(height: 16),
+                      KSpacing.vGapMd,
                       _personalCard(),
-                      const SizedBox(height: 16),
-                      _addressCard('Current address', _employee, 'current'),
-                      const SizedBox(height: 16),
-                      _addressCard('Permanent address', _employee, 'permanent'),
-                      const SizedBox(height: 16),
+                      KSpacing.vGapMd,
+                      _addressCard('Current Address', _employee, 'current'),
+                      KSpacing.vGapMd,
+                      _addressCard('Permanent Address', _employee, 'permanent'),
+                      KSpacing.vGapMd,
                       _emergencyCard(),
-                      const SizedBox(height: 16),
+                      KSpacing.vGapMd,
                       _familyCard(),
-                      const SizedBox(height: 16),
+                      KSpacing.vGapMd,
                       _educationCard(),
-                      const SizedBox(height: 16),
+                      KSpacing.vGapMd,
                       _experienceCard(),
-                      const SizedBox(height: 24),
+                      KSpacing.vGapLg,
                     ],
                   ),
                 ),
@@ -152,41 +154,93 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
 
   Widget _headerCard() {
     final e = _employee;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              (e['fullName'] ?? '—') as String,
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 4),
-            Text('${e['designation'] ?? '—'} · ${e['department'] ?? '—'}'),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 12,
-              runSpacing: 4,
-              children: [
-                if (e['employeeCode'] != null)
-                  Chip(label: Text('Code: ${e['employeeCode']}')),
-                if (e['employmentType'] != null)
-                  Chip(label: Text('${e['employmentType']}')),
-                if (e['employmentStatus'] != null)
-                  Chip(label: Text('${e['employmentStatus']}')),
-                if (e['dateOfJoining'] != null)
-                  Chip(label: Text('Joined ${e['dateOfJoining']}')),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Designation, department, employment status and salary are '
-              'set by HR — contact your manager to update them.',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
-        ),
+    final status = (e['employmentStatus'] ?? 'ACTIVE').toString().toUpperCase();
+    final empCode = e['employeeCode']?.toString();
+
+    return KCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: KColors.primary.withValues(alpha: 0.12),
+                child: Text(
+                  (e['fullName']?.toString() ?? 'U').characters.first.toUpperCase(),
+                  style: KTypography.titleLarge.copyWith(color: KColors.primary),
+                ),
+              ),
+              KSpacing.hGapMd,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      (e['fullName'] ?? '—') as String,
+                      style: KTypography.titleLarge,
+                    ),
+                    KSpacing.vGapXs,
+                    Text(
+                      '${e['designation'] ?? 'Employee'} · ${e['department'] ?? 'General'}',
+                      style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              KStatusChip(status: status),
+            ],
+          ),
+          KSpacing.vGapMd,
+          const Divider(height: 1),
+          KSpacing.vGapSm,
+          Wrap(
+            spacing: KSpacing.sm,
+            runSpacing: KSpacing.xs,
+            children: [
+              if (empCode != null && empCode.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: KColors.surface,
+                    borderRadius: KSpacing.borderRadiusSm,
+                    border: Border.all(color: KColors.border),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('Code: ', style: KTypography.caption),
+                      Text(empCode, style: KTypography.mono(fontSize: 12, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+              if (e['employmentType'] != null)
+                KStatusChip(status: e['employmentType'].toString()),
+              if (e['dateOfJoining'] != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: KColors.surface,
+                    borderRadius: KSpacing.borderRadiusSm,
+                    border: Border.all(color: KColors.border),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('Joined: ', style: KTypography.caption),
+                      Text('${e['dateOfJoining']}', style: KTypography.mono(fontSize: 12, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          KSpacing.vGapSm,
+          Text(
+            'Designation, department, employment status and salary structure are '
+            'controlled by HR / Admin. Contact your manager for changes.',
+            style: KTypography.caption.copyWith(color: KColors.textSecondary),
+          ),
+        ],
       ),
     );
   }
@@ -196,7 +250,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
   Widget _personalCard() {
     final e = _employee;
     return _section(
-      title: 'Personal',
+      title: 'Personal Information',
       onEdit: _editPersonal,
       rows: [
         _kv('Date of birth', e['dateOfBirth']),
@@ -205,7 +259,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
         _kv('Blood group', e['bloodGroup']),
         _kv('Nationality', e['nationality']),
         _kv('Personal email', e['personalEmail']),
-        _kv('Phone', e['phone']),
+        _kv('Phone number', e['phone']),
       ],
     );
   }
@@ -226,8 +280,8 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       title: title,
       onEdit: () => _editAddress(title, prefix),
       rows: [
-        _kv('Line 1', e['${prefix}AddressLine1']),
-        _kv('Line 2', e['${prefix}AddressLine2']),
+        _kv('Address line 1', e['${prefix}AddressLine1']),
+        _kv('Address line 2', e['${prefix}AddressLine2']),
         _kv('City', e['${prefix}City']),
         _kv('State', e['${prefix}State']),
         _kv('Pincode', e['${prefix}Pincode']),
@@ -458,29 +512,23 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     required VoidCallback onEdit,
     required List<Widget> rows,
   }) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(title,
-                      style: Theme.of(context).textTheme.titleMedium),
-                ),
-                TextButton.icon(
-                  onPressed: onEdit,
-                  icon: const Icon(Icons.edit, size: 16),
-                  label: const Text('Edit'),
-                ),
-              ],
+    return KCard(
+      title: title,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ...rows,
+          KSpacing.vGapSm,
+          Align(
+            alignment: Alignment.centerRight,
+            child: KButton.outlined(
+              label: 'Edit',
+              size: KButtonSize.small,
+              icon: Icons.edit_outlined,
+              onPressed: onEdit,
             ),
-            const Divider(height: 16),
-            ...rows,
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -494,37 +542,26 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     required String Function(Map<String, dynamic>) titleOf,
     required String Function(Map<String, dynamic>) subtitleOf,
   }) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(title,
-                      style: Theme.of(context).textTheme.titleMedium),
-                ),
-                TextButton.icon(
-                  onPressed: onAdd,
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text('Add'),
-                ),
-              ],
-            ),
-            const Divider(height: 16),
-            if (items.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: Text('None yet.'),
-              )
-            else
-              ...items.map(
-                (row) => ListTile(
+    return KCard(
+      title: title,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (items.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text('None added yet.', style: KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
+            )
+          else
+            ...items.map(
+              (row) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: ListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: Text(titleOf(row)),
-                  subtitle: subtitleOf(row).isEmpty ? null : Text(subtitleOf(row)),
+                  title: Text(titleOf(row), style: KTypography.titleSmall),
+                  subtitle: subtitleOf(row).isEmpty
+                      ? null
+                      : Text(subtitleOf(row), style: KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
                   trailing: PopupMenuButton<String>(
                     onSelected: (v) =>
                         v == 'edit' ? onEdit(row) : onDelete(row),
@@ -536,31 +573,42 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                   onTap: () => onEdit(row),
                 ),
               ),
-          ],
-        ),
+            ),
+          KSpacing.vGapSm,
+          Align(
+            alignment: Alignment.centerRight,
+            child: KButton.primary(
+              label: 'Add Entry',
+              size: KButtonSize.small,
+              icon: Icons.add,
+              onPressed: onAdd,
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _kv(String label, Object? value) {
     final text = value?.toString();
-    if (text == null || text.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          children: [
-            SizedBox(width: 140, child: Text(label)),
-            const Expanded(child: Text('—', style: TextStyle(color: Colors.grey))),
-          ],
-        ),
-      );
-    }
+    final isNone = text == null || text.trim().isEmpty;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(width: 140, child: Text(label)),
-          Expanded(child: Text(text)),
+          SizedBox(
+            width: 140,
+            child: Text(label, style: KTypography.labelSmall.copyWith(color: KColors.textSecondary)),
+          ),
+          Expanded(
+            child: Text(
+              isNone ? '—' : text,
+              style: isNone
+                  ? KTypography.bodyMedium.copyWith(color: KColors.textTertiary)
+                  : KTypography.bodyMedium,
+            ),
+          ),
         ],
       ),
     );
@@ -1173,43 +1221,17 @@ class _NotLinkedView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 480),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.badge_outlined, size: 64, color: cs.primary),
-              const SizedBox(height: 16),
-              Text(
-                'Set up your employee profile',
-                style: Theme.of(context).textTheme.titleLarge,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Your login is not linked to an employee record yet. '
-                'Tap the button below to create one using your account '
-                'name and email — it takes a second.',
-                style: Theme.of(context).textTheme.bodyMedium,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              FilledButton.icon(
-                onPressed: busy ? null : onCreate,
-                icon: busy
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.person_add_outlined),
-                label: Text(busy ? 'Creating…' : 'Create my employee profile'),
-              ),
-            ],
-          ),
+        padding: KSpacing.pagePadding,
+        child: KEmptyState(
+          icon: Icons.badge_outlined,
+          title: 'Set Up Your Employee Profile',
+          subtitle:
+              'Your login is not linked to an employee record yet. '
+              'Tap the button below to link or claim an employee profile.',
+          actionLabel: busy ? 'Creating Profile…' : 'Create My Employee Profile',
+          onAction: busy ? null : onCreate,
         ),
       ),
     );

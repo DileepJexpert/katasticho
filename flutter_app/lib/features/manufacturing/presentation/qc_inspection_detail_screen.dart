@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/k_colors.dart';
+import '../../../core/theme/k_spacing.dart';
+import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/qc_repository.dart';
 
@@ -45,11 +48,9 @@ class _QcInspectionDetailScreenState
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     if (_loading) {
       return const Scaffold(
-          body: Center(child: CircularProgressIndicator()));
+          body: Center(child: KLoading(message: 'Loading inspection...')));
     }
     if (_error != null) {
       return Scaffold(
@@ -107,23 +108,22 @@ class _QcInspectionDetailScreenState
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: KSpacing.pagePadding,
           children: [
             // ── Status banner ───────────────────────────────────────────
             _StatusBanner(status: status),
-            const SizedBox(height: 16),
+            KSpacing.vGapMd,
 
             // ── Overview card ───────────────────────────────────────────
             KCard(
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(KSpacing.md),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Overview',
-                      style: theme.textTheme.titleSmall
-                          ?.copyWith(fontWeight: FontWeight.w600),
+                      style: KTypography.titleSmall,
                     ),
                     const Divider(height: 20),
                     _InfoRow('Inspection #',
@@ -181,12 +181,12 @@ class _QcInspectionDetailScreenState
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            KSpacing.vGapMd,
 
             // ── Results card ────────────────────────────────────────────
             KCard(
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(KSpacing.md),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -195,14 +195,13 @@ class _QcInspectionDetailScreenState
                         Expanded(
                           child: Text(
                             'Inspection Results',
-                            style: theme.textTheme.titleSmall
-                                ?.copyWith(fontWeight: FontWeight.w600),
+                            style: KTypography.titleSmall,
                           ),
                         ),
                         Text(
                           '${results.length} parameter(s)',
-                          style: theme.textTheme.bodySmall
-                              ?.copyWith(color: Colors.grey),
+                          style: KTypography.bodySmall
+                              .copyWith(color: KColors.textSecondary),
                         ),
                       ],
                     ),
@@ -212,7 +211,7 @@ class _QcInspectionDetailScreenState
                         padding: EdgeInsets.symmetric(vertical: 12),
                         child: Text(
                           'No results recorded yet.',
-                          style: TextStyle(color: Colors.grey),
+                          style: TextStyle(color: KColors.textSecondary),
                         ),
                       )
                     else
@@ -225,22 +224,22 @@ class _QcInspectionDetailScreenState
 
             // ── Action buttons (bottom area for PENDING / IN_PROGRESS) ──
             if (isEditable) ...[
-              const SizedBox(height: 24),
+              KSpacing.vGapLg,
               Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.checklist_rtl),
-                      label: const Text('Record Results'),
+                    child: KButton.outlined(
+                      icon: Icons.checklist_rtl,
+                      label: 'Record Results',
                       onPressed: () =>
                           _showRecordResultsDialog(results),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  KSpacing.hGapMd,
                   Expanded(
-                    child: FilledButton.icon(
-                      icon: const Icon(Icons.verified_outlined),
-                      label: const Text('Finalize'),
+                    child: KButton.primary(
+                      icon: Icons.verified_outlined,
+                      label: 'Finalize',
                       onPressed: _showFinalizeDialog,
                     ),
                   ),
@@ -249,23 +248,23 @@ class _QcInspectionDetailScreenState
             ],
             // ── Disposition / CoA (finalized inspections) ───────────────
             if (isFinalized) ...[
-              const SizedBox(height: 24),
+              KSpacing.vGapLg,
               Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.description_outlined),
-                      label: const Text('View CoA'),
+                    child: KButton.outlined(
+                      icon: Icons.description_outlined,
+                      label: 'View CoA',
                       onPressed: _showCoaDialog,
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  KSpacing.hGapMd,
                   Expanded(
-                    child: FilledButton.icon(
-                      icon: const Icon(Icons.gavel_outlined),
-                      label: Text(hasDisposition
+                    child: KButton.primary(
+                      icon: Icons.gavel_outlined,
+                      label: hasDisposition
                           ? 'Dispositioned'
-                          : 'Record Disposition'),
+                          : 'Record Disposition',
                       onPressed:
                           hasDisposition ? null : _showDispositionDialog,
                     ),
@@ -273,7 +272,7 @@ class _QcInspectionDetailScreenState
                 ],
               ),
             ],
-            const SizedBox(height: 24),
+            KSpacing.vGapLg,
           ],
         ),
       ),
@@ -284,7 +283,6 @@ class _QcInspectionDetailScreenState
 
   Future<void> _showRecordResultsDialog(
       List<Map<String, dynamic>> existingResults) async {
-    // Build editable result rows pre-populated from existing results.
     final rows = existingResults.isNotEmpty
         ? existingResults
             .map((r) => _ResultInput.fromMap(r))
@@ -337,7 +335,7 @@ class _QcInspectionDetailScreenState
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
             ),
-            const SizedBox(height: 12),
+            KSpacing.vGapSm,
             TextField(
               controller: rejectedCtl,
               decoration: const InputDecoration(
@@ -345,7 +343,7 @@ class _QcInspectionDetailScreenState
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
             ),
-            const SizedBox(height: 12),
+            KSpacing.vGapSm,
             TextField(
               controller: notesCtl,
               decoration: const InputDecoration(
@@ -356,12 +354,17 @@ class _QcInspectionDetailScreenState
           ],
         ),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
-          FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Finalize')),
+          KButton.outlined(
+            size: KButtonSize.small,
+            label: 'Cancel',
+            onPressed: () => Navigator.pop(ctx, false),
+          ),
+          KSpacing.hGapSm,
+          KButton.primary(
+            size: KButtonSize.small,
+            label: 'Finalize',
+            onPressed: () => Navigator.pop(ctx, true),
+          ),
         ],
       ),
     );
@@ -410,9 +413,9 @@ class _QcInspectionDetailScreenState
                 Text(
                   'Inspected qty: $inspected. Accepted + Rejected + Hold '
                   'must equal the inspected quantity.',
-                  style: Theme.of(ctx).textTheme.bodySmall,
+                  style: KTypography.bodySmall,
                 ),
-                const SizedBox(height: 12),
+                KSpacing.vGapSm,
                 DropdownButtonFormField<String>(
                   initialValue: decision,
                   decoration: const InputDecoration(
@@ -424,7 +427,7 @@ class _QcInspectionDetailScreenState
                   ],
                   onChanged: (v) => setLocal(() => decision = v ?? decision),
                 ),
-                const SizedBox(height: 12),
+                KSpacing.vGapSm,
                 TextField(
                   controller: acceptedCtl,
                   decoration: const InputDecoration(
@@ -432,7 +435,7 @@ class _QcInspectionDetailScreenState
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
                 ),
-                const SizedBox(height: 12),
+                KSpacing.vGapSm,
                 TextField(
                   controller: rejectedCtl,
                   decoration: const InputDecoration(
@@ -440,7 +443,7 @@ class _QcInspectionDetailScreenState
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
                 ),
-                const SizedBox(height: 12),
+                KSpacing.vGapSm,
                 TextField(
                   controller: holdCtl,
                   decoration: const InputDecoration(
@@ -449,7 +452,7 @@ class _QcInspectionDetailScreenState
                       const TextInputType.numberWithOptions(decimal: true),
                 ),
                 if (decision == 'HOLD') ...[
-                  const SizedBox(height: 12),
+                  KSpacing.vGapSm,
                   TextField(
                     controller: zoneCtl,
                     decoration: const InputDecoration(
@@ -458,7 +461,7 @@ class _QcInspectionDetailScreenState
                         border: OutlineInputBorder()),
                   ),
                 ],
-                const SizedBox(height: 12),
+                KSpacing.vGapSm,
                 TextField(
                   controller: notesCtl,
                   decoration: const InputDecoration(
@@ -470,12 +473,17 @@ class _QcInspectionDetailScreenState
             ),
           ),
           actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel')),
-            FilledButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Record')),
+            KButton.outlined(
+              size: KButtonSize.small,
+              label: 'Cancel',
+              onPressed: () => Navigator.pop(ctx, false),
+            ),
+            KSpacing.hGapSm,
+            KButton.primary(
+              size: KButtonSize.small,
+              label: 'Record',
+              onPressed: () => Navigator.pop(ctx, true),
+            ),
           ],
         ),
       ),
@@ -509,7 +517,7 @@ class _QcInspectionDetailScreenState
           builder: (ctx, snap) {
             if (snap.connectionState == ConnectionState.waiting) {
               return const SizedBox(
-                  height: 80, child: Center(child: CircularProgressIndicator()));
+                  height: 80, child: Center(child: KLoading(message: 'Generating CoA...')));
             }
             if (snap.hasError) {
               return Text('Could not load CoA: ${snap.error}');
@@ -520,15 +528,17 @@ class _QcInspectionDetailScreenState
               width: double.maxFinite,
               child: SingleChildScrollView(
                 child: SelectableText(pretty,
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+                    style: KTypography.mono(fontSize: 12)),
               ),
             );
           },
         ),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Close')),
+          KButton.primary(
+            size: KButtonSize.small,
+            label: 'Close',
+            onPressed: () => Navigator.pop(ctx),
+          ),
         ],
       ),
     );
@@ -542,7 +552,7 @@ class _QcInspectionDetailScreenState
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text(message), backgroundColor: Colors.green),
+            content: Text(message), backgroundColor: KColors.success),
       );
     }
   }
@@ -550,7 +560,7 @@ class _QcInspectionDetailScreenState
   void _showError(Object e) {
     if (mounted) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Failed: $e')));
+          .showSnackBar(SnackBar(content: Text('Failed: $e'), backgroundColor: KColors.error));
     }
   }
 
@@ -579,34 +589,21 @@ class _StatusBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (color, icon) = switch (status) {
-      'PENDING' => (Colors.grey, Icons.hourglass_empty),
-      'IN_PROGRESS' => (Colors.blue, Icons.science),
-      'PASSED' => (Colors.green, Icons.check_circle),
-      'FAILED' => (Colors.red, Icons.cancel),
-      'PARTIAL' => (Colors.orange, Icons.adjust),
-      _ => (Colors.grey, Icons.help_outline),
-    };
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: color),
-          const SizedBox(width: 12),
-          Text(
-            status.replaceAll('_', ' '),
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w600,
-                ),
-          ),
-        ],
+    return KCard(
+      child: Padding(
+        padding: const EdgeInsets.all(KSpacing.md),
+        child: Row(
+          children: [
+            KStatusChip(status: status),
+            KSpacing.hGapMd,
+            Expanded(
+              child: Text(
+                'Status: ${status.replaceAll('_', ' ')}',
+                style: KTypography.labelLarge,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -622,7 +619,7 @@ class _InfoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.only(bottom: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -630,15 +627,11 @@ class _InfoRow extends StatelessWidget {
             width: 120,
             child: Text(
               label,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: Colors.grey),
+              style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
             ),
           ),
           Expanded(
-            child: Text(value,
-                style: Theme.of(context).textTheme.bodyMedium),
+            child: Text(value, style: KTypography.bodyMedium),
           ),
         ],
       ),
@@ -654,7 +647,6 @@ class _ResultRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final paramName = result['parameterName']?.toString();
     final rawParamId = result['parameterId']?.toString() ?? '';
     final paramId = (paramName != null && paramName.isNotEmpty)
@@ -674,30 +666,27 @@ class _ResultRow extends StatelessWidget {
         children: [
           Icon(
             isPassed ? Icons.check_circle : Icons.cancel,
-            color: isPassed ? Colors.green : Colors.red,
+            color: isPassed ? KColors.success : KColors.error,
             size: 20,
           ),
-          const SizedBox(width: 10),
+          KSpacing.hGapMd,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Param: $paramId',
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(fontWeight: FontWeight.w600),
+                  style: KTypography.labelLarge,
                 ),
                 if (measuredValue.isNotEmpty)
-                  Text('Value: $measuredValue',
-                      style: theme.textTheme.bodySmall),
+                  Text('Value: $measuredValue', style: KTypography.bodySmall),
                 if (numericValue != null)
-                  Text('Numeric: $numericValue',
-                      style: theme.textTheme.bodySmall),
+                  Text('Numeric: $numericValue', style: KTypography.bodySmall),
                 if (notes.isNotEmpty)
                   Text(
                     notes,
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: Colors.grey),
+                    style: KTypography.bodySmall
+                        .copyWith(color: KColors.textSecondary),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -743,7 +732,6 @@ class _RecordResultsDialogState extends State<_RecordResultsDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Scroll area for rows
             ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 420),
               child: SingleChildScrollView(
@@ -765,30 +753,28 @@ class _RecordResultsDialogState extends State<_RecordResultsDialog> {
                 ),
               ),
             ),
-            const SizedBox(height: 8),
-            TextButton.icon(
-              icon: const Icon(Icons.add),
-              label: const Text('Add Row'),
+            KSpacing.vGapSm,
+            KButton.outlined(
+              size: KButtonSize.small,
+              icon: Icons.add,
+              label: 'Add Row',
               onPressed: () => setState(() => _rows.add(_ResultInput())),
             ),
           ],
         ),
       ),
       actions: [
-        TextButton(
+        KButton.outlined(
+          size: KButtonSize.small,
+          label: 'Cancel',
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
         ),
-        FilledButton(
+        KSpacing.hGapSm,
+        KButton.primary(
+          size: KButtonSize.small,
           onPressed: _submitting ? null : _submit,
-          child: _submitting
-              ? const SizedBox(
-                  height: 18,
-                  width: 18,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Colors.white),
-                )
-              : const Text('Save'),
+          isLoading: _submitting,
+          label: 'Save',
         ),
       ],
     );
@@ -860,101 +846,99 @@ class _ResultInputRowState extends State<_ResultInputRow> {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      elevation: 0,
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Text('Row ${widget.index + 1}',
-                    style: Theme.of(context)
-                        .textTheme
-                        .labelMedium
-                        ?.copyWith(fontWeight: FontWeight.w600)),
-                const Spacer(),
-                if (widget.onRemove != null)
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline, size: 18),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: widget.onRemove,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: KCard(
+        child: Padding(
+          padding: const EdgeInsets.all(KSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    'Row ${widget.index + 1}',
+                    style: KTypography.labelLarge,
                   ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _paramCtl,
-              decoration: const InputDecoration(
-                labelText: 'Parameter ID (UUID)',
-                isDense: true,
-                border: OutlineInputBorder(),
+                  const Spacer(),
+                  if (widget.onRemove != null)
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, size: 18, color: KColors.error),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: widget.onRemove,
+                    ),
+                ],
               ),
-              onChanged: (_) => _sync(),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _measuredCtl,
-              decoration: const InputDecoration(
-                labelText: 'Measured Value',
-                isDense: true,
-                border: OutlineInputBorder(),
-              ),
-              onChanged: (_) => _sync(),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _numericCtl,
-              decoration: const InputDecoration(
-                labelText: 'Numeric Value',
-                isDense: true,
-                border: OutlineInputBorder(),
-              ),
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              onChanged: (_) => _sync(),
-            ),
-            const SizedBox(height: 8),
-            // isPassed toggle
-            Row(
-              children: [
-                const Text('Passed?'),
-                const SizedBox(width: 8),
-                Switch(
-                  value: widget.row.isPassed,
-                  onChanged: (v) {
-                    setState(() => widget.row.isPassed = v);
-                    widget.onChanged();
-                  },
+              KSpacing.vGapSm,
+              TextField(
+                controller: _paramCtl,
+                decoration: const InputDecoration(
+                  labelText: 'Parameter ID (UUID)',
+                  isDense: true,
+                  border: OutlineInputBorder(),
                 ),
-                const Spacer(),
-                Icon(
-                  widget.row.isPassed
-                      ? Icons.check_circle
-                      : Icons.cancel,
-                  color: widget.row.isPassed
-                      ? Colors.green
-                      : Colors.red,
-                  size: 20,
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _notesCtl,
-              decoration: const InputDecoration(
-                labelText: 'Notes',
-                isDense: true,
-                border: OutlineInputBorder(),
+                onChanged: (_) => _sync(),
               ),
-              maxLines: 2,
-              onChanged: (_) => _sync(),
-            ),
-          ],
+              KSpacing.vGapSm,
+              TextField(
+                controller: _measuredCtl,
+                decoration: const InputDecoration(
+                  labelText: 'Measured Value',
+                  isDense: true,
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (_) => _sync(),
+              ),
+              KSpacing.vGapSm,
+              TextField(
+                controller: _numericCtl,
+                decoration: const InputDecoration(
+                  labelText: 'Numeric Value',
+                  isDense: true,
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                onChanged: (_) => _sync(),
+              ),
+              KSpacing.vGapSm,
+              Row(
+                children: [
+                  const Text('Passed?'),
+                  KSpacing.hGapSm,
+                  Switch(
+                    value: widget.row.isPassed,
+                    onChanged: (v) {
+                      setState(() => widget.row.isPassed = v);
+                      widget.onChanged();
+                    },
+                  ),
+                  const Spacer(),
+                  Icon(
+                    widget.row.isPassed
+                        ? Icons.check_circle
+                        : Icons.cancel,
+                    color: widget.row.isPassed
+                        ? KColors.success
+                        : KColors.error,
+                    size: 20,
+                  ),
+                ],
+              ),
+              KSpacing.vGapSm,
+              TextField(
+                controller: _notesCtl,
+                decoration: const InputDecoration(
+                  labelText: 'Notes',
+                  isDense: true,
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 2,
+                onChanged: (_) => _sync(),
+              ),
+            ],
+          ),
         ),
       ),
     );

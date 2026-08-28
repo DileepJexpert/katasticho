@@ -2,19 +2,17 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/api_error_parser.dart';
+import '../../../core/widgets/widgets.dart';
 import '../data/routing_repository.dart';
 
 /// Manage work instructions / SOPs / drawings attached to a manufacturing
 /// operation (tracker #13). Operators on the shop floor can later open
 /// these files from a job card — the upload UI for the engineering team
 /// lives here.
-///
-/// Intentionally simple: paste an operation id (or get here via a list
-/// item that already knows it), see the attachment list, upload more,
-/// delete stale ones.
 class OperationAttachmentsScreen extends ConsumerStatefulWidget {
   final String? initialOperationId;
   const OperationAttachmentsScreen({super.key, this.initialOperationId});
@@ -66,12 +64,12 @@ class _OperationAttachmentsScreenState
       if (!mounted) return;
       ref.invalidate(_attachmentsProvider(opId));
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Uploaded ${f.name}')),
+        SnackBar(content: Text('Uploaded ${f.name}'), backgroundColor: KColors.success),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Upload failed: ${ApiErrorParser.message(e)}')),
+        SnackBar(content: Text('Upload failed: ${ApiErrorParser.message(e)}'), backgroundColor: KColors.error),
       );
     }
   }
@@ -86,12 +84,12 @@ class _OperationAttachmentsScreenState
       if (!mounted) return;
       ref.invalidate(_attachmentsProvider(opId));
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Attachment deleted')),
+        const SnackBar(content: Text('Attachment deleted'), backgroundColor: KColors.success),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Delete failed: ${ApiErrorParser.message(e)}')),
+        SnackBar(content: Text('Delete failed: ${ApiErrorParser.message(e)}'), backgroundColor: KColors.error),
       );
     }
   }
@@ -110,31 +108,27 @@ class _OperationAttachmentsScreenState
                   child: TextField(
                     controller: _opCtl,
                     decoration: const InputDecoration(
-                      labelText: 'Operation id',
+                      labelText: 'Operation ID',
                       helperText:
-                          'Paste the id of the operation whose SOPs you want to manage',
+                          'Paste the ID of the operation whose SOPs you want to manage',
                       prefixIcon: Icon(Icons.engineering_outlined),
                       border: OutlineInputBorder(),
                     ),
                     onSubmitted: (_) => _load(),
                   ),
                 ),
-                const SizedBox(width: KSpacing.sm),
-                FilledButton(onPressed: _load, child: const Text('Open')),
+                KSpacing.hGapSm,
+                KButton.primary(onPressed: _load, label: 'Open'),
               ],
             ),
           ),
           Expanded(
             child: _operationId == null
                 ? const Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.description_outlined,
-                            size: 64, color: Colors.grey),
-                        SizedBox(height: KSpacing.md),
-                        Text('Enter an operation id to view its attachments'),
-                      ],
+                    child: KEmptyState(
+                      icon: Icons.description_outlined,
+                      title: 'Select Operation',
+                      subtitle: 'Enter an operation ID above to view and manage its attachments and SOPs.',
                     ),
                   )
                 : _AttachmentsView(operationId: _operationId!, onDelete: _delete),
@@ -144,9 +138,11 @@ class _OperationAttachmentsScreenState
       floatingActionButton: _operationId == null
           ? null
           : FloatingActionButton.extended(
+              backgroundColor: KColors.primary,
+              foregroundColor: Colors.white,
               onPressed: _upload,
               icon: const Icon(Icons.upload_file),
-              label: const Text('Upload'),
+              label: const Text('Upload Document'),
             ),
     );
   }
@@ -161,12 +157,14 @@ class _AttachmentsView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(_attachmentsProvider(operationId));
     return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const Center(child: KLoading(message: 'Loading attachments...')),
       error: (e, _) => Center(child: Text(ApiErrorParser.message(e))),
       data: (rows) {
         if (rows.isEmpty) {
-          return const Center(
-            child: Text('No attachments yet — upload an SOP, drawing or video'),
+          return const KEmptyState(
+            icon: Icons.attach_file,
+            title: 'No attachments yet',
+            subtitle: 'Upload an SOP, technical drawing, or work instruction document.',
           );
         }
         return ListView.builder(
@@ -174,18 +172,23 @@ class _AttachmentsView extends ConsumerWidget {
           itemCount: rows.length,
           itemBuilder: (ctx, i) {
             final a = rows[i];
-            return Card(
-              margin: const EdgeInsets.only(bottom: KSpacing.sm),
-              child: ListTile(
-                leading: const Icon(Icons.attach_file),
-                title: Text(a['fileName']?.toString() ?? 'Attachment ${i + 1}'),
-                subtitle: Text(
-                  '${a['contentType'] ?? 'unknown'} • ${a['fileSize'] ?? 0} bytes',
-                  style: KTypography.bodySmall,
-                ),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.red),
-                  onPressed: () => onDelete(a['id'].toString()),
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: KCard(
+                child: ListTile(
+                  leading: const Icon(Icons.attach_file, color: KColors.primary),
+                  title: Text(
+                    a['fileName']?.toString() ?? 'Attachment ${i + 1}',
+                    style: KTypography.labelLarge,
+                  ),
+                  subtitle: Text(
+                    '${a['contentType'] ?? 'unknown'} • ${a['fileSize'] ?? 0} bytes',
+                    style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                  ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete_outline, color: KColors.error),
+                    onPressed: () => onDelete(a['id'].toString()),
+                  ),
                 ),
               ),
             );

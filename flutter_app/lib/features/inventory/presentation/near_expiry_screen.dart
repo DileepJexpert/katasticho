@@ -142,14 +142,17 @@ class _NearExpiryScreenState extends ConsumerState<NearExpiryScreen> {
           ],
         ),
         actions: [
-          TextButton(
+          KButton.outlined(
+            label: 'Cancel',
+            size: KButtonSize.small,
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
           ),
-          ElevatedButton(
+          KSpacing.hGapSm,
+          KButton.danger(
+            icon: Icons.assignment_return_outlined,
+            label: 'Return Stock',
+            size: KButtonSize.small,
             onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: KColors.error),
-            child: const Text('Return Stock'),
           ),
         ],
       ),
@@ -882,14 +885,21 @@ class _ExpiryBatchCard extends StatelessWidget {
                 children: [
                   Text(itemName, style: KTypography.labelLarge),
                   KSpacing.vGapXxs,
-                  Row(
-                    children: [
-                      Text(
-                        'Batch: $batchNumber',
-                        style: KTypography.bodySmall
-                            .copyWith(color: KColors.textSecondary),
-                      ),
-                      const Spacer(),
+                    Row(
+                      children: [
+                        Text(
+                          'Batch: ',
+                          style: KTypography.bodySmall
+                              .copyWith(color: KColors.textSecondary),
+                        ),
+                        Text(
+                          batchNumber,
+                          style: KTypography.mono(
+                            size: 11,
+                            color: KColors.textSecondary,
+                          ),
+                        ),
+                        const Spacer(),
                       Text(
                         'Qty: ${_fmtQty(quantity)}',
                         style: KTypography.labelSmall
@@ -928,22 +938,25 @@ class _ExpiryBatchCard extends StatelessWidget {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      OutlinedButton.icon(
+                      KButton.outlined(
                         onPressed: onOpenItem,
-                        icon: const Icon(Icons.open_in_new, size: 16),
-                        label: const Text('Item'),
+                        icon: Icons.open_in_new,
+                        label: 'Item',
+                        size: KButtonSize.small,
                       ),
-                      OutlinedButton.icon(
+                      KButton.outlined(
                         onPressed: onCreateDebitNote,
-                        icon: const Icon(Icons.note_add_outlined, size: 16),
-                        label: const Text('Debit Note'),
+                        icon: Icons.note_add_outlined,
+                        label: 'Debit Note',
+                        size: KButtonSize.small,
                       ),
-                      FilledButton.tonalIcon(
-                        onPressed: onReturnNow,
-                        icon: const Icon(Icons.assignment_return_outlined,
-                            size: 16),
-                        label: const Text('Return'),
-                      ),
+                      if (onReturnNow != null)
+                        KButton.danger(
+                          onPressed: onReturnNow,
+                          icon: Icons.assignment_return_outlined,
+                          label: 'Return',
+                          size: KButtonSize.small,
+                        ),
                     ],
                   ),
                 ],

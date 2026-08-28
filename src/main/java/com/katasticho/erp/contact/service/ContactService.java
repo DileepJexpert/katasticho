@@ -44,6 +44,8 @@ public class ContactService {
 
         if (req.gstin() != null && !req.gstin().isBlank()) {
             if (contactRepository.existsByOrgIdAndGstinAndIsDeletedFalse(orgId, req.gstin())) {
+
+
                 throw new BusinessException(
                         "A contact with GSTIN " + req.gstin() + " already exists",
                         "CONTACT_DUPLICATE_GSTIN", HttpStatus.CONFLICT);
@@ -100,6 +102,8 @@ public class ContactService {
                 .specialty(req.specialty())
                 .mrClass(req.mrClass())
                 .visitsPerMonth(req.visitsPerMonth())
+                .msmeRegistered(Boolean.TRUE.equals(req.msmeRegistered()))
+                .msmeRegistrationNo(req.msmeRegistrationNo())
                 .build();
 
         contact = contactRepository.save(contact);
@@ -168,6 +172,8 @@ public class ContactService {
         if (req.paymentTermsDays() != null) contact.setPaymentTermsDays(req.paymentTermsDays());
         if (req.creditLimit() != null) contact.setCreditLimit(req.creditLimit());
         if (req.openingBalance() != null) contact.setOpeningBalance(req.openingBalance());
+        if (req.msmeRegistered() != null) contact.setMsmeRegistered(req.msmeRegistered());
+        if (req.msmeRegistrationNo() != null) contact.setMsmeRegistrationNo(req.msmeRegistrationNo());
         contact.setDefaultPriceListId(req.defaultPriceListId());
         contact.setSalesHold(Boolean.TRUE.equals(req.salesHold()));
         contact.setSalesHoldReason(req.salesHoldReason());
@@ -349,6 +355,7 @@ public class ContactService {
                 c.getBankName(), c.getBankAccountNo(), c.getBankIfsc(), c.getUpiId(),
                 c.isActive(), c.getNotes(), c.getCreatedAt(),
                 c.getMedicalCategory(), c.getSpecialty(), c.getMrClass(), c.getVisitsPerMonth(),
+                c.isMsmeRegistered(), c.getMsmeRegistrationNo(),
                 c.getPersons().stream()
                         .filter(p -> !p.isDeleted())
                         .map(this::toPersonResponse)

@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/k_colors.dart';
 import '../../../../core/theme/k_spacing.dart';
 import '../../../../core/theme/k_typography.dart';
-import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../data/pos_cart_state.dart';
 import '../../data/pos_repository.dart';
@@ -292,10 +291,14 @@ class _CustomerHistorySheetState extends ConsumerState<_CustomerHistorySheet> {
                     color: KColors.error, size: 18),
                 KSpacing.hGapSm,
                 Expanded(
-                  child: Text(
-                    '${CurrencyFormatter.formatIndian(outstanding)} invoice outstanding',
-                    style:
-                        KTypography.labelMedium.copyWith(color: KColors.error),
+                  child: Row(
+                    children: [
+                      KMoney(outstanding, size: KMoneySize.small, style: const TextStyle(color: KColors.error, fontWeight: FontWeight.w700)),
+                      Text(
+                        ' invoice outstanding',
+                        style: KTypography.labelMedium.copyWith(color: KColors.error),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(width: 4),
@@ -312,12 +315,7 @@ class _CustomerHistorySheetState extends ConsumerState<_CustomerHistorySheet> {
         // Compact summary row
         Row(
           children: [
-            const Icon(Icons.currency_rupee_rounded,
-                size: 14, color: KColors.textSecondary),
-            const SizedBox(width: 2),
-            Text(CurrencyFormatter.formatIndian(totalSpent),
-                style:
-                    KTypography.labelMedium.copyWith(color: KColors.success)),
+            KMoney(totalSpent, size: KMoneySize.small, style: const TextStyle(color: KColors.success, fontWeight: FontWeight.w700)),
             const SizedBox(width: 4),
             Text('spent',
                 style: KTypography.bodySmall
@@ -387,7 +385,10 @@ class _ReceiptCard extends StatelessWidget {
               const Icon(Icons.receipt_outlined,
                   size: 16, color: KColors.textSecondary),
               KSpacing.hGapXs,
-              Text(receiptNumber, style: KTypography.labelMedium),
+              Text(
+                receiptNumber,
+                style: KTypography.mono(size: 13, weight: FontWeight.w700),
+              ),
               const Spacer(),
               if (id != null)
                 SizedBox(
@@ -405,9 +406,9 @@ class _ReceiptCard extends StatelessWidget {
                   ),
                 ),
               KSpacing.hGapSm,
-              Text(
-                CurrencyFormatter.formatIndian(total),
-                style: KTypography.amountSmall,
+              KMoney(
+                total,
+                size: KMoneySize.small,
               ),
             ],
           ),
@@ -418,7 +419,7 @@ class _ReceiptCard extends StatelessWidget {
                   style: KTypography.bodySmall
                       .copyWith(color: KColors.textSecondary)),
               const Text(' · ', style: TextStyle(color: KColors.textHint)),
-              _PaymentBadge(mode: paymentMode),
+              KStatusChip(status: paymentMode, dense: true),
             ],
           ),
           if (items.isNotEmpty) ...[
@@ -445,9 +446,9 @@ class _ReceiptCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    Text(
-                      CurrencyFormatter.formatIndian(amount),
-                      style: KTypography.bodySmall,
+                    KMoney(
+                      amount,
+                      size: KMoneySize.small,
                     ),
                   ],
                 ),
@@ -495,32 +496,4 @@ class _ReceiptCard extends StatelessWidget {
   String _fmtQty(double qty) => qty == qty.roundToDouble()
       ? qty.toInt().toString()
       : qty.toStringAsFixed(3);
-}
-
-class _PaymentBadge extends StatelessWidget {
-  final String mode;
-  const _PaymentBadge({required this.mode});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = switch (mode) {
-      'UPI' => KColors.info,
-      'CARD' => KColors.warning,
-      _ => KColors.success,
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        mode,
-        style: KTypography.labelSmall.copyWith(
-          color: color,
-          fontSize: 10,
-        ),
-      ),
-    );
-  }
 }

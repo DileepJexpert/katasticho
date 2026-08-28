@@ -1,16 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/api_error_parser.dart';
+import '../../../core/widgets/widgets.dart';
 import '../data/manufacturing_repository.dart';
 
-/// Compare two BOM versions of the same parent item side-by-side. Paste
-/// the parent item id, pick from and to version numbers, get a single
-/// table grouped by Added / Removed / Changed (qty delta + scrap delta).
-/// Useful for change-control review — "what did engineering actually
-/// change between rev 4 and rev 5?".
+/// Compare two BOM versions of the same parent item side-by-side.
 class BomVersionDiffScreen extends ConsumerStatefulWidget {
   const BomVersionDiffScreen({super.key});
 
@@ -48,19 +46,19 @@ class _BomVersionDiffScreenState extends ConsumerState<BomVersionDiffScreen> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(KSpacing.md),
+            padding: KSpacing.pagePadding,
             child: Column(
               children: [
                 TextField(
                   controller: _parentCtl,
                   decoration: const InputDecoration(
-                    labelText: 'Parent item id',
+                    labelText: 'Parent item ID',
                     helperText:
                         'Composite (finished good) item whose BOM is being diffed',
                     border: OutlineInputBorder(),
                   ),
                 ),
-                const SizedBox(height: KSpacing.sm),
+                KSpacing.vGapSm,
                 Row(
                   children: [
                     Expanded(
@@ -73,7 +71,7 @@ class _BomVersionDiffScreenState extends ConsumerState<BomVersionDiffScreen> {
                         keyboardType: TextInputType.number,
                       ),
                     ),
-                    const SizedBox(width: KSpacing.sm),
+                    KSpacing.hGapSm,
                     Expanded(
                       child: TextField(
                         controller: _toCtl,
@@ -84,29 +82,24 @@ class _BomVersionDiffScreenState extends ConsumerState<BomVersionDiffScreen> {
                         keyboardType: TextInputType.number,
                       ),
                     ),
-                    const SizedBox(width: KSpacing.sm),
-                    FilledButton.icon(
+                    KSpacing.hGapSm,
+                    KButton.primary(
                       onPressed: _run,
-                      icon: const Icon(Icons.difference),
-                      label: const Text('Diff'),
+                      icon: Icons.difference,
+                      label: 'Diff Versions',
                     ),
                   ],
                 ),
               ],
             ),
           ),
+          const Divider(height: 1),
           Expanded(
             child: _query == null
-                ? const Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.compare_arrows,
-                            size: 64, color: Colors.grey),
-                        SizedBox(height: KSpacing.md),
-                        Text('Enter parent + versions to compare'),
-                      ],
-                    ),
+                ? const KEmptyState(
+                    icon: Icons.compare_arrows,
+                    title: 'Select versions to compare',
+                    subtitle: 'Enter parent item ID and from/to versions to view the change matrix.',
                   )
                 : _DiffView(query: _query!),
           ),
@@ -124,7 +117,7 @@ class _DiffView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(_diffProvider(query));
     return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const Center(child: KLoading(message: 'Comparing BOM revisions...')),
       error: (e, _) => Center(child: Text(ApiErrorParser.message(e))),
       data: (diff) {
         final added = (diff['added'] as List?) ?? [];
@@ -133,17 +126,16 @@ class _DiffView extends ConsumerWidget {
         return ListView(
           padding: KSpacing.pagePadding,
           children: [
-            Card(
-              color: Theme.of(context).colorScheme.primaryContainer,
+            KCard(
               child: Padding(
                 padding: const EdgeInsets.all(KSpacing.md),
                 child: Wrap(
                   spacing: 24,
                   runSpacing: 8,
                   children: [
-                    _Stat(label: 'Added', value: '${diff['addedCount']}'),
-                    _Stat(label: 'Removed', value: '${diff['removedCount']}'),
-                    _Stat(label: 'Changed', value: '${diff['changedCount']}'),
+                    _Stat(label: 'Added', value: '${diff['addedCount']}', color: KColors.success),
+                    _Stat(label: 'Removed', value: '${diff['removedCount']}', color: KColors.error),
+                    _Stat(label: 'Changed', value: '${diff['changedCount']}', color: KColors.warning),
                     _Stat(
                         label: 'Unchanged',
                         value: '${diff['unchangedCount']}'),
@@ -152,59 +144,121 @@ class _DiffView extends ConsumerWidget {
               ),
             ),
             if (added.isNotEmpty) ...[
-              const SizedBox(height: KSpacing.md),
+              KSpacing.vGapMd,
               _SectionHeader(
-                  title: 'Added', color: Colors.green, count: added.length),
+                  title: 'Added Lines', color: KColors.success, count: added.length),
               ...added.map((r) {
                 final row = r as Map<String, dynamic>;
-                return Card(
-                  margin: const EdgeInsets.only(bottom: KSpacing.sm),
-                  child: ListTile(
-                    leading: const Icon(Icons.add, color: Colors.green),
-                    title: Text(row['childItemName']?.toString() ??
-                        row['childItemId'].toString()),
-                    subtitle: Text(
-                        'Qty ${row['toQty']} • scrap ${row['toScrapPercent'] ?? 0}%'),
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: KCard(
+                    child: Padding(
+                      padding: const EdgeInsets.all(KSpacing.md),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.add_circle_outline, color: KColors.success),
+                          KSpacing.hGapMd,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  row['childItemName']?.toString() ?? row['childItemId'].toString(),
+                                  style: KTypography.labelLarge,
+                                ),
+                                KSpacing.vGapXxs,
+                                Text(
+                                  'Qty ${row['toQty']} • Scrap ${row['toScrapPercent'] ?? 0}%',
+                                  style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 );
               }),
             ],
             if (removed.isNotEmpty) ...[
-              const SizedBox(height: KSpacing.md),
+              KSpacing.vGapMd,
               _SectionHeader(
-                  title: 'Removed', color: Colors.red, count: removed.length),
+                  title: 'Removed Lines', color: KColors.error, count: removed.length),
               ...removed.map((r) {
                 final row = r as Map<String, dynamic>;
-                return Card(
-                  margin: const EdgeInsets.only(bottom: KSpacing.sm),
-                  child: ListTile(
-                    leading: const Icon(Icons.remove, color: Colors.red),
-                    title: Text(row['childItemName']?.toString() ??
-                        row['childItemId'].toString()),
-                    subtitle: Text('Was qty ${row['fromQty']}'),
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: KCard(
+                    child: Padding(
+                      padding: const EdgeInsets.all(KSpacing.md),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.remove_circle_outline, color: KColors.error),
+                          KSpacing.hGapMd,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  row['childItemName']?.toString() ?? row['childItemId'].toString(),
+                                  style: KTypography.labelLarge,
+                                ),
+                                KSpacing.vGapXxs,
+                                Text(
+                                  'Was Qty ${row['fromQty']}',
+                                  style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 );
               }),
             ],
             if (changed.isNotEmpty) ...[
-              const SizedBox(height: KSpacing.md),
+              KSpacing.vGapMd,
               _SectionHeader(
-                  title: 'Changed', color: Colors.orange, count: changed.length),
+                  title: 'Changed Lines', color: KColors.warning, count: changed.length),
               ...changed.map((r) {
                 final row = r as Map<String, dynamic>;
                 final delta = row['qtyDelta'];
                 final up = delta is num && delta > 0;
-                return Card(
-                  margin: const EdgeInsets.only(bottom: KSpacing.sm),
-                  child: ListTile(
-                    leading: Icon(
-                        up ? Icons.arrow_upward : Icons.arrow_downward,
-                        color: Colors.orange),
-                    title: Text(row['childItemName']?.toString() ??
-                        row['childItemId'].toString()),
-                    subtitle: Text(
-                        'Qty ${row['fromQty']} → ${row['toQty']} (${up ? '+' : ''}$delta) • '
-                        'scrap ${row['fromScrapPercent'] ?? 0}% → ${row['toScrapPercent'] ?? 0}%'),
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: KCard(
+                    child: Padding(
+                      padding: const EdgeInsets.all(KSpacing.md),
+                      child: Row(
+                        children: [
+                          Icon(
+                            up ? Icons.arrow_upward : Icons.arrow_downward,
+                            color: KColors.warning,
+                          ),
+                          KSpacing.hGapMd,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  row['childItemName']?.toString() ?? row['childItemId'].toString(),
+                                  style: KTypography.labelLarge,
+                                ),
+                                KSpacing.vGapXxs,
+                                Text(
+                                  'Qty ${row['fromQty']} → ${row['toQty']} (${up ? '+' : ''}$delta) • '
+                                  'Scrap ${row['fromScrapPercent'] ?? 0}% → ${row['toScrapPercent'] ?? 0}%',
+                                  style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 );
               }),
@@ -212,7 +266,11 @@ class _DiffView extends ConsumerWidget {
             if (added.isEmpty && removed.isEmpty && changed.isEmpty)
               const Padding(
                 padding: EdgeInsets.all(KSpacing.md),
-                child: Center(child: Text('No differences between the two versions')),
+                child: KEmptyState(
+                  icon: Icons.check_circle_outline,
+                  title: 'No differences found',
+                  subtitle: 'The two BOM revisions are identical in components and quantities.',
+                ),
               ),
           ],
         );
@@ -235,7 +293,7 @@ class _SectionHeader extends StatelessWidget {
       child: Row(
         children: [
           Container(width: 4, height: 18, color: color),
-          const SizedBox(width: 8),
+          KSpacing.hGapSm,
           Text('$title ($count)',
               style: KTypography.titleMedium.copyWith(color: color)),
         ],
@@ -247,14 +305,15 @@ class _SectionHeader extends StatelessWidget {
 class _Stat extends StatelessWidget {
   final String label;
   final String value;
-  const _Stat({required this.label, required this.value});
+  final Color? color;
+  const _Stat({required this.label, required this.value, this.color});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(value, style: KTypography.h3),
+        Text(value, style: KTypography.h3.copyWith(color: color)),
         Text(label, style: KTypography.bodySmall),
       ],
     );

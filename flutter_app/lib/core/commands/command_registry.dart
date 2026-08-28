@@ -629,6 +629,34 @@ List<KCommand> buildAppCommands({bool isPharma = false}) {
       route: Routes.manufacturingQcInspections,
       keywords: ['quality', 'inspection'],
     ),
+    KCommand(
+      label: 'Shop Floor',
+      icon: Icons.precision_manufacturing_rounded,
+      section: 'Navigate',
+      route: Routes.manufacturingShopFloor,
+      keywords: ['operator', 'kiosk', 'shop floor', 'job card', 'terminal'],
+    ),
+    KCommand(
+      label: 'Scrap Management',
+      icon: Icons.delete_sweep_rounded,
+      section: 'Navigate',
+      route: Routes.manufacturingScrap,
+      keywords: ['scrap', 'rework', 'defect', 'waste', 'disposal'],
+    ),
+    KCommand(
+      label: 'Maintenance Management',
+      icon: Icons.build_rounded,
+      section: 'Navigate',
+      route: Routes.manufacturingMaintenance,
+      keywords: ['pm', 'preventive', 'breakdown', 'maintenance', 'checklist', 'workstation'],
+    ),
+    KCommand(
+      label: 'MRP Runs',
+      icon: Icons.calculate_rounded,
+      section: 'Navigate',
+      route: Routes.manufacturingMrpRuns,
+      keywords: ['mrp', 'material requirements', 'shortage', 'explosion', 'purchase plan'],
+    ),
 
     // ── Reports ────────────────────────────────────────────────────
     KCommand(
@@ -790,6 +818,13 @@ List<KCommand> buildAppCommands({bool isPharma = false}) {
       section: 'Create',
       route: Routes.manufacturingWorkOrderCreate,
       keywords: ['production', 'wo'],
+    ),
+    KCommand(
+      label: 'New Debit Note',
+      icon: Icons.add_rounded,
+      section: 'Create',
+      route: Routes.debitNoteCreate,
+      keywords: ['purchase return', 'dn'],
     ),
 
     // ── Settings ───────────────────────────────────────────────────
@@ -1017,6 +1052,41 @@ List<KCommand> buildAppCommands({bool isPharma = false}) {
       section: 'Settings',
       route: Routes.periodClose,
       keywords: ['month close', 'fiscal'],
+    ),
+    KCommand(
+      label: 'Currencies',
+      icon: Icons.currency_exchange_rounded,
+      section: 'Navigate',
+      route: Routes.currencies,
+      keywords: ['forex', 'fx', 'exchange rate', 'currency'],
+    ),
+    KCommand(
+      label: 'Recurring Bills',
+      icon: Icons.repeat_rounded,
+      section: 'Navigate',
+      route: Routes.recurringBills,
+      keywords: ['recurring', 'bill', 'schedule', 'ap', 'rent', 'subscription'],
+    ),
+    KCommand(
+      label: 'Recurring Journals',
+      icon: Icons.auto_stories_rounded,
+      section: 'Navigate',
+      route: Routes.recurringJournals,
+      keywords: ['recurring', 'journal', 'accrual', 'depreciation', 'template'],
+    ),
+    KCommand(
+      label: 'Payment Terms & Dunning',
+      icon: Icons.schedule_rounded,
+      section: 'Settings',
+      route: Routes.paymentTerms,
+      keywords: ['payment term', 'instalment', 'dunning', 'overdue', 'reminder'],
+    ),
+    KCommand(
+      label: 'Custom Workflow Rules',
+      icon: Icons.alt_route_rounded,
+      section: 'Settings',
+      route: Routes.workflowRules,
+      keywords: ['rule', 'automation', 'trigger', 'webhook', 'event', 'action'],
     ),
   ];
   return commands

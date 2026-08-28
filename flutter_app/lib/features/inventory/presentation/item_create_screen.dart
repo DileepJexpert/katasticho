@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/auth/auth_state.dart';
 import '../../../core/auth/business_capabilities.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
@@ -431,10 +430,9 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
             ),
           ),
           KSpacing.vGapSm,
-          KButton(
+          KButton.outlined(
             label: 'Add Stock',
             icon: Icons.add_box_outlined,
-            variant: KButtonVariant.outlined,
             size: KButtonSize.small,
             onPressed: _openStockAdjustment,
           ),
@@ -806,12 +804,13 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
               ),
             );
           }),
-        OutlinedButton.icon(
+        KButton.outlined(
           onPressed: () {
             setState(() => _secondaryUnits.add(_SecondaryUnit()));
           },
-          icon: const Icon(Icons.add, size: 18),
-          label: const Text('Add another selling unit'),
+          icon: Icons.add,
+          label: 'Add another selling unit',
+          size: KButtonSize.small,
         ),
       ],
     );
@@ -1324,7 +1323,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
           ],
         ),
         KSpacing.vGapLg,
-        KButton(
+        KButton.primary(
           label: _isEdit ? 'Update' : 'Create Item',
           fullWidth: true,
           isLoading: _saving,
@@ -1883,7 +1882,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                     ),
 
                   KSpacing.vGapLg,
-                  KButton(
+                  KButton.primary(
                     label: _isEdit ? 'Update' : 'Create Item',
                     fullWidth: true,
                     isLoading: _saving,

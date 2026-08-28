@@ -50,7 +50,7 @@ class ExpenseDetailScreen extends ConsumerWidget {
           length: 2,
           child: Scaffold(
             appBar: AppBar(
-              title: Text(number),
+              title: Text(number, style: KTypography.mono(fontSize: 18, fontWeight: FontWeight.w600)),
               actions: [
                 if (status != 'VOID' && status != 'INVOICED')
                   PopupMenuButton<String>(
@@ -63,14 +63,14 @@ class ExpenseDetailScreen extends ConsumerWidget {
                             content: const Text(
                                 'This creates a reversal journal entry. The expense record stays for audit.'),
                             actions: [
-                              TextButton(
+                              KButton.outlined(
+                                label: 'Cancel',
                                 onPressed: () => Navigator.pop(ctx, false),
-                                child: const Text('Cancel'),
                               ),
-                              TextButton(
+                              KSpacing.hGapSm,
+                              KButton.danger(
+                                label: 'Void',
                                 onPressed: () => Navigator.pop(ctx, true),
-                                child: const Text('Void',
-                                    style: TextStyle(color: KColors.error)),
                               ),
                             ],
                           ),
@@ -116,7 +116,7 @@ class ExpenseDetailScreen extends ConsumerWidget {
             ),
             body: TabBarView(
               children: [
-                _DetailsTab(expense: expense),
+                _DetailsTab(expense: expense, expenseId: expenseId),
                 _CommentsTab(expenseId: expenseId),
               ],
             ),
@@ -129,8 +129,9 @@ class ExpenseDetailScreen extends ConsumerWidget {
 
 class _DetailsTab extends StatelessWidget {
   final Map<String, dynamic> expense;
+  final String expenseId;
 
-  const _DetailsTab({required this.expense});
+  const _DetailsTab({required this.expense, required this.expenseId});
 
   @override
   Widget build(BuildContext context) {
@@ -150,13 +151,6 @@ class _DetailsTab extends StatelessWidget {
     final journalEntryId = expense['journalEntryId']?.toString();
     final billable = expense['billable'] as bool? ?? false;
 
-    final statusColor = switch (status) {
-      'VOID' => KColors.error,
-      'INVOICED' => KColors.info,
-      'BILLABLE' => KColors.warning,
-      _ => KColors.success,
-    };
-
     return SingleChildScrollView(
       padding: KSpacing.pagePadding,
       child: Column(
@@ -166,20 +160,13 @@ class _DetailsTab extends StatelessWidget {
           Center(
             child: Column(
               children: [
-                Text('₹${total.toStringAsFixed(2)}',
-                    style: KTypography.displayLarge),
-                KSpacing.vGapXs,
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(status,
-                      style: KTypography.labelMedium
-                          .copyWith(color: statusColor)),
+                KMoney(
+                  total,
+                  size: KMoneySize.large,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
+                KSpacing.vGapSm,
+                KStatusChip(status: status),
                 KSpacing.vGapSm,
                 Text(_formatDate(date), style: KTypography.bodyMedium),
               ],
@@ -188,11 +175,10 @@ class _DetailsTab extends StatelessWidget {
           KSpacing.vGapLg,
 
           _SectionHeader('Breakdown'),
-          _Row('Amount', '₹${amount.toStringAsFixed(2)}'),
-          _Row('GST (${gstRate.toInt()}%)',
-              '₹${taxAmount.toStringAsFixed(2)}'),
+          _MoneyRow('Amount', amount),
+          _MoneyRow('GST (${gstRate.toInt()}%)', taxAmount),
           const Divider(),
-          _Row('Total', '₹${total.toStringAsFixed(2)}', bold: true),
+          _MoneyRow('Total', total, bold: true),
           KSpacing.vGapMd,
 
           _SectionHeader('Classification'),
@@ -227,7 +213,7 @@ class _DetailsTab extends StatelessWidget {
                         Text('Journal entry', style: KTypography.labelLarge),
                         KSpacing.vGapXs,
                         Text(journalEntryId,
-                            style: KTypography.bodySmall,
+                            style: KTypography.mono(fontSize: 12),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis),
                       ],
@@ -239,6 +225,9 @@ class _DetailsTab extends StatelessWidget {
             ),
             KSpacing.vGapXl,
           ],
+
+          // User-defined custom fields
+          KCustomFieldsCard(entityType: 'EXPENSE', entityId: expenseId),
         ],
       ),
     );
@@ -427,9 +416,8 @@ class _SectionHeader extends StatelessWidget {
 class _Row extends StatelessWidget {
   final String label;
   final String value;
-  final bool bold;
 
-  const _Row(this.label, this.value, {this.bold = false});
+  const _Row(this.label, this.value);
 
   @override
   Widget build(BuildContext context) {
@@ -441,9 +429,36 @@ class _Row extends StatelessWidget {
           Text(label, style: KTypography.bodyMedium),
           Text(
             value,
-            style: bold
-                ? KTypography.labelLarge
-                : KTypography.bodyMedium,
+            style: KTypography.bodyMedium,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MoneyRow extends StatelessWidget {
+  final String label;
+  final double amount;
+  final bool bold;
+
+  const _MoneyRow(this.label, this.amount, {this.bold = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: bold ? KTypography.labelLarge.copyWith(fontWeight: FontWeight.w700) : KTypography.bodyMedium,
+          ),
+          KMoney(
+            amount,
+            size: bold ? KMoneySize.medium : KMoneySize.small,
+            style: bold ? const TextStyle(fontWeight: FontWeight.w700) : null,
           ),
         ],
       ),

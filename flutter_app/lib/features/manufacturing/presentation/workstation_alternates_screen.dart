@@ -1,19 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/api_error_parser.dart';
+import '../../../core/widgets/widgets.dart';
 import '../data/routing_repository.dart';
 
 /// Manage fallback (alternate) work centers for a routing operation
 /// (tracker #15). When the operation's primary machine is at capacity
 /// or down, production can be routed to a priority-ordered alternate.
-///
-/// Paste a routing-operation id, see its registered alternates, add a
-/// new fallback workstation, remove an existing one. The "Find
-/// available" action exercises the server-side picker that walks
-/// primary → alternates by capacity.
 class WorkstationAlternatesScreen extends ConsumerStatefulWidget {
   final String? initialRoutingOperationId;
   const WorkstationAlternatesScreen({super.key, this.initialRoutingOperationId});
@@ -58,30 +55,37 @@ class _WorkstationAlternatesScreenState
     final result = await showDialog<Map<String, String>>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Add alternate work center'),
+        title: const Text('Add Alternate Work Center'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: wsCtl,
-              decoration: const InputDecoration(labelText: 'Workstation id'),
+              decoration: const InputDecoration(labelText: 'Workstation ID', border: OutlineInputBorder()),
               autofocus: true,
             ),
+            KSpacing.vGapSm,
             TextField(
               controller: prioCtl,
-              decoration: const InputDecoration(labelText: 'Priority (lower = preferred)'),
+              decoration: const InputDecoration(labelText: 'Priority (lower = preferred)', border: OutlineInputBorder()),
               keyboardType: TextInputType.number,
             ),
+            KSpacing.vGapSm,
             TextField(
               controller: notesCtl,
-              decoration: const InputDecoration(labelText: 'Notes (optional)'),
+              decoration: const InputDecoration(labelText: 'Notes (optional)', border: OutlineInputBorder()),
             ),
           ],
         ),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(
+          KButton.outlined(
+            size: KButtonSize.small,
+            onPressed: () => Navigator.pop(ctx),
+            label: 'Cancel',
+          ),
+          KSpacing.hGapSm,
+          KButton.primary(
+            size: KButtonSize.small,
             onPressed: () {
               if (wsCtl.text.trim().isNotEmpty) {
                 Navigator.pop(ctx, {
@@ -91,7 +95,7 @@ class _WorkstationAlternatesScreenState
                 });
               }
             },
-            child: const Text('Add'),
+            label: 'Add Alternate',
           ),
         ],
       ),
@@ -107,12 +111,12 @@ class _WorkstationAlternatesScreenState
       if (!mounted) return;
       ref.invalidate(_alternatesProvider(opId));
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Alternate registered')),
+        const SnackBar(content: Text('Alternate registered'), backgroundColor: KColors.success),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(ApiErrorParser.message(e))),
+        SnackBar(content: Text(ApiErrorParser.message(e)), backgroundColor: KColors.error),
       );
     }
   }
@@ -125,12 +129,12 @@ class _WorkstationAlternatesScreenState
       if (!mounted) return;
       ref.invalidate(_alternatesProvider(opId));
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Alternate removed')),
+        const SnackBar(content: Text('Alternate removed'), backgroundColor: KColors.success),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(ApiErrorParser.message(e))),
+        SnackBar(content: Text(ApiErrorParser.message(e)), backgroundColor: KColors.error),
       );
     }
   }
@@ -142,22 +146,27 @@ class _WorkstationAlternatesScreenState
     final hours = await showDialog<double>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Find available work center'),
+        title: const Text('Find Available Work Center'),
         content: TextField(
           controller: ctl,
-          decoration: const InputDecoration(labelText: 'Required hours/day'),
+          decoration: const InputDecoration(labelText: 'Required Hours/Day', border: OutlineInputBorder()),
           keyboardType: TextInputType.number,
           autofocus: true,
         ),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(
+          KButton.outlined(
+            size: KButtonSize.small,
+            onPressed: () => Navigator.pop(ctx),
+            label: 'Cancel',
+          ),
+          KSpacing.hGapSm,
+          KButton.primary(
+            size: KButtonSize.small,
             onPressed: () {
               final v = double.tryParse(ctl.text.trim());
               if (v != null) Navigator.pop(ctx, v);
             },
-            child: const Text('Find'),
+            label: 'Find',
           ),
         ],
       ),
@@ -171,19 +180,23 @@ class _WorkstationAlternatesScreenState
       showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('Available work center'),
+          title: const Text('Available Work Center'),
           content: Text(
-              '${ws['code']} — ${ws['name']}\nCapacity: ${ws['capacityHoursPerDay']}h/day'),
+              '${ws['code']} — ${ws['name']}\nCapacity: ${ws['capacityHoursPerDay']}h/day',
+              style: KTypography.bodyMedium),
           actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+            KButton.primary(
+              size: KButtonSize.small,
+              onPressed: () => Navigator.pop(ctx),
+              label: 'OK',
+            ),
           ],
         ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(ApiErrorParser.message(e))),
+        SnackBar(content: Text(ApiErrorParser.message(e)), backgroundColor: KColors.error),
       );
     }
   }
@@ -212,7 +225,7 @@ class _WorkstationAlternatesScreenState
                   child: TextField(
                     controller: _opCtl,
                     decoration: const InputDecoration(
-                      labelText: 'Routing-operation id',
+                      labelText: 'Routing-Operation ID',
                       helperText: 'The operation whose fallback machines you want to manage',
                       prefixIcon: Icon(Icons.precision_manufacturing_outlined),
                       border: OutlineInputBorder(),
@@ -220,21 +233,18 @@ class _WorkstationAlternatesScreenState
                     onSubmitted: (_) => _load(),
                   ),
                 ),
-                const SizedBox(width: KSpacing.sm),
-                FilledButton(onPressed: _load, child: const Text('Open')),
+                KSpacing.hGapSm,
+                KButton.primary(onPressed: _load, label: 'Open'),
               ],
             ),
           ),
           Expanded(
             child: _routingOperationId == null
                 ? const Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.swap_horiz, size: 64, color: Colors.grey),
-                        SizedBox(height: KSpacing.md),
-                        Text('Enter a routing-operation id to manage its alternate machines'),
-                      ],
+                    child: KEmptyState(
+                      icon: Icons.swap_horiz,
+                      title: 'Select Routing Operation',
+                      subtitle: 'Enter a routing-operation ID above to manage its alternate and fallback workstations.',
                     ),
                   )
                 : _AlternatesView(
@@ -247,9 +257,11 @@ class _WorkstationAlternatesScreenState
       floatingActionButton: _routingOperationId == null
           ? null
           : FloatingActionButton.extended(
+              backgroundColor: KColors.primary,
+              foregroundColor: Colors.white,
               onPressed: _addAlternate,
               icon: const Icon(Icons.add),
-              label: const Text('Add alternate'),
+              label: const Text('Add Alternate'),
             ),
     );
   }
@@ -265,12 +277,14 @@ class _AlternatesView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(_alternatesProvider(routingOperationId));
     return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const Center(child: KLoading(message: 'Loading alternates...')),
       error: (e, _) => Center(child: Text(ApiErrorParser.message(e))),
       data: (rows) {
         if (rows.isEmpty) {
-          return const Center(
-            child: Text('No alternates — this operation runs on its primary machine only'),
+          return const KEmptyState(
+            icon: Icons.swap_horiz,
+            title: 'No alternates configured',
+            subtitle: 'This operation currently runs on its primary workstation only.',
           );
         }
         return ListView.builder(
@@ -278,17 +292,28 @@ class _AlternatesView extends ConsumerWidget {
           itemCount: rows.length,
           itemBuilder: (ctx, i) {
             final a = rows[i];
-            return Card(
-              margin: const EdgeInsets.only(bottom: KSpacing.sm),
-              child: ListTile(
-                leading: CircleAvatar(child: Text('${a['priority']}')),
-                title: Text('Workstation ${a['workstationId']}'),
-                subtitle: a['notes'] != null && '${a['notes']}'.isNotEmpty
-                    ? Text('${a['notes']}', style: KTypography.bodySmall)
-                    : null,
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.red),
-                  onPressed: () => onRemove(a['id'].toString()),
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: KCard(
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: KColors.primary.withValues(alpha: 0.12),
+                    child: Text(
+                      '${a['priority']}',
+                      style: KTypography.mono(fontSize: 12, fontWeight: FontWeight.w700, color: KColors.primary),
+                    ),
+                  ),
+                  title: Text(
+                    'Workstation: ${a['workstationId']}',
+                    style: KTypography.mono(fontSize: 12),
+                  ),
+                  subtitle: a['notes'] != null && '${a['notes']}'.isNotEmpty
+                      ? Text('${a['notes']}', style: KTypography.bodySmall.copyWith(color: KColors.textSecondary))
+                      : null,
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete_outline, color: KColors.error),
+                    onPressed: () => onRemove(a['id'].toString()),
+                  ),
                 ),
               ),
             );

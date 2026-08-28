@@ -207,9 +207,16 @@ class _TrialBalanceScreenState extends ConsumerState<TrialBalanceScreen> {
               rows: [
                 ...lines.map((line) {
                   final l = line as Map<String, dynamic>;
+                  final debitVal = (l['debit'] as num?)?.toDouble() ?? 0;
+                  final creditVal = (l['credit'] as num?)?.toDouble() ?? 0;
                   return [
-                    Text(l['accountCode'] as String? ?? '',
-                        style: KTypography.bodySmall),
+                    Text(
+                      l['accountCode'] as String? ?? '',
+                      style: KTypography.mono(
+                        size: 12,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
                     ConstrainedBox(
                       constraints:
                           const BoxConstraints(minWidth: 220, maxWidth: 360),
@@ -219,29 +226,15 @@ class _TrialBalanceScreenState extends ConsumerState<TrialBalanceScreen> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    Text(
-                      CurrencyFormatter.formatIndian(
-                          (l['debit'] as num?)?.toDouble() ?? 0),
-                      style: KTypography.amountSmall,
-                    ),
-                    Text(
-                      CurrencyFormatter.formatIndian(
-                          (l['credit'] as num?)?.toDouble() ?? 0),
-                      style: KTypography.amountSmall,
-                    ),
+                    KMoney(debitVal, size: KMoneySize.small),
+                    KMoney(creditVal, size: KMoneySize.small),
                   ];
                 }),
                 [
                   Text('', style: KTypography.labelLarge),
-                  Text('TOTAL', style: KTypography.labelLarge),
-                  Text(
-                    CurrencyFormatter.formatIndian(totalDebit),
-                    style: KTypography.amountMedium,
-                  ),
-                  Text(
-                    CurrencyFormatter.formatIndian(totalCredit),
-                    style: KTypography.amountMedium,
-                  ),
+                  Text('TOTAL', style: KTypography.labelLarge.copyWith(fontWeight: FontWeight.w700)),
+                  KMoney(totalDebit, size: KMoneySize.medium, style: const TextStyle(fontWeight: FontWeight.w700)),
+                  KMoney(totalCredit, size: KMoneySize.medium, style: const TextStyle(fontWeight: FontWeight.w700)),
                 ],
               ],
             ),
@@ -263,28 +256,13 @@ class _SummaryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Theme.of(context)
-            .colorScheme
-            .surfaceContainerHighest
-            .withValues(alpha: 0.45),
-        borderRadius: KSpacing.borderRadiusMd,
-      ),
+    return KCard(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: KTypography.bodySmall),
-          Flexible(
-            child: Text(
-              CurrencyFormatter.formatIndian(amount),
-              style: KTypography.amountSmall,
-              textAlign: TextAlign.end,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
+          Text(label, style: KTypography.labelMedium),
+          KMoney(amount, size: KMoneySize.medium),
         ],
       ),
     );

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
@@ -25,12 +24,6 @@ class PayrollRunDetailScreen extends ConsumerStatefulWidget {
 
 class _PayrollRunDetailScreenState
     extends ConsumerState<PayrollRunDetailScreen> {
-  static final _currencyFormat = NumberFormat.currency(
-    locale: 'en_IN',
-    symbol: '₹',
-    decimalDigits: 2,
-  );
-
   bool _loading = true;
   String? _error;
   Map<String, dynamic>? _run;
@@ -151,20 +144,23 @@ class _PayrollRunDetailScreenState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
+        title: Text(title, style: KTypography.titleLarge),
+        content: Text(message, style: KTypography.bodyMedium),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
             child: const Text('Cancel'),
           ),
-          FilledButton(
-            style: isDangerous
-                ? FilledButton.styleFrom(backgroundColor: KColors.error)
-                : null,
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(actionLabel),
-          ),
+          if (isDangerous)
+            KButton.danger(
+              label: actionLabel,
+              onPressed: () => Navigator.of(ctx).pop(true),
+            )
+          else
+            KButton.primary(
+              label: actionLabel,
+              onPressed: () => Navigator.of(ctx).pop(true),
+            ),
         ],
       ),
     );
@@ -175,7 +171,7 @@ class _PayrollRunDetailScreenState
       await apiCall();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(successMessage)),
+          SnackBar(content: Text(successMessage), backgroundColor: KColors.success),
         );
         _fetchAll();
       }
@@ -267,10 +263,10 @@ class _PayrollRunDetailScreenState
                 Expanded(
                   child: Text(
                     run['runNumber']?.toString() ?? 'Payroll Run',
-                    style: KTypography.h2,
+                    style: KTypography.mono(fontSize: 22, fontWeight: FontWeight.w700),
                   ),
                 ),
-                _PayrollStatusChip(status: status),
+                KStatusChip(status: status),
               ],
             ),
             KSpacing.vGapMd,
@@ -354,7 +350,6 @@ class _PayrollRunDetailScreenState
                 amount: gross,
                 icon: Icons.account_balance_wallet_outlined,
                 color: KColors.info,
-                formatter: _currencyFormat,
               ),
             ),
             const SizedBox(width: KSpacing.sm),
@@ -364,7 +359,6 @@ class _PayrollRunDetailScreenState
                 amount: deductions,
                 icon: Icons.remove_circle_outline,
                 color: KColors.warning,
-                formatter: _currencyFormat,
               ),
             ),
           ],
@@ -378,7 +372,6 @@ class _PayrollRunDetailScreenState
                 amount: employerContributions,
                 icon: Icons.business_outlined,
                 color: KColors.draft,
-                formatter: _currencyFormat,
               ),
             ),
             const SizedBox(width: KSpacing.sm),
@@ -388,7 +381,6 @@ class _PayrollRunDetailScreenState
                 amount: netPay,
                 icon: Icons.payments_outlined,
                 color: KColors.success,
-                formatter: _currencyFormat,
               ),
             ),
           ],
@@ -534,17 +526,17 @@ class _PayrollRunDetailScreenState
       return const KCard(
         child: Padding(
           padding: EdgeInsets.all(KSpacing.lg),
-          child: Center(child: CircularProgressIndicator()),
+          child: Center(child: KLoading()),
         ),
       );
     }
 
     if (_payslips.isEmpty) {
-      return KCard(
+      return const KCard(
         title: 'Payslips',
-        child: const KEmptyState(
+        child: KEmptyState(
           icon: Icons.receipt_long_outlined,
-          title: 'No payslips',
+          title: 'No payslips generated',
           subtitle:
               'Payslips will appear here after the payroll run is calculated.',
         ),
@@ -583,7 +575,7 @@ class _PayrollRunDetailScreenState
                       textAlign: TextAlign.right),
                 ),
                 Expanded(
-                  child: Text('Net',
+                  child: Text('Net Pay',
                       style: KTypography.labelSmall
                           .copyWith(color: KColors.textSecondary),
                       textAlign: TextAlign.right),
@@ -594,7 +586,6 @@ class _PayrollRunDetailScreenState
           KSpacing.vGapXs,
           ..._payslips.map((ps) => _PayslipRow(
                 payslip: ps,
-                formatter: _currencyFormat,
                 onTap: () => _showPayslipDetail(ps),
               )),
         ],
@@ -804,12 +795,7 @@ class _PayrollRunDetailScreenState
           Expanded(
             child: Text(label, style: KTypography.bodyMedium),
           ),
-          Text(
-            _currencyFormat.format(amount),
-            style: KTypography.bodyMedium.copyWith(
-              fontWeight: FontWeight.w500,
-            ),
-          ),
+          KMoney(amount, size: KMoneySize.small),
         ],
       ),
     );
@@ -826,9 +812,10 @@ class _PayrollRunDetailScreenState
               style: KTypography.h4.copyWith(color: color),
             ),
           ),
-          Text(
-            _currencyFormat.format(amount),
-            style: KTypography.h4.copyWith(
+          KMoney(
+            amount,
+            size: KMoneySize.medium,
+            style: TextStyle(
               color: color,
               fontWeight: FontWeight.w700,
             ),
@@ -853,26 +840,17 @@ class _PayrollRunDetailScreenState
       padding: const EdgeInsets.all(KSpacing.md),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
-          ),
-        ],
+        border: Border(top: BorderSide(color: KColors.border)),
       ),
       child: SafeArea(
         child: Row(
           children: [
             // Cancel button — available for any non-terminal status
             Expanded(
-              child: OutlinedButton(
+              child: KButton.danger(
+                label: 'Cancel Run',
+                icon: Icons.cancel_outlined,
                 onPressed: _actionInProgress ? null : _cancel,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: KColors.error,
-                  side: const BorderSide(color: KColors.error),
-                ),
-                child: const Text('Cancel'),
               ),
             ),
             KSpacing.hGapMd,
@@ -890,22 +868,22 @@ class _PayrollRunDetailScreenState
   Widget _buildPrimaryAction(String status) {
     switch (status) {
       case 'DRAFT':
-        return KButton(
-          label: 'Calculate',
+        return KButton.primary(
+          label: 'Calculate Payroll',
           icon: Icons.calculate_outlined,
           isLoading: _actionInProgress,
           onPressed: _actionInProgress ? null : _calculate,
         );
       case 'CALCULATED':
-        return KButton(
-          label: 'Approve',
+        return KButton.primary(
+          label: 'Approve Payroll',
           icon: Icons.check_circle_outline,
           isLoading: _actionInProgress,
           onPressed: _actionInProgress ? null : _approve,
         );
       case 'APPROVED':
-        return KButton(
-          label: 'Post',
+        return KButton.primary(
+          label: 'Post to Accounts',
           icon: Icons.publish_outlined,
           isLoading: _actionInProgress,
           onPressed: _actionInProgress ? null : _post,
@@ -944,82 +922,24 @@ class _PayrollRunDetailScreenState
 // Private widgets
 // =============================================================================
 
-/// Status chip with payroll-specific colour mapping:
-///   DRAFT = grey, CALCULATED = blue, APPROVED = orange,
-///   POSTED = green, CANCELLED = red.
-class _PayrollStatusChip extends StatelessWidget {
-  final String status;
-  const _PayrollStatusChip({required this.status});
-
-  @override
-  Widget build(BuildContext context) {
-    final (Color fg, Color bg) = switch (status.toUpperCase()) {
-      'DRAFT' => (KColors.draft, KColors.draftBg),
-      'CALCULATED' => (KColors.info, KColors.infoLight),
-      'APPROVED' => (KColors.warning, KColors.warningLight),
-      'POSTED' => (KColors.success, KColors.successLight),
-      'CANCELLED' => (KColors.error, KColors.errorLight),
-      _ => (KColors.textSecondary, KColors.draftBg),
-    };
-
-    final displayLabel = status[0] + status.substring(1).toLowerCase();
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(KSpacing.radiusRound),
-        border: Border.all(color: fg.withValues(alpha: 0.18)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 5,
-            height: 5,
-            decoration: BoxDecoration(color: fg, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 4),
-          Text(
-            displayLabel,
-            style: KTypography.labelSmall.copyWith(
-              color: fg,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.1,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 /// Compact summary card for financial totals.
 class _SummaryCard extends StatelessWidget {
   final String label;
   final double amount;
   final IconData icon;
   final Color color;
-  final NumberFormat formatter;
 
   const _SummaryCard({
     required this.label,
     required this.amount,
     required this.icon,
     required this.color,
-    required this.formatter,
   });
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(KSpacing.md),
-      decoration: BoxDecoration(
-        color: cs.surface,
-        borderRadius: BorderRadius.circular(KSpacing.radiusMd),
-        border: Border.all(color: cs.outlineVariant),
-      ),
+    return KCard(
+      statusAccent: color,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1031,7 +951,7 @@ class _SummaryCard extends StatelessWidget {
                 child: Text(
                   label,
                   style: KTypography.labelSmall.copyWith(
-                    color: cs.onSurfaceVariant,
+                    color: KColors.textSecondary,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1039,14 +959,13 @@ class _SummaryCard extends StatelessWidget {
             ],
           ),
           KSpacing.vGapSm,
-          Text(
-            formatter.format(amount),
-            style: KTypography.h3.copyWith(
+          KMoney(
+            amount,
+            size: KMoneySize.large,
+            style: TextStyle(
               color: color,
               fontWeight: FontWeight.w700,
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -1057,12 +976,10 @@ class _SummaryCard extends StatelessWidget {
 /// A single payslip row in the table.
 class _PayslipRow extends StatelessWidget {
   final Map<String, dynamic> payslip;
-  final NumberFormat formatter;
   final VoidCallback onTap;
 
   const _PayslipRow({
     required this.payslip,
-    required this.formatter,
     required this.onTap,
   });
 
@@ -1093,7 +1010,7 @@ class _PayslipRow extends StatelessWidget {
                 children: [
                   Text(
                     name,
-                    style: KTypography.labelLarge,
+                    style: KTypography.titleSmall,
                     overflow: TextOverflow.ellipsis,
                   ),
                   if (designation != null && designation.isNotEmpty)
@@ -1107,30 +1024,26 @@ class _PayslipRow extends StatelessWidget {
               ),
             ),
             Expanded(
-              child: Text(
-                formatter.format(gross),
-                style: KTypography.amountSmall,
-                textAlign: TextAlign.right,
-                overflow: TextOverflow.ellipsis,
+              child: KMoney(
+                gross,
+                size: KMoneySize.small,
               ),
             ),
             Expanded(
-              child: Text(
-                formatter.format(deductions),
-                style: KTypography.amountSmall.copyWith(color: KColors.warning),
-                textAlign: TextAlign.right,
-                overflow: TextOverflow.ellipsis,
+              child: KMoney(
+                deductions,
+                size: KMoneySize.small,
+                style: const TextStyle(color: KColors.warning),
               ),
             ),
             Expanded(
-              child: Text(
-                formatter.format(net),
-                style: KTypography.amountSmall.copyWith(
+              child: KMoney(
+                net,
+                size: KMoneySize.small,
+                style: const TextStyle(
                   color: KColors.success,
                   fontWeight: FontWeight.w600,
                 ),
-                textAlign: TextAlign.right,
-                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],

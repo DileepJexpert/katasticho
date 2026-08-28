@@ -3,16 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
+import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/api_error_parser.dart';
+import '../../../core/widgets/widgets.dart';
 
 /// Tracker #92: workstation load + bottleneck identification.
 ///
 /// One-shot view of every workstation's queued hours, days of work,
 /// and utilisation as a percentage of one day's capacity. Sorted by
-/// queue depth so the bottleneck always sits at the top. Color-coded
-/// status chip: BOTTLENECK (red) > BUSY (orange) > OK (green) > IDLE.
+/// queue depth so the bottleneck always sits at the top.
 class WorkstationLoadScreen extends ConsumerStatefulWidget {
   const WorkstationLoadScreen({super.key});
 
@@ -70,17 +71,21 @@ class _WorkstationLoadScreenState extends ConsumerState<WorkstationLoadScreen> {
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: KLoading(message: 'Calculating workstation load...'))
           : _error != null
-              ? Center(child: Text(_error!,
-                  style: const TextStyle(color: Colors.red)))
+              ? Center(child: KErrorView(message: _error!, onRetry: _refresh))
               : _rows == null || _rows!.isEmpty
                   ? const Center(
-                      child: Text('No workstations configured'))
+                      child: KEmptyState(
+                        icon: Icons.precision_manufacturing_outlined,
+                        title: 'No Workstations Configured',
+                        subtitle: 'Add workstations to monitor load and identify bottlenecks.',
+                      ),
+                    )
                   : RefreshIndicator(
                       onRefresh: _refresh,
                       child: ListView.builder(
-                        padding: const EdgeInsets.all(KSpacing.md),
+                        padding: KSpacing.pagePadding,
                         itemCount: _rows!.length,
                         itemBuilder: (ctx, i) => _buildRow(_rows![i]),
                       ),
@@ -90,60 +95,46 @@ class _WorkstationLoadScreenState extends ConsumerState<WorkstationLoadScreen> {
 
   Widget _buildRow(Map<String, dynamic> r) {
     final status = r['status']?.toString() ?? 'OK';
-    final color = switch (status) {
-      'BOTTLENECK' => Colors.red.shade700,
-      'BUSY' => Colors.orange.shade700,
-      'OK' => Colors.green.shade700,
-      'IDLE' => Colors.grey.shade500,
-      _ => Colors.blue.shade700,
-    };
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      child: Padding(
-        padding: const EdgeInsets.all(KSpacing.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                      '${r['workstationCode']} — ${r['workstationName']}',
-                      style: KTypography.titleSmall),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: KCard(
+        child: Padding(
+          padding: const EdgeInsets.all(KSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    '${r['workstationCode']}',
+                    style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w700),
                   ),
-                  child: Text(status,
-                      style: TextStyle(
-                          color: color, fontWeight: FontWeight.bold)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 16,
-              runSpacing: 4,
-              children: [
-                _stat('Queued',
-                    '${r['queuedHours']?.toString() ?? '0'}h'),
-                _stat('Capacity',
-                    '${r['capacityHoursPerDay']?.toString() ?? '0'}h/day'),
-                _stat('Days of work',
-                    r['daysOfWork']?.toString() ?? '0'),
-                _stat('Open JCs',
-                    r['openJobCards']?.toString() ?? '0'),
-                _stat('In progress',
-                    r['inProgressJobCards']?.toString() ?? '0'),
-                _stat('Utilisation',
-                    '${r['utilisationPctOfDay']?.toString() ?? '0'}%'),
-              ],
-            ),
-          ],
+                  KSpacing.hGapSm,
+                  Expanded(
+                    child: Text(
+                      '${r['workstationName']}',
+                      style: KTypography.labelLarge,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  KStatusChip(status: status),
+                ],
+              ),
+              KSpacing.vGapSm,
+              Wrap(
+                spacing: 20,
+                runSpacing: 8,
+                children: [
+                  _stat('Queued', '${r['queuedHours']?.toString() ?? '0'}h'),
+                  _stat('Capacity', '${r['capacityHoursPerDay']?.toString() ?? '0'}h/day'),
+                  _stat('Days of Work', r['daysOfWork']?.toString() ?? '0'),
+                  _stat('Open JCs', r['openJobCards']?.toString() ?? '0'),
+                  _stat('In Progress', r['inProgressJobCards']?.toString() ?? '0'),
+                  _stat('Utilisation', '${r['utilisationPctOfDay']?.toString() ?? '0'}%'),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -152,9 +143,11 @@ class _WorkstationLoadScreenState extends ConsumerState<WorkstationLoadScreen> {
   Widget _stat(String label, String value) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: KTypography.labelSmall),
-          Text(value, style: KTypography.bodyMedium.copyWith(
-              fontWeight: FontWeight.w600)),
+          Text(label, style: KTypography.labelSmall.copyWith(color: KColors.textSecondary)),
+          Text(
+            value,
+            style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
         ],
       );
 }

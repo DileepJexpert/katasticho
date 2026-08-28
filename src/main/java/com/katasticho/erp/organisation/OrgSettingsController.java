@@ -66,7 +66,9 @@ public class OrgSettingsController {
     public ResponseEntity<Map<String, String>> getOne(@PathVariable String key) {
         UUID orgId = TenantContext.getCurrentOrgId();
         String value = settingsService.get(orgId, key, null);
-        if (value == null) return ResponseEntity.notFound().build();
+        if (value == null) {
+            return ResponseEntity.ok(Map.of(key, ""));
+        }
         if (isSecretKey(key) && !value.isBlank()) value = "********";
         return ResponseEntity.ok(Map.of(key, value));
     }

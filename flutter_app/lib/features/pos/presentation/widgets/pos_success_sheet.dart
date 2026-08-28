@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/k_colors.dart';
 import '../../../../core/theme/k_spacing.dart';
 import '../../../../core/theme/k_typography.dart';
-import '../../../../core/utils/currency_formatter.dart';
+import '../../../../core/widgets/widgets.dart';
 
 /// Result from the success sheet — which action the user chose.
 enum SuccessAction { print, whatsapp, email, skip }
@@ -97,80 +97,84 @@ class _SuccessSheetContentState extends State<_SuccessSheetContent>
         padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
         child: SingleChildScrollView(
           child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Animated checkmark
-            ScaleTransition(
-              scale: _scaleAnim,
-              child: Container(
-                width: 72,
-                height: 72,
-                decoration: const BoxDecoration(
-                  color: KColors.successLight,
-                  shape: BoxShape.circle,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Animated checkmark
+              ScaleTransition(
+                scale: _scaleAnim,
+                child: Container(
+                  width: 72,
+                  height: 72,
+                  decoration: const BoxDecoration(
+                    color: KColors.successLight,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.check_rounded,
+                      size: 40, color: KColors.success),
                 ),
-                child: const Icon(Icons.check_rounded,
-                    size: 40, color: KColors.success),
               ),
-            ),
-            KSpacing.vGapMd,
+              KSpacing.vGapMd,
 
-            Text('Sale Completed', style: KTypography.h2),
-            const SizedBox(height: 4),
-            Text(
-              receiptNumber,
-              style: KTypography.labelLarge.copyWith(color: cs.primary),
-            ),
-            KSpacing.vGapLg,
+              Text('Sale Completed', style: KTypography.h2),
+              const SizedBox(height: 4),
+              Text(
+                receiptNumber,
+                style: KTypography.mono(
+                  size: 14,
+                  weight: FontWeight.w700,
+                  color: cs.primary,
+                ),
+              ),
+              KSpacing.vGapLg,
 
-            // Summary rows
-            _SummaryRow(label: 'Total', value: CurrencyFormatter.formatIndian(total)),
-            const SizedBox(height: 6),
-            _SummaryRow(
-              label: _paymentLabel(paymentMode),
-              value: CurrencyFormatter.formatIndian(amountReceived),
-            ),
-            if (changeReturned > 0) ...[
+              // Summary rows
+              _SummaryRow(label: 'Total', amount: total, bold: true),
               const SizedBox(height: 6),
               _SummaryRow(
-                label: 'Change',
-                value: CurrencyFormatter.formatIndian(changeReturned),
-                valueColor: KColors.success,
+                label: _paymentLabel(paymentMode),
+                amount: amountReceived,
               ),
-            ],
-            KSpacing.vGapLg,
+              if (changeReturned > 0) ...[
+                const SizedBox(height: 6),
+                _SummaryRow(
+                  label: 'Change',
+                  amount: changeReturned,
+                  valueColor: KColors.success,
+                ),
+              ],
+              KSpacing.vGapLg,
 
-            // Action buttons
-            _ActionButton(
-              icon: Icons.print,
-              label: 'Print Receipt',
-              onTap: () => Navigator.pop(context, SuccessAction.print),
-            ),
-            const SizedBox(height: 8),
-            _ActionButton(
-              icon: Icons.send,
-              label: 'Send via WhatsApp',
-              onTap: () => Navigator.pop(context, SuccessAction.whatsapp),
-            ),
-            const SizedBox(height: 8),
-            _ActionButton(
-              icon: Icons.email_outlined,
-              label: 'Email Receipt',
-              onTap: () => Navigator.pop(context, SuccessAction.email),
-            ),
-            KSpacing.vGapMd,
+              // Action buttons
+              _ActionButton(
+                icon: Icons.print,
+                label: 'Print Receipt',
+                onTap: () => Navigator.pop(context, SuccessAction.print),
+              ),
+              const SizedBox(height: 8),
+              _ActionButton(
+                icon: Icons.send,
+                label: 'Send via WhatsApp',
+                onTap: () => Navigator.pop(context, SuccessAction.whatsapp),
+              ),
+              const SizedBox(height: 8),
+              _ActionButton(
+                icon: Icons.email_outlined,
+                label: 'Email Receipt',
+                onTap: () => Navigator.pop(context, SuccessAction.email),
+              ),
+              KSpacing.vGapMd,
 
-            TextButton(
-              onPressed: () => Navigator.pop(context, SuccessAction.skip),
-              child: Text(
-                'Skip (auto in ${_countdown}s)',
-                style: KTypography.labelMedium.copyWith(
-                  color: KColors.textSecondary,
+              TextButton(
+                onPressed: () => Navigator.pop(context, SuccessAction.skip),
+                child: Text(
+                  'Skip (auto in ${_countdown}s)',
+                  style: KTypography.labelMedium.copyWith(
+                    color: KColors.textSecondary,
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
         ),
       ),
     );
@@ -193,12 +197,14 @@ class _SuccessSheetContentState extends State<_SuccessSheetContent>
 
 class _SummaryRow extends StatelessWidget {
   final String label;
-  final String value;
+  final num amount;
+  final bool bold;
   final Color? valueColor;
 
   const _SummaryRow({
     required this.label,
-    required this.value,
+    required this.amount,
+    this.bold = false,
     this.valueColor,
   });
 
@@ -207,12 +213,19 @@ class _SummaryRow extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label,
-            style: KTypography.bodyMedium
-                .copyWith(color: KColors.textSecondary)),
-        Text(value,
-            style: KTypography.labelLarge
-                .copyWith(color: valueColor)),
+        Text(
+          label,
+          style: bold
+              ? KTypography.labelLarge.copyWith(fontWeight: FontWeight.w700)
+              : KTypography.bodyMedium.copyWith(color: KColors.textSecondary),
+        ),
+        KMoney(
+          amount,
+          size: bold ? KMoneySize.medium : KMoneySize.small,
+          style: valueColor != null
+              ? TextStyle(color: valueColor, fontWeight: bold ? FontWeight.w700 : null)
+              : (bold ? const TextStyle(fontWeight: FontWeight.w700) : null),
+        ),
       ],
     );
   }
@@ -233,17 +246,16 @@ class _ActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return SizedBox(
-      width: double.infinity,
+      height: 44,
       child: OutlinedButton.icon(
         onPressed: onTap,
-        icon: Icon(icon, size: 20),
+        icon: Icon(icon, size: 18),
         label: Text(label),
         style: OutlinedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          side: BorderSide(color: cs.outlineVariant),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),
+          side: BorderSide(color: cs.outlineVariant),
         ),
       ),
     );

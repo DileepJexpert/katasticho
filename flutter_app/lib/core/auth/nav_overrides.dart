@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/api_client.dart';
@@ -44,8 +45,10 @@ final navOverridesProvider = FutureProvider<NavOverrides>((ref) async {
 
   final client = ref.watch(apiClientProvider);
   try {
-    final response =
-        await client.get('${ApiConfig.orgSettings}/nav.disabled');
+    final response = await client.get(
+      '${ApiConfig.orgSettings}/nav.disabled',
+      options: Options(validateStatus: (status) => status != null && status < 500),
+    );
     final data = response.data as Map<String, dynamic>? ?? {};
     final raw = data['nav.disabled']?.toString();
     if (raw == null || raw.trim().isEmpty) {

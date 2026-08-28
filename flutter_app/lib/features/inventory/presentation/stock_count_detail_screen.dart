@@ -57,19 +57,23 @@ class _StockCountDetailScreenState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Post Stock Count?'),
+        title: Text('Post Stock Count?', style: KTypography.titleLarge),
         content: const Text(
           'Posting will record variance adjustments to the inventory ledger. '
           'This action cannot be undone. The stock count will move to POSTED status.',
         ),
         actions: [
-          TextButton(
+          KButton.outlined(
+            label: 'Cancel',
+            size: KButtonSize.small,
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
           ),
-          FilledButton(
+          KSpacing.hGapSm,
+          KButton.primary(
+            icon: Icons.check_circle_outline,
+            label: 'Confirm & Post Count',
+            size: KButtonSize.small,
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Post Count'),
           ),
         ],
       ),
@@ -107,20 +111,23 @@ class _StockCountDetailScreenState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Cancel Stock Count?'),
+        title: Text('Cancel Stock Count?', style: KTypography.titleLarge),
         content: const Text(
           'This will mark the stock count as cancelled. '
           'No inventory adjustments will be made. This action cannot be undone.',
         ),
         actions: [
-          TextButton(
+          KButton.outlined(
+            label: 'Back',
+            size: KButtonSize.small,
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Back'),
           ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: KColors.error),
+          KSpacing.hGapSm,
+          KButton.danger(
+            icon: Icons.cancel_outlined,
+            label: 'Cancel Stock Count',
+            size: KButtonSize.small,
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Cancel Count'),
           ),
         ],
       ),
@@ -376,32 +383,26 @@ class _StockCountDetailScreenState
     return Container(
       padding: const EdgeInsets.all(KSpacing.md),
       decoration: BoxDecoration(
-        color: KColors.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(
+          top: BorderSide(
+            color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
           ),
-        ],
+        ),
       ),
       child: SafeArea(
         child: Row(
           children: [
             Expanded(
-              child: OutlinedButton(
+              child: KButton.outlined(
+                label: 'Cancel',
                 onPressed: _actionInProgress ? null : _cancelCount,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: KColors.error,
-                  side: const BorderSide(color: KColors.error),
-                ),
-                child: const Text('Cancel'),
               ),
             ),
             KSpacing.hGapMd,
             Expanded(
               flex: 2,
-              child: KButton(
+              child: KButton.primary(
                 label: 'Post Count',
                 icon: Icons.check_circle_outline,
                 isLoading: _actionInProgress,
@@ -470,8 +471,10 @@ class _CountLineRow extends StatelessWidget {
                     if (sku.isNotEmpty)
                       Text(
                         sku,
-                        style: KTypography.bodySmall
-                            .copyWith(color: KColors.textSecondary),
+                        style: KTypography.mono(
+                          size: 11,
+                          color: KColors.textSecondary,
+                        ),
                       ),
                   ],
                 ),

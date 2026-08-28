@@ -9,8 +9,7 @@ import '../../../core/widgets/widgets.dart';
 import '../data/routing_repository.dart';
 
 /// Workstations + Operations masters — the building blocks every routing
-/// references. Until now they could only be created by knowing their UUIDs;
-/// this gives them a CRUD surface so routings can actually be built.
+/// references.
 class ManufacturingMastersScreen extends ConsumerWidget {
   const ManufacturingMastersScreen({super.key});
 
@@ -50,12 +49,15 @@ class _WorkstationsTab extends ConsumerWidget {
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'ws',
+        backgroundColor: KColors.primary,
+        foregroundColor: Colors.white,
         onPressed: () => _create(context, ref),
         icon: const Icon(Icons.add),
-        label: const Text('New workstation'),
+        label: const Text('New Workstation'),
+        tooltip: 'New Workstation (N)',
       ),
       body: async.when(
-        loading: () => const KLoading(),
+        loading: () => const Center(child: KLoading(message: 'Loading workstations...')),
         error: (e, _) => KErrorView(
           message: 'Failed to load workstations',
           onRetry: () => ref.invalidate(workstationsProvider),
@@ -68,7 +70,7 @@ class _WorkstationsTab extends ConsumerWidget {
               subtitle:
                   'A workstation is a machine or work centre. Operations and '
                   'routings reference them.',
-              actionLabel: 'New workstation',
+              actionLabel: 'New Workstation',
               onAction: () => _create(context, ref),
             );
           }
@@ -91,8 +93,10 @@ class _WorkstationsTab extends ConsumerWidget {
                           children: [
                             Row(
                               children: [
-                                Text(w['code']?.toString() ?? '',
-                                    style: KTypography.mono(size: 13)),
+                                Text(
+                                  w['code']?.toString() ?? '',
+                                  style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w700),
+                                ),
                                 KSpacing.hGapSm,
                                 Expanded(
                                   child: Text(w['name']?.toString() ?? '',
@@ -102,19 +106,24 @@ class _WorkstationsTab extends ConsumerWidget {
                               ],
                             ),
                             KSpacing.vGapXs,
-                            Text(
-                              [
-                                if (rate != null) '₹$rate/hr',
-                                if (cap != null) '$cap h/day capacity',
-                              ].join(' · '),
-                              style: KTypography.bodySmall
-                                  .copyWith(color: KColors.textSecondary),
+                            Row(
+                              children: [
+                                if (rate != null) ...[
+                                  KMoney(rate),
+                                  Text('/hr', style: KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
+                                ],
+                                if (rate != null && cap != null)
+                                  Text(' · ', style: KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
+                                if (cap != null)
+                                  Text('$cap h/day capacity',
+                                      style: KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
+                              ],
                             ),
                           ],
                         ),
                       ),
                       if (w['isActive'] == false)
-                        KStatusChip(status: 'Inactive'),
+                        const KStatusChip(status: 'INACTIVE'),
                     ],
                   ),
                 );
@@ -136,32 +145,37 @@ class _WorkstationsTab extends ConsumerWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('New workstation'),
+        title: const Text('New Workstation'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _field(codeCtl, 'Code'),
-              _field(nameCtl, 'Name'),
+              _field(codeCtl, 'Code *'),
+              _field(nameCtl, 'Name *'),
               _field(descCtl, 'Description (optional)'),
-              _field(rateCtl, 'Hourly rate ₹ (optional)', number: true),
-              _field(capCtl, 'Capacity hours/day', number: true),
+              _field(rateCtl, 'Hourly Rate ₹ (optional)', number: true),
+              _field(capCtl, 'Capacity Hours/Day', number: true),
             ],
           ),
         ),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
-          FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Create')),
+          KButton.outlined(
+            size: KButtonSize.small,
+            onPressed: () => Navigator.pop(ctx, false),
+            label: 'Cancel',
+          ),
+          KSpacing.hGapSm,
+          KButton.primary(
+            size: KButtonSize.small,
+            onPressed: () => Navigator.pop(ctx, true),
+            label: 'Create',
+          ),
         ],
       ),
     );
     if (ok != true || !context.mounted) return;
     if (codeCtl.text.trim().isEmpty || nameCtl.text.trim().isEmpty) {
-      _toast(context, 'Code and name are required');
+      _toast(context, 'Code and name are required', isError: true);
       return;
     }
     try {
@@ -178,7 +192,7 @@ class _WorkstationsTab extends ConsumerWidget {
     } catch (e) {
       if (!context.mounted) return;
       _toast(context,
-          'Could not create: ${e.toString().replaceAll('Exception: ', '')}');
+          'Could not create: ${e.toString().replaceAll('Exception: ', '')}', isError: true);
     }
   }
 }
@@ -203,12 +217,15 @@ class _OperationsTab extends ConsumerWidget {
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'op',
+        backgroundColor: KColors.primary,
+        foregroundColor: Colors.white,
         onPressed: () => _create(context, ref, workstations),
         icon: const Icon(Icons.add),
-        label: const Text('New operation'),
+        label: const Text('New Operation'),
+        tooltip: 'New Operation (N)',
       ),
       body: async.when(
-        loading: () => const KLoading(),
+        loading: () => const Center(child: KLoading(message: 'Loading operations...')),
         error: (e, _) => KErrorView(
           message: 'Failed to load operations',
           onRetry: () => ref.invalidate(operationsProvider),
@@ -221,7 +238,7 @@ class _OperationsTab extends ConsumerWidget {
               subtitle:
                   'An operation is a production step (cutting, mixing, packing). '
                   'Routings order them into a process.',
-              actionLabel: 'New operation',
+              actionLabel: 'New Operation',
               onAction: () => _create(context, ref, workstations),
             );
           }
@@ -242,8 +259,10 @@ class _OperationsTab extends ConsumerWidget {
                     children: [
                       Row(
                         children: [
-                          Text(o['code']?.toString() ?? '',
-                              style: KTypography.mono(size: 13)),
+                          Text(
+                            o['code']?.toString() ?? '',
+                            style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w700),
+                          ),
                           KSpacing.hGapSm,
                           Expanded(
                             child: Text(o['name']?.toString() ?? '',
@@ -286,20 +305,20 @@ class _OperationsTab extends ConsumerWidget {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
-          title: const Text('New operation'),
+          title: const Text('New Operation'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _field(codeCtl, 'Code'),
-                _field(nameCtl, 'Name'),
+                _field(codeCtl, 'Code *'),
+                _field(nameCtl, 'Name *'),
                 _field(descCtl, 'Description (optional)'),
                 KSpacing.vGapSm,
                 DropdownButtonFormField<String>(
                   initialValue: wsId,
                   isExpanded: true,
                   decoration: const InputDecoration(
-                    labelText: 'Default workstation (optional)',
+                    labelText: 'Default Workstation (optional)',
                     border: OutlineInputBorder(),
                     isDense: true,
                   ),
@@ -313,25 +332,31 @@ class _OperationsTab extends ConsumerWidget {
                   }).toList(),
                   onChanged: (v) => setLocal(() => wsId = v),
                 ),
-                _field(setupCtl, 'Setup time (minutes)', number: true),
-                _field(runCtl, 'Run time (minutes/unit)', number: true),
+                KSpacing.vGapSm,
+                _field(setupCtl, 'Setup Time (minutes)', number: true),
+                _field(runCtl, 'Run Time (minutes/unit)', number: true),
               ],
             ),
           ),
           actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel')),
-            FilledButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Create')),
+            KButton.outlined(
+              size: KButtonSize.small,
+              onPressed: () => Navigator.pop(ctx, false),
+              label: 'Cancel',
+            ),
+            KSpacing.hGapSm,
+            KButton.primary(
+              size: KButtonSize.small,
+              onPressed: () => Navigator.pop(ctx, true),
+              label: 'Create',
+            ),
           ],
         ),
       ),
     );
     if (ok != true || !context.mounted) return;
     if (codeCtl.text.trim().isEmpty || nameCtl.text.trim().isEmpty) {
-      _toast(context, 'Code and name are required');
+      _toast(context, 'Code and name are required', isError: true);
       return;
     }
     try {
@@ -349,7 +374,7 @@ class _OperationsTab extends ConsumerWidget {
     } catch (e) {
       if (!context.mounted) return;
       _toast(context,
-          'Could not create: ${e.toString().replaceAll('Exception: ', '')}');
+          'Could not create: ${e.toString().replaceAll('Exception: ', '')}', isError: true);
     }
   }
 }
@@ -375,6 +400,11 @@ Widget _field(TextEditingController ctl, String label, {bool number = false}) {
   );
 }
 
-void _toast(BuildContext context, String msg) {
-  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+void _toast(BuildContext context, String msg, {bool isError = false}) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(msg),
+      backgroundColor: isError ? KColors.error : KColors.success,
+    ),
+  );
 }

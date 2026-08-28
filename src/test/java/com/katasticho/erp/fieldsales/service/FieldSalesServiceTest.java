@@ -56,6 +56,8 @@ class FieldSalesServiceTest {
     @Mock private CustomerReceiptService customerReceiptService;
     @Mock private ExpenseRepository expenseRepo;
     @Mock private OrgSettingsService orgSettingsService;
+    @Mock private com.katasticho.erp.auth.repository.AppUserRepository appUserRepository;
+    @Mock private com.katasticho.erp.fieldsales.repository.FieldSalesExecutionAuditRepository executionAuditRepo;
 
     private FieldSalesService service;
 
@@ -72,9 +74,13 @@ class FieldSalesServiceTest {
                 routeExecutionRepo, fieldVisitRepo, dayCloseRepo,
                 salesmanTargetRepo, inventoryService, stockBalanceRepo,
                 salesOrderRepo, invoiceRepo, customerReceiptService, expenseRepo,
-                orgSettingsService);
+                orgSettingsService, appUserRepository, executionAuditRepo);
         TenantContext.setCurrentOrgId(orgId);
         TenantContext.setCurrentUserId(userId);
+        TenantContext.setCurrentRole("ADMIN");
+
+        lenient().when(appUserRepository.findByIdAndOrgIdAndIsDeletedFalse(any(), any()))
+                .thenReturn(Optional.of(com.katasticho.erp.auth.entity.AppUser.builder().active(true).build()));
     }
 
     @AfterEach
@@ -82,7 +88,7 @@ class FieldSalesServiceTest {
         TenantContext.clear();
     }
 
-    // ── Beat CRUD ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Beat CRUD ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
 
     @Test
     void createBeat_uniqueCode_succeeds() {
@@ -100,7 +106,6 @@ class FieldSalesServiceTest {
     @Test
     void createBeat_duplicateCode_throws() {
         when(beatRepo.existsByOrgIdAndCodeAndIsDeletedFalse(orgId, "B01")).thenReturn(true);
-
         Beat input = Beat.builder().code("B01").name("Dup").build();
         BusinessException ex = assertThrows(BusinessException.class, () -> service.createBeat(input));
         assertEquals("FS_BEAT_CODE_EXISTS", ex.getErrorCode());
@@ -165,7 +170,7 @@ class FieldSalesServiceTest {
         }));
     }
 
-    // ── Visit ownership ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Visit ownership ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
 
     @Test
     void checkIn_byAssignedSalesperson_succeeds() {
@@ -249,7 +254,7 @@ class FieldSalesServiceTest {
         assertEquals("FS_NOT_ASSIGNED_SALESPERSON", ex.getErrorCode());
     }
 
-    // ── Geofence at check-in ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Geofence at check-in ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
 
     @Test
     void checkIn_withinGeofence_setsVerifiedTrue() {
@@ -319,7 +324,7 @@ class FieldSalesServiceTest {
         }
     }
 
-    // ── recordVisitOrder with SO validation ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ recordVisitOrder with SO validation ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
 
     @Test
     void recordVisitOrder_validSO_succeeds() {
@@ -388,7 +393,7 @@ class FieldSalesServiceTest {
         assertEquals("FS_NOT_ASSIGNED_SALESPERSON", ex.getErrorCode());
     }
 
-    // ── Day Close lifecycle ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Day Close lifecycle ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
 
     @Test
     void initiateDayClose_completedExecution_succeeds() {
@@ -490,7 +495,7 @@ class FieldSalesServiceTest {
         assertEquals("FS_DAY_CLOSE_NOT_SUBMITTED", ex.getErrorCode());
     }
 
-    // ── Salesman Target ──
+    // -- Salesman Target --
 
     @Test
     void updateAchievement_calculatesPercentAndIncentive() {
@@ -526,7 +531,6 @@ class FieldSalesServiceTest {
         exec.setOrgId(orgId);
         return exec;
     }
-
     @Test
     void confirmVanLoad_alreadyConfirmed_throwsViaLockAndPostsNothing() {
         UUID transferId = UUID.randomUUID();
@@ -544,7 +548,6 @@ class FieldSalesServiceTest {
         assertEquals("FS_TRANSFER_NOT_DRAFT", ex.getErrorCode());
         verify(inventoryService, never()).recordMovement(any());
     }
-
     @Test
     void submitDayClose_byNonOwnerOperator_throws() {
         UUID dayCloseId = UUID.randomUUID();
@@ -562,7 +565,6 @@ class FieldSalesServiceTest {
         assertEquals("FS_NOT_ASSIGNED_SALESPERSON", ex.getErrorCode());
         verify(dayCloseRepo, never()).save(any());
     }
-
     @Test
     void confirmVanReturn_nullBatchLineAgainstBatchedVan_throwsInsufficientNotCrash() {
         UUID transferId = UUID.randomUUID();
@@ -582,13 +584,352 @@ class FieldSalesServiceTest {
                 .thenReturn(Optional.of(transfer));
         when(vanStockTransferLineRepo.findByOrgIdAndVanStockTransferId(orgId, transferId))
                 .thenReturn(List.of(line));
-        // The van holds the item only in batches; the null-batch grain is empty →
-        // available 0 < 3 → clean FS_VAN_INSUFFICIENT_STOCK (not a 500 crash from a
+        // The van holds the item only in batches; the null-batch grain is empty ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢
+        // available 0 < 3 ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ clean FS_VAN_INSUFFICIENT_STOCK (not a 500 crash from a
         // multi-row match on the old findByOrgIdAndVanIdAndItemId lookup).
         when(vanStockBalanceRepo.findByOrgIdAndVanIdAndItemIdAndBatchIdIsNull(orgId, vanId, itemId))
                 .thenReturn(Optional.empty());
 
         var ex = assertThrows(BusinessException.class, () -> service.confirmVanReturn(transferId));
         assertEquals("FS_VAN_INSUFFICIENT_STOCK", ex.getErrorCode());
+    }
+
+
+    @Test
+    void startExecution_withActiveAssignment_succeeds_nonAdminPath() {
+        // OPERATOR path - auto-populates van from assignment
+        UUID routeId = UUID.randomUUID();
+        UUID vanId = UUID.randomUUID();
+        java.time.LocalDate executionDate = java.time.LocalDate.now();
+        TenantContext.setCurrentRole("OPERATOR");
+
+        when(routeRepo.findByIdAndOrgIdAndIsDeletedFalse(routeId, orgId))
+                .thenReturn(Optional.of(com.katasticho.erp.fieldsales.entity.Route.builder().name("Downtown").build()));
+        when(vanRepo.findByIdAndOrgIdAndIsDeletedFalse(vanId, orgId)).thenReturn(Optional.of(com.katasticho.erp.fieldsales.entity.Van.builder().vehicleNumber("KA-01-1234").build()));
+
+        com.katasticho.erp.fieldsales.entity.FieldSalesAssignment activeAssignment =
+                com.katasticho.erp.fieldsales.entity.FieldSalesAssignment.builder()
+                        .salespersonId(userId)
+                        .routeId(routeId)
+                        .vanId(vanId)
+                        .effectiveFrom(executionDate.minusDays(1))
+                        .isActive(true)
+                        .build();
+
+        when(assignmentRepo.findActiveAssignmentsForSalespersonAndRouteOnDate(orgId, userId, routeId, executionDate))
+                .thenReturn(List.of(activeAssignment));
+        when(routeBeatRepo.findByOrgIdAndRouteIdOrderBySequenceNumber(orgId, routeId))
+                .thenReturn(List.of());
+        when(routeExecutionRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        var exec = service.startExecution(routeId, userId, null, executionDate);
+        assertNotNull(exec);
+        assertEquals(routeId, exec.getRouteId());
+        assertEquals(userId, exec.getSalespersonId());
+        assertEquals(vanId, exec.getVanId());
+        assertEquals("PLANNED", exec.getStatus());
+    }
+
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Field Sales Assignment Lifecycle Tests ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
+
+    @Test
+    void createAssignment_validData_succeeds() {
+        UUID routeId = UUID.randomUUID();
+        UUID vanId = UUID.randomUUID();
+        when(routeRepo.findByIdAndOrgIdAndIsDeletedFalse(routeId, orgId))
+                .thenReturn(Optional.of(com.katasticho.erp.fieldsales.entity.Route.builder().name("North Route").build()));
+        when(vanRepo.findByIdAndOrgIdAndIsDeletedFalse(vanId, orgId))
+                .thenReturn(Optional.of(com.katasticho.erp.fieldsales.entity.Van.builder().vehicleNumber("KA-01-1234").build()));
+        when(assignmentRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        com.katasticho.erp.fieldsales.entity.FieldSalesAssignment input =
+                com.katasticho.erp.fieldsales.entity.FieldSalesAssignment.builder()
+                        .salespersonId(userId)
+                        .routeId(routeId)
+                        .vanId(vanId)
+                        .territory("North Zone")
+                        .effectiveFrom(java.time.LocalDate.now())
+                        .isActive(true)
+                        .build();
+
+        var created = service.createAssignment(input);
+        assertNotNull(created);
+        assertEquals(userId, created.getSalespersonId());
+        assertEquals(routeId, created.getRouteId());
+        assertEquals("North Zone", created.getTerritory());
+        assertTrue(created.isActive());
+    }
+
+    @Test
+    void createAssignment_invalidDates_throws() {
+        com.katasticho.erp.fieldsales.entity.FieldSalesAssignment input =
+                com.katasticho.erp.fieldsales.entity.FieldSalesAssignment.builder()
+                        .salespersonId(userId)
+                        .effectiveFrom(java.time.LocalDate.now())
+                        .effectiveTo(java.time.LocalDate.now().minusDays(5))
+                        .build();
+
+        var ex = assertThrows(com.katasticho.erp.common.exception.BusinessException.class,
+                () -> service.createAssignment(input));
+        assertEquals("FS_INVALID_EFFECTIVE_DATES", ex.getErrorCode());
+    }
+
+    @Test
+    void endAssignment_setsEffectiveToAndDeactivates() {
+        UUID assignmentId = UUID.randomUUID();
+        com.katasticho.erp.fieldsales.entity.FieldSalesAssignment existing =
+                com.katasticho.erp.fieldsales.entity.FieldSalesAssignment.builder()
+                        .salespersonId(userId)
+                        .effectiveFrom(java.time.LocalDate.now().minusDays(10))
+                        .isActive(true)
+                        .build();
+        existing.setId(assignmentId);
+        existing.setOrgId(orgId);
+
+        when(assignmentRepo.findByIdAndOrgId(assignmentId, orgId)).thenReturn(Optional.of(existing));
+        when(assignmentRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        var ended = service.endAssignment(assignmentId, java.time.LocalDate.now());
+        assertFalse(ended.isActive());
+        assertEquals(java.time.LocalDate.now(), ended.getEffectiveTo());
+    }
+
+    @Test
+    void endAssignment_endDateBeforeEffectiveFrom_throws() {
+        UUID assignmentId = UUID.randomUUID();
+        com.katasticho.erp.fieldsales.entity.FieldSalesAssignment existing =
+                com.katasticho.erp.fieldsales.entity.FieldSalesAssignment.builder()
+                        .salespersonId(userId)
+                        .effectiveFrom(java.time.LocalDate.now())
+                        .isActive(true)
+                        .build();
+        existing.setId(assignmentId);
+        existing.setOrgId(orgId);
+
+        when(assignmentRepo.findByIdAndOrgId(assignmentId, orgId)).thenReturn(Optional.of(existing));
+
+        var ex = assertThrows(com.katasticho.erp.common.exception.BusinessException.class,
+                () -> service.endAssignment(assignmentId, java.time.LocalDate.now().minusDays(5)));
+        assertEquals("FS_INVALID_EFFECTIVE_DATES", ex.getErrorCode());
+    }
+
+    @Test
+    void startExecution_noActiveAssignment_throws() {
+        UUID routeId = UUID.randomUUID();
+        java.time.LocalDate executionDate = java.time.LocalDate.now();
+        TenantContext.setCurrentRole("OPERATOR");
+
+        when(routeRepo.findByIdAndOrgIdAndIsDeletedFalse(routeId, orgId))
+                .thenReturn(Optional.of(com.katasticho.erp.fieldsales.entity.Route.builder().name("Downtown").build()));
+        when(assignmentRepo.findActiveAssignmentsForSalespersonAndRouteOnDate(orgId, userId, routeId, executionDate))
+                .thenReturn(List.of());
+
+        var ex = assertThrows(com.katasticho.erp.common.exception.BusinessException.class,
+                () -> service.startExecution(routeId, userId, null, executionDate));
+        assertEquals("FS_NO_ACTIVE_ASSIGNMENT", ex.getErrorCode());
+    }
+
+    @Test
+    void startExecution_withActiveAssignment_succeeds() {
+        UUID routeId = UUID.randomUUID();
+        UUID vanId = UUID.randomUUID();
+        java.time.LocalDate executionDate = java.time.LocalDate.now();
+
+        when(routeRepo.findByIdAndOrgIdAndIsDeletedFalse(routeId, orgId))
+                .thenReturn(Optional.of(com.katasticho.erp.fieldsales.entity.Route.builder().name("Downtown").build()));
+        when(vanRepo.findByIdAndOrgIdAndIsDeletedFalse(vanId, orgId)).thenReturn(Optional.of(com.katasticho.erp.fieldsales.entity.Van.builder().vehicleNumber("KA-01-1234").build()));
+
+        com.katasticho.erp.fieldsales.entity.FieldSalesAssignment activeAssignment =
+                com.katasticho.erp.fieldsales.entity.FieldSalesAssignment.builder()
+                        .salespersonId(userId)
+                        .routeId(routeId)
+                        .vanId(vanId)
+                        .effectiveFrom(executionDate.minusDays(1))
+                        .isActive(true)
+                        .build();
+
+        when(assignmentRepo.findActiveAssignmentsForSalespersonAndRouteOnDate(orgId, userId, routeId, executionDate))
+                .thenReturn(List.of(activeAssignment));
+        when(routeBeatRepo.findByOrgIdAndRouteIdOrderBySequenceNumber(orgId, routeId))
+                .thenReturn(List.of());
+        when(routeExecutionRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        var exec = service.startExecution(routeId, userId, null, executionDate);
+        assertNotNull(exec);
+        assertEquals(routeId, exec.getRouteId());
+        assertEquals(userId, exec.getSalespersonId());
+        assertEquals(vanId, exec.getVanId()); // Auto-populated from assignment!
+        assertEquals("PLANNED", exec.getStatus());
+    }
+
+    @Test
+    void createAssignment_inactiveSalesperson_throws() {
+        when(appUserRepository.findByIdAndOrgIdAndIsDeletedFalse(eq(userId), eq(orgId)))
+                .thenReturn(Optional.of(com.katasticho.erp.auth.entity.AppUser.builder().active(false).build()));
+
+        com.katasticho.erp.fieldsales.entity.FieldSalesAssignment input =
+                com.katasticho.erp.fieldsales.entity.FieldSalesAssignment.builder()
+                        .salespersonId(userId)
+                        .effectiveFrom(java.time.LocalDate.now())
+                        .isActive(true)
+                        .build();
+
+        var ex = assertThrows(com.katasticho.erp.common.exception.BusinessException.class,
+                () -> service.createAssignment(input));
+        assertEquals("FS_SALESPERSON_INACTIVE", ex.getErrorCode());
+    }
+
+    @Test
+    void createAssignment_overlappingActiveAssignment_throws() {
+        UUID routeId = UUID.randomUUID();
+        when(routeRepo.findByIdAndOrgIdAndIsDeletedFalse(routeId, orgId))
+                .thenReturn(Optional.of(com.katasticho.erp.fieldsales.entity.Route.builder().name("North Route").build()));
+
+        com.katasticho.erp.fieldsales.entity.FieldSalesAssignment existing =
+                com.katasticho.erp.fieldsales.entity.FieldSalesAssignment.builder()
+                        .salespersonId(userId)
+                        .routeId(routeId)
+                        .effectiveFrom(java.time.LocalDate.now().minusDays(10))
+                        .effectiveTo(java.time.LocalDate.now().plusDays(10))
+                        .isActive(true)
+                        .build();
+
+        when(assignmentRepo.findByOrgIdAndSalespersonIdAndRouteIdAndIsActiveTrue(orgId, userId, routeId))
+                .thenReturn(List.of(existing));
+
+        com.katasticho.erp.fieldsales.entity.FieldSalesAssignment overlapping =
+                com.katasticho.erp.fieldsales.entity.FieldSalesAssignment.builder()
+                        .salespersonId(userId)
+                        .routeId(routeId)
+                        .effectiveFrom(java.time.LocalDate.now())
+                        .effectiveTo(java.time.LocalDate.now().plusDays(20))
+                        .isActive(true)
+                        .build();
+
+        var ex = assertThrows(com.katasticho.erp.common.exception.BusinessException.class,
+                () -> service.createAssignment(overlapping));
+        assertEquals("FS_ASSIGNMENT_OVERLAP", ex.getErrorCode());
+    }
+
+    @Test
+    void startExecution_adminNoAssignmentNoReason_throws() {
+        UUID routeId = UUID.randomUUID();
+        java.time.LocalDate executionDate = java.time.LocalDate.now();
+        TenantContext.setCurrentRole("ADMIN");
+
+        when(routeRepo.findByIdAndOrgIdAndIsDeletedFalse(routeId, orgId))
+                .thenReturn(Optional.of(com.katasticho.erp.fieldsales.entity.Route.builder().name("Downtown").build()));
+        when(assignmentRepo.findActiveAssignmentsForSalespersonAndRouteOnDate(orgId, userId, routeId, executionDate))
+                .thenReturn(List.of());
+
+        var ex = assertThrows(com.katasticho.erp.common.exception.BusinessException.class,
+                () -> service.startExecution(routeId, userId, null, executionDate, null));
+        assertEquals("FS_OVERRIDE_REASON_REQUIRED", ex.getErrorCode());
+    }
+
+    @Test
+    void startExecution_adminNoAssignmentWithReason_succeeds() {
+        UUID routeId = UUID.randomUUID();
+        java.time.LocalDate executionDate = java.time.LocalDate.now();
+        TenantContext.setCurrentRole("ADMIN");
+
+        when(routeRepo.findByIdAndOrgIdAndIsDeletedFalse(routeId, orgId))
+                .thenReturn(Optional.of(com.katasticho.erp.fieldsales.entity.Route.builder().name("Downtown").build()));
+        when(assignmentRepo.findActiveAssignmentsForSalespersonAndRouteOnDate(orgId, userId, routeId, executionDate))
+                .thenReturn(List.of());
+        when(routeBeatRepo.findByOrgIdAndRouteIdOrderBySequenceNumber(orgId, routeId))
+                .thenReturn(List.of());
+        when(routeExecutionRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        var exec = service.startExecution(routeId, userId, null, executionDate, "Emergency replacement");
+        assertNotNull(exec);
+        assertEquals("PLANNED", exec.getStatus());
+        assertTrue(exec.getNotes().contains("ADMIN OVERRIDE"));
+        assertTrue(exec.getNotes().contains("Emergency replacement"));
+    }
+
+    @Test
+    void startExecution_vanMismatchNonAdmin_throws() {
+        UUID routeId = UUID.randomUUID();
+        UUID assignedVanId = UUID.randomUUID();
+        UUID differentVanId = UUID.randomUUID();
+        java.time.LocalDate executionDate = java.time.LocalDate.now();
+        TenantContext.setCurrentRole("OPERATOR");
+
+        when(routeRepo.findByIdAndOrgIdAndIsDeletedFalse(routeId, orgId))
+                .thenReturn(Optional.of(com.katasticho.erp.fieldsales.entity.Route.builder().name("Downtown").build()));
+
+        com.katasticho.erp.fieldsales.entity.FieldSalesAssignment activeAssignment =
+                com.katasticho.erp.fieldsales.entity.FieldSalesAssignment.builder()
+                        .salespersonId(userId)
+                        .routeId(routeId)
+                        .vanId(assignedVanId)
+                        .effectiveFrom(executionDate.minusDays(1))
+                        .isActive(true)
+                        .build();
+
+        when(assignmentRepo.findActiveAssignmentsForSalespersonAndRouteOnDate(orgId, userId, routeId, executionDate))
+                .thenReturn(List.of(activeAssignment));
+
+        var ex = assertThrows(com.katasticho.erp.common.exception.BusinessException.class,
+                () -> service.startExecution(routeId, userId, differentVanId, executionDate, null));
+        assertEquals("FS_VAN_MISMATCH", ex.getErrorCode());
+    }
+
+    @Test
+    void startExecution_vanMismatchAdminWithReason_succeeds() {
+        UUID routeId = UUID.randomUUID();
+        UUID assignedVanId = UUID.randomUUID();
+        UUID differentVanId = UUID.randomUUID();
+        java.time.LocalDate executionDate = java.time.LocalDate.now();
+        TenantContext.setCurrentRole("ADMIN");
+
+        when(routeRepo.findByIdAndOrgIdAndIsDeletedFalse(routeId, orgId))
+                .thenReturn(Optional.of(com.katasticho.erp.fieldsales.entity.Route.builder().name("Downtown").build()));
+        when(vanRepo.findByIdAndOrgIdAndIsDeletedFalse(differentVanId, orgId))
+                .thenReturn(Optional.of(com.katasticho.erp.fieldsales.entity.Van.builder().vehicleNumber("KA-02-9999").build()));
+
+        com.katasticho.erp.fieldsales.entity.FieldSalesAssignment activeAssignment =
+                com.katasticho.erp.fieldsales.entity.FieldSalesAssignment.builder()
+                        .salespersonId(userId)
+                        .routeId(routeId)
+                        .vanId(assignedVanId)
+                        .effectiveFrom(executionDate.minusDays(1))
+                        .isActive(true)
+                        .build();
+
+        when(assignmentRepo.findActiveAssignmentsForSalespersonAndRouteOnDate(orgId, userId, routeId, executionDate))
+                .thenReturn(List.of(activeAssignment));
+        when(routeBeatRepo.findByOrgIdAndRouteIdOrderBySequenceNumber(orgId, routeId))
+                .thenReturn(List.of());
+        when(routeExecutionRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        var exec = service.startExecution(routeId, userId, differentVanId, executionDate, "Van maintenance substitute");
+        assertNotNull(exec);
+        assertEquals(differentVanId, exec.getVanId());
+        assertTrue(exec.getNotes().contains("ADMIN VAN OVERRIDE"));
+    }
+
+    @Test
+    void deleteAssignment_deactivatesRecord() {
+        UUID assignmentId = UUID.randomUUID();
+        com.katasticho.erp.fieldsales.entity.FieldSalesAssignment existing =
+                com.katasticho.erp.fieldsales.entity.FieldSalesAssignment.builder()
+                        .salespersonId(userId)
+                        .effectiveFrom(java.time.LocalDate.now().minusDays(5))
+                        .isActive(true)
+                        .build();
+        existing.setId(assignmentId);
+        existing.setOrgId(orgId);
+
+        when(assignmentRepo.findByIdAndOrgId(assignmentId, orgId)).thenReturn(Optional.of(existing));
+        when(assignmentRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.deleteAssignment(assignmentId);
+
+        assertFalse(existing.isActive());
+        assertEquals(java.time.LocalDate.now(), existing.getEffectiveTo());
+        verify(assignmentRepo).save(existing);
+        verify(assignmentRepo, never()).delete(any());
     }
 }

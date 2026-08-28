@@ -146,17 +146,20 @@ class _ThreeWayMatchDetailSheetState
           ),
         ),
         actions: [
-          TextButton(
+          KButton.outlined(
+            label: 'Cancel',
+            size: KButtonSize.small,
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
           ),
-          FilledButton(
+          KSpacing.hGapSm,
+          KButton.primary(
+            label: 'Override',
+            size: KButtonSize.small,
             onPressed: () {
               if (formKey.currentState?.validate() == true) {
                 Navigator.pop(ctx, true);
               }
             },
-            child: const Text('Override'),
           ),
         ],
       ),
@@ -339,10 +342,10 @@ class _Body extends StatelessWidget {
                 SizedBox(height: KSpacing.md),
                 Align(
                   alignment: Alignment.centerRight,
-                  child: KButton(
+                  child: KButton.outlined(
                     label: 'Override',
                     icon: Icons.gpp_maybe_rounded,
-                    variant: KButtonVariant.outlined,
+                    size: KButtonSize.small,
                     onPressed: onOverride,
                   ),
                 ),

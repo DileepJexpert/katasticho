@@ -236,9 +236,11 @@ class _ShortbookItemCard extends StatelessWidget {
                         Text(name, style: KTypography.labelLarge),
                         if (sku.isNotEmpty)
                           Text(
-                            'SKU: $sku',
-                            style: KTypography.bodySmall
-                                .copyWith(color: KColors.textSecondary),
+                            sku,
+                            style: KTypography.mono(
+                              size: 11,
+                              color: KColors.textSecondary,
+                            ),
                           ),
                       ],
                     ),

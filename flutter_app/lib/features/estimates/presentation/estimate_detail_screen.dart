@@ -8,6 +8,7 @@ import '../../../core/utils/whatsapp_share.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../../core/utils/currency_formatter.dart';
 import '../data/estimate_repository.dart';
 
 /// Pulls comments for a given estimate.
@@ -51,7 +52,7 @@ class EstimateDetailScreen extends ConsumerWidget {
           length: 2,
           child: Scaffold(
             appBar: AppBar(
-              title: Text(number),
+              title: Text(number, style: KTypography.mono(fontSize: 18, fontWeight: FontWeight.w600)),
               actions: [
                 PopupMenuButton<String>(
                   onSelected: (value) {
@@ -144,8 +145,6 @@ class _DetailsTab extends StatelessWidget {
     final convertedInvoiceId = estimate['convertedToInvoiceId']?.toString();
     final lines = (estimate['lines'] as List?) ?? const [];
 
-    final statusColor = _statusColor(status);
-
     return SingleChildScrollView(
       padding: KSpacing.pagePadding,
       child: Column(
@@ -155,20 +154,9 @@ class _DetailsTab extends StatelessWidget {
           Center(
             child: Column(
               children: [
-                Text('₹${total.toStringAsFixed(2)}',
-                    style: KTypography.displayLarge),
+                KMoney(total, size: KMoneySize.large),
                 KSpacing.vGapXs,
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(status,
-                      style: KTypography.labelMedium
-                          .copyWith(color: statusColor)),
-                ),
+                KStatusChip(status: status),
                 KSpacing.vGapSm,
                 Text(_formatDate(estimateDate),
                     style: KTypography.bodyMedium),
@@ -182,7 +170,7 @@ class _DetailsTab extends StatelessWidget {
           if (subject != null && subject.isNotEmpty)
             _Row('Subject', subject),
           if (reference != null && reference.isNotEmpty)
-            _Row('Reference #', reference),
+            _Row('Reference #', reference, isMono: true),
           if (expiryDate != null) _Row('Expires on', _formatDate(expiryDate)),
           KSpacing.vGapMd,
 
@@ -192,12 +180,12 @@ class _DetailsTab extends StatelessWidget {
           KSpacing.vGapMd,
 
           _SectionHeader('Breakdown'),
-          _Row('Subtotal', '₹${subtotal.toStringAsFixed(2)}'),
+          _MoneyRow('Subtotal', subtotal),
           if (discount > 0)
-            _Row('Discount', '− ₹${discount.toStringAsFixed(2)}'),
-          _Row('Tax', '₹${tax.toStringAsFixed(2)}'),
+            _MoneyRow('Discount', -discount),
+          _MoneyRow('Tax', tax),
           const Divider(),
-          _Row('Total', '₹${total.toStringAsFixed(2)}', bold: true),
+          _MoneyRow('Total', total, bold: true),
           KSpacing.vGapMd,
 
           if ((notes != null && notes.isNotEmpty) ||
@@ -239,7 +227,7 @@ class _DetailsTab extends StatelessWidget {
                         Text('Invoice', style: KTypography.labelLarge),
                         KSpacing.vGapXs,
                         Text(convertedInvoiceId,
-                            style: KTypography.bodySmall,
+                            style: KTypography.mono(fontSize: 12),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis),
                       ],
@@ -251,21 +239,12 @@ class _DetailsTab extends StatelessWidget {
             ),
             KSpacing.vGapXl,
           ],
+
+          // User-defined custom fields
+          KCustomFieldsCard(entityType: 'ESTIMATE', entityId: estimateId),
         ],
       ),
     );
-  }
-
-  Color _statusColor(String status) {
-    return switch (status) {
-      'DRAFT' => KColors.textHint,
-      'SENT' => KColors.info,
-      'ACCEPTED' => KColors.success,
-      'DECLINED' => KColors.error,
-      'INVOICED' => KColors.primary,
-      'EXPIRED' => KColors.warning,
-      _ => KColors.textHint,
-    };
   }
 
   String _formatDate(String iso) {
@@ -313,14 +292,13 @@ class _LineTile extends StatelessWidget {
                 Expanded(
                   child: Text(description, style: KTypography.labelLarge),
                 ),
-                Text('₹${amount.toStringAsFixed(2)}',
-                    style: KTypography.labelLarge),
+                KMoney(amount, size: KMoneySize.small, style: const TextStyle(fontWeight: FontWeight.w600)),
               ],
             ),
             KSpacing.vGapXs,
             Text(
               '${quantity.toStringAsFixed(quantity.truncateToDouble() == quantity ? 0 : 2)}'
-              ' × ₹${rate.toStringAsFixed(2)}'
+              ' × ${CurrencyFormatter.format(rate)}'
               '${discountPct > 0 ? ' • ${discountPct.toInt()}% off' : ''}'
               ' • GST ${taxRate.toInt()}%',
               style: KTypography.bodySmall,
@@ -663,9 +641,9 @@ class _SectionHeader extends StatelessWidget {
 class _Row extends StatelessWidget {
   final String label;
   final String value;
-  final bool bold;
+  final bool isMono;
 
-  const _Row(this.label, this.value, {this.bold = false});
+  const _Row(this.label, this.value, {this.isMono = false});
 
   @override
   Widget build(BuildContext context) {
@@ -681,10 +659,41 @@ class _Row extends StatelessWidget {
             child: Text(
               value,
               textAlign: TextAlign.right,
-              style: bold
-                  ? KTypography.labelLarge
+              style: isMono
+                  ? KTypography.mono(fontSize: 13, fontWeight: FontWeight.w500)
                   : KTypography.bodyMedium,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MoneyRow extends StatelessWidget {
+  final String label;
+  final num value;
+  final bool bold;
+
+  const _MoneyRow(this.label, this.value, {this.bold = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: bold
+                ? KTypography.labelLarge.copyWith(fontWeight: FontWeight.w700)
+                : KTypography.bodyMedium,
+          ),
+          KMoney(
+            value,
+            size: bold ? KMoneySize.medium : KMoneySize.small,
+            style: bold ? const TextStyle(fontWeight: FontWeight.w700) : null,
           ),
         ],
       ),

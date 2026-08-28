@@ -6,7 +6,6 @@ import '../../../core/api/api_config.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/widgets.dart';
 
 /// RCPA — Retail Chemist Prescription Audit.
@@ -144,26 +143,21 @@ class _MyAuditsTabState extends ConsumerState<_MyAuditsTab> {
   Widget build(BuildContext context) {
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: KColors.primary,
+        foregroundColor: Colors.white,
         onPressed: () => _openEditor(),
         icon: const Icon(Icons.add),
         label: const Text('New audit'),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: KLoading())
           : RefreshIndicator(
               onRefresh: _load,
               child: _audits.isEmpty
-                  ? ListView(
-                      children: [
-                        const SizedBox(height: 120),
-                        Center(
-                          child: Text(
-                            'No audits yet. Tap "New audit" to record one.',
-                            style: KTypography.bodyMedium
-                                .copyWith(color: KColors.textHint),
-                          ),
-                        ),
-                      ],
+                  ? const KEmptyState(
+                      icon: Icons.fact_check_outlined,
+                      title: 'No chemist audits recorded yet',
+                      subtitle: 'Tap "New audit" to record doctor prescriptions and competitor brand market share.',
                     )
                   : ListView.separated(
                       padding: KSpacing.pagePadding,
@@ -298,10 +292,11 @@ class _RcpaDetailSheet extends StatelessWidget {
                           children: [
                             Text('Qty ${l['quantity'] ?? 0}',
                                 style: KTypography.bodySmall),
-                            Text(
-                                CurrencyFormatter.formatIndian(
-                                    _asDouble(l['value'])),
-                                style: KTypography.labelMedium),
+                            KMoney(
+                              _asDouble(l['value']),
+                              size: KMoneySize.small,
+                              style: KTypography.labelMedium,
+                            ),
                           ],
                         ),
                       ],
@@ -563,14 +558,17 @@ class _RcpaEditorDialogState extends ConsumerState<_RcpaEditorDialog> {
               ),
       ),
       actions: [
-        TextButton(
+        KButton.outlined(
+          size: KButtonSize.small,
           onPressed:
               _saving ? null : () => Navigator.of(context).pop(false),
-          child: const Text('Cancel'),
+          label: 'Cancel',
         ),
-        FilledButton(
+        KSpacing.hGapSm,
+        KButton.primary(
+          size: KButtonSize.small,
           onPressed: _saving ? null : _save,
-          child: Text(_saving ? 'Saving…' : 'Save'),
+          label: _saving ? 'Saving…' : 'Save',
         ),
       ],
     );
@@ -798,7 +796,7 @@ class _ReportsTabState extends ConsumerState<_ReportsTab> {
             ),
           )
         else ...[
-          Text('Own brand share', style: KTypography.h3),
+          Text('Own Brand Share', style: KTypography.h4),
           KSpacing.vGapSm,
           Row(
             children: [
@@ -821,69 +819,51 @@ class _ReportsTabState extends ConsumerState<_ReportsTab> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _kv('Own — quantity', '${share?['ownQty'] ?? 0}'),
-                _kv('Own — value',
-                    CurrencyFormatter.formatIndian(_asDouble(share?['ownValue']))),
+                _kvMoney('Own — value', _asDouble(share?['ownValue'])),
                 const Divider(),
-                _kv('Competitor — quantity',
-                    '${share?['competitorQty'] ?? 0}'),
-                _kv(
-                    'Competitor — value',
-                    CurrencyFormatter.formatIndian(
-                        _asDouble(share?['competitorValue']))),
+                _kv('Competitor — quantity', '${share?['competitorQty'] ?? 0}'),
+                _kvMoney('Competitor — value', _asDouble(share?['competitorValue'])),
               ],
             ),
           ),
           KSpacing.vGapMd,
-          Text('Competitor brands league', style: KTypography.h3),
+          Text('Competitor Brands League', style: KTypography.h4),
           KSpacing.vGapSm,
           if (_competitors.isEmpty)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text('No competitor activity in this range',
-                    style: KTypography.bodyMedium
-                        .copyWith(color: KColors.textHint)),
+            const KCard(
+              child: Center(
+                child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Text('No competitor activity in this range'),
+                ),
               ),
             )
           else
-            ..._competitors.map((c) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: KSpacing.sm),
-                child: KCard(
-                  child: Row(
-                    children: [
-                      const Icon(Icons.business_outlined,
-                          color: KColors.warning),
-                      KSpacing.hGapMd,
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(c['productName']?.toString() ?? '',
-                                style: KTypography.labelLarge),
-                            Text(c['competitorName']?.toString() ?? '',
-                                style: KTypography.bodySmall.copyWith(
-                                    color: KColors.textSecondary)),
-                          ],
-                        ),
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text('Qty ${c['quantity'] ?? 0}',
-                              style: KTypography.bodySmall),
-                          Text(
-                              CurrencyFormatter.formatIndian(
-                                  _asDouble(c['value'])),
-                              style: KTypography.labelMedium
-                                  .copyWith(color: KColors.primary)),
-                        ],
-                      ),
-                    ],
+            KDataTable(
+              columns: const [
+                KTableColumn(label: 'Product'),
+                KTableColumn(label: 'Competitor'),
+                KTableColumn(label: 'Qty', numeric: true),
+                KTableColumn(label: 'Value', numeric: true),
+              ],
+              rows: _competitors.map((c) {
+                return [
+                  Text(
+                    c['productName']?.toString() ?? '',
+                    style: KTypography.bodySmall.copyWith(fontWeight: FontWeight.w600),
                   ),
-                ),
-              );
-            }),
+                  Text(
+                    c['competitorName']?.toString() ?? '',
+                    style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                  ),
+                  Text(
+                    '${c['quantity'] ?? 0}',
+                    style: KTypography.bodySmall,
+                  ),
+                  KMoney(_asDouble(c['value']), size: KMoneySize.small),
+                ];
+              }).toList(),
+            ),
         ],
       ],
     );
@@ -892,10 +872,13 @@ class _ReportsTabState extends ConsumerState<_ReportsTab> {
   Widget _shareCard(String label, double pct, Color color) {
     return Expanded(
       child: KCard(
+        statusAccent: color,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Column(
           children: [
             Text('${pct.toStringAsFixed(1)}%',
-                style: KTypography.h2.copyWith(color: color)),
+                style: KTypography.h2.copyWith(color: color, fontWeight: FontWeight.w700)),
+            KSpacing.vGapXs,
             Text(label,
                 style: KTypography.bodySmall
                     .copyWith(color: KColors.textSecondary)),
@@ -907,12 +890,25 @@ class _ReportsTabState extends ConsumerState<_ReportsTab> {
 
   Widget _kv(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: KTypography.bodyMedium),
-          Text(value, style: KTypography.labelMedium),
+          Text(value, style: KTypography.labelMedium.copyWith(fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+
+  Widget _kvMoney(String label, double value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: KTypography.bodyMedium),
+          KMoney(value, size: KMoneySize.small, style: const TextStyle(fontWeight: FontWeight.w600)),
         ],
       ),
     );

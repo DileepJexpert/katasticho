@@ -5,7 +5,6 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../data/sales_order_providers.dart';
@@ -386,15 +385,7 @@ class _SalesOrderCard extends StatelessWidget {
               ],
             ),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                CurrencyFormatter.formatIndian(total),
-                style: KTypography.amountMedium,
-              ),
-            ],
-          ),
+          KMoney(total, size: KMoneySize.medium),
           KSpacing.hGapSm,
           if (!inSelection)
             const Icon(Icons.chevron_right, color: KColors.textHint),

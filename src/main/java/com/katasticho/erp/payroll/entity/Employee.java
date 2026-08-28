@@ -35,6 +35,9 @@ public class Employee {
     @Column(name = "employee_code", length = 50)
     private String employeeCode;
 
+    @Column(name = "biometric_pin", length = 50)
+    private String biometricPin;
+
     @Column(name = "full_name", nullable = false, length = 255)
     private String fullName;
 

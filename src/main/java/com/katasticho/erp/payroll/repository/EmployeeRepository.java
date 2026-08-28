@@ -28,4 +28,6 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
     List<Employee> findByOrgIdAndIsDeletedFalse(UUID orgId);
 
     Optional<Employee> findByOrgIdAndEmployeeCodeAndIsDeletedFalse(UUID orgId, String employeeCode);
+
+    Optional<Employee> findByOrgIdAndBiometricPinAndIsDeletedFalse(UUID orgId, String biometricPin);
 }
