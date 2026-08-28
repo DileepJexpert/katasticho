@@ -325,11 +325,10 @@ class _Gstr2bTabState extends ConsumerState<Gstr2bTab> {
               children: [
                 Text('ITC at risk (supplier not filed)',
                     style: KTypography.bodyMedium),
-                Text(
-                  CurrencyFormatter.formatIndian(
-                      (summary['itcAtRisk'] as num?)?.toDouble() ?? 0),
-                  style:
-                      KTypography.labelLarge.copyWith(color: KColors.error),
+                KMoney(
+                  (summary['itcAtRisk'] as num?)?.toDouble() ?? 0,
+                  size: KMoneySize.medium,
+                  style: const TextStyle(color: KColors.error, fontWeight: FontWeight.w700),
                 ),
               ],
             ),
@@ -352,13 +351,29 @@ class _Gstr2bTabState extends ConsumerState<Gstr2bTab> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                                '${row['vendorName']} · ${row['vendorBillNumber'] ?? row['billNumber']}',
-                                style: KTypography.labelLarge),
-                            Text(
-                              'ITC ${CurrencyFormatter.formatIndian((row['itc'] as num?)?.toDouble() ?? 0)} at risk — follow up with the supplier',
-                              style: KTypography.bodySmall
-                                  .copyWith(color: KColors.textSecondary),
+                            Text.rich(
+                              TextSpan(
+                                children: [
+                                  TextSpan(text: '${row['vendorName']} · '),
+                                  TextSpan(
+                                    text: '${row['vendorBillNumber'] ?? row['billNumber']}',
+                                    style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w600),
+                                  ),
+                                ],
+                                style: KTypography.labelLarge,
+                              ),
+                            ),
+                            Row(
+                              children: [
+                                Text('ITC ', style: KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
+                                KMoney(
+                                  (row['itc'] as num?)?.toDouble() ?? 0,
+                                  size: KMoneySize.small,
+                                  style: const TextStyle(color: KColors.error, fontWeight: FontWeight.w600),
+                                ),
+                                Text(' at risk — follow up with supplier',
+                                    style: KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
+                              ],
                             ),
                           ],
                         ),
@@ -1363,12 +1378,11 @@ class _TdsTabState extends ConsumerState<TdsTab> {
               Expanded(
                 child: KCard(
                   child: Column(children: [
-                    Text(
-                        CurrencyFormatter.formatIndian(
-                            (data['totalTdsDeducted'] as num?)?.toDouble() ??
-                                0),
-                        style:
-                            KTypography.h2.copyWith(color: KColors.primary)),
+                    KMoney(
+                      (data['totalTdsDeducted'] as num?)?.toDouble() ?? 0,
+                      size: KMoneySize.large,
+                      style: const TextStyle(color: KColors.primary, fontWeight: FontWeight.w700),
+                    ),
                     Text('TDS deducted',
                         style: KTypography.bodySmall
                             .copyWith(color: KColors.textSecondary)),
@@ -1703,10 +1717,11 @@ class _SalaryTdsTabState extends ConsumerState<SalaryTdsTab> {
               Expanded(
                 child: KCard(
                   child: Column(children: [
-                    Text(
-                        CurrencyFormatter.formatIndian(
-                            (data['totalTdsDeducted'] as num?)?.toDouble() ?? 0),
-                        style: KTypography.h2.copyWith(color: KColors.primary)),
+                    KMoney(
+                      (data['totalTdsDeducted'] as num?)?.toDouble() ?? 0,
+                      size: KMoneySize.large,
+                      style: const TextStyle(color: KColors.primary, fontWeight: FontWeight.w700),
+                    ),
                     Text('TDS deducted',
                         style: KTypography.bodySmall
                             .copyWith(color: KColors.textSecondary)),
@@ -1950,10 +1965,13 @@ class _SalaryTdsTabState extends ConsumerState<SalaryTdsTab> {
               style: highlight
                   ? KTypography.labelMedium
                   : KTypography.bodyMedium),
-          Text(CurrencyFormatter.formatIndian(value),
-              style: highlight
-                  ? KTypography.labelLarge.copyWith(color: KColors.primary)
-                  : KTypography.bodyMedium),
+          KMoney(
+            value,
+            size: highlight ? KMoneySize.medium : KMoneySize.small,
+            style: highlight
+                ? const TextStyle(color: KColors.primary, fontWeight: FontWeight.w700)
+                : null,
+          ),
         ],
       ),
     );
@@ -2486,12 +2504,11 @@ class _TcsTabState extends ConsumerState<TcsTab> {
               Expanded(
                 child: KCard(
                   child: Column(children: [
-                    Text(
-                        CurrencyFormatter.formatIndian(
-                            (data['totalTcsCollected'] as num?)?.toDouble() ??
-                                0),
-                        style:
-                            KTypography.h2.copyWith(color: KColors.primary)),
+                    KMoney(
+                      (data['totalTcsCollected'] as num?)?.toDouble() ?? 0,
+                      size: KMoneySize.large,
+                      style: const TextStyle(color: KColors.primary, fontWeight: FontWeight.w700),
+                    ),
                     Text('TCS collected',
                         style: KTypography.bodySmall
                             .copyWith(color: KColors.textSecondary)),

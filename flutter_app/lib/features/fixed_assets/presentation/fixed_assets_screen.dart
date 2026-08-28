@@ -300,20 +300,23 @@ class _AssetCard extends StatelessWidget {
               children: [
                 Text(name, style: KTypography.labelLarge),
                 KSpacing.vGapXs,
-                Text(
-                  [
-                    if (code != null && code.isNotEmpty) code,
-                    if (method.isNotEmpty) method,
-                  ].join(' · '),
-                  style: KTypography.bodySmall
-                      .copyWith(color: KColors.textSecondary),
-                ),
-                KSpacing.vGapXs,
-                Text(
-                  'Cost ${CurrencyFormatter.formatIndian(cost)} · '
-                  'Book value ${CurrencyFormatter.formatIndian(bookValue)}',
-                  style: KTypography.bodySmall
-                      .copyWith(color: KColors.textSecondary),
+                if (code != null && code.isNotEmpty) ...[
+                  Text(
+                    [
+                      code,
+                      if (method.isNotEmpty) method,
+                    ].join(' · '),
+                    style: KTypography.mono(fontSize: 12, color: KColors.textSecondary),
+                  ),
+                  KSpacing.vGapXs,
+                ],
+                Row(
+                  children: [
+                    Text('Cost ', style: KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
+                    KMoney(cost, size: KMoneySize.small),
+                    Text(' · Book ', style: KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
+                    KMoney(bookValue, size: KMoneySize.small),
+                  ],
                 ),
               ],
             ),
@@ -383,21 +386,24 @@ class _AssetDetailSheetState extends ConsumerState<_AssetDetailSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _kv('Asset code', asset['assetCode']?.toString() ?? '--'),
+                  _kv('Asset code', asset['assetCode']?.toString() ?? '--',
+                      valueWidget: Text(
+                        asset['assetCode']?.toString() ?? '--',
+                        style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w600),
+                      )),
                   _kv('Category', asset['category']?.toString() ?? '--'),
                   _kv('Acquired', asset['acquisitionDate']?.toString() ?? '--'),
-                  _kv('Cost',
-                      CurrencyFormatter.formatIndian(_toDouble(asset['cost']))),
-                  _kv(
-                      'Residual value',
-                      CurrencyFormatter.formatIndian(
-                          _toDouble(asset['residualValue']))),
+                  _kv('Cost', '',
+                      valueWidget: KMoney(_toDouble(asset['cost']), size: KMoneySize.small)),
+                  _kv('Residual value', '',
+                      valueWidget: KMoney(_toDouble(asset['residualValue']), size: KMoneySize.small)),
                   _kv('Book method', asset['bookMethod']?.toString() ?? '--'),
-                  _kv(
-                      'Accumulated depreciation',
-                      CurrencyFormatter.formatIndian(
-                          _toDouble(asset['accumulatedDepreciation']))),
-                  _kv('Book value', CurrencyFormatter.formatIndian(bookValue),
+                  _kv('Accumulated depreciation', '',
+                      valueWidget: KMoney(_toDouble(asset['accumulatedDepreciation']), size: KMoneySize.small)),
+                  _kv('Book value', '',
+                      valueWidget: KMoney(bookValue,
+                          size: KMoneySize.medium,
+                          style: const TextStyle(color: KColors.primary, fontWeight: FontWeight.w700)),
                       highlight: true),
                   _kv('IT block', asset['itBlock']?.toString() ?? '--'),
                   _kv('IT rate %', '${asset['itRatePct'] ?? '--'}'),
@@ -470,7 +476,7 @@ class _AssetDetailSheetState extends ConsumerState<_AssetDetailSheet> {
     );
   }
 
-  Widget _kv(String label, String value, {bool highlight = false}) {
+  Widget _kv(String label, String value, {bool highlight = false, Widget? valueWidget}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
@@ -480,13 +486,14 @@ class _AssetDetailSheetState extends ConsumerState<_AssetDetailSheet> {
               style: KTypography.bodyMedium
                   .copyWith(color: KColors.textSecondary)),
           Flexible(
-            child: Text(
-              value,
-              textAlign: TextAlign.right,
-              style: highlight
-                  ? KTypography.labelLarge.copyWith(color: KColors.primary)
-                  : KTypography.bodyMedium,
-            ),
+            child: valueWidget ??
+                Text(
+                  value,
+                  textAlign: TextAlign.right,
+                  style: highlight
+                      ? KTypography.labelLarge.copyWith(color: KColors.primary)
+                      : KTypography.bodyMedium,
+                ),
           ),
         ],
       ),

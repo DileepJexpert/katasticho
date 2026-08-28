@@ -344,17 +344,18 @@ class _ScheduleCard extends StatelessWidget {
                       KSpacing.vGapXs,
                       Text(
                         reference,
-                        style: KTypography.bodySmall
-                            .copyWith(color: KColors.textSecondary),
+                        style: KTypography.mono(
+                            fontSize: 12, color: KColors.textSecondary),
                       ),
                     ],
                   ],
                 ),
               ),
               KSpacing.hGapSm,
-              Text(
-                CurrencyFormatter.formatIndian(total),
-                style: KTypography.labelLarge.copyWith(color: KColors.primary),
+              KMoney(
+                total,
+                size: KMoneySize.medium,
+                style: const TextStyle(color: KColors.primary, fontWeight: FontWeight.w700),
               ),
             ],
           ),
@@ -367,11 +368,13 @@ class _ScheduleCard extends StatelessWidget {
             ],
           ),
           KSpacing.vGapSm,
-          Text(
-            'Recognized ${CurrencyFormatter.formatIndian(recognized)} of '
-            '${CurrencyFormatter.formatIndian(total)}',
-            style:
-                KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+          Row(
+            children: [
+              Text('Recognized ', style: KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
+              KMoney(recognized, size: KMoneySize.small),
+              Text(' of ', style: KTypography.bodySmall.copyWith(color: KColors.textSecondary)),
+              KMoney(total, size: KMoneySize.small),
+            ],
           ),
           KSpacing.vGapXs,
           ClipRRect(
@@ -383,11 +386,17 @@ class _ScheduleCard extends StatelessWidget {
             ),
           ),
           KSpacing.vGapSm,
-          Text(
-            'DR $debit / CR $credit · $periods periods from '
-            '$startMonth/$startYear',
-            style:
-                KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+          Text.rich(
+            TextSpan(
+              style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+              children: [
+                const TextSpan(text: 'DR '),
+                TextSpan(text: debit, style: KTypography.mono(fontSize: 11)),
+                const TextSpan(text: ' / CR '),
+                TextSpan(text: credit, style: KTypography.mono(fontSize: 11)),
+                TextSpan(text: ' · $periods periods from $startMonth/$startYear'),
+              ],
+            ),
           ),
         ],
       ),
@@ -453,25 +462,38 @@ class _ScheduleDetailSheetState extends ConsumerState<_ScheduleDetailSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _kv('Reference', schedule['reference']?.toString() ?? '--'),
-                  _kv(
-                      'Total amount',
-                      CurrencyFormatter.formatIndian(
-                          _toDouble(schedule['totalAmount']))),
-                  _kv('Per-period amount',
-                      CurrencyFormatter.formatIndian(periodAmount)),
-                  _kv(
-                      'Recognized',
-                      CurrencyFormatter.formatIndian(
-                          _toDouble(schedule['recognizedAmount']))),
-                  _kv('Remaining', CurrencyFormatter.formatIndian(remaining),
+                  _kv('Reference', schedule['reference']?.toString() ?? '--',
+                      valueWidget: Text(
+                        schedule['reference']?.toString() ?? '--',
+                        style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w600),
+                      )),
+                  _kv('Total amount', '',
+                      valueWidget: KMoney(_toDouble(schedule['totalAmount']), size: KMoneySize.small)),
+                  _kv('Per-period amount', '',
+                      valueWidget: KMoney(periodAmount, size: KMoneySize.small)),
+                  _kv('Recognized', '',
+                      valueWidget: KMoney(_toDouble(schedule['recognizedAmount']), size: KMoneySize.small)),
+                  _kv('Remaining', '',
+                      valueWidget: KMoney(remaining,
+                          size: KMoneySize.medium,
+                          style: const TextStyle(color: KColors.primary, fontWeight: FontWeight.w700)),
                       highlight: true),
                   _kv('Periods',
                       '${_toInt(schedule['numberOfPeriods'])}'),
                   _kv('Starts',
                       '${_toInt(schedule['startMonth'])}/${_toInt(schedule['startYear'])}'),
-                  _kv('Posting',
-                      'DR ${schedule['debitAccountCode'] ?? '--'} / CR ${schedule['creditAccountCode'] ?? '--'}'),
+                  _kv('Posting', '',
+                      valueWidget: Text.rich(
+                        TextSpan(
+                          children: [
+                            const TextSpan(text: 'DR '),
+                            TextSpan(text: '${schedule['debitAccountCode'] ?? '--'}', style: KTypography.mono(fontSize: 12)),
+                            const TextSpan(text: ' / CR '),
+                            TextSpan(text: '${schedule['creditAccountCode'] ?? '--'}', style: KTypography.mono(fontSize: 12)),
+                          ],
+                          style: KTypography.bodyMedium,
+                        ),
+                      )),
                 ],
               ),
             ),
@@ -525,10 +547,10 @@ class _ScheduleDetailSheetState extends ConsumerState<_ScheduleDetailSheet> {
                             ],
                           ),
                         ),
-                        Text(
-                          CurrencyFormatter.formatIndian(_toDouble(e['amount'])),
-                          style: KTypography.labelLarge
-                              .copyWith(color: KColors.primary),
+                        KMoney(
+                          _toDouble(e['amount']),
+                          size: KMoneySize.medium,
+                          style: const TextStyle(color: KColors.primary, fontWeight: FontWeight.w700),
                         ),
                       ],
                     ),
@@ -541,7 +563,7 @@ class _ScheduleDetailSheetState extends ConsumerState<_ScheduleDetailSheet> {
     );
   }
 
-  Widget _kv(String label, String value, {bool highlight = false}) {
+  Widget _kv(String label, String value, {bool highlight = false, Widget? valueWidget}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
@@ -551,13 +573,14 @@ class _ScheduleDetailSheetState extends ConsumerState<_ScheduleDetailSheet> {
               style: KTypography.bodyMedium
                   .copyWith(color: KColors.textSecondary)),
           Flexible(
-            child: Text(
-              value,
-              textAlign: TextAlign.right,
-              style: highlight
-                  ? KTypography.labelLarge.copyWith(color: KColors.primary)
-                  : KTypography.bodyMedium,
-            ),
+            child: valueWidget ??
+                Text(
+                  value,
+                  textAlign: TextAlign.right,
+                  style: highlight
+                      ? KTypography.labelLarge.copyWith(color: KColors.primary)
+                      : KTypography.bodyMedium,
+                ),
           ),
         ],
       ),
