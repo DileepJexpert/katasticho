@@ -54,9 +54,10 @@ class CreditDueCard extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          CurrencyFormatter.formatIndian(ar.totalOutstanding),
-                          style: KTypography.amountMedium.copyWith(fontSize: 20),
+                        KMoney(
+                          ar.totalOutstanding,
+                          size: KMoneySize.medium,
+                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
                         ),
                         Text(
                           'total outstanding',

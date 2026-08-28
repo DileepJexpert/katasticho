@@ -53,9 +53,10 @@ class OutstandingReceivableCard extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          CurrencyFormatter.formatIndian(data.totalOutstanding),
-                          style: KTypography.amountMedium.copyWith(fontSize: 20),
+                        KMoney(
+                          data.totalOutstanding,
+                          size: KMoneySize.medium,
+                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
                         ),
                         Text(
                           'total outstanding',

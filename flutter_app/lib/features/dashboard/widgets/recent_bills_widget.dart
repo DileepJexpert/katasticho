@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/dashboard_models.dart';
 import '../data/dashboard_repository.dart';
@@ -88,7 +87,7 @@ class _BillRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(bill.billNumber, style: KTypography.labelMedium),
+                  Text(bill.billNumber, style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w600)),
                   Text(
                     bill.vendorName,
                     style: KTypography.bodySmall.copyWith(
@@ -103,9 +102,9 @@ class _BillRow extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(
-                  CurrencyFormatter.formatIndian(bill.totalAmount),
-                  style: KTypography.amountSmall,
+                KMoney(
+                  bill.totalAmount,
+                  size: KMoneySize.small,
                 ),
                 if (bill.billDate.isNotEmpty)
                   Text(

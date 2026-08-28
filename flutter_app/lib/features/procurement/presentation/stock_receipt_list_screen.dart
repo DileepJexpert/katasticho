@@ -177,7 +177,7 @@ class _ReceiptTable extends StatelessWidget {
             if (id.isNotEmpty) context.go('/stock-receipts/$id');
           },
           cells: [
-            DataCell(KTablePrimaryTextCell(value: number, width: 155)),
+            DataCell(KTableTextCell(value: number, width: 155, style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w600))),
             DataCell(KTableTextCell(value: supplierName, width: 210)),
             DataCell(KTableDateCell(value: dateRaw)),
             DataCell(Text('$lineCount', style: KTypography.mono())),

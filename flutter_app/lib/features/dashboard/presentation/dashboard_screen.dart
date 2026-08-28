@@ -232,10 +232,10 @@ class _CashierDashboard extends ConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            CurrencyFormatter.formatIndian(data.posSalesTotal),
-                            style:
-                                KTypography.amountMedium.copyWith(fontSize: 22),
+                          KMoney(
+                            data.posSalesTotal,
+                            size: KMoneySize.medium,
+                            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
                           ),
                           Text(
                             '${data.posTransactionCount} transactions',

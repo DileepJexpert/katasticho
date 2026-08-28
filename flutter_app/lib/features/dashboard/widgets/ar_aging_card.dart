@@ -5,6 +5,7 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/widgets/widgets.dart';
 
 /// Reusable aging bucket breakdown — renders Current / 1-30 / 31-60 /
 /// 61-90 / 90+ rows with colour-coded bars. Rendered inline under the
@@ -95,8 +96,7 @@ class AgingBreakdown extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 2),
-          Text(CurrencyFormatter.formatIndian(totalOutstanding),
-              style: KTypography.amountSmall),
+          KMoney(totalOutstanding, size: KMoneySize.small),
           const SizedBox(height: 8),
           _AgingStackBar(buckets: buckets, total: totalOutstanding),
           const SizedBox(height: 8),
@@ -160,8 +160,7 @@ class AgingBreakdown extends StatelessWidget {
               const Spacer(),
               _RiskPill(overdueRatio: overdueRatio),
               const SizedBox(width: 8),
-              Text(CurrencyFormatter.formatIndian(totalOutstanding),
-                  style: KTypography.amountMedium),
+              KMoney(totalOutstanding, size: KMoneySize.medium),
             ],
           ),
           const SizedBox(height: 12),

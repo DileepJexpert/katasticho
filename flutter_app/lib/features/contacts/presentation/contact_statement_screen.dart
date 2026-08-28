@@ -172,8 +172,7 @@ class _ContactStatementScreenState
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('Opening Balance', style: KTypography.labelSmall),
-              Text(CurrencyFormatter.formatIndian(openingBalance),
-                  style: KTypography.amountSmall),
+              KMoney(openingBalance, size: KMoneySize.small),
             ],
           ),
         ),
@@ -214,10 +213,12 @@ class _ContactStatementScreenState
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('Closing Balance', style: KTypography.labelLarge),
-              Text(
-                CurrencyFormatter.formatIndian(closingBalance),
-                style: KTypography.amountMedium.copyWith(
+              KMoney(
+                closingBalance,
+                size: KMoneySize.medium,
+                style: TextStyle(
                   color: closingBalance > 0 ? KColors.error : KColors.success,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
@@ -294,19 +295,19 @@ class _EntryTile extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: Text(number, style: KTypography.labelMedium),
+                      child: Text(number, style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w600)),
                     ),
                     if (debit > 0)
-                      Text(
-                        CurrencyFormatter.formatIndian(debit),
-                        style: KTypography.amountSmall
-                            .copyWith(color: KColors.error),
+                      KMoney(
+                        debit,
+                        size: KMoneySize.small,
+                        style: const TextStyle(color: KColors.error, fontWeight: FontWeight.w600),
                       ),
                     if (credit > 0)
-                      Text(
-                        CurrencyFormatter.formatIndian(credit),
-                        style: KTypography.amountSmall
-                            .copyWith(color: KColors.success),
+                      KMoney(
+                        credit,
+                        size: KMoneySize.small,
+                        style: const TextStyle(color: KColors.success, fontWeight: FontWeight.w600),
                       ),
                   ],
                 ),
@@ -317,10 +318,16 @@ class _EntryTile extends StatelessWidget {
                         style: KTypography.bodySmall
                             .copyWith(color: KColors.textHint)),
                     const Spacer(),
-                    Text(
-                      'Bal: ${CurrencyFormatter.formatIndian(running)}',
-                      style: KTypography.labelSmall
-                          .copyWith(color: KColors.textSecondary),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Bal: ',
+                          style: KTypography.labelSmall
+                              .copyWith(color: KColors.textSecondary),
+                        ),
+                        KMoney(running, size: KMoneySize.small),
+                      ],
                     ),
                   ],
                 ),

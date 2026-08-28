@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/dashboard_models.dart';
 import '../data/dashboard_repository.dart';
@@ -68,9 +67,9 @@ class PurchasesByBranchWidget extends ConsumerWidget {
                     ),
                   ),
                   const Spacer(),
-                  Text(
-                    CurrencyFormatter.formatIndian(totalPurchases),
-                    style: KTypography.amountMedium,
+                  KMoney(
+                    totalPurchases,
+                    size: KMoneySize.medium,
                   ),
                 ],
               ),
@@ -111,9 +110,9 @@ class _BranchBar extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            Text(
-              CurrencyFormatter.formatIndian(row.purchases),
-              style: KTypography.amountSmall,
+            KMoney(
+              row.purchases,
+              size: KMoneySize.small,
             ),
             const SizedBox(width: 8),
             Container(

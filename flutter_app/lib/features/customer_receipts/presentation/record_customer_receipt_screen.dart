@@ -301,20 +301,40 @@ class _RecordCustomerReceiptScreenState
                                         ),
                                         overflow: TextOverflow.ellipsis,
                                       ),
-                                      Text(
-                                        hasCustomer
-                                            ? [
+                                      if (hasCustomer)
+                                        Text.rich(
+                                          TextSpan(
+                                            style: KTypography.bodySmall.copyWith(
+                                              color: cs.onSurfaceVariant,
+                                            ),
+                                            children: [
+                                              if (_outstandingAr != null && _outstandingAr! > 0) ...[
+                                                const TextSpan(text: 'Outstanding: '),
+                                                TextSpan(
+                                                  text: CurrencyFormatter.formatIndian(_outstandingAr!),
+                                                  style: const TextStyle(fontWeight: FontWeight.w600),
+                                                ),
+                                              ],
+                                              if (_contactPhone != null && _contactPhone!.isNotEmpty) ...[
                                                 if (_outstandingAr != null && _outstandingAr! > 0)
-                                                  'Outstanding: ${CurrencyFormatter.formatIndian(_outstandingAr!)}',
-                                                if (_contactPhone != null && _contactPhone!.isNotEmpty)
-                                                  _contactPhone!,
-                                              ].join(' · ')
-                                            : 'Tap to pick customer from directory',
-                                        style: KTypography.bodySmall.copyWith(
-                                          color: cs.onSurfaceVariant,
+                                                  const TextSpan(text: ' · '),
+                                                TextSpan(
+                                                  text: _contactPhone!,
+                                                  style: KTypography.mono(fontSize: 12),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        )
+                                      else
+                                        Text(
+                                          'Tap to pick customer from directory',
+                                          style: KTypography.bodySmall.copyWith(
+                                            color: cs.onSurfaceVariant,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
                                     ],
                                   ),
                                 ),

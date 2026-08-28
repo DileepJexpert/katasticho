@@ -5,7 +5,6 @@ import '../../../core/intl/country_currency.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../routing/app_router.dart';
 import '../data/contact_repository.dart';
@@ -452,14 +451,21 @@ class _ContactAmountCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (value == 0) {
+      return SizedBox(
+        width: 82,
+        child: Text(
+          '--',
+          textAlign: TextAlign.end,
+          style: KTypography.amountSmall.copyWith(color: KColors.textHint),
+        ),
+      );
+    }
     return SizedBox(
       width: 82,
-      child: Text(
-        value == 0 ? '--' : CurrencyFormatter.formatIndian(value),
-        textAlign: TextAlign.end,
-        style: KTypography.amountSmall.copyWith(
-          color: value == 0 ? KColors.textHint : KColors.textPrimary,
-        ),
+      child: KMoney(
+        value,
+        size: KMoneySize.small,
       ),
     );
   }

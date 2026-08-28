@@ -69,11 +69,13 @@ class PnlSummaryCard extends ConsumerWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    Text(
-                      CurrencyFormatter.formatIndian(data.netProfit.abs()),
-                      style: KTypography.amountMedium.copyWith(
+                    KMoney(
+                      data.netProfit.abs(),
+                      size: KMoneySize.medium,
+                      style: TextStyle(
                         color: isProfit ? KColors.success : KColors.error,
                         fontSize: 18,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ],

@@ -9,7 +9,6 @@ import '../../../core/utils/api_error_parser.dart';
 import '../../../core/utils/dual_uom_formatter.dart';
 import '../../../core/utils/form_error_handler.dart';
 import '../../../core/widgets/widgets.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../../contacts/data/contact_repository.dart';
@@ -683,9 +682,10 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text('Total', style: KTypography.bodySmall),
-                        Text(
-                          CurrencyFormatter.formatIndian(_grandTotal),
-                          style: KTypography.amountMedium,
+                        KMoney(
+                          _grandTotal,
+                          size: KMoneySize.medium,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
                         ),
                       ],
                     ),
@@ -850,14 +850,14 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
             children: [
               _SummaryRow(
                   label: 'Subtotal',
-                  value: CurrencyFormatter.formatIndian(_subtotal)),
+                  amount: _subtotal),
               _SummaryRow(
                   label: 'Tax',
-                  value: CurrencyFormatter.formatIndian(_totalTax)),
+                  amount: _totalTax),
               const Divider(),
               _SummaryRow(
                 label: 'Grand Total',
-                value: CurrencyFormatter.formatIndian(_grandTotal),
+                amount: _grandTotal,
                 bold: true,
               ),
             ],
@@ -930,16 +930,18 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
                                 : item.description,
                             style: KTypography.bodyMedium,
                           ),
-                          Text(
-                            '${item.quantity} x ${CurrencyFormatter.formatIndian(item.unitPrice)}',
-                            style: KTypography.bodySmall,
+                          Row(
+                            children: [
+                              Text('${item.quantity} x ', style: KTypography.bodySmall),
+                              KMoney(item.unitPrice, size: KMoneySize.small),
+                            ],
                           ),
                         ],
                       ),
                     ),
-                    Text(
-                      CurrencyFormatter.formatIndian(item.lineTotal),
-                      style: KTypography.amountSmall,
+                    KMoney(
+                      item.lineTotal,
+                      size: KMoneySize.small,
                     ),
                   ],
                 ),
@@ -953,14 +955,14 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
             children: [
               _SummaryRow(
                   label: 'Subtotal',
-                  value: CurrencyFormatter.formatIndian(_subtotal)),
+                  amount: _subtotal),
               _SummaryRow(
                   label: 'Tax',
-                  value: CurrencyFormatter.formatIndian(_totalTax)),
+                  amount: _totalTax),
               const Divider(),
               _SummaryRow(
                 label: 'Total',
-                value: CurrencyFormatter.formatIndian(_grandTotal),
+                amount: _grandTotal,
                 bold: true,
               ),
             ],
@@ -1432,10 +1434,12 @@ class _BillLineItemCardState extends State<_BillLineItemCard> {
                 ),
               ),
               KSpacing.hGapMd,
-              Text(
-                CurrencyFormatter.formatIndian(widget.item.lineTotal),
-                style: KTypography.amountSmall.copyWith(
+              KMoney(
+                widget.item.lineTotal,
+                size: KMoneySize.small,
+                style: const TextStyle(
                   color: KColors.primary,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -1555,12 +1559,12 @@ class _VendorSelectTile extends StatelessWidget {
 
 class _SummaryRow extends StatelessWidget {
   final String label;
-  final String value;
+  final num amount;
   final bool bold;
 
   const _SummaryRow({
     required this.label,
-    required this.value,
+    required this.amount,
     this.bold = false,
   });
 
@@ -1575,9 +1579,10 @@ class _SummaryRow extends StatelessWidget {
             label,
             style: bold ? KTypography.labelLarge : KTypography.bodyMedium,
           ),
-          Text(
-            value,
-            style: bold ? KTypography.amountMedium : KTypography.amountSmall,
+          KMoney(
+            amount,
+            size: bold ? KMoneySize.medium : KMoneySize.small,
+            style: bold ? const TextStyle(fontWeight: FontWeight.w700) : null,
           ),
         ],
       ),

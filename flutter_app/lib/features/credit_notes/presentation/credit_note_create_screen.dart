@@ -6,7 +6,6 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../core/utils/form_error_handler.dart';
 import '../../../routing/app_router.dart';
@@ -726,10 +725,12 @@ class _CreditNoteCreateScreenState extends ConsumerState<CreditNoteCreateScreen>
                 ),
               ),
               KSpacing.hGapMd,
-              Text(
-                CurrencyFormatter.formatIndian(line.lineTotal),
-                style: KTypography.amountSmall.copyWith(
+              KMoney(
+                line.lineTotal,
+                size: KMoneySize.small,
+                style: const TextStyle(
                   color: KColors.primary,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],

@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/dashboard_repository.dart';
 
@@ -38,7 +37,7 @@ class CashPositionWidget extends ConsumerWidget {
             ),
             data: (ar) => _PositionRow(
               label: 'Receivables (AR)',
-              value: CurrencyFormatter.formatIndian(ar.totalOutstanding),
+              amount: ar.totalOutstanding,
               icon: Icons.arrow_downward,
               color: KColors.success,
             ),
@@ -61,7 +60,7 @@ class CashPositionWidget extends ConsumerWidget {
             ),
             data: (ar) => _PositionRow(
               label: 'AR Due This Week',
-              value: CurrencyFormatter.formatIndian(ar.dueThisWeek),
+              amount: ar.dueThisWeek,
               icon: Icons.schedule_outlined,
               color: KColors.success,
               badge: ar.dueThisWeekCount > 0
@@ -87,7 +86,7 @@ class CashPositionWidget extends ConsumerWidget {
             ),
             data: (ap) => _PositionRow(
               label: 'Payables (AP)',
-              value: CurrencyFormatter.formatIndian(ap.totalOutstanding),
+              amount: ap.totalOutstanding,
               icon: Icons.arrow_upward,
               color: KColors.error,
             ),
@@ -110,7 +109,7 @@ class CashPositionWidget extends ConsumerWidget {
             ),
             data: (ap) => _PositionRow(
               label: 'AP Due This Week',
-              value: CurrencyFormatter.formatIndian(ap.dueThisWeek),
+              amount: ap.dueThisWeek,
               icon: Icons.schedule,
               color: KColors.warning,
               badge: ap.dueThisWeekCount > 0
@@ -126,14 +125,16 @@ class CashPositionWidget extends ConsumerWidget {
 
 class _PositionRow extends StatelessWidget {
   final String label;
-  final String value;
+  final String? value;
+  final num? amount;
   final IconData icon;
   final Color color;
   final String? badge;
 
   const _PositionRow({
     required this.label,
-    required this.value,
+    this.value,
+    this.amount,
     required this.icon,
     required this.color,
     this.badge,
@@ -168,7 +169,10 @@ class _PositionRow extends StatelessWidget {
             ],
           ),
         ),
-        Text(value, style: KTypography.amountSmall),
+        if (amount != null)
+          KMoney(amount!, size: KMoneySize.small)
+        else
+          Text(value ?? '', style: KTypography.amountSmall),
       ],
     );
   }

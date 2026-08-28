@@ -147,7 +147,7 @@ class _DebitNoteTable extends StatelessWidget {
             if (id.isNotEmpty) context.go('/debit-notes/$id');
           },
           cells: [
-            DataCell(KTablePrimaryTextCell(value: dnNumber, width: 130)),
+            DataCell(KTableTextCell(value: dnNumber, width: 130, style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w600))),
             DataCell(KTableTextCell(value: supplierName, width: 200)),
             DataCell(KTableDateCell(value: noteDateRaw)),
             DataCell(KTableTextCell(value: reason, width: 160)),
@@ -193,7 +193,7 @@ class _DebitNoteCard extends StatelessWidget {
                   children: [
                     Text(
                       dnNumber,
-                      style: KTypography.mono(fontSize: 13, weight: FontWeight.w600),
+                      style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w600),
                     ),
                     KSpacing.hGapSm,
                     KStatusChip(status: status),

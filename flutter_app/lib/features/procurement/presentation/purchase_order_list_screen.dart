@@ -164,7 +164,7 @@ class _PoTable extends StatelessWidget {
             if (id.isNotEmpty) context.go('/purchase-orders/$id');
           },
           cells: [
-            DataCell(KTablePrimaryTextCell(value: poNumber, width: 130)),
+            DataCell(KTableTextCell(value: poNumber, width: 130, style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w600))),
             DataCell(KTableTextCell(value: supplierName, width: 200)),
             DataCell(KTableDateCell(value: orderDate)),
             DataCell(KTableDateCell(value: deliveryDate)),
