@@ -69,10 +69,20 @@ class CashFlowCard extends ConsumerWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Net: ${CurrencyFormatter.formatIndian(data.netCashFlow)}',
-                      style: KTypography.amountMedium.copyWith(
+                      'Net: ',
+                      style: TextStyle(
                         color: isPositive ? KColors.success : KColors.error,
                         fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    KMoney(
+                      data.netCashFlow,
+                      size: KMoneySize.medium,
+                      style: TextStyle(
+                        color: isPositive ? KColors.success : KColors.error,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ],

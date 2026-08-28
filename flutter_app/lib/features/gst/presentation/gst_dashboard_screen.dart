@@ -499,11 +499,16 @@ class _Gstr1Tab extends StatelessWidget {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            Text(CurrencyFormatter.formatIndian(txval),
-                                style: KTypography.amountSmall),
-                            Text('Tax: ${CurrencyFormatter.formatIndian(totalTax)}',
-                                style: KTypography.bodySmall
-                                    .copyWith(color: KColors.textHint)),
+                            KMoney(txval, size: KMoneySize.small),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text('Tax: ',
+                                    style: KTypography.bodySmall
+                                        .copyWith(color: KColors.textHint)),
+                                KMoney(totalTax, size: KMoneySize.small),
+                              ],
+                            ),
                           ],
                         ),
                       ],
@@ -540,11 +545,10 @@ class _Gstr1Tab extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(m['nt_num']?.toString() ?? '',
-                              style: KTypography.labelSmall),
-                          Text(
-                            CurrencyFormatter.formatIndian(
-                                (m['val'] as num?)?.toDouble() ?? 0),
-                            style: KTypography.amountSmall,
+                              style: KTypography.mono(fontSize: 12, fontWeight: FontWeight.w600)),
+                          KMoney(
+                            (m['val'] as num?)?.toDouble() ?? 0,
+                            size: KMoneySize.small,
                           ),
                         ],
                       ),
@@ -652,9 +656,10 @@ class _NetPayableCard extends StatelessWidget {
           Text('Net Tax Payable',
               style: KTypography.labelLarge.copyWith(color: Colors.white70)),
           KSpacing.vGapSm,
-          Text(
-            CurrencyFormatter.formatIndian(netPayable),
-            style: KTypography.h1.copyWith(color: Colors.white),
+          KMoney(
+            netPayable,
+            size: KMoneySize.large,
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
           ),
           KSpacing.vGapXs,
           Text(
@@ -802,16 +807,16 @@ class _B2bRecord extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(inum, style: KTypography.labelSmall),
+                          Text(inum, style: KTypography.mono(fontSize: 12, fontWeight: FontWeight.w600)),
                           Text(idt,
                               style: KTypography.bodySmall
                                   .copyWith(color: KColors.textHint)),
                         ],
                       ),
                     ),
-                    Text(
-                      CurrencyFormatter.formatIndian(val),
-                      style: KTypography.amountSmall,
+                    KMoney(
+                      val,
+                      size: KMoneySize.small,
                     ),
                   ],
                 ),
@@ -846,7 +851,7 @@ class _CdnrRecord extends StatelessWidget {
                 KSpacing.hGapXs,
                 Expanded(
                   child: Text(ctin,
-                      style: KTypography.labelMedium,
+                      style: KTypography.mono(fontSize: 12, fontWeight: FontWeight.w600),
                       overflow: TextOverflow.ellipsis),
                 ),
               ],
@@ -857,11 +862,11 @@ class _CdnrRecord extends StatelessWidget {
               return Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(m['nt_num']?.toString() ?? '', style: KTypography.labelSmall),
-                  Text(
-                    CurrencyFormatter.formatIndian(
-                        (m['val'] as num?)?.toDouble() ?? 0),
-                    style: KTypography.amountSmall,
+                  Text(m['nt_num']?.toString() ?? '',
+                      style: KTypography.mono(fontSize: 12, fontWeight: FontWeight.w600)),
+                  KMoney(
+                    (m['val'] as num?)?.toDouble() ?? 0,
+                    size: KMoneySize.small,
                   ),
                 ],
               );
@@ -1113,9 +1118,10 @@ class _TaxRow extends StatelessWidget {
       children: [
         Text(label,
             style: bold ? KTypography.labelLarge : KTypography.bodyMedium),
-        Text(
-          CurrencyFormatter.formatIndian(amount),
-          style: bold ? KTypography.amountMedium : KTypography.amountSmall,
+        KMoney(
+          amount,
+          size: bold ? KMoneySize.medium : KMoneySize.small,
+          style: bold ? const TextStyle(fontWeight: FontWeight.w700) : null,
         ),
       ],
     );

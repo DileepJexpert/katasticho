@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_typography.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/dashboard_repository.dart';
 
@@ -108,9 +107,9 @@ class _TopSellingTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            CurrencyFormatter.formatIndian(revenue),
-            style: KTypography.amountSmall,
+          KMoney(
+            revenue,
+            size: KMoneySize.small,
           ),
           Text('revenue', style: KTypography.labelSmall),
         ],

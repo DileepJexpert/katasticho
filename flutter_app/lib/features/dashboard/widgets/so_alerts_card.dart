@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_typography.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../routing/app_router.dart';
 import '../data/dashboard_repository.dart';
@@ -286,9 +285,9 @@ class _OrderRow extends ConsumerWidget {
                   ],
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  CurrencyFormatter.formatIndian(amount),
-                  style: KTypography.amountSmall,
+                KMoney(
+                  amount,
+                  size: KMoneySize.small,
                 ),
               ],
             ),

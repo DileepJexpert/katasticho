@@ -141,9 +141,10 @@ class _HeroRow extends StatelessWidget {
               children: [
                 Text(label, style: KTypography.labelSmall.copyWith(color: cs.onSurfaceVariant)),
                 const SizedBox(height: 2),
-                Text(
-                  CurrencyFormatter.formatIndian(value),
-                  style: KTypography.h1.copyWith(
+                KMoney(
+                  value,
+                  size: KMoneySize.large,
+                  style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
                     color: color,

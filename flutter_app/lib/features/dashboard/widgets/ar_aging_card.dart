@@ -171,7 +171,7 @@ class AgingBreakdown extends StatelessWidget {
               Expanded(
                 child: _MiniMetric(
                   label: 'Current',
-                  value: CurrencyFormatter.formatIndian(current),
+                  amount: current,
                   color: KColors.ageingCurrent,
                 ),
               ),
@@ -179,7 +179,7 @@ class AgingBreakdown extends StatelessWidget {
               Expanded(
                 child: _MiniMetric(
                   label: 'Overdue',
-                  value: CurrencyFormatter.formatIndian(overdue),
+                  amount: overdue,
                   color: overdue > 0 ? KColors.error : KColors.success,
                 ),
               ),
@@ -252,12 +252,14 @@ class _RiskPill extends StatelessWidget {
 
 class _MiniMetric extends StatelessWidget {
   final String label;
-  final String value;
+  final String? value;
+  final num? amount;
   final Color color;
 
   const _MiniMetric({
     required this.label,
-    required this.value,
+    this.value,
+    this.amount,
     required this.color,
   });
 
@@ -274,15 +276,25 @@ class _MiniMetric extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            value,
-            style: KTypography.labelMedium.copyWith(
-              color: cs.onSurface,
-              fontWeight: FontWeight.w800,
+          if (amount != null)
+            KMoney(
+              amount!,
+              size: KMoneySize.small,
+              style: TextStyle(
+                color: cs.onSurface,
+                fontWeight: FontWeight.w800,
+              ),
+            )
+          else
+            Text(
+              value ?? '',
+              style: KTypography.labelMedium.copyWith(
+                color: cs.onSurface,
+                fontWeight: FontWeight.w800,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
           Text(
             label,
             style: KTypography.labelSmall.copyWith(
