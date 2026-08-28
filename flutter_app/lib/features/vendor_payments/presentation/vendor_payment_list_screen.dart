@@ -263,9 +263,10 @@ class _VendorPaymentTable extends StatelessWidget {
             if (dto.id.isNotEmpty) context.go('/vendor-payments/${dto.id}');
           },
           cells: [
-            DataCell(Text(
-              dto.paymentNumber,
-              style: KTypography.mono(fontSize: 12, weight: FontWeight.w600),
+            DataCell(KTableTextCell(
+              value: dto.paymentNumber,
+              width: 140,
+              style: KTypography.mono(fontSize: 12, fontWeight: FontWeight.w600),
             )),
             DataCell(KTableTextCell(value: dto.vendorName, width: 220)),
             DataCell(KTableDateCell(value: dto.paymentDate)),

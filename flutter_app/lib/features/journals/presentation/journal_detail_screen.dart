@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/journal_repository.dart';
@@ -23,7 +22,7 @@ class JournalDetailScreen extends ConsumerWidget {
         title: journalAsync.whenOrNull(
               data: (data) {
                 final je = (data['data'] ?? data) as Map<String, dynamic>;
-                return Text(je['entryNumber']?.toString() ?? 'Journal Entry');
+                return Text(je['entryNumber']?.toString() ?? 'Journal Entry', style: KTypography.mono(fontSize: 18, fontWeight: FontWeight.w600));
               },
             ) ??
             const Text('Journal Entry'),
@@ -151,10 +150,13 @@ class _JournalDetailBody extends StatelessWidget {
               children: [
                 KDetailRow(
                   label: 'Entry Number',
-                  value: entryNumber,
-                  valueStyle: KTypography.bodyMedium.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: cs.onSurface,
+                  valueWidget: Text(
+                    entryNumber,
+                    style: KTypography.mono(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: cs.onSurface,
+                    ),
                   ),
                 ),
                 KDetailRow(
@@ -267,22 +269,18 @@ class _JournalDetailBody extends StatelessWidget {
                 ),
                 Expanded(
                   flex: 2,
-                  child: Text(
-                    CurrencyFormatter.formatIndian(totalDebit),
-                    textAlign: TextAlign.right,
-                    style: KTypography.amountSmall.copyWith(
-                      color: cs.onSurface,
-                    ),
+                  child: KMoney(
+                    totalDebit,
+                    size: KMoneySize.small,
+                    style: TextStyle(color: cs.onSurface),
                   ),
                 ),
                 Expanded(
                   flex: 2,
-                  child: Text(
-                    CurrencyFormatter.formatIndian(totalCredit),
-                    textAlign: TextAlign.right,
-                    style: KTypography.amountSmall.copyWith(
-                      color: cs.onSurface,
-                    ),
+                  child: KMoney(
+                    totalCredit,
+                    size: KMoneySize.small,
+                    style: TextStyle(color: cs.onSurface),
                   ),
                 ),
               ],
@@ -336,11 +334,21 @@ class _LineRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '$accountCode — $accountName',
-                  style: KTypography.bodySmall.copyWith(
-                    fontWeight: FontWeight.w500,
-                    color: cs.onSurface,
+                Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: accountCode,
+                        style: KTypography.mono(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurface),
+                      ),
+                      TextSpan(
+                        text: ' — $accountName',
+                        style: KTypography.bodySmall.copyWith(
+                          fontWeight: FontWeight.w500,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 if (lineDescription.isNotEmpty)
@@ -358,25 +366,31 @@ class _LineRow extends StatelessWidget {
           ),
           Expanded(
             flex: 2,
-            child: Text(
-              debit > 0 ? CurrencyFormatter.formatIndian(debit) : '--',
-              textAlign: TextAlign.right,
-              style: KTypography.amountSmall.copyWith(
-                color: debit > 0 ? cs.onSurface : KColors.textHint,
-                fontSize: 13,
-              ),
-            ),
+            child: debit > 0
+                ? KMoney(
+                    debit,
+                    size: KMoneySize.small,
+                    style: TextStyle(color: cs.onSurface),
+                  )
+                : Text(
+                    '--',
+                    textAlign: TextAlign.right,
+                    style: KTypography.bodySmall.copyWith(color: KColors.textHint),
+                  ),
           ),
           Expanded(
             flex: 2,
-            child: Text(
-              credit > 0 ? CurrencyFormatter.formatIndian(credit) : '--',
-              textAlign: TextAlign.right,
-              style: KTypography.amountSmall.copyWith(
-                color: credit > 0 ? cs.onSurface : KColors.textHint,
-                fontSize: 13,
-              ),
-            ),
+            child: credit > 0
+                ? KMoney(
+                    credit,
+                    size: KMoneySize.small,
+                    style: TextStyle(color: cs.onSurface),
+                  )
+                : Text(
+                    '--',
+                    textAlign: TextAlign.right,
+                    style: KTypography.bodySmall.copyWith(color: KColors.textHint),
+                  ),
           ),
         ],
       ),

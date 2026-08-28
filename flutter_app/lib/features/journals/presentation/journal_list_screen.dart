@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/journal_repository.dart';
 
@@ -165,7 +164,7 @@ class _JournalTable extends StatelessWidget {
             }
           },
           cells: [
-            DataCell(KTablePrimaryTextCell(value: entryNumber, width: 160)),
+            DataCell(KTableTextCell(value: entryNumber, width: 160, style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w600))),
             DataCell(KTableDateCell(value: effectiveDate)),
             DataCell(KTableTextCell(value: description, width: 280)),
             DataCell(_SourceChip(sourceModule: sourceModule)),
@@ -203,8 +202,6 @@ class _JournalCard extends StatelessWidget {
     final totalDebit =
         (journal['totalDebit'] as num?)?.toDouble() ?? 0.0;
 
-    final cs = Theme.of(context).colorScheme;
-
     return KCard(
       onTap: () => context.push('/accounting/journal-entries/$id'),
       child: Row(
@@ -216,10 +213,7 @@ class _JournalCard extends StatelessWidget {
               children: [
                 Text(
                   entryNumber,
-                  style: KTypography.labelLarge.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: cs.onSurface,
-                  ),
+                  style: KTypography.mono(fontSize: 14, fontWeight: FontWeight.w600),
                 ),
                 if (description.isNotEmpty) ...[
                   KSpacing.vGapXs,
@@ -239,11 +233,9 @@ class _JournalCard extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                CurrencyFormatter.formatIndian(totalDebit),
-                style: KTypography.amountSmall.copyWith(
-                  color: cs.onSurface,
-                ),
+              KMoney(
+                totalDebit,
+                size: KMoneySize.small,
               ),
               KSpacing.vGapXs,
               Row(

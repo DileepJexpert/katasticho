@@ -48,7 +48,7 @@ class VendorPaymentCard extends StatelessWidget {
                     Flexible(
                       child: Text(
                         p.paymentNumber,
-                        style: KTypography.mono(fontSize: 13, weight: FontWeight.w600),
+                        style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w600),
                       ),
                     ),
                     KSpacing.hGapSm,

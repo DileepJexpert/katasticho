@@ -118,10 +118,19 @@ class _LaborPayPreviewScreenState extends ConsumerState<LaborPayPreviewScreen> {
                       for (final emp in _employees)
                         DropdownMenuItem(
                           value: emp['id']?.toString(),
-                          child: Text(
-                            '${emp['fullName'] ?? '--'} (${emp['employeeCode'] ?? 'No Code'}) · ${emp['designation'] ?? 'Worker'}',
-                            overflow: TextOverflow.ellipsis,
+                          child: Text.rich(
+                            TextSpan(
+                              children: [
+                                TextSpan(text: '${emp['fullName'] ?? '--'} ('),
+                                TextSpan(
+                                  text: emp['employeeCode'] ?? 'No Code',
+                                  style: KTypography.mono(fontSize: 12, fontWeight: FontWeight.w600),
+                                ),
+                                TextSpan(text: ') · ${emp['designation'] ?? 'Worker'}'),
+                              ],
+                            ),
                             style: KTypography.bodyMedium,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                     ],

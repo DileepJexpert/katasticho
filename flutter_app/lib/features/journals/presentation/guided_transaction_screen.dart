@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../accounts/data/account_repository.dart';
 import '../data/journal_repository.dart';
@@ -737,7 +736,19 @@ class _AccountDropdown extends StatelessWidget {
           .map(
             (account) => DropdownMenuItem(
               value: account.code,
-              child: Text('${account.code} - ${account.name}'),
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: account.code,
+                      style: KTypography.mono(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                    TextSpan(
+                      text: ' - ${account.name}',
+                    ),
+                  ],
+                ),
+              ),
             ),
           )
           .toList(),
@@ -763,19 +774,38 @@ class _PreviewLineTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('${line.account.code} - ${line.account.name}'),
+                Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: line.account.code,
+                        style: KTypography.mono(fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                      TextSpan(
+                        text: ' - ${line.account.name}',
+                      ),
+                    ],
+                  ),
+                ),
                 Text(line.description, style: KTypography.bodySmall),
               ],
             ),
           ),
           SizedBox(
-            width: 112,
-            child: Text(
-              line.debit > 0
-                  ? 'DR ${CurrencyFormatter.formatIndian(line.debit)}'
-                  : 'CR ${CurrencyFormatter.formatIndian(line.credit)}',
-              textAlign: TextAlign.right,
-              style: KTypography.labelLarge,
+            width: 120,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Text(
+                  line.debit > 0 ? 'DR ' : 'CR ',
+                  style: KTypography.bodySmall,
+                ),
+                KMoney(
+                  line.debit > 0 ? line.debit : line.credit,
+                  size: KMoneySize.small,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ],
             ),
           ),
         ],
@@ -795,8 +825,11 @@ class _TotalRow extends StatelessWidget {
     return Row(
       children: [
         Expanded(child: Text(label, style: KTypography.labelLarge)),
-        Text(CurrencyFormatter.formatIndian(amount),
-            style: KTypography.labelLarge),
+        KMoney(
+          amount,
+          size: KMoneySize.small,
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
       ],
     );
   }

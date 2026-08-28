@@ -642,6 +642,7 @@ class _HrReviewTabState extends ConsumerState<_HrReviewTab> {
         itemBuilder: (_, i) {
           final r = _rows[i];
           final empId = r['employeeId']?.toString() ?? '';
+          final hasName = _names.containsKey(empId);
           final name = _names[empId] ??
               (empId.length > 8 ? empId.substring(0, 8) : empId);
           final status = (r['status']?.toString() ?? 'DRAFT').toUpperCase();
@@ -653,7 +654,10 @@ class _HrReviewTabState extends ConsumerState<_HrReviewTab> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(name, style: KTypography.titleMedium),
+                      if (hasName)
+                        Text(name, style: KTypography.titleMedium)
+                      else
+                        Text(name, style: KTypography.mono(fontSize: 16, fontWeight: FontWeight.w600)),
                       KSpacing.vGapXs,
                       Row(
                         children: [

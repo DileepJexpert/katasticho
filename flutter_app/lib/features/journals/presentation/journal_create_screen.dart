@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../core/utils/form_error_handler.dart';
 import '../../../core/widgets/widgets.dart';
@@ -400,10 +399,20 @@ class _JournalLineCard extends StatelessWidget {
                 .where((a) => a.isActive && !a.hasChildren)
                 .map((a) => DropdownMenuItem(
                       value: a,
-                      child: Text(
-                        '${a.code} — ${a.name}',
+                      child: Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: a.code,
+                              style: KTypography.mono(fontSize: 12, fontWeight: FontWeight.w600),
+                            ),
+                            TextSpan(
+                              text: ' — ${a.name}',
+                              style: KTypography.bodySmall,
+                            ),
+                          ],
+                        ),
                         overflow: TextOverflow.ellipsis,
-                        style: KTypography.bodySmall,
                       ),
                     ))
                 .toList(),
@@ -559,11 +568,10 @@ class _BalanceIndicator extends StatelessWidget {
                         style: KTypography.bodySmall.copyWith(
                           color: cs.onSurfaceVariant,
                         )),
-                    Text(
-                      CurrencyFormatter.formatIndian(totalDebit),
-                      style: KTypography.amountSmall.copyWith(
-                        color: cs.onSurface,
-                      ),
+                    KMoney(
+                      totalDebit,
+                      size: KMoneySize.small,
+                      style: TextStyle(color: cs.onSurface),
                     ),
                   ],
                 ),
@@ -576,11 +584,10 @@ class _BalanceIndicator extends StatelessWidget {
                         style: KTypography.bodySmall.copyWith(
                           color: cs.onSurfaceVariant,
                         )),
-                    Text(
-                      CurrencyFormatter.formatIndian(totalCredit),
-                      style: KTypography.amountSmall.copyWith(
-                        color: cs.onSurface,
-                      ),
+                    KMoney(
+                      totalCredit,
+                      size: KMoneySize.small,
+                      style: TextStyle(color: cs.onSurface),
                     ),
                   ],
                 ),
@@ -601,15 +608,31 @@ class _BalanceIndicator extends StatelessWidget {
                 color: isBalanced ? KColors.success : KColors.error,
               ),
               KSpacing.hGapSm,
-              Text(
-                isBalanced
-                    ? 'Balanced'
-                    : 'Difference: ${CurrencyFormatter.formatIndian(difference)}',
-                style: KTypography.labelLarge.copyWith(
-                  color: isBalanced ? KColors.success : KColors.error,
-                  fontWeight: FontWeight.w600,
+              if (isBalanced)
+                Text(
+                  'Balanced',
+                  style: KTypography.labelLarge.copyWith(
+                    color: KColors.success,
+                    fontWeight: FontWeight.w600,
+                  ),
+                )
+              else ...[
+                Text(
+                  'Difference: ',
+                  style: KTypography.labelLarge.copyWith(
+                    color: KColors.error,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
+                KMoney(
+                  difference,
+                  size: KMoneySize.small,
+                  style: const TextStyle(
+                    color: KColors.error,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ],
           ),
         ],

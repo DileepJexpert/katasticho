@@ -130,7 +130,7 @@ class _PaymentDetailBody extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(payment.paymentNumber, style: KTypography.mono(fontSize: 20, weight: FontWeight.w700)),
+                Text(payment.paymentNumber, style: KTypography.mono(fontSize: 20, fontWeight: FontWeight.w700)),
                 KSpacing.vGapSm,
                 Text(payment.vendorName, style: KTypography.bodyLarge),
                 KSpacing.vGapMd,
@@ -161,74 +161,80 @@ class _PaymentDetailBody extends StatelessWidget {
                 // Details tab
                 SingleChildScrollView(
                   padding: KSpacing.pagePadding,
-                  child: KCard(
-                    child: Column(
-                      children: [
-                        KDetailRow(
-                          label: 'Payment #',
-                          valueWidget: Text(
-                            payment.paymentNumber,
-                            style: KTypography.mono(fontSize: 13, weight: FontWeight.w600),
-                          ),
-                        ),
-                        KDetailRow(
-                          label: 'Vendor',
-                          value: payment.vendorName,
-                        ),
-                        KDetailRow(
-                          label: 'Payment Date',
-                          value: payment.paymentDate.isNotEmpty
-                              ? DateFormatter.display(
-                                  DateTime.parse(payment.paymentDate))
-                              : '--',
-                        ),
-                        KDetailRow(
-                          label: 'Mode',
-                          value: payment.paymentModeLabel,
-                        ),
-                        if (payment.referenceNumber.isNotEmpty)
-                          KDetailRow(
-                            label: 'Reference #',
-                            valueWidget: Text(
-                              payment.referenceNumber,
-                              style: KTypography.mono(fontSize: 13),
-                            ),
-                          ),
-                        KDetailRow(
-                          label: 'Currency',
-                          value: payment.currency,
-                        ),
-                        const Divider(),
-                        KDetailRow(
-                          label: 'Amount',
-                          valueWidget: KMoney(
-                            payment.amount,
-                            size: KMoneySize.medium,
-                            style: const TextStyle(
-                              color: KColors.success,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        if (payment.tdsAmount > 0)
-                          KDetailRow(
-                            label: 'TDS Deducted',
-                            valueWidget: KMoney(
-                              payment.tdsAmount,
-                              size: KMoneySize.small,
-                              style: const TextStyle(
-                                color: KColors.warning,
-                                fontWeight: FontWeight.w600,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      KCard(
+                        child: Column(
+                          children: [
+                            KDetailRow(
+                              label: 'Payment #',
+                              valueWidget: Text(
+                                payment.paymentNumber,
+                                style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w600),
                               ),
                             ),
-                          ),
-                        if (payment.notes.isNotEmpty) ...[
-                          const Divider(),
-                          KDetailRow(
-                              label: 'Notes', value: payment.notes),
-                        ],
-                      ],
-                    ),
+                            KDetailRow(
+                              label: 'Vendor',
+                              value: payment.vendorName,
+                            ),
+                            KDetailRow(
+                              label: 'Payment Date',
+                              value: payment.paymentDate.isNotEmpty
+                                  ? DateFormatter.display(
+                                      DateTime.parse(payment.paymentDate))
+                                  : '--',
+                            ),
+                            KDetailRow(
+                              label: 'Mode',
+                              value: payment.paymentModeLabel,
+                            ),
+                            if (payment.referenceNumber.isNotEmpty)
+                              KDetailRow(
+                                  label: 'Reference #',
+                                  valueWidget: Text(
+                                    payment.referenceNumber,
+                                    style: KTypography.mono(fontSize: 13),
+                                  )),
+                            KDetailRow(
+                              label: 'Currency',
+                              value: payment.currency,
+                            ),
+                            const Divider(),
+                            KDetailRow(
+                              label: 'Amount',
+                              valueWidget: KMoney(
+                                payment.amount,
+                                size: KMoneySize.medium,
+                                style: const TextStyle(
+                                  color: KColors.success,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            if (payment.tdsAmount > 0)
+                              KDetailRow(
+                                label: 'TDS Deducted',
+                                valueWidget: KMoney(
+                                  payment.tdsAmount,
+                                  size: KMoneySize.small,
+                                  style: const TextStyle(
+                                    color: KColors.warning,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            if (payment.notes.isNotEmpty) ...[
+                              const Divider(),
+                              KDetailRow(
+                                  label: 'Notes', value: payment.notes),
+                            ],
+                          ],
+                        ),
+                      ),
+                      KSpacing.vGapMd,
+                      KCustomFieldsCard(entityType: 'VENDOR_PAYMENT', entityId: payment.id),
+                    ],
                   ),
                 ),
 
@@ -292,7 +298,7 @@ class _AllocationsTab extends StatelessWidget {
                   children: [
                     Text(
                       alloc.billNumber,
-                      style: KTypography.mono(fontSize: 13, weight: FontWeight.w600),
+                      style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w600),
                     ),
                     Text(
                       'Tap to view bill',
