@@ -8,6 +8,7 @@ import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../data/vendor_payment_dto.dart';
 import '../data/vendor_payment_providers.dart';
+import '../data/vendor_payment_repository.dart';
 import 'widgets/vendor_payment_card.dart';
 
 class VendorPaymentListScreen extends ConsumerWidget {
@@ -53,6 +54,12 @@ class VendorPaymentListScreen extends ConsumerWidget {
               title: 'Vendor Payments',
               searchHint: 'Search payments…',
               actions: [
+                IconButton(
+                  icon: const Icon(Icons.upload_file_outlined, size: 20),
+                  tooltip: 'Export NEFT/RTGS CSV',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => _showBulkExportSheet(context, ref),
+                ),
                 IconButton(
                   icon: const Icon(Icons.filter_list, size: 20),
                   tooltip: 'Filter by date',
@@ -155,6 +162,156 @@ class VendorPaymentListScreen extends ConsumerWidget {
     if (filter.dateFrom != null) parts.add('From: ${filter.dateFrom}');
     if (filter.dateTo != null) parts.add('To: ${filter.dateTo}');
     return parts.join('  ·  ');
+  }
+
+  void _showBulkExportSheet(BuildContext context, WidgetRef ref) {
+    final paymentsAsync = ref.read(vendorPaymentListProvider);
+    final allPayments = paymentsAsync.valueOrNull;
+    final List ids = [];
+    if (allPayments != null) {
+      final content = allPayments['data'];
+      final list =
+          (content is List) ? content : (content?['content'] as List?) ?? [];
+      for (final p in list) {
+        if (p is Map && p['id'] != null) ids.add(p['id'].toString());
+      }
+    }
+
+    String selectedFormat = 'GENERIC_NEFT_RTGS';
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + KSpacing.lg,
+          left: KSpacing.md,
+          right: KSpacing.md,
+          top: KSpacing.lg,
+        ),
+        child: StatefulBuilder(
+          builder: (ctx, setSheetState) => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.upload_file_outlined, color: KColors.primary, size: 20),
+                  KSpacing.hGapSm,
+                  Text('Bulk Bank Payment Export', style: KTypography.h2),
+                ],
+              ),
+              KSpacing.vGapSm,
+              Text(
+                '${ids.length} payment${ids.length == 1 ? "" : "s"} from current view',
+                style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+              ),
+              KSpacing.vGapMd,
+              Text('Bank Format', style: KTypography.labelMedium),
+              KSpacing.vGapSm,
+              ...{
+                'GENERIC_NEFT_RTGS': 'Generic NEFT / RTGS',
+                'HDFC_CMS': 'HDFC Bank CMS',
+                'ICICI_CIB': 'ICICI Bank CIB',
+                'SBI_CMP': 'SBI CMP',
+              }.entries.map((e) {
+                final selected = selectedFormat == e.key;
+                return InkWell(
+                  onTap: () => setSheetState(() => selectedFormat = e.key),
+                  borderRadius: KSpacing.borderRadiusMd,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                    child: Row(
+                      children: [
+                        Icon(
+                          selected
+                              ? Icons.radio_button_checked
+                              : Icons.radio_button_off,
+                          color: selected ? KColors.primary : KColors.textHint,
+                          size: 20,
+                        ),
+                        KSpacing.hGapSm,
+                        Expanded(
+                          child: Text(e.value,
+                              style: KTypography.bodyMedium.copyWith(
+                                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                              )),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+              KSpacing.vGapLg,
+              if (ids.isEmpty)
+                Container(
+                  padding: const EdgeInsets.all(KSpacing.sm),
+                  decoration: BoxDecoration(
+                    color: KColors.warning.withValues(alpha: 0.12),
+                    borderRadius: KSpacing.borderRadiusMd,
+                  ),
+                  child: Text(
+                    'No payments in current view to export.',
+                    style: KTypography.bodySmall.copyWith(color: KColors.warning),
+                  ),
+                ),
+              KSpacing.vGapSm,
+              Row(
+                children: [
+                  Expanded(
+                    child: KButton.outlined(
+                      label: 'Cancel',
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ),
+                  KSpacing.hGapSm,
+                  Expanded(
+                    child: KButton.primary(
+                      label: 'Export CSV',
+                      icon: Icons.download_outlined,
+                      onPressed: ids.isEmpty
+                          ? null
+                          : () async {
+                              Navigator.pop(ctx);
+                              try {
+                                final repo = ref.read(vendorPaymentRepositoryProvider);
+                                final csv = await repo.exportBulkPaymentCsv(
+                                  List<String>.from(ids),
+                                  format: selectedFormat,
+                                );
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'CSV exported (${ids.length} payments, $selectedFormat). '
+                                        '${csv.split('\n').length - 1} rows generated.',
+                                      ),
+                                      backgroundColor: KColors.success,
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Export failed: $e'),
+                                      backgroundColor: KColors.error,
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _showFilterSheet(BuildContext context, WidgetRef ref) {

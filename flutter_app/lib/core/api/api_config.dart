@@ -637,6 +637,10 @@ class ApiConfig {
   static String vendorPaymentById(String id) => '/api/v1/vendor-payments/$id';
   static String voidVendorPayment(String id) =>
       '/api/v1/vendor-payments/$id/void';
+  static String vendorPaymentChequePrint(String id) =>
+      '/api/v1/vendor-payments/$id/cheque-print';
+  static const String vendorPaymentsBulkExport =
+      '/api/v1/vendor-payments/bulk-export';
 
   // AP Ã¢â‚¬â€ Vendor Credits
   static const String vendorCredits = '/api/v1/vendor-credits';

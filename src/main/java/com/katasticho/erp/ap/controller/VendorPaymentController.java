@@ -28,6 +28,7 @@ public class VendorPaymentController {
 
     private final VendorPaymentService paymentService;
     private final CommentService commentService;
+    private final com.katasticho.erp.ap.service.BulkPaymentExportService bulkPaymentExportService;
 
     @PostMapping
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
@@ -53,6 +54,27 @@ public class VendorPaymentController {
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
     public ResponseEntity<ApiResponse<VendorPaymentResponse>> getPayment(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(paymentService.getPaymentResponse(id)));
+    }
+
+    @GetMapping("/{id}/cheque-print")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT','VIEWER')")
+    public ResponseEntity<ApiResponse<com.katasticho.erp.ap.dto.ChequePrintResponse>> getChequePrint(
+            @PathVariable UUID id,
+            @RequestParam(required = false) String chequeNumber) {
+        return ResponseEntity.ok(ApiResponse.ok(bulkPaymentExportService.getChequePrintData(id, chequeNumber)));
+    }
+
+    @PostMapping(value = "/bulk-export", produces = "text/csv")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
+    public ResponseEntity<byte[]> exportBulkPaymentCsv(
+            @Valid @RequestBody com.katasticho.erp.ap.dto.BulkPaymentExportRequest request) {
+        byte[] csvBytes = bulkPaymentExportService.exportBulkPaymentCsv(request);
+        String filename = bulkPaymentExportService.filename(request.format());
+        return ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.parseMediaType("text/csv"))
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + filename + "\"")
+                .body(csvBytes);
     }
 
     @PostMapping("/{id}/void")

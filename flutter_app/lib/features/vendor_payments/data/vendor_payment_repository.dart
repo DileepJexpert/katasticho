@@ -41,4 +41,26 @@ class VendorPaymentRepository {
         await _api.post(ApiConfig.voidVendorPayment(id));
     return response.data as Map<String, dynamic>;
   }
+
+  Future<Map<String, dynamic>> getChequePrint(String id, {String? chequeNumber}) async {
+    final params = <String, dynamic>{
+      if (chequeNumber != null && chequeNumber.isNotEmpty) 'chequeNumber': chequeNumber,
+    };
+    final response = await _api.get(
+      ApiConfig.vendorPaymentChequePrint(id),
+      queryParameters: params,
+    );
+    return (response.data['data'] ?? response.data) as Map<String, dynamic>;
+  }
+
+  Future<String> exportBulkPaymentCsv(List<String> paymentIds, {String format = 'GENERIC_NEFT_RTGS'}) async {
+    final response = await _api.post(
+      ApiConfig.vendorPaymentsBulkExport,
+      data: {
+        'paymentIds': paymentIds,
+        'format': format,
+      },
+    );
+    return response.data.toString();
+  }
 }
