@@ -248,7 +248,7 @@ class _ReceiptBody extends StatelessWidget {
           KCard(
             titleWidget: Text(
               receiptNumber,
-              style: KTypography.mono(size: 16, weight: FontWeight.w700),
+              style: KTypography.mono(fontSize: 16, fontWeight: FontWeight.w700),
             ),
             subtitle: date,
             action: KStatusChip(
@@ -259,7 +259,13 @@ class _ReceiptBody extends StatelessWidget {
               children: [
                 _DetailRow(label: 'Customer', value: contactName ?? 'Walk-in'),
                 if (upiReference != null && upiReference.isNotEmpty)
-                  _DetailRow(label: 'UPI Ref', value: upiReference),
+                  _DetailRow(
+                    label: 'UPI Ref',
+                    valueWidget: Text(
+                      upiReference,
+                      style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                  ),
                 if (notes != null && notes.isNotEmpty)
                   _DetailRow(label: 'Notes', value: notes),
               ],
@@ -404,11 +410,17 @@ class _LineItem extends StatelessWidget {
             children: [
               Text(name, style: KTypography.labelMedium),
               const SizedBox(height: 2),
-              Text(
-                '${qty.toStringAsFixed(qty == qty.roundToDouble() ? 0 : 2)} $unit x ${CurrencyFormatter.formatIndian(rate)}'
-                '${hsn != null && hsn.isNotEmpty ? '  •  HSN: $hsn' : ''}',
-                style: KTypography.bodySmall
-                    .copyWith(color: KColors.textSecondary),
+              Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(text: '${qty.toStringAsFixed(qty == qty.roundToDouble() ? 0 : 2)} $unit x ${CurrencyFormatter.formatIndian(rate)}'),
+                    if (hsn != null && hsn.isNotEmpty) ...[
+                      const TextSpan(text: '  •  HSN: '),
+                      TextSpan(text: hsn, style: KTypography.mono(fontSize: 11)),
+                    ],
+                  ],
+                ),
+                style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
               ),
               if (discountAmount > 0) ...[
                 const SizedBox(height: 4),
@@ -423,13 +435,20 @@ class _LineItem extends StatelessWidget {
                     style: KTypography.labelSmall
                         .copyWith(color: KColors.textSecondary, fontSize: 10)),
               if ((batchNumber ?? '').isNotEmpty || (batchExpiry ?? '').isNotEmpty)
-                Text(
-                  [
-                    if ((batchNumber ?? '').isNotEmpty) 'Batch: $batchNumber',
-                    if ((batchExpiry ?? '').isNotEmpty) 'Exp: $batchExpiry',
-                  ].join('  •  '),
-                  style: KTypography.labelSmall
-                      .copyWith(color: KColors.textSecondary, fontSize: 10),
+                Text.rich(
+                  TextSpan(
+                    style: KTypography.labelSmall.copyWith(color: KColors.textSecondary, fontSize: 10),
+                    children: [
+                      if ((batchNumber ?? '').isNotEmpty) ...[
+                        const TextSpan(text: 'Batch: '),
+                        TextSpan(text: batchNumber!, style: KTypography.mono(fontSize: 10)),
+                      ],
+                      if ((batchExpiry ?? '').isNotEmpty) ...[
+                        if ((batchNumber ?? '').isNotEmpty) const TextSpan(text: '  •  '),
+                        TextSpan(text: 'Exp: $batchExpiry'),
+                      ],
+                    ],
+                  ),
                 ),
             ],
           ),
@@ -601,6 +620,7 @@ class _DiscountWrap extends StatelessWidget {
 class _DetailRow extends StatelessWidget {
   final String label;
   final String? value;
+  final Widget? valueWidget;
   final num? amount;
   final bool bold;
   final Color? valueColor;
@@ -608,6 +628,7 @@ class _DetailRow extends StatelessWidget {
   const _DetailRow({
     required this.label,
     this.value,
+    this.valueWidget,
     this.amount,
     this.bold = false,
     this.valueColor,
@@ -635,7 +656,7 @@ class _DetailRow extends StatelessWidget {
                   : (bold ? const TextStyle(fontWeight: FontWeight.w700) : null),
             )
           else
-            Text(
+            valueWidget ?? Text(
               value ?? '',
               style: bold
                   ? KTypography.amountMedium

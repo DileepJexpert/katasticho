@@ -6,7 +6,6 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/bank_reconciliation_repository.dart';
 
@@ -560,9 +559,10 @@ class _TransactionCard extends StatelessWidget {
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        Text(
-                          CurrencyFormatter.formatIndian(amount),
-                          style: KTypography.h2.copyWith(color: amountColor),
+                        KMoney(
+                          amount,
+                          size: KMoneySize.medium,
+                          style: TextStyle(color: amountColor),
                         ),
                         KStatusChip(
                           status: tx['status']?.toString() ?? 'UNMATCHED',
@@ -579,17 +579,27 @@ class _TransactionCard extends StatelessWidget {
                       style: KTypography.bodyMedium,
                     ),
                     KSpacing.vGapXs,
-                    Text(
-                      [
-                        if (tx['utr']?.toString().isNotEmpty == true)
-                          'UTR: ${tx['utr']}',
-                        if (tx['payerName']?.toString().isNotEmpty == true)
-                          'Payer: ${tx['payerName']}',
-                        if (tx['payerVpa']?.toString().isNotEmpty == true)
-                          'VPA: ${tx['payerVpa']}',
-                      ].join(' • '),
-                      style: KTypography.bodySmall.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    Text.rich(
+                      TextSpan(
+                        style: KTypography.bodySmall.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                        children: [
+                          if (tx['utr']?.toString().isNotEmpty == true) ...[
+                            const TextSpan(text: 'UTR: '),
+                            TextSpan(text: tx['utr']?.toString(), style: KTypography.mono(fontSize: 12)),
+                          ],
+                          if (tx['payerName']?.toString().isNotEmpty == true) ...[
+                            if (tx['utr']?.toString().isNotEmpty == true) const TextSpan(text: ' • '),
+                            const TextSpan(text: 'Payer: '),
+                            TextSpan(text: tx['payerName']?.toString()),
+                          ],
+                          if (tx['payerVpa']?.toString().isNotEmpty == true) ...[
+                            if (tx['utr']?.toString().isNotEmpty == true || tx['payerName']?.toString().isNotEmpty == true) const TextSpan(text: ' • '),
+                            const TextSpan(text: 'VPA: '),
+                            TextSpan(text: tx['payerVpa']?.toString(), style: KTypography.mono(fontSize: 12)),
+                          ],
+                        ],
                       ),
                     ),
                   ],
@@ -631,18 +641,33 @@ class _TransactionCard extends StatelessWidget {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    '${match['matchType'] == 'BILL' ? 'Bill ' : ''}${match['documentNumber'] ?? match['invoiceNumber'] ?? 'Unknown document'} • ${match['contactName'] ?? 'Unknown contact'}',
+                                  Text.rich(
+                                    TextSpan(
+                                      children: [
+                                        TextSpan(text: match['matchType'] == 'BILL' ? 'Bill ' : ''),
+                                        TextSpan(
+                                          text: match['documentNumber'] ?? match['invoiceNumber'] ?? 'Unknown document',
+                                          style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w600),
+                                        ),
+                                        TextSpan(text: ' • ${match['contactName'] ?? 'Unknown contact'}'),
+                                      ],
+                                    ),
                                     style: KTypography.labelLarge,
                                   ),
                                   KSpacing.vGapXs,
-                                  Text(
-                                    'Confidence ${(double.tryParse(match['confidence']?.toString() ?? '0') ?? 0) * 100 ~/ 1}% • Match ${CurrencyFormatter.formatIndian((match['matchedAmount'] as num?)?.toDouble() ?? 0)}',
-                                    style: KTypography.bodySmall.copyWith(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurfaceVariant,
-                                    ),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        'Confidence ${(double.tryParse(match['confidence']?.toString() ?? '0') ?? 0) * 100 ~/ 1}% • Match ',
+                                        style: KTypography.bodySmall.copyWith(
+                                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                      KMoney(
+                                        (match['matchedAmount'] as num?)?.toDouble() ?? 0,
+                                        size: KMoneySize.small,
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),

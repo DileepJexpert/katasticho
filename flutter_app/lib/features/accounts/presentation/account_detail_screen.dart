@@ -252,7 +252,12 @@ class _DetailsTab extends StatelessWidget {
           KSpacing.vGapLg,
 
           _SectionHeader('Account Info'),
-          _InfoRow(Icons.tag_outlined, 'Code', code),
+          _InfoRow(
+            Icons.tag_outlined,
+            'Code',
+            code,
+            valueWidget: Text(code, style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w600)),
+          ),
           _InfoRow(Icons.account_tree_outlined, 'Level', 'Level $level'),
           if (subType != null && subType.isNotEmpty)
             _InfoRow(
@@ -274,7 +279,8 @@ class _DetailsTab extends StatelessWidget {
           _InfoRow(
             Icons.account_balance_wallet_outlined,
             'Opening Balance',
-            '₹${(openingBalance ?? 0).toStringAsFixed(2)}',
+            null,
+            valueWidget: KMoney(openingBalance ?? 0, size: KMoneySize.small),
           ),
           KSpacing.vGapXl,
         ],
@@ -328,9 +334,10 @@ class _BalanceTab extends ConsumerWidget {
                   children: [
                     Text('Current Balance', style: KTypography.bodyMedium),
                     KSpacing.vGapSm,
-                    Text(
-                      '₹${balance.abs().toStringAsFixed(2)}',
-                      style: KTypography.displayLarge.copyWith(
+                    KMoney(
+                      balance.abs(),
+                      size: KMoneySize.large,
+                      style: TextStyle(
                         color: balanceColor,
                         fontWeight: FontWeight.w700,
                       ),
@@ -455,7 +462,7 @@ class _TransactionTile extends StatelessWidget {
                 KSpacing.vGapXs,
                 Row(
                   children: [
-                    Text(txn.entryNumber, style: KTypography.bodySmall),
+                    Text(txn.entryNumber, style: KTypography.mono(fontSize: 12)),
                     Text(' · ', style: KTypography.bodySmall),
                     Text(dateStr, style: KTypography.bodySmall),
                     Text(' · ', style: KTypography.bodySmall),
@@ -472,9 +479,22 @@ class _TransactionTile extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                '${isDebit ? "Dr" : "Cr"} ₹${amount.toStringAsFixed(2)}',
-                style: KTypography.labelLarge.copyWith(color: amountColor),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    isDebit ? "Dr " : "Cr ",
+                    style: KTypography.bodySmall.copyWith(color: amountColor),
+                  ),
+                  KMoney(
+                    amount,
+                    size: KMoneySize.small,
+                    style: TextStyle(
+                      color: amountColor,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
               ),
               Text(txn.currency, style: KTypography.labelSmall),
             ],
@@ -489,12 +509,13 @@ class _InfoRow extends StatelessWidget {
   final IconData icon;
   final String label;
   final String? value;
+  final Widget? valueWidget;
 
-  const _InfoRow(this.icon, this.label, this.value);
+  const _InfoRow(this.icon, this.label, this.value, {this.valueWidget});
 
   @override
   Widget build(BuildContext context) {
-    if (value == null || value!.isEmpty) return const SizedBox.shrink();
+    if (valueWidget == null && (value == null || value!.isEmpty)) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -506,7 +527,7 @@ class _InfoRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(label, style: KTypography.labelSmall),
-                Text(value!, style: KTypography.bodyMedium),
+                valueWidget ?? Text(value!, style: KTypography.bodyMedium),
               ],
             ),
           ),

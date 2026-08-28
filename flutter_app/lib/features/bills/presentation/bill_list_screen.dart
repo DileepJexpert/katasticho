@@ -368,11 +368,12 @@ class _BillTable extends StatelessWidget {
               selected: selected,
               onChanged: b.id.isEmpty ? null : (_) => onToggleSelect(b.id),
             )),
-            DataCell(KTablePrimaryTextCell(value: b.billNumber, width: 124)),
+            DataCell(KTableTextCell(value: b.billNumber, width: 124, style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w600))),
             DataCell(KTableTextCell(value: b.vendorName, width: 148)),
             DataCell(KTableTextCell(
               value: b.vendorBillNumber.isEmpty ? '--' : b.vendorBillNumber,
               width: 96,
+              style: b.vendorBillNumber.isNotEmpty ? KTypography.mono(fontSize: 12) : null,
             )),
             DataCell(_BillDatesCell(
               billDate: b.billDate,

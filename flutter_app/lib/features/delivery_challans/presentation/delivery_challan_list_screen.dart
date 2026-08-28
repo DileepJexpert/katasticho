@@ -279,11 +279,11 @@ class _DeliveryChallanTable extends StatelessWidget {
               selected: selected,
               onChanged: id.isEmpty ? null : (_) => onToggleSelect(id),
             )),
-            DataCell(KTablePrimaryTextCell(value: challanNumber, width: 155)),
+            DataCell(KTableTextCell(value: challanNumber, width: 155, style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w600))),
             DataCell(KTableTextCell(value: customerName, width: 190)),
             DataCell(KTableDateCell(value: challanDate)),
-            DataCell(KTableTextCell(value: salesOrderNumber, width: 140)),
-            DataCell(KTableTextCell(value: vehicleNumber, width: 120)),
+            DataCell(KTableTextCell(value: salesOrderNumber, width: 140, style: salesOrderNumber != '--' ? KTypography.mono(fontSize: 12) : null)),
+            DataCell(KTableTextCell(value: vehicleNumber, width: 120, style: vehicleNumber != '--' ? KTypography.mono(fontSize: 12) : null)),
             DataCell(KTableStatusCell(status: status)),
             DataCell(KTableOpenActionCell(
               tooltip: 'Open delivery challan',
@@ -352,7 +352,7 @@ class _DeliveryChallanCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Text(challanNumber, style: KTypography.labelLarge),
+                    Text(challanNumber, style: KTypography.mono(fontSize: 14, fontWeight: FontWeight.w700)),
                     KSpacing.hGapSm,
                     KStatusChip(status: status),
                   ],
@@ -365,10 +365,16 @@ class _DeliveryChallanCard extends StatelessWidget {
                 ),
                 if (salesOrderNumber.isNotEmpty) ...[
                   KSpacing.vGapXs,
-                  Text(
-                    'SO: $salesOrderNumber',
-                    style: KTypography.bodySmall.copyWith(
-                      color: KColors.textSecondary,
+                  Text.rich(
+                    TextSpan(
+                      text: 'SO: ',
+                      style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                      children: [
+                        TextSpan(
+                          text: salesOrderNumber,
+                          style: KTypography.mono(fontSize: 12),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -384,10 +390,16 @@ class _DeliveryChallanCard extends StatelessWidget {
                 if (vehicleNumber != null &&
                     vehicleNumber.isNotEmpty) ...[
                   KSpacing.vGapXs,
-                  Text(
-                    'Vehicle: $vehicleNumber',
-                    style: KTypography.bodySmall.copyWith(
-                      color: KColors.textSecondary,
+                  Text.rich(
+                    TextSpan(
+                      text: 'Vehicle: ',
+                      style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                      children: [
+                        TextSpan(
+                          text: vehicleNumber,
+                          style: KTypography.mono(fontSize: 12),
+                        ),
+                      ],
                     ),
                   ),
                 ],

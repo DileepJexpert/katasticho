@@ -204,7 +204,7 @@ class _ExpenseTable extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                KTablePrimaryTextCell(value: number, width: 150),
+                KTableTextCell(value: number, width: 150, style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w600)),
                 if (description.isNotEmpty)
                   KTableTextCell(
                     value: description,
@@ -481,12 +481,19 @@ class _ExpenseCard extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: Text(
-                        category ?? description ?? number,
-                        style: KTypography.labelLarge,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      child: (category == null && description == null)
+                          ? Text(
+                              number,
+                              style: KTypography.mono(fontSize: 14, fontWeight: FontWeight.w700),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            )
+                          : Text(
+                              category ?? description!,
+                              style: KTypography.labelLarge,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                     ),
                     KMoney(
                       total,

@@ -280,7 +280,7 @@ class _SalesOrderTable extends StatelessWidget {
               selected: selected,
               onChanged: id.isEmpty ? null : (_) => onToggleSelect(id),
             )),
-            DataCell(KTablePrimaryTextCell(value: orderNumber, width: 150)),
+            DataCell(KTableTextCell(value: orderNumber, width: 150, style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w600))),
             DataCell(KTableTextCell(value: customerName, width: 190)),
             DataCell(KTableDateCell(value: orderDate)),
             DataCell(KTableDateCell(value: shipDate)),
@@ -353,7 +353,7 @@ class _SalesOrderCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Text(orderNumber, style: KTypography.labelLarge),
+                    Text(orderNumber, style: KTypography.mono(fontSize: 14, fontWeight: FontWeight.w700)),
                     KSpacing.hGapSm,
                     KStatusChip(status: status),
                   ],

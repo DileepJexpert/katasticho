@@ -267,7 +267,7 @@ class _AccountTable extends StatelessWidget {
                 ],
               ),
             )),
-            DataCell(Text(account.code)),
+            DataCell(Text(account.code, style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w600))),
             DataCell(_AccountTypePill(
               label: _accountTypeLabel(type),
               color: typeColor,
@@ -418,7 +418,7 @@ class _AccountCard extends StatelessWidget {
                 KSpacing.vGapXs,
                 Row(
                   children: [
-                    Text(account.code, style: KTypography.bodySmall),
+                    Text(account.code, style: KTypography.mono(fontSize: 12, fontWeight: FontWeight.w600)),
                     if (account.subType != null && account.subType!.isNotEmpty) ...[
                       Text(' · ', style: KTypography.bodySmall),
                       Text(

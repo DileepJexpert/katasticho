@@ -336,7 +336,7 @@ class _InvoiceCard extends StatelessWidget {
                 // Row 1: invoice# · status · total
                 Row(
                   children: [
-                    Text(invoiceNumber, style: KTypography.labelLarge),
+                    Text(invoiceNumber, style: KTypography.mono(fontSize: 14, fontWeight: FontWeight.w700)),
                     KSpacing.hGapSm,
                     KStatusChip(status: status),
                     const Spacer(),
@@ -496,7 +496,7 @@ class _InvoiceTable extends StatelessWidget {
               selected: selected,
               onChanged: id.isEmpty ? null : (_) => onToggleSelect(id),
             )),
-            DataCell(KTablePrimaryTextCell(value: invoiceNumber)),
+            DataCell(KTableTextCell(value: invoiceNumber, style: KTypography.mono(fontSize: 13, fontWeight: FontWeight.w600))),
             DataCell(KTableTextCell(value: customerName, width: 130)),
             DataCell(KTableDateCell(value: invoiceDate)),
             DataCell(KTableDueDateCell(value: dueDate, overdue: isOverdue)),

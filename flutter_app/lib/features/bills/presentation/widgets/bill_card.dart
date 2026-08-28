@@ -70,10 +70,16 @@ class BillCard extends StatelessWidget {
                 ),
                 if (b.vendorBillNumber.isNotEmpty) ...[
                   KSpacing.vGapXs,
-                  Text(
-                    'Ref: ${b.vendorBillNumber}',
-                    style: KTypography.bodySmall.copyWith(
-                      color: KColors.textSecondary,
+                  Text.rich(
+                    TextSpan(
+                      text: 'Ref: ',
+                      style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                      children: [
+                        TextSpan(
+                          text: b.vendorBillNumber,
+                          style: KTypography.mono(fontSize: 12),
+                        ),
+                      ],
                     ),
                   ),
                 ],

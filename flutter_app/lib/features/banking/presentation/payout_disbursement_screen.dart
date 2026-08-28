@@ -160,14 +160,25 @@ class _PayoutCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               if (payout.accountNumberMasked != null)
-                Text(
-                  'A/C: ${payout.accountNumberMasked} (${payout.ifscCode ?? 'IFSC'})',
-                  style: KTypography.caption.copyWith(color: KColors.textSecondary),
+                Text.rich(
+                  TextSpan(
+                    style: KTypography.caption.copyWith(color: KColors.textSecondary),
+                    children: [
+                      const TextSpan(text: 'A/C: '),
+                      TextSpan(text: payout.accountNumberMasked, style: KTypography.mono(fontSize: 12)),
+                      TextSpan(text: ' (${payout.ifscCode ?? 'IFSC'})'),
+                    ],
+                  ),
                 )
               else if (payout.vpa != null)
-                Text(
-                  'UPI: ${payout.vpa}',
-                  style: KTypography.caption.copyWith(color: KColors.textSecondary),
+                Text.rich(
+                  TextSpan(
+                    style: KTypography.caption.copyWith(color: KColors.textSecondary),
+                    children: [
+                      const TextSpan(text: 'UPI: '),
+                      TextSpan(text: payout.vpa, style: KTypography.mono(fontSize: 12)),
+                    ],
+                  ),
                 ),
               if (payout.createdAt != null)
                 Text(
