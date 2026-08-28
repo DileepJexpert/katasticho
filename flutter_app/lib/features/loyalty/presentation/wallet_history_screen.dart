@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_typography.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/wallet_repository.dart';
 
@@ -193,8 +192,9 @@ class _WalletSummaryCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 8),
-              Text(
-                CurrencyFormatter.formatIndian(balance),
+              KMoney(
+                balance,
+                size: KMoneySize.large,
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.w700,
@@ -217,7 +217,7 @@ class _WalletSummaryCard extends StatelessWidget {
                   Expanded(
                     child: _StatCell(
                       label: 'Total Earned',
-                      value: CurrencyFormatter.formatIndian(totalEarned),
+                      amount: totalEarned,
                       color: KColors.success,
                     ),
                   ),
@@ -225,8 +225,7 @@ class _WalletSummaryCard extends StatelessWidget {
                   Expanded(
                     child: _StatCell(
                       label: 'Total Redeemed',
-                      value:
-                          CurrencyFormatter.formatIndian(totalRedeemed),
+                      amount: totalRedeemed,
                       color: cs.error,
                     ),
                   ),
@@ -243,12 +242,12 @@ class _WalletSummaryCard extends StatelessWidget {
 class _StatCell extends StatelessWidget {
   const _StatCell({
     required this.label,
-    required this.value,
+    required this.amount,
     required this.color,
   });
 
   final String label;
-  final String value;
+  final num amount;
   final Color color;
 
   @override
@@ -259,11 +258,15 @@ class _StatCell extends StatelessWidget {
         Text(label,
             style: const TextStyle(fontSize: 11, color: Colors.grey)),
         const SizedBox(height: 2),
-        Text(value,
-            style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: color)),
+        KMoney(
+          amount,
+          size: KMoneySize.medium,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: color,
+          ),
+        ),
       ],
     );
   }

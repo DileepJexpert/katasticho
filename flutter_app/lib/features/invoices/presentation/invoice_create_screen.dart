@@ -1124,10 +1124,12 @@ class _LineItemCardState extends ConsumerState<_LineItemCard> {
                 ),
               ),
               KSpacing.hGapMd,
-              Text(
-                CurrencyFormatter.formatIndian(widget.item.lineTotal),
-                style: KTypography.amountSmall.copyWith(
+              KMoney(
+                widget.item.lineTotal,
+                size: KMoneySize.small,
+                style: const TextStyle(
                   color: KColors.primary,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],

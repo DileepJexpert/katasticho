@@ -103,10 +103,12 @@ class InvoiceDetailScreen extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('Balance Due', style: KTypography.bodySmall),
-                        Text(
-                          CurrencyFormatter.formatIndian(balanceDue),
-                          style: KTypography.amountMedium.copyWith(
+                        KMoney(
+                          balanceDue,
+                          size: KMoneySize.medium,
+                          style: const TextStyle(
                             color: KColors.error,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ],

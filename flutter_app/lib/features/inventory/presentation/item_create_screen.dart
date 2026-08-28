@@ -845,13 +845,21 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                 ),
                 const SizedBox(width: 8),
                 Flexible(
-                  child: Text(
-                    '(MRP ${CurrencyFormatter.formatIndian(mrp)} − Cost ${CurrencyFormatter.formatIndian(purchasePrice)})',
-                    style: KTypography.labelSmall.copyWith(
-                      color: KColors.textHint,
-                      fontSize: 10,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('(MRP ',
+                          style: KTypography.labelSmall
+                              .copyWith(color: KColors.textHint, fontSize: 10)),
+                      KMoney(mrp, size: KMoneySize.small),
+                      Text(' − Cost ',
+                          style: KTypography.labelSmall
+                              .copyWith(color: KColors.textHint, fontSize: 10)),
+                      KMoney(purchasePrice, size: KMoneySize.small),
+                      Text(')',
+                          style: KTypography.labelSmall
+                              .copyWith(color: KColors.textHint, fontSize: 10)),
+                    ],
                   ),
                 ),
               ],

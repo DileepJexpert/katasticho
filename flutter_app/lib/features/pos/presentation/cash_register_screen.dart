@@ -4,9 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_config.dart';
 import '../../../core/auth/auth_state.dart';
+import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/api_error_parser.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/widgets.dart';
 
 // ── Providers ──────────────────────────────────────────────────────────────
@@ -312,22 +312,22 @@ class _TodayContentState extends ConsumerState<_TodayContent> {
                 children: [
                   _SummaryRow(
                     'Opening Balance',
-                    CurrencyFormatter.formatIndian(openingBalance),
+                    amount: openingBalance,
                   ),
                   _SummaryRow(
                     'Cash Sales',
-                    CurrencyFormatter.formatIndian(cashSales),
-                    color: Colors.green,
+                    amount: cashSales,
+                    color: KColors.success,
                   ),
                   _SummaryRow(
                     'Cash Expenses',
-                    '- ${CurrencyFormatter.formatIndian(totalExpenses)}',
-                    color: Colors.red,
+                    amount: -totalExpenses,
+                    color: KColors.error,
                   ),
                   const Divider(),
                   _SummaryRow(
                     'Expected Closing',
-                    CurrencyFormatter.formatIndian(expectedClosing),
+                    amount: expectedClosing,
                     bold: true,
                   ),
                   const SizedBox(height: 16),
@@ -348,10 +348,11 @@ class _TodayContentState extends ConsumerState<_TodayContent> {
                   Row(
                     children: [
                       Text('Variance: ', style: KTypography.bodySmall),
-                      Text(
-                        CurrencyFormatter.formatIndian(variance),
-                        style: KTypography.bodySmall.copyWith(
-                          color: variance < 0 ? Colors.red : Colors.green,
+                      KMoney(
+                        variance,
+                        size: KMoneySize.small,
+                        style: TextStyle(
+                          color: variance < 0 ? KColors.error : KColors.success,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -444,47 +445,47 @@ class _TodayContentState extends ConsumerState<_TodayContent> {
                     const SizedBox(height: 12),
                     _SummaryRow(
                       'Opening Balance',
-                      CurrencyFormatter.formatIndian(openingBalance),
+                      amount: openingBalance,
                     ),
                     _SummaryRow(
                       'Transactions',
-                      '$txCount bills',
+                      value: '$txCount bills',
                     ),
                     if (!_isOpen && actualClosing != null) ...[
-                      const Divider(height: 20),
-                      _SummaryRow(
-                        'Actual Closing',
-                        CurrencyFormatter.formatIndian(actualClosing),
-                        bold: true,
-                      ),
+                       const Divider(height: 20),
+                       _SummaryRow(
+                         'Actual Closing',
+                         amount: actualClosing,
+                         bold: true,
+                       ),
                     ],
                     if (!_isOpen && variance != null) ...[
-                      _SummaryRow(
-                        'Variance',
-                        CurrencyFormatter.formatIndian(variance),
-                        color: variance < 0 ? Colors.red : Colors.green,
-                        bold: true,
-                      ),
+                       _SummaryRow(
+                         'Variance',
+                         amount: variance,
+                         color: variance < 0 ? KColors.error : KColors.success,
+                         bold: true,
+                       ),
                     ],
                     if (!_isOpen) ...[
-                      const SizedBox(height: 8),
-                      if (d['notes'] != null && (d['notes'] as String).isNotEmpty)
-                        Text(
-                          'Notes: ${d['notes']}',
-                          style: KTypography.bodySmall
-                              .copyWith(color: cs.onSurfaceVariant),
-                        ),
+                       const SizedBox(height: 8),
+                       if (d['notes'] != null && (d['notes'] as String).isNotEmpty)
+                         Text(
+                           'Notes: ${d['notes']}',
+                           style: KTypography.bodySmall
+                               .copyWith(color: cs.onSurfaceVariant),
+                         ),
                     ],
                     if (_isOpen) ...[
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: _submitting ? null : _openRegister,
-                          icon: const Icon(Icons.add_circle_outline, size: 18),
-                          label: const Text('Set Opening Balance'),
-                        ),
-                      ),
+                       const SizedBox(height: 12),
+                       SizedBox(
+                         width: double.infinity,
+                         child: OutlinedButton.icon(
+                           onPressed: _submitting ? null : _openRegister,
+                           icon: const Icon(Icons.add_circle_outline, size: 18),
+                           label: const Text('Set Opening Balance'),
+                         ),
+                       ),
                     ],
                   ],
                 ),
@@ -498,26 +499,26 @@ class _TodayContentState extends ConsumerState<_TodayContent> {
                   children: [
                     _SummaryRow(
                       'Cash Sales',
-                      CurrencyFormatter.formatIndian(cashSales),
-                      leadingColor: Colors.green,
+                      amount: cashSales,
+                      leadingColor: KColors.success,
                       leadingIcon: Icons.money,
                     ),
                     _SummaryRow(
                       'UPI Sales',
-                      CurrencyFormatter.formatIndian(upiSales),
-                      leadingColor: Colors.blue,
+                      amount: upiSales,
+                      leadingColor: KColors.info,
                       leadingIcon: Icons.qr_code,
                     ),
                     _SummaryRow(
                       'Card Sales',
-                      CurrencyFormatter.formatIndian(cardSales),
+                      amount: cardSales,
                       leadingColor: Colors.purple,
                       leadingIcon: Icons.credit_card,
                     ),
                     const Divider(height: 16),
                     _SummaryRow(
                       'Total Sales',
-                      CurrencyFormatter.formatIndian(totalSales),
+                      amount: totalSales,
                       bold: true,
                     ),
                   ],
@@ -530,13 +531,15 @@ class _TodayContentState extends ConsumerState<_TodayContent> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _SummaryRow('Cash Expenses',
-                        '- ${CurrencyFormatter.formatIndian(totalExpenses)}',
-                        color: Colors.red),
+                    _SummaryRow(
+                      'Cash Expenses',
+                      amount: -totalExpenses,
+                      color: KColors.error,
+                    ),
                     const Divider(height: 16),
                     _SummaryRow(
                       'Expected Closing',
-                      CurrencyFormatter.formatIndian(expectedClosing),
+                      amount: expectedClosing,
                       bold: true,
                     ),
                     Text(
@@ -584,18 +587,19 @@ class _TodayContentState extends ConsumerState<_TodayContent> {
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text(
-                                  CurrencyFormatter.formatIndian(amt),
-                                  style: KTypography.bodyMedium.copyWith(
+                                KMoney(
+                                  amt,
+                                  size: KMoneySize.small,
+                                  style: const TextStyle(
                                     fontWeight: FontWeight.w600,
-                                    color: Colors.red.shade700,
+                                    color: KColors.error,
                                   ),
                                 ),
                                 if (_isOpen) ...[
                                   const SizedBox(width: 4),
                                   IconButton(
                                     icon: const Icon(Icons.delete_outline,
-                                        size: 18, color: Colors.red),
+                                        size: 18, color: KColors.error),
                                     onPressed: _submitting
                                         ? null
                                         : () => _deleteExpense(id),
@@ -764,32 +768,51 @@ class _HistoryTabState extends ConsumerState<_HistoryTab> {
                                 ],
                               ),
                               const SizedBox(height: 4),
-                              Text(
-                                '$txCount bills  •  '
-                                'Opening ${CurrencyFormatter.formatIndian(openingBalance)}',
-                                style: KTypography.bodySmall.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant),
+                              Row(
+                                children: [
+                                  Text(
+                                    '$txCount bills  •  Opening ',
+                                    style: KTypography.bodySmall.copyWith(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurfaceVariant),
+                                  ),
+                                  KMoney(openingBalance, size: KMoneySize.small),
+                                ],
                               ),
                               if (variance != null) ...[
                                 const SizedBox(height: 2),
-                                Text(
-                                  'Variance: ${CurrencyFormatter.formatIndian(variance)}',
-                                  style: KTypography.bodySmall.copyWith(
-                                    color: variance < 0
-                                        ? Colors.red
-                                        : Colors.green,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                                Row(
+                                  children: [
+                                    Text(
+                                      'Variance: ',
+                                      style: KTypography.bodySmall.copyWith(
+                                        color: variance < 0
+                                            ? KColors.error
+                                            : KColors.success,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    KMoney(
+                                      variance,
+                                      size: KMoneySize.small,
+                                      style: TextStyle(
+                                        color: variance < 0
+                                            ? KColors.error
+                                            : KColors.success,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ],
                           ),
                         ),
-                        Text(
-                          CurrencyFormatter.formatIndian(totalSales),
-                          style: KTypography.bodyMedium.copyWith(
+                        KMoney(
+                          totalSales,
+                          size: KMoneySize.medium,
+                          style: const TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 16,
                           ),
@@ -826,15 +849,17 @@ class _StatusChip extends StatelessWidget {
 
 class _SummaryRow extends StatelessWidget {
   final String label;
-  final String value;
+  final String? value;
+  final num? amount;
   final Color? color;
   final bool bold;
   final Color? leadingColor;
   final IconData? leadingIcon;
 
   const _SummaryRow(
-    this.label,
-    this.value, {
+    this.label, {
+    this.value,
+    this.amount,
     this.color,
     this.bold = false,
     this.leadingColor,
@@ -870,10 +895,20 @@ class _SummaryRow extends StatelessWidget {
               style: style.copyWith(color: cs.onSurfaceVariant),
             ),
           ),
-          Text(
-            value,
-            style: style.copyWith(color: color),
-          ),
+          if (amount != null)
+            KMoney(
+              amount!,
+              size: bold ? KMoneySize.medium : KMoneySize.small,
+              style: TextStyle(
+                color: color,
+                fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
+              ),
+            )
+          else
+            Text(
+              value ?? '',
+              style: style.copyWith(color: color),
+            ),
         ],
       ),
     );

@@ -253,8 +253,11 @@ class _ItcRiskScreenState extends ConsumerState<ItcRiskScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(CurrencyFormatter.formatIndian(recoverable),
-                          style: KTypography.h2.copyWith(color: KColors.success)),
+                      KMoney(
+                        recoverable,
+                        size: KMoneySize.large,
+                        style: const TextStyle(color: KColors.success, fontWeight: FontWeight.w700),
+                      ),
                       Text('still recoverable — act before the deadline',
                           style: KTypography.bodySmall
                               .copyWith(color: KColors.textSecondary)),
@@ -265,8 +268,11 @@ class _ItcRiskScreenState extends ConsumerState<ItcRiskScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text(CurrencyFormatter.formatIndian(passed),
-                          style: KTypography.h3.copyWith(color: KColors.error)),
+                      KMoney(
+                        passed,
+                        size: KMoneySize.medium,
+                        style: const TextStyle(color: KColors.error, fontWeight: FontWeight.w700),
+                      ),
                       Text('deadline passed',
                           style: KTypography.bodySmall
                               .copyWith(color: KColors.textSecondary)),

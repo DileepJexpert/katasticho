@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/k_button.dart';
 import '../../../core/widgets/k_card.dart';
 import '../../../core/widgets/k_empty_state.dart';
@@ -600,9 +599,14 @@ class _Gstr2bReconciliationScreenState
                   children: [
                     Text('ITC at Risk', style: KTypography.labelSmall),
                     KMoney(s.itc, style: KTypography.amountSmall.copyWith(color: KColors.error)),
-                    Text(
-                      'Bill Total: ${CurrencyFormatter.formatIndian(s.totalAmount)}',
-                      style: KTypography.bodySmall.copyWith(color: KColors.textSecondary),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('Bill Total: ',
+                            style: KTypography.bodySmall
+                                .copyWith(color: KColors.textSecondary)),
+                        KMoney(s.totalAmount, size: KMoneySize.small),
+                      ],
                     ),
                   ],
                 ),
@@ -725,10 +729,21 @@ class _Gstr2bReconciliationScreenState
                     KStatusChip(status: status),
                     KSpacing.vGapXs,
                     KMoney(e.invoiceValue, style: KTypography.amountSmall),
-                    Text(
-                      'ITC: ${CurrencyFormatter.formatIndian(e.totalTax)}',
-                      style: KTypography.bodySmall
-                          .copyWith(color: statusColor, fontWeight: FontWeight.w600),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'ITC: ',
+                          style: KTypography.bodySmall.copyWith(
+                              color: statusColor, fontWeight: FontWeight.w600),
+                        ),
+                        KMoney(
+                          e.totalTax,
+                          size: KMoneySize.small,
+                          style: TextStyle(
+                              color: statusColor, fontWeight: FontWeight.w600),
+                        ),
+                      ],
                     ),
                   ],
                 ),

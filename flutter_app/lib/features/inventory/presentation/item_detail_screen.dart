@@ -8,7 +8,6 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../data/batch_repository.dart';
 import '../data/bom_repository.dart';
@@ -282,7 +281,18 @@ class _ItemDetailBody extends ConsumerWidget {
                     size: KMoneySize.medium,
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
-                  subtitle: '@ ${CurrencyFormatter.formatIndian(purchasePrice)}/unit cost',
+                  subtitleWidget: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('@ ',
+                          style: KTypography.bodySmall
+                              .copyWith(color: KColors.textSecondary, fontSize: 11)),
+                      KMoney(purchasePrice, size: KMoneySize.small),
+                      Text('/unit cost',
+                          style: KTypography.bodySmall
+                              .copyWith(color: KColors.textSecondary, fontSize: 11)),
+                    ],
+                  ),
                   icon: Icons.account_balance_wallet_outlined,
                   iconColor: KColors.success,
                 ),
@@ -300,7 +310,19 @@ class _ItemDetailBody extends ConsumerWidget {
                     size: KMoneySize.medium,
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
-                  subtitle: mrp > 0 ? 'MRP: ₹${mrp.toStringAsFixed(2)}' : 'Default retail rate',
+                  subtitleWidget: mrp > 0
+                      ? Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('MRP: ',
+                                style: KTypography.bodySmall
+                                    .copyWith(color: KColors.textSecondary, fontSize: 11)),
+                            KMoney(mrp, size: KMoneySize.small),
+                          ],
+                        )
+                      : Text('Default retail rate',
+                          style: KTypography.bodySmall
+                              .copyWith(color: KColors.textSecondary, fontSize: 11)),
                   icon: Icons.sell_outlined,
                   iconColor: KColors.primary,
                 ),
@@ -840,6 +862,7 @@ class _KpiMetricCard extends StatelessWidget {
   final String? value;
   final Widget? valueWidget;
   final String? subtitle;
+  final Widget? subtitleWidget;
   final IconData? icon;
   final Color? iconColor;
   final String? status;
@@ -850,6 +873,7 @@ class _KpiMetricCard extends StatelessWidget {
     this.value,
     this.valueWidget,
     this.subtitle,
+    this.subtitleWidget,
     this.icon,
     this.iconColor,
     this.status,
@@ -899,7 +923,10 @@ class _KpiMetricCard extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-          if (subtitle != null) ...[
+          if (subtitleWidget != null) ...[
+            KSpacing.vGapXs,
+            subtitleWidget!,
+          ] else if (subtitle != null) ...[
             KSpacing.vGapXs,
             Text(
               subtitle!,
