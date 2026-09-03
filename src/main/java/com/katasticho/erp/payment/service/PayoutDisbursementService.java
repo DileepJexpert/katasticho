@@ -28,6 +28,9 @@ import java.util.UUID;
 @Slf4j
 public class PayoutDisbursementService {
 
+    private static final String STATUS_PROCESSED = "PROCESSED";
+    private static final String STATUS_ACCOUNTING_FAILED = "ACCOUNTING_FAILED";
+
     private final PayoutDisbursementRepository payoutRepository;
     private final PayoutGatewayClient gatewayClient;
     private final ContactRepository contactRepository;
@@ -119,7 +122,7 @@ public class PayoutDisbursementService {
             } catch (Exception e) {
                 log.error("[PayoutDisbursementService] Payout {} succeeded but recording vendor payment failed: {}",
                         payout.getId(), e.getMessage());
-                payout.setStatus("ACCOUNTING_FAILED");
+                payout.setStatus(STATUS_ACCOUNTING_FAILED);
                 payout.setFailureReason("Payout disbursed via UTR " + (gwResult.utr() != null ? gwResult.utr() : payout.getProviderPayoutId())
                         + " but AP vendor payment booking failed: " + e.getMessage());
                 payout = payoutRepository.save(payout);
@@ -132,8 +135,7 @@ public class PayoutDisbursementService {
     @Transactional
     public PayoutDisbursementResponse reconcileAccounting(UUID payoutId, UUID paidThroughAccountId) {
         UUID orgId = TenantContext.getCurrentOrgId();
-        PayoutDisbursement payout = payoutRepository.findById(payoutId)
-                .filter(p -> p.getOrgId().equals(orgId) && !p.isDeleted())
+        PayoutDisbursement payout = payoutRepository.findByIdAndOrgIdAndDeletedFalseForUpdate(payoutId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("PayoutDisbursement", payoutId));
 
         if (payout.getVendorPaymentId() != null) {
@@ -141,8 +143,14 @@ public class PayoutDisbursementService {
                     "ALREADY_BOOKED", org.springframework.http.HttpStatus.CONFLICT);
         }
 
+        if (!isProviderConfirmed(payout)) {
+            throw new BusinessException(
+                    "Only a provider-confirmed payout can be reconciled into accounts",
+                    "PAYOUT_NOT_SETTLED", org.springframework.http.HttpStatus.CONFLICT);
+        }
+
         UUID targetContactId = payout.getContactId();
-        Contact contact = contactRepository.findById(targetContactId)
+        Contact contact = contactRepository.findByIdAndOrgIdAndIsDeletedFalse(targetContactId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("Contact", targetContactId));
 
         VendorPaymentRequest vpReq = new VendorPaymentRequest(
@@ -161,7 +169,7 @@ public class PayoutDisbursementService {
 
         VendorPaymentResponse vpRes = vendorPaymentService.recordPayment(vpReq);
         payout.setVendorPaymentId(vpRes.id());
-        payout.setStatus("PROCESSED");
+        payout.setStatus(STATUS_PROCESSED);
         payout.setFailureReason(null);
         payout = payoutRepository.save(payout);
 
@@ -173,7 +181,7 @@ public class PayoutDisbursementService {
         UUID orgId = TenantContext.getCurrentOrgId();
         return payoutRepository.findByOrgIdAndDeletedFalseOrderByCreatedAtDesc(orgId, pageable)
                 .map(p -> {
-                    String contactName = contactRepository.findById(p.getContactId())
+                    String contactName = contactRepository.findByIdAndOrgIdAndIsDeletedFalse(p.getContactId(), orgId)
                             .map(Contact::getDisplayName).orElse("Vendor");
                     return toResponse(p, contactName);
                 });
@@ -206,5 +214,13 @@ public class PayoutDisbursementService {
                 p.getFailureReason(),
                 p.getCreatedAt()
         );
+    }
+
+    private boolean isProviderConfirmed(PayoutDisbursement payout) {
+        boolean successfulProviderStatus = STATUS_PROCESSED.equalsIgnoreCase(payout.getStatus())
+                || STATUS_ACCOUNTING_FAILED.equalsIgnoreCase(payout.getStatus());
+        return successfulProviderStatus
+                && payout.getProviderPayoutId() != null
+                && !payout.getProviderPayoutId().isBlank();
     }
 }

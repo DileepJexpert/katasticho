@@ -190,7 +190,7 @@ class _RuleCard extends StatelessWidget {
                   ),
                 if (autoApply)
                   const Padding(
-                    padding: EdgeInsets.only(left: KSpacing.xs),
+                    padding: EdgeInsetsDirectional.only(start: KSpacing.xs),
                     child: KStatusChip(status: 'AUTO', dense: true),
                   ),
               ],

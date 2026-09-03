@@ -29,25 +29,28 @@ public class FinancialReportController {
     @GetMapping("/trial-balance")
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<TrialBalanceResponse>> getTrialBalance(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOfDate) {
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOfDate,
+            @RequestParam(required = false, defaultValue = "ACCRUAL") String basis) {
         if (asOfDate == null) asOfDate = LocalDate.now();
-        return ResponseEntity.ok(ApiResponse.ok(reportService.generateTrialBalance(asOfDate)));
+        return ResponseEntity.ok(ApiResponse.ok(reportService.generateTrialBalance(asOfDate, basis)));
     }
 
     @GetMapping("/profit-loss")
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<ProfitLossResponse>> getProfitLoss(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
-        return ResponseEntity.ok(ApiResponse.ok(reportService.generateProfitLoss(startDate, endDate)));
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false, defaultValue = "ACCRUAL") String basis) {
+        return ResponseEntity.ok(ApiResponse.ok(reportService.generateProfitLoss(startDate, endDate, basis)));
     }
 
     @GetMapping("/balance-sheet")
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','ACCOUNTANT')")
     public ResponseEntity<ApiResponse<BalanceSheetResponse>> getBalanceSheet(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOfDate) {
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOfDate,
+            @RequestParam(required = false, defaultValue = "ACCRUAL") String basis) {
         if (asOfDate == null) asOfDate = LocalDate.now();
-        return ResponseEntity.ok(ApiResponse.ok(reportService.generateBalanceSheet(asOfDate)));
+        return ResponseEntity.ok(ApiResponse.ok(reportService.generateBalanceSheet(asOfDate, basis)));
     }
 
     @GetMapping("/general-ledger/{accountId}")

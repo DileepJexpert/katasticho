@@ -283,6 +283,13 @@ class SettingsScreen extends ConsumerWidget {
               onTap: () => context.push(Routes.customFields),
             ),
             _SettingsTile(
+              icon: Icons.picture_as_pdf_outlined,
+              title: 'PDF Template Customizer',
+              subtitle:
+                  'Visual theme designer, brand colors, QR codes & column toggles',
+              onTap: () => context.push(Routes.pdfTemplates),
+            ),
+            _SettingsTile(
               icon: Icons.cloud_sync_outlined,
               title: 'GSP Connection',
               subtitle: 'One-click e-invoice, e-way bill & GSTR-2B via your GSP',

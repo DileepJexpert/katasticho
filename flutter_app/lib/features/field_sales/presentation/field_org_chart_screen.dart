@@ -286,7 +286,7 @@ class _FieldOrgChartScreenState extends ConsumerState<FieldOrgChartScreen> {
           final isTop = managerName == null || managerName.isEmpty;
 
           return Padding(
-            padding: EdgeInsets.only(left: 20.0 * row.depth),
+            padding: EdgeInsetsDirectional.only(start: 20.0 * row.depth),
             child: KCard(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(

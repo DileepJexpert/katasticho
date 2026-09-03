@@ -1,0 +1,227 @@
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Plus, ShieldAlert, Search } from 'lucide-react'
+import { Button } from '@/design-system/button'
+import { DataTable } from '@/design-system/data-table'
+import { PageHeader } from '@/design-system/page-header'
+import { StatusChip } from '@/design-system/status-chip'
+import { formatDate, formatStatusLabel } from '@/shared/format/format'
+import { listCapas, raiseCapa } from '@/features/capa/capa-api'
+
+const statusTabs = [
+  { key: 'all', label: 'All Actions' },
+  { key: 'OPEN', label: 'Open' },
+  { key: 'IN_PROGRESS', label: 'In Progress' },
+  { key: 'COMPLETED', label: 'Completed' },
+  { key: 'VERIFIED', label: 'Verified' },
+  { key: 'CANCELLED', label: 'Cancelled' },
+] as const
+
+type StatusTab = (typeof statusTabs)[number]['key']
+
+export function CapaPage() {
+  const queryClient = useQueryClient()
+  const [activeTab, setActiveTab] = useState<StatusTab>('all')
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(0)
+  const [isRaiseOpen, setIsRaiseOpen] = useState(false)
+  const [newTitle, setNewTitle] = useState('')
+  const [newType, setNewType] = useState('CORRECTIVE')
+  const [newPriority, setNewPriority] = useState('NORMAL')
+  const [newDesc, setNewDesc] = useState('')
+  const [newAction, setNewAction] = useState('')
+
+  const query = useQuery({
+    queryKey: ['capas', page, activeTab],
+    queryFn: () => listCapas({ page, status: activeTab }),
+  })
+
+  const raiseMutation = useMutation({
+    mutationFn: () => raiseCapa({
+      capaType: newType,
+      title: newTitle,
+      description: newDesc,
+      proposedAction: newAction,
+      priority: newPriority,
+    }),
+    onSuccess: () => {
+      setIsRaiseOpen(false)
+      setNewTitle('')
+      setNewDesc('')
+      setNewAction('')
+      queryClient.invalidateQueries({ queryKey: ['capas'] })
+    },
+  })
+
+  const rawList = query.data?.content ?? []
+  const filtered = rawList.filter((c) => {
+    if (!search.trim()) return true
+    const q = search.toLowerCase()
+    return c.capaNumber.toLowerCase().includes(q) || c.title.toLowerCase().includes(q)
+  })
+
+  return (
+    <section className="workspace-page">
+      <PageHeader
+        eyebrow="Quality & Compliance"
+        title="CAPA Management Hub"
+        description="Corrective and Preventive Actions lifecycle tracking, root-cause resolution, and effectiveness verification."
+        actions={
+          <div className="table-actions">
+            <Button onClick={() => setIsRaiseOpen(true)} variant="primary">
+              <Plus aria-hidden="true" size={16} />
+              Raise CAPA
+            </Button>
+          </div>
+        }
+      />
+
+      <div className="list-toolbar">
+        <label className="directory-search">
+          <Search aria-hidden="true" size={18} />
+          <span className="sr-only">Search CAPAs</span>
+          <input
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by CAPA number or title..."
+            type="search"
+            value={search}
+          />
+        </label>
+        <div className="list-tabs" role="tablist">
+          {statusTabs.map((tab) => (
+            <button
+              aria-selected={activeTab === tab.key}
+              className={activeTab === tab.key ? 'list-tab list-tab--active' : 'list-tab'}
+              key={tab.key}
+              onClick={() => {
+                setActiveTab(tab.key)
+                setPage(0)
+              }}
+              role="tab"
+              type="button"
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {query.isLoading ? (
+        <div className="directory-state">Loading CAPA records...</div>
+      ) : filtered.length === 0 ? (
+        <div className="directory-state">
+          <ShieldAlert aria-hidden="true" size={24} />
+          <strong>No CAPA actions found.</strong>
+        </div>
+      ) : (
+        <DataTable caption="Corrective and Preventive Action records">
+          <thead>
+            <tr>
+              <th scope="col">CAPA #</th>
+              <th scope="col">Type</th>
+              <th scope="col">Title & Remediation</th>
+              <th scope="col">Priority</th>
+              <th scope="col">Due Date</th>
+              <th scope="col">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((capa) => (
+              <tr key={capa.id}>
+                <td>
+                  <code>{capa.capaNumber}</code>
+                </td>
+                <td>
+                  <span className={capa.capaType === 'CORRECTIVE' ? 'status-badge status-badge--danger' : 'status-badge status-badge--info'}>
+                    {capa.capaType}
+                  </span>
+                </td>
+                <td>
+                  <div className="cell-stack">
+                    <strong>{capa.title}</strong>
+                    {capa.proposedAction && <span className="cell-muted">{capa.proposedAction}</span>}
+                  </div>
+                </td>
+                <td>
+                  <span className={capa.priority === 'URGENT' ? 'status-badge status-badge--danger' : 'cell-muted'}>
+                    {capa.priority}
+                  </span>
+                </td>
+                <td>{formatDate(capa.dueDate)}</td>
+                <td>
+                  <StatusChip status={formatStatusLabel(capa.status)} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </DataTable>
+      )}
+
+      {isRaiseOpen && (
+        <div className="modal-backdrop">
+          <div className="modal-card">
+            <h3>Raise CAPA Action</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
+              <label>
+                <span style={{ fontSize: '13px', fontWeight: 600 }}>CAPA Type:</span>
+                <select
+                  className="search-input"
+                  onChange={(e) => setNewType(e.target.value)}
+                  style={{ width: '100%', marginTop: '4px' }}
+                  value={newType}
+                >
+                  <option value="CORRECTIVE">Corrective Action (NCR Defect)</option>
+                  <option value="PREVENTIVE">Preventive Action (Risk Mitigation)</option>
+                </select>
+              </label>
+              <label>
+                <span style={{ fontSize: '13px', fontWeight: 600 }}>Title:</span>
+                <input
+                  className="search-input"
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  placeholder="e.g. Calibrate filling nozzle after seal defect"
+                  style={{ width: '100%', marginTop: '4px' }}
+                  value={newTitle}
+                />
+              </label>
+              <label>
+                <span style={{ fontSize: '13px', fontWeight: 600 }}>Priority:</span>
+                <select
+                  className="search-input"
+                  onChange={(e) => setNewPriority(e.target.value)}
+                  style={{ width: '100%', marginTop: '4px' }}
+                  value={newPriority}
+                >
+                  <option value="NORMAL">Normal</option>
+                  <option value="HIGH">High</option>
+                  <option value="URGENT">Urgent</option>
+                </select>
+              </label>
+              <label>
+                <span style={{ fontSize: '13px', fontWeight: 600 }}>Proposed Remediation Action:</span>
+                <textarea
+                  className="search-input"
+                  onChange={(e) => setNewAction(e.target.value)}
+                  placeholder="Steps required to eliminate root cause..."
+                  rows={3}
+                  style={{ width: '100%', marginTop: '4px' }}
+                  value={newAction}
+                />
+              </label>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '16px' }}>
+              <Button onClick={() => setIsRaiseOpen(false)} variant="secondary">Cancel</Button>
+              <Button
+                disabled={raiseMutation.isPending || !newTitle.trim()}
+                onClick={() => raiseMutation.mutate()}
+                variant="primary"
+              >
+                Raise CAPA
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}

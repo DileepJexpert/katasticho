@@ -5,6 +5,7 @@ import '../../../core/auth/business_capabilities.dart';
 import '../../../core/theme/k_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/form_error_handler.dart';
+import '../../custom_fields/data/custom_field_repository.dart';
 import '../../settings/data/feature_flag_repository.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
@@ -33,6 +34,7 @@ class ItemCreateScreen extends ConsumerStatefulWidget {
 class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
     with FormErrorHandler {
   final _formKey = GlobalKey<FormState>();
+  final _customFieldsKey = GlobalKey<KCustomFieldsRendererState>();
 
   final _skuController = TextEditingController();
   final _nameController = TextEditingController();
@@ -558,11 +560,28 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
     }
 
     try {
+      String itemId = '';
       if (_isEdit) {
-        await repo.updateItem(widget.itemId!, payload);
+        itemId = widget.itemId!;
+        await repo.updateItem(itemId, payload);
       } else {
-        await repo.createItem(payload);
+        final res = await repo.createItem(payload);
+        itemId = res['id']?.toString() ?? '';
       }
+
+      final customInputs = _customFieldsKey.currentState?.getValues();
+      if (itemId.isNotEmpty && customInputs != null && customInputs.isNotEmpty) {
+        try {
+          await ref.read(customFieldRepositoryProvider).saveValues(
+            'ITEM',
+            itemId,
+            customInputs,
+          );
+        } catch (e) {
+          debugPrint('Failed to save custom fields on item: $e');
+        }
+      }
+
       ref.invalidate(itemListProvider);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1889,6 +1908,12 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen>
                       ],
                     ),
 
+                  KSpacing.vGapMd,
+                  KCustomFieldsRenderer(
+                    key: _customFieldsKey,
+                    entityType: 'ITEM',
+                    entityId: widget.itemId,
+                  ),
                   KSpacing.vGapLg,
                   KButton.primary(
                     label: _isEdit ? 'Update' : 'Create Item',

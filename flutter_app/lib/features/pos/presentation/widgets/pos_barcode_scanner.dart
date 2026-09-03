@@ -102,7 +102,7 @@ class _BarcodeScannerContentState extends State<_BarcodeScannerContent> {
                   height: 250,
                   decoration: BoxDecoration(
                     border: Border.all(color: KColors.primary, width: 2),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(KSpacing.radiusMd),
                   ),
                 ),
               ],

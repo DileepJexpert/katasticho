@@ -1,8 +1,8 @@
-export function formatMoney(amount: number | string | null | undefined, currency = 'INR') {
+export function formatMoney(amount: number | string | null | undefined, currency: string | null | undefined = 'INR') {
   const value = amount === null || amount === undefined || amount === '' ? 0 : Number(amount)
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
-    currency,
+    currency: currency ?? 'INR',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(Number.isFinite(value) ? value : 0)
@@ -39,6 +39,12 @@ export function formatQuantity(value: number | string | null | undefined, unit?:
   }).format(Number.isFinite(quantity) ? quantity : 0)
 
   return unit ? `${formatted} ${unit}` : formatted
+}
+
+export function formatPercent(value: number | string | null | undefined) {
+  if (value === null || value === undefined || value === '') return '--'
+  const num = Number(value)
+  return Number.isFinite(num) ? `${num}%` : '--'
 }
 
 export function formatStatusLabel(status: string | null | undefined) {

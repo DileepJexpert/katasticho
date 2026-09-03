@@ -426,6 +426,18 @@ const _inventoryGroup = NavGroup(
         route: Routes.drugImport,
         roles: ['OWNER', 'ADMIN']),
     NavItem(
+        id: 'inventory.barcode_labels',
+        label: 'Barcode Label Designer',
+        icon: Icons.qr_code_2_outlined,
+        activeIcon: Icons.qr_code_2_rounded,
+        route: Routes.barcodeLabelDesigner),
+    NavItem(
+        id: 'inventory.putaway_tasks',
+        label: 'Warehouse Putaway',
+        icon: Icons.move_to_inbox_outlined,
+        activeIcon: Icons.move_to_inbox_rounded,
+        route: Routes.putawayTasks),
+    NavItem(
         id: 'inventory.stock_counts',
         label: 'Stock Counts',
         icon: Icons.fact_check_outlined,
@@ -438,11 +450,11 @@ const _inventoryGroup = NavGroup(
         activeIcon: Icons.swap_horiz_rounded,
         route: Routes.transferOrders),
     NavItem(
-        id: 'inventory.job_work',
-        label: 'Job Work (Rule 45)',
-        icon: Icons.precision_manufacturing_outlined,
-        activeIcon: Icons.precision_manufacturing_rounded,
-        route: Routes.jobWorkList),
+        id: 'inventory.transfer_transit',
+        label: 'In-Transit GPS Tracker',
+        icon: Icons.local_shipping_outlined,
+        activeIcon: Icons.local_shipping_rounded,
+        route: Routes.stockTransferTransit),
     NavItem(
         id: 'inventory.picklists',
         label: 'Picklists',
@@ -576,6 +588,12 @@ const _accountingGroup = NavGroup(
         activeIcon: Icons.menu_book_rounded,
         route: Routes.journalEntries),
     NavItem(
+        id: 'accounting.single_entry_vouchers',
+        label: 'Single-Entry Vouchers',
+        icon: Icons.speed_outlined,
+        activeIcon: Icons.speed_rounded,
+        route: Routes.singleEntryVouchers),
+    NavItem(
         id: 'accounting.recurring_journals',
         label: 'Recurring Journals',
         icon: Icons.auto_stories_outlined,
@@ -642,6 +660,12 @@ const _reportsGroup = NavGroup(
         activeIcon: Icons.bar_chart_rounded,
         route: Routes.reports),
     NavItem(
+        id: 'reports.saved',
+        label: 'Saved Reports',
+        icon: Icons.bookmark_outline,
+        activeIcon: Icons.bookmark_rounded,
+        route: Routes.savedReports),
+    NavItem(
         id: 'reports.trial_balance',
         label: 'Trial Balance',
         icon: Icons.balance_outlined,
@@ -659,6 +683,18 @@ const _reportsGroup = NavGroup(
         icon: Icons.account_balance_outlined,
         activeIcon: Icons.account_balance_rounded,
         route: Routes.balanceSheet),
+    NavItem(
+        id: 'reports.flux_commentary',
+        label: 'Flux & Variance',
+        icon: Icons.auto_awesome_outlined,
+        activeIcon: Icons.auto_awesome_rounded,
+        route: Routes.fluxCommentary),
+    NavItem(
+        id: 'reports.cash_runway',
+        label: 'Cash Runway (13W)',
+        icon: Icons.speed_outlined,
+        activeIcon: Icons.speed_rounded,
+        route: Routes.cashRunway),
     NavItem(
         id: 'reports.general_ledger',
         label: 'General Ledger',
@@ -812,6 +848,14 @@ const _hrPayrollGroup = NavGroup(
         activeIcon: Icons.settings_rounded,
         route: Routes.payrollSettings,
         roles: ['OWNER', 'ADMIN', 'ACCOUNTANT']),
+    NavItem(
+        id: 'payroll.kenya_paye',
+        label: 'Kenya PAYE Calculator',
+        icon: Icons.calculate_outlined,
+        activeIcon: Icons.calculate_rounded,
+        route: Routes.kenyaPaye,
+        roles: ['OWNER', 'ADMIN', 'ACCOUNTANT'],
+        countries: ['KE']),
   ],
 );
 
@@ -908,6 +952,18 @@ const _fieldSalesGroup = NavGroup(
         icon: Icons.storefront_outlined,
         activeIcon: Icons.storefront_rounded,
         route: Routes.fieldSalesMerchandising),
+    NavItem(
+        id: 'field_sales.tour_plans',
+        label: 'Tour Plans (MTP)',
+        icon: Icons.calendar_month_outlined,
+        activeIcon: Icons.calendar_month,
+        route: Routes.fieldSalesTourPlans),
+    NavItem(
+        id: 'field_sales.dcr',
+        label: 'Daily Call Report (DCR)',
+        icon: Icons.edit_document,
+        activeIcon: Icons.edit_document,
+        route: Routes.fieldSalesDcr),
     NavItem(
         id: 'field_sales.mr_approvals',
         label: 'Field Approvals',
@@ -2072,6 +2128,7 @@ bool _isNavItemVisible(String route, BusinessCapabilities capabilities) {
       route == Routes.trialBalance ||
       route == Routes.profitLoss ||
       route == Routes.balanceSheet ||
+      route == Routes.fluxCommentary ||
       route == Routes.generalLedger ||
       route == Routes.ageingReport ||
       route == Routes.apAgeingReport ||

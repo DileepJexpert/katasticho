@@ -44,6 +44,9 @@ import '../features/reports/presentation/general_ledger_screen.dart';
 import '../features/reports/presentation/ageing_report_screen.dart';
 import '../features/reports/presentation/ap_ageing_screen.dart';
 import '../features/reports/presentation/operational_report_screen.dart';
+import '../features/reports/presentation/flux_commentary_screen.dart';
+import '../features/reports/presentation/cash_runway_screen.dart';
+import '../features/saved_reports/presentation/saved_reports_screen.dart';
 import '../features/ai_chat/presentation/ai_chat_screen.dart';
 import '../features/banking/presentation/bank_reconciliation_screen.dart';
 import '../features/banking/presentation/bank_account_list_screen.dart';
@@ -138,6 +141,7 @@ import '../features/journals/presentation/journal_list_screen.dart';
 import '../features/journals/presentation/journal_detail_screen.dart';
 import '../features/journals/presentation/journal_create_screen.dart';
 import '../features/journals/presentation/guided_transaction_screen.dart';
+import '../features/journals/presentation/single_entry_voucher_screen.dart';
 import '../features/accounting_periods/presentation/period_close_screen.dart';
 import '../features/fixed_assets/presentation/fixed_assets_screen.dart';
 import '../features/amortization/presentation/amortization_screen.dart';
@@ -150,8 +154,6 @@ import '../features/inventory/presentation/transfer_order_list_screen.dart';
 import '../features/inventory/presentation/transfer_order_create_screen.dart';
 import '../features/inventory/presentation/transfer_order_detail_screen.dart';
 import '../features/inventory/presentation/picklist_list_screen.dart';
-import '../features/job_work/presentation/job_work_list_screen.dart';
-import '../features/job_work/presentation/job_work_detail_screen.dart';
 import '../features/inventory/presentation/reorder_screen.dart';
 import '../features/inventory/presentation/shortbook_screen.dart';
 import '../features/team/presentation/team_screen.dart';
@@ -212,6 +214,8 @@ import '../features/field_sales/presentation/field_samples_screen.dart';
 import '../features/field_sales/presentation/field_coverage_screen.dart';
 import '../features/field_sales/presentation/secondary_sales_screen.dart';
 import '../features/field_sales/presentation/rcpa_screen.dart';
+import '../features/field_sales/presentation/tour_plan_screen.dart';
+import '../features/field_sales/presentation/dcr_screen.dart';
 import '../features/field_sales/presentation/field_org_chart_screen.dart';
 import '../features/field_sales/presentation/attendance_screen.dart';
 import '../features/field_sales/presentation/detail_aids_screen.dart';
@@ -279,6 +283,12 @@ import '../features/payment_terms/presentation/payment_terms_screen.dart';
 import '../features/recurring_bills/presentation/recurring_bills_screen.dart';
 import '../features/recurring_journals/presentation/recurring_journals_screen.dart';
 import '../features/workflow_rules/presentation/workflow_rules_screen.dart';
+import '../features/settings/presentation/pdf_template_customizer_screen.dart';
+import '../features/inventory/presentation/barcode_label_designer_screen.dart';
+import '../features/inventory/presentation/warehouse_putaway_list_screen.dart';
+import '../features/inventory/presentation/warehouse_putaway_detail_screen.dart';
+import '../features/inventory/presentation/stock_transfer_transit_screen.dart';
+import '../features/kenya/presentation/kenya_paye_calculator_screen.dart';
 import 'shell_screen.dart';
 
 /// Route paths.
@@ -320,6 +330,9 @@ class Routes {
   static const rackLocations = '/inventory/rack-locations';
   static const hsnMaster = '/inventory/hsn-codes';
   static const drugImport = '/inventory/drug-import';
+  static const barcodeLabelDesigner = '/inventory/barcode-labels';
+  static const putawayTasks = '/inventory/putaway-tasks';
+  static const putawayTaskDetail = '/inventory/putaway-tasks/:id';
   static const auditTrail = '/accounting/audit-trail';
   static const testingGuide = '/testing/guide';
   static const itemDetail = '/items/:id';
@@ -348,10 +361,13 @@ class Routes {
   static const trialBalance = '/reports/trial-balance';
   static const profitLoss = '/reports/profit-loss';
   static const balanceSheet = '/reports/balance-sheet';
+  static const fluxCommentary = '/reports/flux-commentary';
+  static const cashRunway = '/reports/cash-runway';
   static const generalLedger = '/reports/general-ledger';
   static const ageingReport = '/reports/ageing';
   static const apAgeingReport = '/reports/ap-ageing';
   static const operationalReport = '/reports/operational/:key';
+  static const savedReports = '/reports/saved';
   static const creditNotes = '/credit-notes';
   static const creditNoteCreate = '/credit-notes/create';
   static const creditNoteDetail = '/credit-notes/:id';
@@ -391,9 +407,14 @@ class Routes {
   static const printerSetup = '/pos/printer-setup';
   static const aiChat = '/ai-chat';
   static const bankReconciliation = '/banking/reconciliation';
+  // Kept as stable identifiers for dormant screens; no routes are registered
+  // until their underlying integrations are production-ready.
+  static const bankAutoMatch = '/banking/auto-match';
   static const bankAccounts = '/bank-accounts';
   static const bankRules = '/banking/rules';
   static const payoutDisbursement = '/banking/payouts';
+  static const mpesaDashboard = '/banking/mpesa';
+  static const kenyaPaye = '/payroll/kenya-paye';
   static const gst = '/gst';
   static const gstItcRisk = '/gst/itc-risk';
   static const gstr2bReconciliation = '/gst/gstr2b-recon';
@@ -412,7 +433,9 @@ class Routes {
   static const stockCountCreate = '/inventory/stock-counts/create';
   static const transferOrders = '/inventory/transfer-orders';
   static const transferOrderCreate = '/inventory/transfer-orders/create';
+  static const stockTransferTransit = '/inventory/transfers/transit';
   static const picklists = '/inventory/picklists';
+  // Legacy inventory deep links resolve into the sole manufacturing workflow.
   static const jobWorkList = '/inventory/job-work';
   static const jobWorkDetail = '/inventory/job-work/:id';
   static const contactStatement = '/contacts/:id/statement';
@@ -436,6 +459,7 @@ class Routes {
   static const portalUsers = '/settings/portal-users';
   static const navCustomisation = '/settings/nav-customisation';
   static const customFields = '/settings/custom-fields';
+  static const pdfTemplates = '/settings/pdf-templates';
   static const modules = '/settings/modules';
   // Onboarding wizard
   static const onboardingBusinessType = '/onboarding/business-type';
@@ -457,6 +481,7 @@ class Routes {
   static const journalEntries = '/accounting/journal-entries';
   static const journalEntryCreate = '/accounting/journal-entries/create';
   static const journalEntryDetail = '/accounting/journal-entries/:id';
+  static const singleEntryVouchers = '/accounting/single-entry-vouchers';
   static const periodClose = '/accounting/period-close';
   static const fixedAssets = '/accounting/fixed-assets';
   static const amortization = '/accounting/amortization';
@@ -515,6 +540,8 @@ class Routes {
   static const fieldSalesDashboard = '/field-sales/dashboard';
   static const fieldSalesLiveTracking = '/field-sales/live-tracking';
   static const fieldSalesMerchandising = '/field-sales/merchandising';
+  static const fieldSalesTourPlans = '/field-sales/tour-plans';
+  static const fieldSalesDcr = '/field-sales/dcr';
   static const fieldSalesMrApprovals = '/field-sales/mr-approvals';
   static const fieldSalesSamples = '/field-sales/samples';
   static const fieldSalesCoverage = '/field-sales/coverage';
@@ -583,6 +610,11 @@ class Routes {
   static const batchTrace = '/inventory/batch-trace';
   static const batchRecall = '/inventory/batch-recall';
   static const fssaiCompliance = '/inventory/fssai';
+
+  static const franchise = '/franchise';
+  static const franchisePriceOverrides = '/franchise/price-overrides';
+  static const franchiseSettlements = '/franchise/settlements';
+
 
   // Currency
   static const currencies = '/currencies';
@@ -1002,6 +1034,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+            path: Routes.singleEntryVouchers,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: SingleEntryVoucherScreen(),
+            ),
+          ),
+          GoRoute(
             path: Routes.periodClose,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: PeriodCloseScreen(),
@@ -1239,6 +1277,24 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+            path: Routes.barcodeLabelDesigner,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: BarcodeLabelDesignerScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.putawayTasks,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: WarehousePutawayListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.putawayTaskDetail,
+            builder: (context, state) => WarehousePutawayDetailScreen(
+              taskId: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
             path: Routes.auditTrail,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: EditLogScreen(),
@@ -1307,6 +1363,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+            path: Routes.stockTransferTransit,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: StockTransferTransitScreen(),
+            ),
+          ),
+          GoRoute(
             path: Routes.picklists,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: PicklistListScreen(),
@@ -1314,17 +1376,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: Routes.jobWorkList,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: JobWorkChallan45ListScreen(),
-            ),
+            redirect: (context, state) => Routes.manufacturingJobWork,
           ),
           GoRoute(
             path: Routes.jobWorkDetail,
-            pageBuilder: (context, state) => NoTransitionPage(
-              child: JobWorkChallan45DetailScreen(
-                orderId: state.pathParameters['id'] ?? '',
-              ),
-            ),
+            redirect: (context, state) =>
+                '/manufacturing/job-work/${state.pathParameters['id'] ?? ''}',
           ),
           // Payroll
           GoRoute(
@@ -1516,6 +1573,18 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.fieldSalesMerchandising,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: FieldMerchandisingScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.fieldSalesTourPlans,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: TourPlanScreen(),
+            ),
+          ),
+          GoRoute(
+            path: Routes.fieldSalesDcr,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: DcrScreen(),
             ),
           ),
           GoRoute(
@@ -2092,6 +2161,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const BalanceSheetScreen(),
           ),
           GoRoute(
+            path: Routes.fluxCommentary,
+            builder: (context, state) => const FluxCommentaryScreen(),
+          ),
+          GoRoute(
+            path: Routes.cashRunway,
+            builder: (context, state) => const CashRunwayScreen(),
+          ),
+          GoRoute(
             path: Routes.generalLedger,
             builder: (context, state) => const GeneralLedgerScreen(),
           ),
@@ -2113,6 +2190,12 @@ final routerProvider = Provider<GoRouter>((ref) {
               reportKey: state.pathParameters['key']!,
               fallbackTitle: state.uri.queryParameters['title'] ?? 'Report',
               dateRange: state.uri.queryParameters['dateRange'] != 'false',
+            ),
+          ),
+          GoRoute(
+            path: Routes.savedReports,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: SavedReportsScreen(),
             ),
           ),
           GoRoute(
@@ -2253,6 +2336,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+            path: Routes.kenyaPaye,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: KenyaPayeCalculatorScreen(),
+            ),
+          ),
+          GoRoute(
             path: Routes.whatsapp,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: WhatsAppHubScreen(),
@@ -2385,6 +2474,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.customFields,
             builder: (context, state) => const CustomFieldsSettingsScreen(),
+          ),
+          GoRoute(
+            path: Routes.pdfTemplates,
+            builder: (context, state) => const PdfTemplateCustomizerScreen(),
           ),
           GoRoute(
             path: Routes.modules,

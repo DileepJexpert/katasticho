@@ -702,7 +702,7 @@ class _SplitPaymentContentState extends State<_SplitPaymentContent> {
                     if (_upi > 0) ...[
                       const SizedBox(height: 4),
                       Padding(
-                        padding: const EdgeInsets.only(left: 40),
+                        padding: const EdgeInsetsDirectional.only(start: 40),
                         child: KTextField(
                           label: 'UPI Reference',
                           hint: 'UTR / Transaction ID',

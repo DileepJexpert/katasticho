@@ -11,7 +11,9 @@ class ReportRepository {
 
   ReportRepository(this._api);
 
-  Future<Map<String, dynamic>> getTrialBalance({String? asOfDate}) async {
+  Future<Map<String, dynamic>> getTrialBalance({
+    String? asOfDate,
+  }) async {
     final params = <String, dynamic>{
       if (asOfDate != null) 'asOfDate': asOfDate,
     };
@@ -31,7 +33,9 @@ class ReportRepository {
     return response.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> getBalanceSheet({String? asOfDate}) async {
+  Future<Map<String, dynamic>> getBalanceSheet({
+    String? asOfDate,
+  }) async {
     final params = <String, dynamic>{
       if (asOfDate != null) 'asOfDate': asOfDate,
     };

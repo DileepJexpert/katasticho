@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/k_colors.dart';
+import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/wallet_repository.dart';
@@ -175,7 +176,7 @@ class _WalletSummaryCard extends StatelessWidget {
         elevation: 0,
         color: cs.primaryContainer,
         shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16)),
+            borderRadius: BorderRadius.circular(KSpacing.radiusMd)),
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(

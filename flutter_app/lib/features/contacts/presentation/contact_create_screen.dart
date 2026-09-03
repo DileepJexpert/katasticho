@@ -11,6 +11,7 @@ import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/utils/form_error_handler.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../custom_fields/data/custom_field_repository.dart';
 import '../../payment_terms/data/payment_terms_repository.dart';
 import '../data/contact_repository.dart';
 
@@ -28,6 +29,7 @@ class ContactCreateScreen extends ConsumerStatefulWidget {
 class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen>
     with FormErrorHandler {
   final _formKey = GlobalKey<FormState>();
+  final _customFieldsKey = GlobalKey<KCustomFieldsRendererState>();
 
   String _contactType = 'CUSTOMER';
   bool _supplierEnabled = false;
@@ -904,6 +906,12 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen>
                   ],
                 ),
               ),
+              KSpacing.vGapMd,
+              KCustomFieldsRenderer(
+                key: _customFieldsKey,
+                entityType: 'CONTACT',
+                entityId: widget.contactId,
+              ),
               KSpacing.vGapLg,
             ],
           ),
@@ -1002,11 +1010,28 @@ class _ContactCreateScreenState extends ConsumerState<ContactCreateScreen>
 
     try {
       final repo = ref.read(contactRepositoryProvider);
+      String contactId = '';
       if (_isEdit) {
-        await repo.updateContact(widget.contactId!, data);
+        contactId = widget.contactId!;
+        await repo.updateContact(contactId, data);
       } else {
-        await repo.createContact(data);
+        final res = await repo.createContact(data);
+        contactId = res['id']?.toString() ?? '';
       }
+
+      final customInputs = _customFieldsKey.currentState?.getValues();
+      if (contactId.isNotEmpty && customInputs != null && customInputs.isNotEmpty) {
+        try {
+          await ref.read(customFieldRepositoryProvider).saveValues(
+            'CONTACT',
+            contactId,
+            customInputs,
+          );
+        } catch (e) {
+          debugPrint('Failed to save custom fields on contact: $e');
+        }
+      }
+
       ref.invalidate(contactListProvider);
       ref.invalidate(contactSummaryProvider);
       if (!mounted) return;

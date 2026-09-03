@@ -51,7 +51,10 @@ class _JobWorkDetailScreenState extends ConsumerState<JobWorkDetailScreen> {
 
     final order = _order!;
     final status = order['status']?.toString() ?? '';
-    final lines = (order['lines'] as List?)?.whereType<Map<String, dynamic>>().toList() ?? [];
+    final allLines = (order['lines'] as List?)?.whereType<Map<String, dynamic>>().toList() ?? [];
+    final hasOutputLines = allLines.any((line) => line['lineType'] == 'OUTPUT');
+    final lines = allLines.where((line) =>
+        hasOutputLines ? line['lineType'] == 'OUTPUT' : line['lineType'] == 'MATERIAL').toList();
 
     final matCost = (order['totalMaterialCost'] as num?)?.toDouble();
     final procCharges = (order['processingCharges'] as num?)?.toDouble();
@@ -403,14 +406,41 @@ class _JobWorkDetailScreenState extends ConsumerState<JobWorkDetailScreen> {
       ),
     );
 
+    if (confirmed != true) {
+      for (final ctls in receiptControllers.values) {
+        ctls.received.dispose();
+        ctls.wastage.dispose();
+      }
+      return;
+    }
+
+    final receiptLines = <Map<String, dynamic>>[];
+    for (final entry in receiptControllers.entries) {
+      final receivedQty = double.tryParse(entry.value.received.text.trim()) ?? 0;
+      final wastageQty = double.tryParse(entry.value.wastage.text.trim()) ?? 0;
+      if (receivedQty > 0 || wastageQty > 0) {
+        receiptLines.add({
+          'itemId': entry.key,
+          'receivedQty': receivedQty,
+          'wastageQty': wastageQty,
+        });
+      }
+    }
     for (final ctls in receiptControllers.values) {
       ctls.received.dispose();
       ctls.wastage.dispose();
     }
-
-    if (confirmed != true) return;
-
-    final receiptLines = <Map<String, dynamic>>[];
+    if (receiptLines.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Enter a received quantity or wastage for at least one line'),
+            backgroundColor: KColors.error,
+          ),
+        );
+      }
+      return;
+    }
     try {
       await ref
           .read(manufacturingRepositoryProvider)

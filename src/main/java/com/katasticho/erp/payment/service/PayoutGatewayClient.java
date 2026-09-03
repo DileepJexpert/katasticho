@@ -49,18 +49,25 @@ public class PayoutGatewayClient {
             String vpa,
             String narration
     ) {
+        boolean enabled = Boolean.parseBoolean(orgSettingsService.get(orgId, ENABLED, "false"));
         String keyId = orgSettingsService.get(orgId, KEY_ID, null);
         String keySecret = orgSettingsService.get(orgId, KEY_SECRET, null);
         String debitAccount = orgSettingsService.get(orgId, ACCOUNT_NUMBER, null);
 
-        // Simulation / test mode when credentials not set or explicitly prefixed with test_
-        if (keyId == null || keyId.isBlank() || keyId.startsWith("test_")) {
-            long now = System.currentTimeMillis();
-            String payoutId = "pout_sim_" + Long.toHexString(now);
-            String utr = "UTR" + (now % 10000000000L);
-            log.info("[PayoutGatewayClient] Simulated successful payout {} of ₹{} via {} for org {}",
-                    payoutId, amount, payoutMode, orgId);
-            return new PayoutGatewayResult(true, payoutId, utr, "PROCESSED", null);
+        // A missing or test configuration must never clear a payable or post a
+        // journal. Production payouts are opt-in and fail closed.
+        if (!enabled) {
+            return new PayoutGatewayResult(false, null, null, "NOT_CONFIGURED",
+                    "Payouts are disabled for this organisation");
+        }
+        if (keyId == null || keyId.isBlank() || keySecret == null || keySecret.isBlank()
+                || debitAccount == null || debitAccount.isBlank()) {
+            return new PayoutGatewayResult(false, null, null, "NOT_CONFIGURED",
+                    "RazorpayX credentials and source account are required before payouts can be enabled");
+        }
+        if (keyId.startsWith("test_")) {
+            return new PayoutGatewayResult(false, null, null, "NOT_CONFIGURED",
+                    "Test gateway credentials cannot be used for financial disbursements");
         }
 
         // Live Gateway Integration (RazorpayX API)
@@ -114,7 +121,10 @@ public class PayoutGatewayClient {
             String status = respBody.get("status") != null ? respBody.get("status").toString().toUpperCase(Locale.ROOT) : "PROCESSED";
             String failureReason = respBody.get("failure_reason") != null ? respBody.get("failure_reason").toString() : null;
 
-            boolean success = "PROCESSED".equals(status) || "PROCESSING".equals(status) || "QUEUED".equals(status);
+            // PROCESSING and QUEUED are provider acknowledgements, not settled
+            // money. Accounting must wait for a final successful callback or
+            // reconciliation result.
+            boolean success = "PROCESSED".equals(status);
             return new PayoutGatewayResult(success, payoutId, utr, status, failureReason);
 
         } catch (HttpStatusCodeException e) {

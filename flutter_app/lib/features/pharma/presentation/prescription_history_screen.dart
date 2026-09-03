@@ -319,7 +319,7 @@ class _ValidityChip extends StatelessWidget {
         color: valid
             ? KColors.success.withValues(alpha: 0.12)
             : KColors.error.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(KSpacing.radiusSm),
       ),
       child: Text(
         valid ? 'Valid' : 'Expired',

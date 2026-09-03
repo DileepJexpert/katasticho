@@ -11,6 +11,7 @@ import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../../contacts/data/contact_repository.dart';
+import '../../custom_fields/data/custom_field_repository.dart';
 import '../../inventory/data/item_repository.dart';
 import '../../inventory/presentation/item_picker_sheet.dart';
 import '../../pricing/data/scheme_repository.dart';
@@ -31,6 +32,7 @@ class SalesOrderCreateScreen extends ConsumerStatefulWidget {
 class _SalesOrderCreateScreenState extends ConsumerState<SalesOrderCreateScreen>
     with FormErrorHandler {
   final _formKey = GlobalKey<FormState>();
+  final _customFieldsKey = GlobalKey<KCustomFieldsRendererState>();
   int _currentStep = 0;
   bool _isSubmitting = false;
   String? _errorMessage;
@@ -196,6 +198,21 @@ class _SalesOrderCreateScreenState extends ConsumerState<SalesOrderCreateScreen>
 
       final result = await repo.createSalesOrder(data);
       ref.invalidate(salesOrderListProvider);
+
+      final created = (result['data'] ?? result) as Map<String, dynamic>;
+      final soId = created['id']?.toString() ?? '';
+      final customInputs = _customFieldsKey.currentState?.getValues();
+      if (soId.isNotEmpty && customInputs != null && customInputs.isNotEmpty) {
+        try {
+          await ref.read(customFieldRepositoryProvider).saveValues(
+            'SALES_ORDER',
+            soId,
+            customInputs,
+          );
+        } catch (e) {
+          debugPrint('Failed to save custom fields on sales order: $e');
+        }
+      }
 
       if (mounted) {
         final created = (result['data'] ?? result) as Map<String, dynamic>;
@@ -882,6 +899,11 @@ class _SalesOrderCreateScreenState extends ConsumerState<SalesOrderCreateScreen>
             onChanged: (v) => _terms = v,
           ),
         ]),
+        KSpacing.vGapMd,
+        KCustomFieldsRenderer(
+          key: _customFieldsKey,
+          entityType: 'SALES_ORDER',
+        ),
       ],
     );
   }

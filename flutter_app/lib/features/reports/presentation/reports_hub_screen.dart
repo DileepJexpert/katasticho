@@ -15,7 +15,16 @@ class ReportsHubScreen extends StatelessWidget {
     final groups = _reportGroups(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Reports')),
+      appBar: AppBar(
+        title: const Text('Reports'),
+        actions: [
+          TextButton.icon(
+            icon: const Icon(Icons.bookmark_outline, size: 18),
+            label: const Text('Saved Reports'),
+            onPressed: () => context.push('/reports/saved'),
+          ),
+        ],
+      ),
       body: ListView.separated(
         padding: KSpacing.pagePadding,
         itemCount: groups.length,
@@ -130,6 +139,18 @@ List<_ReportGroupData> _reportGroups(BuildContext context) => [
             title: 'Balance Sheet',
             color: KColors.secondary,
             onTap: () => context.push(Routes.balanceSheet),
+          ),
+          _ReportLink(
+            icon: Icons.auto_awesome,
+            title: 'Flux & Variance Commentary',
+            color: KColors.primary,
+            onTap: () => context.push(Routes.fluxCommentary),
+          ),
+          _ReportLink(
+            icon: Icons.speed,
+            title: '13-Week Cash Runway & Simulator',
+            color: KColors.success,
+            onTap: () => context.push(Routes.cashRunway),
           ),
           _ReportLink(
             icon: Icons.menu_book,

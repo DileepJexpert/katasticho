@@ -380,7 +380,34 @@ class FieldSalesRepository {
     return (response.data['data'] ?? response.data) as Map<String, dynamic>;
   }
 
-  // -- MR approvals (tour plans + DCR) --
+  // -- MR reporting (tour plans + DCR) --
+  Future<List<Map<String, dynamic>>> myTourPlans() async {
+    final response = await _api.get(ApiConfig.mrTourPlansMe);
+    return _asList(response.data['data'] ?? response.data);
+  }
+
+  Future<Map<String, dynamic>> createTourPlan(String planMonth, {String? notes}) async {
+    final response = await _api.post(ApiConfig.mrTourPlans, data: {
+      'planMonth': planMonth,
+      if (notes != null) 'notes': notes,
+    });
+    return (response.data['data'] ?? response.data) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> addTourPlanEntry(String planId, Map<String, dynamic> entry) async {
+    final response = await _api.post(ApiConfig.mrTourPlanEntries(planId), data: entry);
+    return (response.data['data'] ?? response.data) as Map<String, dynamic>;
+  }
+
+  Future<void> removeTourPlanEntry(String entryId) async {
+    await _api.delete(ApiConfig.mrTourPlanEntryDelete(entryId));
+  }
+
+  Future<Map<String, dynamic>> submitTourPlan(String planId) async {
+    final response = await _api.post(ApiConfig.mrTourPlanSubmit(planId));
+    return (response.data['data'] ?? response.data) as Map<String, dynamic>;
+  }
+
   Future<List<Map<String, dynamic>>> pendingTourPlans() async {
     final response = await _api.get(ApiConfig.mrTourPlansPending);
     return _asList(response.data['data'] ?? response.data);
@@ -399,6 +426,29 @@ class FieldSalesRepository {
     await _api.post(ApiConfig.mrTourPlanReject(id), data: {'reason': reason});
   }
 
+  Future<Map<String, dynamic>> buildDcr({String? date, String? workType}) async {
+    final response = await _api.post(ApiConfig.mrDcrBuild, data: {
+      if (date != null) 'date': date,
+      if (workType != null) 'workType': workType,
+    });
+    return (response.data['data'] ?? response.data) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> submitDcr({String? date, String? workType, String? remarks}) async {
+    final response = await _api.post(ApiConfig.mrDcrSubmit, data: {
+      if (date != null) 'date': date,
+      if (workType != null) 'workType': workType,
+      if (remarks != null) 'remarks': remarks,
+    });
+    return (response.data['data'] ?? response.data) as Map<String, dynamic>;
+  }
+
+  Future<List<Map<String, dynamic>>> myDcrs({String? from, String? to}) async {
+    final query = from != null && to != null ? '?from=$from&to=$to' : '';
+    final response = await _api.get('${ApiConfig.mrDcrMe}$query');
+    return _asList(response.data['data'] ?? response.data);
+  }
+
   Future<List<Map<String, dynamic>>> pendingDcrs() async {
     final response = await _api.get(ApiConfig.mrDcrPending);
     return _asList(response.data['data'] ?? response.data);
@@ -410,6 +460,28 @@ class FieldSalesRepository {
 
   Future<void> rejectDcr(String id, String reason) async {
     await _api.post(ApiConfig.mrDcrReject(id), data: {'reason': reason});
+  }
+
+  Future<List<Map<String, dynamic>>> logVisitProducts(String visitId, List<Map<String, dynamic>> products) async {
+    final response = await _api.put(ApiConfig.mrVisitProducts(visitId), data: {'products': products});
+    return _asList(response.data['data'] ?? response.data);
+  }
+
+  Future<List<Map<String, dynamic>>> getVisitProducts(String visitId) async {
+    final response = await _api.get(ApiConfig.mrVisitProducts(visitId));
+    return _asList(response.data['data'] ?? response.data);
+  }
+
+  Future<Map<String, dynamic>> markJointVisit(String visitId, {String? userId}) async {
+    final response = await _api.post(ApiConfig.mrVisitJoint(visitId), data: {
+      if (userId != null) 'userId': userId,
+    });
+    return (response.data['data'] ?? response.data) as Map<String, dynamic>;
+  }
+
+  Future<List<Map<String, dynamic>>> activeDetailAids() async {
+    final response = await _api.get(ApiConfig.mrDetailAids);
+    return _asList(response.data['data'] ?? response.data);
   }
 
   // -- Field samples (all verticals) --

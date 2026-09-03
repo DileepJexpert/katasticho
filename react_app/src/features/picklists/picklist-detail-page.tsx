@@ -1,6 +1,7 @@
+import { useState } from 'react'
 import type { ReactNode } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, ListChecks } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ArrowLeft, CheckCircle2, ListChecks, Play, XCircle } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
 import { Button } from '@/design-system/button'
@@ -9,16 +10,42 @@ import { PageHeader } from '@/design-system/page-header'
 import { Quantity } from '@/design-system/quantity'
 import { StatusChip } from '@/design-system/status-chip'
 import { formatDateTime, formatStatusLabel } from '@/shared/format/format'
-import { getPicklist, type PicklistLine } from '@/features/picklists/picklists-api'
+import {
+  cancelPicklist,
+  completePicklist,
+  getPicklist,
+  startPicklist,
+  updatePicklistLines,
+  type PicklistLine,
+} from '@/features/picklists/picklists-api'
 import { PickProgress } from '@/features/picklists/pick-progress'
 
 export function PicklistDetailPage() {
   const { picklistId } = useParams()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const [selectedLineForEdit, setSelectedLineForEdit] = useState<PicklistLine | null>(null)
+
   const picklist = useQuery({
     queryKey: ['picklists', picklistId],
     queryFn: () => getPicklist(picklistId!),
     enabled: Boolean(picklistId),
+  })
+
+  // Workflow mutations
+  const startMutation = useMutation({
+    mutationFn: () => startPicklist(picklistId!),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['picklists', picklistId] }),
+  })
+
+  const completeMutation = useMutation({
+    mutationFn: () => completePicklist(picklistId!),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['picklists', picklistId] }),
+  })
+
+  const cancelMutation = useMutation({
+    mutationFn: () => cancelPicklist(picklistId!),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['picklists', picklistId] }),
   })
 
   if (!picklistId) return <DocumentError onBack={() => navigate(appRoutes.picklists)} />
@@ -26,26 +53,61 @@ export function PicklistDetailPage() {
   if (picklist.isError || !picklist.data) return <DocumentError onBack={() => navigate(appRoutes.picklists)} />
 
   const document = picklist.data
+  const isDraft = document.status === 'DRAFT'
+  const isInProgress = document.status === 'IN_PROGRESS'
+  const isCompleted = document.status === 'COMPLETED'
+  const isCancelled = document.status === 'CANCELLED'
 
   return (
     <section className="workspace-page">
       <PageHeader
         eyebrow="Inventory / Warehouse / Picklist"
         title={document.picklistNumber}
-        description={`${document.warehouseName ?? 'Unknown warehouse'} · created ${formatDateTime(document.createdAt)}`}
-        actions={<StatusChip status={formatStatusLabel(document.status)} />}
+        description={`${document.warehouseName ?? 'Warehouse'} Â· created ${formatDateTime(document.createdAt)}`}
+        actions={
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            {isDraft && (
+              <Button disabled={startMutation.isPending} onClick={() => startMutation.mutate()} variant="primary">
+                <Play size={16} /> Start Picking
+              </Button>
+            )}
+            {isInProgress && (
+              <Button disabled={completeMutation.isPending} onClick={() => completeMutation.mutate()} variant="primary">
+                <CheckCircle2 size={16} /> Complete Picklist
+              </Button>
+            )}
+            {!isCompleted && !isCancelled && (
+              <Button disabled={cancelMutation.isPending} onClick={() => cancelMutation.mutate()} variant="destructive">
+                <XCircle size={16} /> Cancel
+              </Button>
+            )}
+            <StatusChip status={formatStatusLabel(document.status)} />
+          </div>
+        }
       />
 
       <div className="document-actions">
-        <Button onClick={() => navigate(appRoutes.picklists)} variant="secondary"><ArrowLeft aria-hidden="true" size={16} />Back to picklists</Button>
-        <StatusChip status="Read-only pilot" />
+        <Button onClick={() => navigate(appRoutes.picklists)} variant="secondary">
+          <ArrowLeft aria-hidden="true" size={16} /> Back to picklists
+        </Button>
       </div>
 
       <div className="document-layout">
         <section className="document-card">
           <h2>Picklist information</h2>
           <dl className="document-facts">
-            <Fact label="Source sales order" value={document.salesOrderNumber ? <Button className="document-link" onClick={() => navigate(appRoutes.salesOrderDetail(document.salesOrderId))} variant="ghost"><code>{document.salesOrderNumber}</code></Button> : '--'} />
+            <Fact
+              label="Source sales order"
+              value={
+                document.salesOrderNumber ? (
+                  <Button className="document-link" onClick={() => navigate(appRoutes.salesOrderDetail ? appRoutes.salesOrderDetail(document.salesOrderId) : `/sales-orders/${document.salesOrderId}`)} variant="ghost">
+                    <code>{document.salesOrderNumber}</code>
+                  </Button>
+                ) : (
+                  '--'
+                )
+              }
+            />
             <Fact label="Warehouse" value={document.warehouseName ?? '--'} />
             <Fact label="Created" value={formatDateTime(document.createdAt)} />
             <Fact label="Started" value={formatDateTime(document.startedAt)} />
@@ -74,10 +136,56 @@ export function PicklistDetailPage() {
               <th scope="col">Batch</th>
               <th scope="col">Rack</th>
               <th scope="col">Notes</th>
+              <th scope="col">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {document.lines.length ? document.lines.map((line) => <PicklistLineRow key={line.id} line={line} />) : <tr><td className="cell-muted" colSpan={7}>No pick lines were returned for this picklist.</td></tr>}
+            {document.lines.length ? (
+              document.lines.map((line) => (
+                <tr key={line.id}>
+                  <td>
+                    <div className="item-primary">
+                      <span aria-hidden="true" className="item-avatar"><ListChecks size={15} /></span>
+                      <div className="cell-stack">
+                        <strong>{line.itemName}</strong>
+                        <code>{line.itemSku ?? line.itemId}</code>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="numeric-cell"><Quantity unit={line.unitOfMeasure} value={line.requiredQuantity} /></td>
+                  <td className="numeric-cell">
+                    <strong style={{ color: Number(line.pickedQuantity) >= Number(line.requiredQuantity) ? 'var(--color-success, #2e7d32)' : 'inherit' }}>
+                      <Quantity unit={line.unitOfMeasure} value={line.pickedQuantity} />
+                    </strong>
+                  </td>
+                  <td>
+                    <StatusChip
+                      status={
+                        Number(line.pickedQuantity) >= Number(line.requiredQuantity)
+                          ? 'Picked'
+                          : Number(line.pickedQuantity) > 0
+                            ? 'Partial'
+                            : 'Pending'
+                      }
+                    />
+                  </td>
+                  <td>{line.batchNumber ? <code>{line.batchNumber}</code> : '--'}</td>
+                  <td>{line.rackLocation ?? '--'}</td>
+                  <td>{line.notes ?? '--'}</td>
+                  <td>
+                    {isInProgress && (
+                      <Button onClick={() => setSelectedLineForEdit(line)} variant="ghost">
+                        Update Qty
+                      </Button>
+                    )}
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td className="cell-muted" colSpan={8}>No pick lines were returned for this picklist.</td>
+              </tr>
+            )}
           </tbody>
         </DataTable>
       </section>
@@ -87,40 +195,105 @@ export function PicklistDetailPage() {
         <div className="document-notes"><p>{document.notes ?? '--'}</p></div>
       </section>
 
-      <p className="directory-note">This page reflects the existing Picklist record. Creating, starting, recording quantities, completing, and cancelling remain in Flutter during the controlled migration.</p>
+      {/* Edit Pick Line Modal */}
+      {selectedLineForEdit && (
+        <UpdatePickLineModal
+          line={selectedLineForEdit}
+          onClose={() => setSelectedLineForEdit(null)}
+          onSuccess={() => {
+            setSelectedLineForEdit(null)
+            queryClient.invalidateQueries({ queryKey: ['picklists', picklistId] })
+          }}
+          picklistId={picklistId}
+        />
+      )}
     </section>
   )
 }
 
-function PicklistLineRow({ line }: { line: PicklistLine }) {
-  const required = Number(line.requiredQuantity ?? 0)
-  const picked = Number(line.pickedQuantity ?? 0)
-  const coverage = required > 0 && picked >= required ? 'Fully picked' : picked > 0 ? 'Partially picked' : 'Not picked'
+function UpdatePickLineModal({
+  picklistId,
+  line,
+  onClose,
+  onSuccess,
+}: {
+  picklistId: string
+  line: PicklistLine
+  onClose: () => void
+  onSuccess: () => void
+}) {
+  const [pickedQuantity, setPickedQuantity] = useState(Number(line.pickedQuantity || line.requiredQuantity))
+  const [batchNumber, setBatchNumber] = useState(line.batchNumber || '')
+  const [notes, setNotes] = useState(line.notes || '')
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      updatePicklistLines(picklistId, [
+        {
+          lineId: line.id,
+          pickedQuantity,
+          batchNumber: batchNumber || undefined,
+          notes: notes || undefined,
+        },
+      ]),
+    onSuccess: () => onSuccess(),
+  })
 
   return (
-    <tr>
-      <td><div className="cell-stack"><strong>{line.itemName ?? '--'}</strong><code>{line.sku ?? '--'}</code></div></td>
-      <td className="numeric-cell"><Quantity value={line.requiredQuantity} /></td>
-      <td className="numeric-cell"><Quantity value={line.pickedQuantity} /></td>
-      <td><StatusChip status={coverage} /></td>
-      <td><code>{line.batchNumber ?? '--'}</code></td>
-      <td><code>{line.rackLocationCode ?? '--'}</code></td>
-      <td><span className="cell-muted">{line.notes ?? '--'}</span></td>
-    </tr>
+    <div className="modal-backdrop" role="dialog">
+      <div className="modal-dialog">
+        <header className="modal-header">
+          <h3>Record Picked Quantity</h3>
+          <Button onClick={onClose} variant="ghost">âœ•</Button>
+        </header>
+        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <p>
+            Item: <strong>{line.itemName}</strong> (Required: {line.requiredQuantity} {line.unitOfMeasure})
+          </p>
+          <label className="field-group">
+            <span>Picked Quantity</span>
+            <input
+              min={0}
+              onChange={(e) => setPickedQuantity(Number(e.target.value))}
+              type="number"
+              value={pickedQuantity}
+            />
+          </label>
+          <label className="field-group">
+            <span>Batch Number Picked</span>
+            <input onChange={(e) => setBatchNumber(e.target.value)} placeholder="e.g. BATCH-001" value={batchNumber} />
+          </label>
+          <label className="field-group">
+            <span>Notes</span>
+            <input onChange={(e) => setNotes(e.target.value)} placeholder="Rack A-12, Bin 4" value={notes} />
+          </label>
+        </div>
+        <footer className="modal-footer">
+          <Button onClick={onClose} variant="secondary">Cancel</Button>
+          <Button disabled={mutation.isPending} onClick={() => mutation.mutate()} variant="primary">
+            {mutation.isPending ? 'Saving...' : 'Save Picked Qty'}
+          </Button>
+        </footer>
+      </div>
+    </div>
   )
 }
 
 function Fact({ label, value }: { label: string; value: ReactNode }) {
-  return <div><dt>{label}</dt><dd>{value}</dd></div>
+  return (
+    <div className="document-fact">
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+    </div>
+  )
 }
 
 function DocumentError({ onBack }: { onBack: () => void }) {
   return (
     <section className="workspace-page">
       <div className="directory-state directory-state--error" role="alert">
-        <ListChecks aria-hidden="true" size={24} />
-        <strong>Picklist details could not be loaded.</strong>
-        <p>The picklist may no longer be available, or you may not have permission to view it.</p>
+        <strong>Picklist not found.</strong>
+        <p>The requested picklist could not be loaded.</p>
         <Button onClick={onBack} variant="secondary">Back to picklists</Button>
       </div>
     </section>

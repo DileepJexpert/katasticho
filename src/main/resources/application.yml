@@ -90,6 +90,13 @@ app:
     refresh-token-expiry-days: ${JWT_REFRESH_EXPIRY:30}
     platform-admin-secret: ${JWT_PLATFORM_ADMIN_SECRET}
     platform-admin-expiry-hours: 4
+  web-session:
+    # Production must configure the public React origin; blank fails closed.
+    allowed-origins: ${WEB_SESSION_ALLOWED_ORIGINS:}
+    cookie:
+      # Production runs on HTTPS. Local overrides this because browsers reject
+      # Secure cookies over plain http://localhost.
+      secure: ${WEB_SESSION_COOKIE_SECURE:true}
   otp:
     expiry-minutes: 5
     max-attempts: 5

@@ -63,10 +63,11 @@ class _ProfitLossScreenState extends ConsumerState<ProfitLossScreen> {
                 final narrow = constraints.maxWidth < KSpacing.mobileBreakpoint;
                 final fieldWidth = narrow
                     ? constraints.maxWidth
-                    : (constraints.maxWidth - KSpacing.sm) / 2;
+                    : 220.0;
                 return Wrap(
-                  spacing: KSpacing.sm,
+                  spacing: KSpacing.md,
                   runSpacing: KSpacing.sm,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     SizedBox(
                       width: fieldWidth,

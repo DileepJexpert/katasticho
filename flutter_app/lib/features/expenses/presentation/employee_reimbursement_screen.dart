@@ -291,7 +291,7 @@ class _SubmitReimbursementSheetState extends State<_SubmitReimbursementSheet> {
     catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()))); }
     finally { if (mounted) setState(() => _saving = false); }
   }
-  @override Widget build(BuildContext context) => Padding(padding: EdgeInsets.only(left: 20, right: 20, top: 8, bottom: MediaQuery.viewInsetsOf(context).bottom + 20), child: SingleChildScrollView(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+  @override Widget build(BuildContext context) => Padding(padding: EdgeInsets.fromLTRB(20, 8, 20, MediaQuery.viewInsetsOf(context).bottom + 20), child: SingleChildScrollView(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
     Text('New Employee Reimbursement', style: Theme.of(context).textTheme.headlineSmall), const SizedBox(height: 16),
     DropdownButtonFormField<String>(decoration: const InputDecoration(labelText: 'Employee / salesperson (optional)'), initialValue: _employeeId, isExpanded: true, items: widget.employees.map((e) => DropdownMenuItem(value: e['id']?.toString(), child: Text('${e['fullName'] ?? ''} ${e['employeeCode'] == null ? '' : '(${e['employeeCode']})'}'))).toList(), onChanged: (v) => setState(() => _employeeId = v)),
     const SizedBox(height: 10),
@@ -364,7 +364,7 @@ class _CreateAdvanceSheetState extends State<_CreateAdvanceSheet> {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: EdgeInsets.only(left: 20, right: 20, top: 8, bottom: MediaQuery.viewInsetsOf(context).bottom + 20),
+        padding: EdgeInsets.fromLTRB(20, 8, 20, MediaQuery.viewInsetsOf(context).bottom + 20),
         child: SingleChildScrollView(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('New Employee Advance', style: Theme.of(context).textTheme.headlineSmall),

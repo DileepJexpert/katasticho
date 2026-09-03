@@ -68,9 +68,9 @@ class KAssistantPanel extends StatelessWidget {
       transitionDuration: const Duration(milliseconds: 180),
       pageBuilder: (ctx, anim, secondary) {
         return Align(
-          alignment: Alignment.bottomRight,
+          alignment: AlignmentDirectional.bottomEnd,
           child: Padding(
-            padding: const EdgeInsets.only(right: 20, bottom: 76),
+            padding: const EdgeInsetsDirectional.only(end: 20, bottom: 76),
             child: Material(
               color: Colors.transparent,
               child: const KAssistantPanel(),

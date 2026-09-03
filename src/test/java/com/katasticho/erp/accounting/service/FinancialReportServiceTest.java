@@ -7,6 +7,7 @@ import com.katasticho.erp.accounting.entity.JournalLine;
 import com.katasticho.erp.accounting.repository.AccountRepository;
 import com.katasticho.erp.accounting.repository.JournalLineRepository;
 import com.katasticho.erp.common.context.TenantContext;
+import com.katasticho.erp.common.exception.BusinessException;
 import com.katasticho.erp.organisation.Organisation;
 import com.katasticho.erp.organisation.OrganisationRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -332,6 +333,23 @@ class FinancialReportServiceTest {
         assertEquals(0, BigDecimal.ZERO.compareTo(tb.totalDebit()));
         assertEquals(0, BigDecimal.ZERO.compareTo(tb.totalCredit()));
         assertTrue(tb.lines().isEmpty());
+    }
+
+    @Test
+    void shouldRejectCashBasisUntilCashAllocationAccountingIsAvailable() {
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> reportService.generateTrialBalance(LocalDate.now(), "CASH"));
+
+        assertEquals("CASH_BASIS_UNAVAILABLE", exception.getErrorCode());
+    }
+
+    @Test
+    void shouldRejectAnyUnsupportedFinancialReportBasis() {
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> reportService.generateProfitLoss(
+                        LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31), "MODIFIED_CASH"));
+
+        assertEquals("CASH_BASIS_UNAVAILABLE", exception.getErrorCode());
     }
 
     private Account buildAccount(String code, String name, String type) {

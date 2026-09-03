@@ -37,7 +37,8 @@ import '../../../core/shortcuts/k_shortcuts.dart';
 import '../../../core/storage/pos_database.dart';
 import '../data/thermal_print_service.dart';
 import '../data/offline_pos_service.dart';
-import 'widgets/pos_sync_sheet.dart';
+import '../data/network_health_service.dart';
+import 'widgets/pos_sync_inspector_sheet.dart';
 import '../../inventory/presentation/batch_picker_sheet.dart';
 import '../../pricing/data/scheme_repository.dart';
 import '../../../core/auth/auth_state.dart';
@@ -2274,29 +2275,29 @@ class _OfflineSyncBadge extends ConsumerWidget {
     if (!posOfflineSupported) return const SizedBox.shrink();
 
     final count = ref.watch(offlinePendingCountProvider).valueOrNull ?? 0;
-    final online = ref.watch(posOnlineProvider).valueOrNull ?? true;
+    final network = ref.watch(networkHealthProvider);
     final syncing =
         ref.watch(offlineSyncStatusProvider).valueOrNull == SyncStatus.syncing;
 
-    final (Color color, IconData icon, String label) = !online
+    final (Color color, IconData icon, String label) = !network.isOnline
         ? (KColors.error, Icons.cloud_off_outlined, 'Offline')
         : syncing
             ? (KColors.primary, Icons.sync, 'Syncing')
             : count > 0
                 ? (KColors.warning, Icons.cloud_upload_outlined, '$count pending')
-                : (KColors.success, Icons.cloud_done_outlined, 'Online');
+                : (KColors.success, Icons.cloud_done_outlined, '${network.latencyMs}ms');
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 2),
       child: Tooltip(
-        message: !online
+        message: !network.isOnline
             ? 'No network — sales are saved offline and printed locally'
             : count > 0
                 ? '$count receipt(s) waiting to sync'
-                : 'Online — sales post live',
+                : 'Connected (${network.latencyMs} ms) — sales post live',
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
-          onTap: () => showPosSyncSheet(context),
+          onTap: () => showPosSyncInspectorSheet(context),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
@@ -2395,9 +2396,7 @@ class _PosCatalogSection extends ConsumerWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (drug['mrp'] != null)
-                      Text('₹${drug['mrp']}',
-                          style: theme.textTheme.bodyMedium
-                              ?.copyWith(fontWeight: FontWeight.w600)),
+                      KMoney(num.tryParse('${drug['mrp']}') ?? 0),
                     const SizedBox(width: 8),
                     Icon(Icons.add_circle_outline,
                         color: theme.colorScheme.primary),

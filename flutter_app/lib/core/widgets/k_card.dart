@@ -456,7 +456,7 @@ class _TrendPill extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
         color: c.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(KSpacing.radiusSm),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

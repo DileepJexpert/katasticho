@@ -943,7 +943,7 @@ class _SalesOrderItemsPanel extends StatelessWidget {
                         ),
                       )),
                       DataCell(Text(_qty(qty, unit))),
-                      DataCell(Text(CurrencyFormatter.formatIndian(rate))),
+                      DataCell(KMoney(rate)),
                       DataCell(Text(_qty(shippedQty, ''))),
                       DataCell(Text(_qty(invoicedQty, ''))),
                       DataCell(backorderedQty > 0
@@ -952,12 +952,7 @@ class _SalesOrderItemsPanel extends StatelessWidget {
                                   color: KColors.warning,
                                   fontWeight: FontWeight.w600))
                           : const Text('0')),
-                      DataCell(Text(
-                        CurrencyFormatter.formatIndian(amount),
-                        style: KTypography.amountSmall,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      )),
+                      DataCell(KMoney(amount)),
                       if (status == 'BACKORDER' && onCloseLines != null)
                         DataCell(backorderedQty > 0
                             ? TextButton(

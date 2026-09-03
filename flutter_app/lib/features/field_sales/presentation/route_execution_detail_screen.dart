@@ -15,6 +15,7 @@ import '../../../core/widgets/k_status_chip.dart';
 import '../../../core/widgets/k_text_field.dart';
 import '../data/field_sales_repository.dart';
 import 'k_merchandising_capture_sheet.dart';
+import 'widgets/mr_edetailing_player_modal.dart';
 
 class RouteExecutionDetailScreen extends ConsumerStatefulWidget {
   const RouteExecutionDetailScreen({super.key, required this.executionId});
@@ -1119,7 +1120,18 @@ class _RouteExecutionDetailScreenState
                                 label: 'Shelf Audit',
                                 icon: Icons.camera_alt_outlined,
                                 size: KButtonSize.small,
-                                onPressed: () => _openShelfAudit(visit),
+                                onPressed: () =>
+                                    _openShelfAudit(visit),
+                              ),
+                              KButton.outlined(
+                                label: 'e-Detailing',
+                                icon: Icons.slideshow_outlined,
+                                size: KButtonSize.small,
+                                onPressed: () => showMrEDetailingModal(
+                                  context,
+                                  visitId: visitId,
+                                  doctorName: contactName,
+                                ),
                               ),
                             ],
                             if (visitStatus == 'COMPLETED') ...[

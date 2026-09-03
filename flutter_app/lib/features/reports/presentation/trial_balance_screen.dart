@@ -67,7 +67,7 @@ class _TrialBalanceScreenState extends ConsumerState<TrialBalanceScreen> {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     SizedBox(
-                      width: narrow ? constraints.maxWidth : 320,
+                      width: narrow ? constraints.maxWidth : 260,
                       child: KDatePicker(
                         label: 'As of Date',
                         value: _asOfDate,

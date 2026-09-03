@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/wallet_repository.dart';
+import '../../../core/theme/k_spacing.dart';
 
 /// A small chip shown in the POS when a customer is selected.
 /// Displays wallet balance and lets the cashier initiate a redemption.
@@ -76,7 +77,7 @@ class _WalletChipContent extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: cs.primaryContainer.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(KSpacing.radiusSm),
         border: Border.all(color: cs.primary.withValues(alpha: 0.3)),
       ),
       child: Row(

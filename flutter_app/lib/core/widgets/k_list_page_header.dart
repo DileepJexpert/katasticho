@@ -170,7 +170,7 @@ class _KListPageHeaderState extends State<KListPageHeader> {
                 children: widget.tabs!.map((tab) {
                   final isActive = widget.selectedTab == tab.value;
                   return Padding(
-                    padding: const EdgeInsets.only(right: 6),
+                    padding: const EdgeInsetsDirectional.only(end: 6),
                     child: _TabChip(
                       label: tab.label,
                       active: isActive,

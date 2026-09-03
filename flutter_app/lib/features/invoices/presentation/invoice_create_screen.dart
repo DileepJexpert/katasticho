@@ -11,6 +11,7 @@ import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../../contacts/presentation/contact_picker_sheet.dart';
+import '../../custom_fields/data/custom_field_repository.dart';
 import '../../inventory/data/item_repository.dart';
 import '../../inventory/presentation/batch_picker_sheet.dart';
 import '../../inventory/presentation/item_picker_sheet.dart';
@@ -33,6 +34,7 @@ class InvoiceCreateScreen extends ConsumerStatefulWidget {
 class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
     with FormErrorHandler {
   final _formKey = GlobalKey<FormState>();
+  final _customFieldsKey = GlobalKey<KCustomFieldsRendererState>();
   bool _isSubmitting = false;
   String? _errorMessage;
 
@@ -197,10 +199,26 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
             .toList(),
       };
 
+      String invoiceId = '';
       if (_isEdit) {
-        await repo.updateInvoice(widget.invoiceId!, data);
+        invoiceId = widget.invoiceId!;
+        await repo.updateInvoice(invoiceId, data);
       } else {
-        await repo.createInvoice(data);
+        final res = await repo.createInvoice(data);
+        invoiceId = res['id']?.toString() ?? '';
+      }
+
+      final customInputs = _customFieldsKey.currentState?.getValues();
+      if (invoiceId.isNotEmpty && customInputs != null && customInputs.isNotEmpty) {
+        try {
+          await ref.read(customFieldRepositoryProvider).saveValues(
+            'INVOICE',
+            invoiceId,
+            customInputs,
+          );
+        } catch (e) {
+          debugPrint('Failed to save custom fields on invoice: $e');
+        }
       }
 
       if (mounted) {
@@ -464,6 +482,12 @@ class _InvoiceCreateScreenState extends ConsumerState<InvoiceCreateScreen>
                             ),
                           ],
                         ),
+                      ),
+                      KSpacing.vGapMd,
+                      KCustomFieldsRenderer(
+                        key: _customFieldsKey,
+                        entityType: 'INVOICE',
+                        entityId: widget.invoiceId,
                       ),
                       KSpacing.vGapXl,
                     ],

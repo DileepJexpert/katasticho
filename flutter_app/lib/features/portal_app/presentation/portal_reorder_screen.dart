@@ -227,8 +227,10 @@ class _PortalReorderScreenState extends ConsumerState<PortalReorderScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text('Total Trade Savings', style: KTypography.caption.copyWith(color: KColors.success)),
-                          Text('₹${_cartSavings.toStringAsFixed(2)}',
-                              style: KTypography.caption.copyWith(color: KColors.success, fontWeight: FontWeight.bold)),
+                          KMoney(
+                            _cartSavings,
+                            style: KTypography.caption.copyWith(color: KColors.success, fontWeight: FontWeight.bold),
+                          ),
                         ],
                       ),
                     ],

@@ -87,7 +87,7 @@ class PosCartItemTile extends StatelessWidget {
                       ),
                       if (item.isFreeItem)
                         const Padding(
-                          padding: EdgeInsets.only(left: 6),
+                          padding: EdgeInsetsDirectional.only(start: 6),
                           child: _InfoPill(
                             label: 'FREE',
                             icon: Icons.redeem_outlined,

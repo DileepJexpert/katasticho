@@ -37,7 +37,7 @@ public class PayoutDisbursement {
 
     @Column(nullable = false, length = 50)
     @Builder.Default
-    private String status = "INITIATED"; // INITIATED, PROCESSING, PROCESSED, REVERSED, FAILED
+    private String status = "INITIATED"; // INITIATED, PROCESSING, PROCESSED, ACCOUNTING_FAILED, REVERSED, FAILED
 
     @Column(name = "contact_id", nullable = false)
     private UUID contactId;

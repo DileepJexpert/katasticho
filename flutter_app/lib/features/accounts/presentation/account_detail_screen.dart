@@ -220,7 +220,7 @@ class _DetailsTab extends StatelessWidget {
                   height: 72,
                   decoration: BoxDecoration(
                     color: typeColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(KSpacing.radiusMd),
                   ),
                   child: Center(
                     child: Text(

@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS public.biometric_device (
     cloud_webhook_token VARCHAR(100),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_by UUID,
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE
 );
 
@@ -32,6 +33,7 @@ CREATE TABLE IF NOT EXISTS public.biometric_attendance_log (
     raw_payload TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_by UUID,
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE
 );
 

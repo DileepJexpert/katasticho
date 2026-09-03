@@ -459,7 +459,7 @@ class _ChequeLeafPreviewDialog extends StatelessWidget {
                                 return Container(
                                   width: 18,
                                   height: 22,
-                                  margin: const EdgeInsets.only(left: 2),
+                                  margin: const EdgeInsetsDirectional.only(start: 2),
                                   alignment: Alignment.center,
                                   decoration: BoxDecoration(
                                     border: Border.all(color: const Color(0xFF64748B), width: 1),

@@ -84,7 +84,7 @@ class KTopBar extends ConsumerWidget implements PreferredSizeWidget {
               curve: Curves.easeOutCubic,
               child: collapsed
                   ? Padding(
-                      padding: const EdgeInsets.only(left: 4, right: 12),
+                      padding: const EdgeInsetsDirectional.only(start: 4, end: 12),
                       child: Text(
                         'Katasticho',
                         style: TextStyle(

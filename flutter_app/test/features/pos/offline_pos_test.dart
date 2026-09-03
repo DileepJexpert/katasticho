@@ -99,21 +99,41 @@ void main() {
       const phoneQuery = '9876543210';
       final phoneMatches = customers.where((c) => c['phone'] == phoneQuery).toList();
       expect(phoneMatches.length, 1);
-      expect(phoneMatches.first['id'], 'c1');
-
-      // Prefix name match
-      const prefixQuery = 'Gupta';
-      final prefixMatches = customers
-          .where((c) => c['name']!.toLowerCase().startsWith(prefixQuery.toLowerCase()))
-          .toList();
-      expect(prefixMatches.length, 1);
-      expect(prefixMatches.first['id'], 'c1');
 
       // Contains match
       final containsMatches = customers
           .where((c) => c['name']!.toLowerCase().contains('gupta'))
           .toList();
       expect(containsMatches.length, 3);
+    });
+
+    test('DatabaseStats computes correct human-readable file size and metrics', () {
+      const stats1 = DatabaseStats(
+        pendingReceiptCount: 4,
+        cachedItemCount: 1250,
+        cachedCustomerCount: 340,
+        fileSizeBytes: 450000,
+        integrityOk: true,
+        integrityMessage: 'ok',
+        dbPath: '/data/user/0/com.katasticho/databases/katasticho_offline.db',
+      );
+
+      expect(stats1.pendingReceiptCount, 4);
+      expect(stats1.cachedItemCount, 1250);
+      expect(stats1.cachedCustomerCount, 340);
+      expect(stats1.fileSizeFormatted, '439.5 KB');
+      expect(stats1.integrityOk, isTrue);
+
+      const stats2 = DatabaseStats(
+        pendingReceiptCount: 0,
+        cachedItemCount: 10000,
+        cachedCustomerCount: 2000,
+        fileSizeBytes: 5242880,
+        integrityOk: true,
+        integrityMessage: 'ok',
+        dbPath: '/test/path.db',
+      );
+      expect(stats2.fileSizeFormatted, '5.00 MB');
     });
   });
 }

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show File;
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,6 +15,36 @@ const _table = 'pending_receipts';
 const _itemTable = 'pos_item_cache';
 const _metaTable = 'pos_meta';
 const _customerTable = 'pos_customer_cache';
+
+class DatabaseStats {
+  final int pendingReceiptCount;
+  final int cachedItemCount;
+  final int cachedCustomerCount;
+  final int fileSizeBytes;
+  final bool integrityOk;
+  final String integrityMessage;
+  final String? lastSyncTime;
+  final String dbPath;
+
+  const DatabaseStats({
+    required this.pendingReceiptCount,
+    required this.cachedItemCount,
+    required this.cachedCustomerCount,
+    required this.fileSizeBytes,
+    required this.integrityOk,
+    required this.integrityMessage,
+    this.lastSyncTime,
+    required this.dbPath,
+  });
+
+  String get fileSizeFormatted {
+    if (fileSizeBytes < 1024) return '$fileSizeBytes B';
+    if (fileSizeBytes < 1024 * 1024) {
+      return '${(fileSizeBytes / 1024).toStringAsFixed(1)} KB';
+    }
+    return '${(fileSizeBytes / (1024 * 1024)).toStringAsFixed(2)} MB';
+  }
+}
 
 class PendingReceipt {
   final int? id;
@@ -420,7 +451,7 @@ class OfflinePosService {
         .toList();
   }
 
-  Future<void> syncPendingReceipts({Ref? ref}) async {
+  Future<void> syncPendingReceipts({dynamic ref}) async {
     if (_syncing) return;
     _syncing = true;
     _syncStatusController.add(SyncStatus.syncing);
@@ -509,7 +540,7 @@ class OfflinePosService {
     }
   }
 
-  ApiClient? _getApiClient(Ref? ref) {
+  ApiClient? _getApiClient(dynamic ref) {
     if (ref != null) {
       try {
         return ref.read(apiClientProvider);
@@ -535,6 +566,106 @@ class OfflinePosService {
     _emitCount();
   }
 
+  final _syncProgressController = StreamController<Map<String, int>>.broadcast();
+  Stream<Map<String, int>> get syncProgressStream => _syncProgressController.stream;
+
+  Future<DatabaseStats> getDatabaseStats() async {
+    if (!posOfflineSupported) {
+      return const DatabaseStats(
+        pendingReceiptCount: 0,
+        cachedItemCount: 0,
+        cachedCustomerCount: 0,
+        fileSizeBytes: 0,
+        integrityOk: true,
+        integrityMessage: 'SQLite not active on Web',
+        dbPath: 'N/A',
+      );
+    }
+    final db = await _getDb();
+    final dbPath = await getDatabasesPath();
+    final fullPath = p.join(dbPath, _dbName);
+
+    int sizeBytes = 0;
+    try {
+      final file = File(fullPath);
+      if (await file.exists()) {
+        sizeBytes = await file.length();
+      }
+    } catch (_) {}
+
+    final pCount = await pendingCount();
+    final iCount = await cachedItemCount();
+    final cCount = await cachedCustomerCount();
+    final lastSync = await getMeta('last_catalog_sync');
+
+    String integrityMsg = 'ok';
+    bool isOk = true;
+    try {
+      final pragma = await db.rawQuery('PRAGMA integrity_check');
+      if (pragma.isNotEmpty) {
+        integrityMsg = pragma.first.values.first?.toString() ?? 'ok';
+        isOk = integrityMsg.toLowerCase() == 'ok';
+      }
+    } catch (e) {
+      integrityMsg = e.toString();
+      isOk = false;
+    }
+
+    return DatabaseStats(
+      pendingReceiptCount: pCount,
+      cachedItemCount: iCount,
+      cachedCustomerCount: cCount,
+      fileSizeBytes: sizeBytes,
+      integrityOk: isOk,
+      integrityMessage: integrityMsg,
+      lastSyncTime: lastSync,
+      dbPath: fullPath,
+    );
+  }
+
+  Future<void> vacuumAndOptimize() async {
+    if (!posOfflineSupported) return;
+    try {
+      final db = await _getDb();
+      await db.execute('VACUUM');
+      await db.execute('REINDEX');
+      debugPrint('[OfflinePOS] VACUUM and REINDEX completed successfully');
+    } catch (e) {
+      debugPrint('[OfflinePOS] vacuumAndOptimize failed: $e');
+    }
+  }
+
+  Future<bool> retrySingleReceipt(int id, {dynamic ref}) async {
+    if (!posOfflineSupported) return false;
+    try {
+      final db = await _getDb();
+      final rows = await db.query(_table, where: 'id = ?', whereArgs: [id]);
+      if (rows.isEmpty) return false;
+
+      final client = _getApiClient(ref);
+      if (client == null) return false;
+
+      final body = jsonDecode(rows.first['request_json'] as String) as Map<String, dynamic>;
+      await client.post(ApiConfig.salesReceipts, data: body);
+      await db.delete(_table, where: 'id = ?', whereArgs: [id]);
+      _emitCount();
+      return true;
+    } catch (e) {
+      final db = await _getDb();
+      final rows = await db.query(_table, where: 'id = ?', whereArgs: [id]);
+      if (rows.isNotEmpty) {
+        final cur = (rows.first['retry_count'] as int? ?? 0) + 1;
+        await db.update(
+          _table,
+          {'retry_count': cur, 'last_error': e.toString()},
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+      }
+      return false;
+    }
+  }
+
   void _emitCount() {
     pendingCount().then((c) => _pendingCountController.add(c));
   }
@@ -543,6 +674,7 @@ class OfflinePosService {
     _connectivitySub?.cancel();
     _pendingCountController.close();
     _syncStatusController.close();
+    _syncProgressController.close();
     _db?.close();
     _db = null;
   }

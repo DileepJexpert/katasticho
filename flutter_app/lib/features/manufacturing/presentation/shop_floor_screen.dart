@@ -470,7 +470,7 @@ class _CompleteJobCardSheetState extends State<_CompleteJobCardSheet> {
   Widget build(BuildContext context) {
     final inset = MediaQuery.of(context).viewInsets.bottom;
     return Padding(
-      padding: EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 16 + inset),
+      padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + inset),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -537,7 +537,7 @@ class _LogScrapSheetState extends State<_LogScrapSheet> {
   Widget build(BuildContext context) {
     final inset = MediaQuery.of(context).viewInsets.bottom;
     return Padding(
-      padding: EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 16 + inset),
+      padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + inset),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,

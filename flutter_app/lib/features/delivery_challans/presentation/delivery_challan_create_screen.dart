@@ -360,7 +360,7 @@ class _DeliveryChallanCreateScreenState
                 ],
               ),
               Padding(
-                padding: const EdgeInsets.only(left: 48),
+                padding: const EdgeInsetsDirectional.only(start: 48),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

@@ -38,7 +38,8 @@ type ListContactsOptions = {
   search: string
 }
 
-export async function listContacts({ filter, page, search }: ListContactsOptions) {
+export async function listContacts(options: Partial<ListContactsOptions> = {}) {
+  const { filter = 'ALL', page = 0, search = '' } = options
   const params = new URLSearchParams({ page: String(page), size: '25', sort: 'displayName,asc' })
   if (filter !== 'ALL') params.set('type', filter)
   if (search.trim()) params.set('search', search.trim())

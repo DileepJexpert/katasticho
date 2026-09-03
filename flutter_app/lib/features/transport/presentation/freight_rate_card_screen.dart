@@ -4,6 +4,7 @@ import '../../../core/theme/k_colors.dart';
 import '../../../core/theme/k_spacing.dart';
 import '../../../core/theme/k_typography.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../../core/utils/currency_formatter.dart';
 import '../../contacts/presentation/contact_picker_sheet.dart';
 import '../data/transport_repository.dart';
 
@@ -133,8 +134,8 @@ class _FreightRateCardScreenState extends ConsumerState<FreightRateCardScreen> {
                   Text('${c['origin']} → ${c['destination']} · ${c['mode']}',
                       style: KTypography.labelLarge),
                   KSpacing.vGapXs,
-                  Text('₹${rate.toStringAsFixed(2)} $unit · $slab'
-                      '${(c['minCharge'] as num?) != null && (c['minCharge'] as num) > 0 ? ' · min ₹${c['minCharge']}' : ''}',
+                  Text('${CurrencyFormatter.format(rate)} $unit · $slab'
+                      '${(c['minCharge'] as num?) != null && (c['minCharge'] as num) > 0 ? ' · min ${CurrencyFormatter.format((c['minCharge'] as num).toDouble())}' : ''}',
                       style: KTypography.bodySmall
                           .copyWith(color: KColors.textSecondary)),
                 ],

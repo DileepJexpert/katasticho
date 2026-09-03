@@ -274,8 +274,10 @@ class PayoutDisbursementTest {
                 .build();
         vendor.setId(contactId);
 
-        when(payoutRepository.findById(payoutId)).thenReturn(Optional.of(payout));
-        when(contactRepository.findById(contactId)).thenReturn(Optional.of(vendor));
+        when(payoutRepository.findByIdAndOrgIdAndDeletedFalseForUpdate(payoutId, orgId))
+                .thenReturn(Optional.of(payout));
+        when(contactRepository.findByIdAndOrgIdAndIsDeletedFalse(contactId, orgId))
+                .thenReturn(Optional.of(vendor));
 
         UUID paymentId = UUID.randomUUID();
         VendorPaymentResponse vpRes = new VendorPaymentResponse(
@@ -291,5 +293,44 @@ class PayoutDisbursementTest {
         assertThat(res).isNotNull();
         assertThat(res.status()).isEqualTo("PROCESSED");
         assertThat(res.vendorPaymentId()).isEqualTo(paymentId);
+    }
+
+    @Test
+    void reconcileAccounting_rejectsPayoutWithoutProviderConfirmation() {
+        UUID payoutId = UUID.randomUUID();
+        PayoutDisbursement payout = PayoutDisbursement.builder()
+                .orgId(orgId)
+                .contactId(contactId)
+                .amount(new BigDecimal("30000.00"))
+                .status("FAILED")
+                .providerPayoutId("pout_failed")
+                .build();
+        payout.setId(payoutId);
+        when(payoutRepository.findByIdAndOrgIdAndDeletedFalseForUpdate(payoutId, orgId))
+                .thenReturn(Optional.of(payout));
+
+        assertThatThrownBy(() -> disbursementService.reconcileAccounting(payoutId, bankAccountId))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", "PAYOUT_NOT_SETTLED");
+        verify(vendorPaymentService, never()).recordPayment(any());
+    }
+
+    @Test
+    void reconcileAccounting_rejectsAccountingFailureWithoutProviderReference() {
+        UUID payoutId = UUID.randomUUID();
+        PayoutDisbursement payout = PayoutDisbursement.builder()
+                .orgId(orgId)
+                .contactId(contactId)
+                .amount(new BigDecimal("30000.00"))
+                .status("ACCOUNTING_FAILED")
+                .build();
+        payout.setId(payoutId);
+        when(payoutRepository.findByIdAndOrgIdAndDeletedFalseForUpdate(payoutId, orgId))
+                .thenReturn(Optional.of(payout));
+
+        assertThatThrownBy(() -> disbursementService.reconcileAccounting(payoutId, bankAccountId))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", "PAYOUT_NOT_SETTLED");
+        verify(vendorPaymentService, never()).recordPayment(any());
     }
 }

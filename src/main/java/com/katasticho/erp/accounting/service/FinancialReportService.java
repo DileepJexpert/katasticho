@@ -12,6 +12,7 @@ import com.katasticho.erp.organisation.OrganisationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -36,19 +37,21 @@ public class FinancialReportService {
     private final AccountRepository accountRepository;
     private final OrganisationRepository organisationRepository;
 
+    public TrialBalanceResponse generateTrialBalance(LocalDate asOfDate) {
+        return generateTrialBalance(asOfDate, "ACCRUAL");
+    }
+
     /**
      * Trial Balance: lists every account with its debit/credit totals.
      * SUM(debit column) must equal SUM(credit column) — the double-entry invariant.
      */
-    public TrialBalanceResponse generateTrialBalance(LocalDate asOfDate) {
+    public TrialBalanceResponse generateTrialBalance(LocalDate asOfDate, String basis) {
+        requireAccrualBasis(basis);
         UUID orgId = TenantContext.getCurrentOrgId();
         Organisation org = organisationRepository.findById(orgId)
                 .orElseThrow(() -> BusinessException.notFound("Organisation", orgId));
 
         List<Account> accounts = accountRepository.findByOrgIdAndIsDeletedFalseOrderByCode(orgId);
-        Map<UUID, Account> accountMap = accounts.stream()
-                .collect(Collectors.toMap(Account::getId, a -> a));
-
         List<Object[]> rawData = journalLineRepository.computeTrialBalanceData(orgId, asOfDate);
 
         // Build a map: accountId -> [totalDebit, totalCredit]
@@ -98,20 +101,22 @@ public class FinancialReportService {
                 isBalanced, lines);
     }
 
+    public ProfitLossResponse generateProfitLoss(LocalDate startDate, LocalDate endDate) {
+        return generateProfitLoss(startDate, endDate, "ACCRUAL");
+    }
+
     /**
      * Profit & Loss (Income Statement) for a date range.
      * Revenue - Expenses = Net Profit.
      * Uses period-specific balances (not cumulative).
      */
-    public ProfitLossResponse generateProfitLoss(LocalDate startDate, LocalDate endDate) {
+    public ProfitLossResponse generateProfitLoss(LocalDate startDate, LocalDate endDate, String basis) {
+        requireAccrualBasis(basis);
         UUID orgId = TenantContext.getCurrentOrgId();
         Organisation org = organisationRepository.findById(orgId)
                 .orElseThrow(() -> BusinessException.notFound("Organisation", orgId));
 
         List<Account> accounts = accountRepository.findByOrgIdAndIsDeletedFalseOrderByCode(orgId);
-        Map<UUID, Account> accountMap = accounts.stream()
-                .collect(Collectors.toMap(Account::getId, a -> a));
-
         List<Object[]> periodData = journalLineRepository.computeAccountTotalsForPeriod(orgId, startDate, endDate);
 
         Map<UUID, BigDecimal> rawBalances = new HashMap<>();
@@ -158,20 +163,22 @@ public class FinancialReportService {
                 revenueAccounts, expenseAccounts);
     }
 
+    public BalanceSheetResponse generateBalanceSheet(LocalDate asOfDate) {
+        return generateBalanceSheet(asOfDate, "ACCRUAL");
+    }
+
     /**
      * Balance Sheet as of a specific date.
      * Assets = Liabilities + Equity + Retained Earnings.
      * Retained Earnings = cumulative (Revenue - Expenses) from all prior periods.
      */
-    public BalanceSheetResponse generateBalanceSheet(LocalDate asOfDate) {
+    public BalanceSheetResponse generateBalanceSheet(LocalDate asOfDate, String basis) {
+        requireAccrualBasis(basis);
         UUID orgId = TenantContext.getCurrentOrgId();
         Organisation org = organisationRepository.findById(orgId)
                 .orElseThrow(() -> BusinessException.notFound("Organisation", orgId));
 
         List<Account> accounts = accountRepository.findByOrgIdAndIsDeletedFalseOrderByCode(orgId);
-        Map<UUID, Account> accountMap = accounts.stream()
-                .collect(Collectors.toMap(Account::getId, a -> a));
-
         List<Object[]> rawData = journalLineRepository.computeTrialBalanceData(orgId, asOfDate);
 
         Map<UUID, BigDecimal> rawBalances = new HashMap<>();
@@ -309,5 +316,15 @@ public class FinancialReportService {
 
     private boolean isDebitNormal(String accountType) {
         return "ASSET".equals(accountType) || "EXPENSE".equals(accountType);
+    }
+
+    private void requireAccrualBasis(String basis) {
+        if (basis == null || basis.isBlank() || "ACCRUAL".equalsIgnoreCase(basis)) {
+            return;
+        }
+        throw new BusinessException(
+                "Cash-basis financial statements are not available until cash allocation accounting is implemented",
+                "CASH_BASIS_UNAVAILABLE",
+                HttpStatus.BAD_REQUEST);
     }
 }

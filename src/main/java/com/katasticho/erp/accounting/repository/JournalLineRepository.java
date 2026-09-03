@@ -122,4 +122,5 @@ public interface JournalLineRepository extends JpaRepository<JournalLine, UUID> 
         ORDER BY je.effectiveDate DESC, je.entryNumber DESC
     """)
     List<JournalLine> findByAccountNewestFirst(UUID accountId, UUID orgId);
+
 }

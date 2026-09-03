@@ -57,6 +57,10 @@ public class JobWorkService {
                                             String notes) {
         UUID orgId = TenantContext.getCurrentOrgId();
 
+        if (vendorId == null || warehouseId == null) {
+            throw new BusinessException("Vendor and warehouse are required for job work",
+                    "JW_VENDOR_AND_WAREHOUSE_REQUIRED", HttpStatus.BAD_REQUEST);
+        }
         if (materials == null || materials.isEmpty()) {
             throw new BusinessException("At least one material line is required",
                     "JW_NO_MATERIALS", HttpStatus.BAD_REQUEST);
@@ -80,6 +84,7 @@ public class JobWorkService {
 
         BigDecimal totalMaterialCost = BigDecimal.ZERO;
         for (JobWorkLineInput input : materials) {
+            requirePositiveQuantity(input, "Material");
             var item = itemRepository.findByIdAndOrgIdAndIsDeletedFalse(input.itemId(), orgId)
                     .orElseThrow(() -> BusinessException.notFound("Item", input.itemId()));
 
@@ -100,10 +105,7 @@ public class JobWorkService {
 
         if (outputs != null) {
             for (JobWorkLineInput input : outputs) {
-                if (input.qty() == null || input.qty().signum() <= 0) {
-                    throw new BusinessException("Finished-good quantity must be positive",
-                            "JW_OUTPUT_QTY_INVALID", HttpStatus.BAD_REQUEST);
-                }
+                requirePositiveQuantity(input, "Finished-good");
                 itemRepository.findByIdAndOrgIdAndIsDeletedFalse(input.itemId(), orgId)
                         .orElseThrow(() -> BusinessException.notFound("Item", input.itemId()));
                 jwo.getLines().add(JobWorkOrderLine.builder()
@@ -196,12 +198,17 @@ public class JobWorkService {
                     "Only SENT or PARTIALLY_RECEIVED job work orders can receive goods, current: " + jwo.getStatus(),
                     "JW_CANNOT_RECEIVE", HttpStatus.BAD_REQUEST);
         }
+        if (receiptLines == null || receiptLines.isEmpty()) {
+            throw new BusinessException("At least one receipt line is required",
+                    "JW_NO_RECEIPT_LINES", HttpStatus.BAD_REQUEST);
+        }
 
         boolean hasOutputLines = jwo.getLines().stream()
                 .anyMatch(l -> !l.isDeleted() && "OUTPUT".equals(l.getLineType()));
         String receiveLineType = hasOutputLines ? "OUTPUT" : "MATERIAL";
 
         for (JobWorkReceiveInput input : receiptLines) {
+            requireNonNegativeReceipt(input);
             JobWorkOrderLine line = jwo.getLines().stream()
                     .filter(l -> !l.isDeleted() && l.getItemId().equals(input.itemId())
                             && receiveLineType.equals(l.getLineType()))
@@ -224,7 +231,7 @@ public class JobWorkService {
             BigDecimal receiptUnitCost = hasOutputLines
                     ? outputUnitCost(jwo) : line.getUnitCost();
             line.setUnitCost(receiptUnitCost);
-            line.setLineCost(receiptUnitCost.multiply(input.receivedQty())
+            line.setLineCost(receiptUnitCost.multiply(newReceived)
                     .setScale(2, RoundingMode.HALF_UP));
 
             inventoryService.recordMovement(new StockMovementRequest(
@@ -257,6 +264,11 @@ public class JobWorkService {
         if (allReceived) {
             jwo.setStatus("COMPLETED");
             jwo.setActualReturnDate(LocalDate.now());
+            if (hasOutputLines) {
+                jwo.getLines().stream()
+                        .filter(l -> !l.isDeleted() && "MATERIAL".equals(l.getLineType()))
+                        .forEach(l -> l.setStatus("CONSUMED"));
+            }
         } else {
             jwo.setStatus("PARTIALLY_RECEIVED");
         }
@@ -281,6 +293,15 @@ public class JobWorkService {
         if ("CANCELLED".equals(jwo.getStatus())) {
             throw new BusinessException("Job work order is already cancelled",
                     "JW_ALREADY_CANCELLED", HttpStatus.BAD_REQUEST);
+        }
+
+        boolean hasReceivedOutput = jwo.getLines().stream()
+                .anyMatch(l -> !l.isDeleted() && "OUTPUT".equals(l.getLineType())
+                        && (l.getReceivedQty().signum() > 0 || l.getWastageQty().signum() > 0));
+        if (hasReceivedOutput) {
+            throw new BusinessException(
+                    "A job work order with returned output cannot be cancelled automatically; use a stock correction flow",
+                    "JW_OUTPUT_RECEIVED_CANNOT_CANCEL", HttpStatus.BAD_REQUEST);
         }
 
         if ("SENT".equals(jwo.getStatus()) || "PARTIALLY_RECEIVED".equals(jwo.getStatus())) {
@@ -326,6 +347,27 @@ public class JobWorkService {
         LocalDate deadline = LocalDate.now().plusDays(daysBeforeDeadline);
         return jobWorkOrderRepository.findByOrgIdAndGstReturnDeadlineBeforeAndStatusNotAndIsDeletedFalse(
                 orgId, deadline, "COMPLETED");
+    }
+
+    private void requirePositiveQuantity(JobWorkLineInput input, String lineLabel) {
+        if (input == null || input.itemId() == null || input.qty() == null || input.qty().signum() <= 0) {
+            throw new BusinessException(lineLabel + " item and positive quantity are required",
+                    "JW_LINE_QTY_INVALID", HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    private void requireNonNegativeReceipt(JobWorkReceiveInput input) {
+        if (input == null || input.itemId() == null || input.receivedQty() == null
+                || input.receivedQty().signum() < 0
+                || (input.wastageQty() != null && input.wastageQty().signum() < 0)) {
+            throw new BusinessException("Receipt item, received quantity, and wastage must be non-negative",
+                    "JW_RECEIPT_QTY_INVALID", HttpStatus.BAD_REQUEST);
+        }
+        if (input.receivedQty().signum() == 0
+                && (input.wastageQty() == null || input.wastageQty().signum() == 0)) {
+            throw new BusinessException("Receipt quantity or wastage must be greater than zero",
+                    "JW_RECEIPT_QTY_INVALID", HttpStatus.BAD_REQUEST);
+        }
     }
 
     public record JobWorkLineInput(UUID itemId, BigDecimal qty) {}

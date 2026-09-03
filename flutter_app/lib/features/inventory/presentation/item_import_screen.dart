@@ -883,7 +883,7 @@ class _FailedRowCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Padding(
-            padding: const EdgeInsets.only(left: 24),
+            padding: const EdgeInsetsDirectional.only(start: 24),
             child: Text(
               errorMsg,
               style: KTypography.bodySmall.copyWith(color: cs.error),

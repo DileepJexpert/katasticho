@@ -324,13 +324,6 @@ class ApiConfig {
   static String picklistsBySalesOrder(String soId) =>
       '/api/v1/picklists/by-sales-order/$soId';
 
-  // Job Work & Subcontracting (Challan 45 / ITC-04)
-  static const String jobWorkOrders = '/api/v1/inventory/job-work';
-  static String jobWorkOrder(String id) => '/api/v1/inventory/job-work/$id';
-  static String jobWorkReceipt(String id) =>
-      '/api/v1/inventory/job-work/$id/receipts';
-  static String jobWorkItc04(String quarter, int year) =>
-      '/api/v1/inventory/job-work/itc-04?quarter=$quarter&year=$year';
   static String startPicklist(String id) => '/api/v1/picklists/$id/start';
   static String picklistLines(String id) => '/api/v1/picklists/$id/lines';
   static String completePicklist(String id) =>
@@ -1103,15 +1096,28 @@ class ApiConfig {
 
   // MR Reporting (tour plans + DCR)
   static const String mrTourPlans = '/api/v1/mr/tour-plans';
+  static const String mrTourPlansMe = '/api/v1/mr/tour-plans/me';
   static const String mrTourPlansPending = '/api/v1/mr/tour-plans/pending';
   static String mrTourPlanById(String id) => '/api/v1/mr/tour-plans/$id';
+  static String mrTourPlanEntries(String id) => '/api/v1/mr/tour-plans/$id/entries';
+  static String mrTourPlanEntryDelete(String entryId) =>
+      '/api/v1/mr/tour-plans/entries/$entryId';
+  static String mrTourPlanSubmit(String id) =>
+      '/api/v1/mr/tour-plans/$id/submit';
   static String mrTourPlanApprove(String id) =>
       '/api/v1/mr/tour-plans/$id/approve';
   static String mrTourPlanReject(String id) =>
       '/api/v1/mr/tour-plans/$id/reject';
+  static const String mrDcrBuild = '/api/v1/mr/dcr/build';
+  static const String mrDcrSubmit = '/api/v1/mr/dcr/submit';
+  static const String mrDcrMe = '/api/v1/mr/dcr/me';
   static const String mrDcrPending = '/api/v1/mr/dcr/pending';
   static String mrDcrApprove(String id) => '/api/v1/mr/dcr/$id/approve';
   static String mrDcrReject(String id) => '/api/v1/mr/dcr/$id/reject';
+  static String mrVisitProducts(String visitId) =>
+      '/api/v1/mr/visits/$visitId/products';
+  static String mrVisitJoint(String visitId) =>
+      '/api/v1/mr/visits/$visitId/joint-visit';
 
   // Detail aids (e-detailing)
   static const String mrDetailAids = '/api/v1/mr/detail-aids';
@@ -1352,7 +1358,11 @@ class ApiConfig {
   static const String manufacturingScrapRate =
       '/api/v1/manufacturing/reports/scrap-rate';
 
-  // POS Ã¢â‚¬â€ Cash Register / Day Close
+  // Treasury & Cash Runway Simulator
+  static const String cashRunway13Week = '/api/v1/treasury/cash-runway/13-week';
+  static const String cashRunwaySimulate = '/api/v1/treasury/cash-runway/simulate';
+
+  // POS Ã¢â‚¬â€  Cash Register / Day Close
   static const String cashRegister = '/api/v1/pos/cash-register';
   static String cashRegisterDate(String date) => '/api/v1/pos/cash-register/$date';
 
@@ -1581,7 +1591,6 @@ class ApiConfig {
   static String invoicePaymentLinks(String invoiceId) => '/api/v1/invoices/$invoiceId/payment-links';
   static const String settingsRazorpay = '/api/v1/settings/razorpay';
 
-  // User-Defined Custom Fields (UDF)
   static const String customFieldDefinitions = '/api/v1/custom-fields/definitions';
   static const String customFieldDefinitionsAll = '/api/v1/custom-fields/definitions/all';
   static String customFieldDefinitionById(String id) => '/api/v1/custom-fields/definitions/$id';
@@ -1589,4 +1598,78 @@ class ApiConfig {
       '/api/v1/custom-fields/values/$entityType/$entityId';
   static String customFieldValuesBatch(String entityType) =>
       '/api/v1/custom-fields/values/$entityType/batch';
+
+  // Custom Report Builder & Scheduled Dispatch
+  static const String savedReports = '/api/v1/saved-reports';
+  static String savedReportById(String id) => '/api/v1/saved-reports/$id';
+  static String savedReportSchedules(String id) => '/api/v1/saved-reports/$id/schedules';
+  static String savedReportScheduleById(String id, String scheduleId) =>
+      '/api/v1/saved-reports/$id/schedules/$scheduleId';
+
+  // Single-Entry Voucher Mode
+  static const String singleEntryVouchers = '/api/v1/accounting/single-entry-vouchers';
+
+  // PDF Visual Template Customizer
+  static const String pdfTemplateSettings = '/api/v1/settings/pdf-templates';
+  static String pdfTemplateSettingByDocType(String docType) =>
+      '/api/v1/settings/pdf-templates/$docType';
+
+  // Industrial Thermal Barcode Label Generator
+  static const String barcodeLabelGenerate = '/api/v1/inventory/barcode-labels/generate';
+
+  // Multi-Step Warehouse Putaway
+  static const String putawayTasks = '/api/v1/inventory/putaway-tasks';
+  static String putawayTaskById(String id) => '/api/v1/inventory/putaway-tasks/$id';
+  static String putawayTaskConfirmLine(String taskId, String lineId) =>
+      '/api/v1/inventory/putaway-tasks/$taskId/lines/$lineId/confirm';
+  static String putawayTaskCancel(String taskId) =>
+      '/api/v1/inventory/putaway-tasks/$taskId/cancel';
+
+  // Bank Auto-Match Reconciler
+  static const String bankAutoMatchSuggestions = '/api/v1/banking/auto-match/suggestions';
+  static const String bankAutoMatchRun = '/api/v1/banking/auto-match/run';
+  static String bankAutoMatchAccept(String id) =>
+      '/api/v1/banking/auto-match/suggestions/$id/accept';
+  static String bankAutoMatchReject(String id) =>
+      '/api/v1/banking/auto-match/suggestions/$id/reject';
+  static const String bankAutoMatchBulkAccept = '/api/v1/banking/auto-match/bulk-accept';
+
+  // Stock In-Transit GPS Telemetry
+  static const String stockTransferTransit = '/api/v1/inventory/transfers/transit';
+  static String stockTransferTransitById(String id) =>
+      '/api/v1/inventory/transfers/transit/$id';
+  static String stockTransferTransitPing(String id) =>
+      '/api/v1/inventory/transfers/transit/$id/ping';
+  static String stockTransferTransitDeliver(String id) =>
+      '/api/v1/inventory/transfers/transit/$id/deliver';
+  static String stockTransferTransitReceive(String id) =>
+      '/api/v1/inventory/transfers/transit/$id/receive';
+
+  // Kenya Statutory & M-Pesa Mobile Money Suite
+  static const String mpesaTransactions = '/api/v1/kenya/mpesa/transactions';
+  static const String mpesaStkPush = '/api/v1/kenya/mpesa/stk-push';
+  static String mpesaReconcile(String id) =>
+      '/api/v1/kenya/mpesa/transactions/$id/reconcile';
+  static const String kenyaPayeCalculate = '/api/v1/kenya/paye/calculate';
+  static const String kraEtimsSubmissions = '/api/v1/kenya/etims/submissions';
+  static const String kraEtimsSubmit = '/api/v1/kenya/etims/submit';
+
+  // Multi-Branch Franchising & Catalog Sync
+  static const String franchiseNodes = '/api/v1/franchise/nodes';
+  static String franchiseNode(String id) => '/api/v1/franchise/nodes/$id';
+  static const String franchisePolicy = '/api/v1/franchise/policy';
+  static const String franchiseCatalogSync = '/api/v1/franchise/catalog-sync';
+  static String branchPriceOverrides(String branchId) =>
+      '/api/v1/franchise/branches/$branchId/price-overrides';
+  static const String franchisePriceOverrides = '/api/v1/franchise/price-overrides';
+  static String franchisePriceOverride(String id) =>
+      '/api/v1/franchise/price-overrides/$id';
+  static const String franchiseSettlements = '/api/v1/franchise/settlements';
+  static const String franchiseSettlementCalculate =
+      '/api/v1/franchise/settlements/calculate';
+  static String franchiseSettlementInvoice(String id) =>
+      '/api/v1/franchise/settlements/$id/invoice';
+
+  // Financial Flux & Variance Commentary
+  static const String fluxCommentary = '/api/v1/reports/flux-commentary';
 }

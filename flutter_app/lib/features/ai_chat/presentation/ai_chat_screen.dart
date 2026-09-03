@@ -1483,7 +1483,7 @@ class _TypingIndicator extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: KColors.surface,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(KSpacing.radiusMd),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,

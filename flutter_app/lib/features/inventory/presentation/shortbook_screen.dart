@@ -215,7 +215,7 @@ class _ShortbookItemCard extends StatelessWidget {
               left: BorderSide(color: borderColor, width: 3),
             ),
           ),
-          padding: const EdgeInsets.only(left: 8),
+          padding: const EdgeInsetsDirectional.only(start: 8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

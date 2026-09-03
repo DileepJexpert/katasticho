@@ -1,17 +1,15 @@
-import { apiFetch } from '@/api/client/api-client'
+﻿import { apiFetch } from '@/api/client/api-client'
 
 export type PicklistLine = {
   id: string
-  salesOrderLineId: string
   itemId: string
-  itemName: string | null
-  sku: string | null
-  requiredQuantity: number | string | null
-  pickedQuantity: number | string | null
-  batchId: string | null
-  batchNumber: string | null
-  rackLocationId: string | null
-  rackLocationCode: string | null
+  itemName: string
+  itemSku: string | null
+  requiredQuantity: number | string
+  pickedQuantity: number | string
+  unitOfMeasure: string | null
+  batchNumber?: string | null
+  rackLocation?: string | null
   notes: string | null
 }
 
@@ -22,15 +20,14 @@ export type Picklist = {
   salesOrderNumber: string | null
   warehouseId: string
   warehouseName: string | null
-  status: string
-  assignedTo: string | null
-  notes: string | null
-  startedAt: string | null
-  completedAt: string | null
+  status: 'DRAFT' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | string
   lineCount: number
   pickedCount: number
+  notes: string | null
+  createdAt: string
+  startedAt: string | null
+  completedAt: string | null
   lines: PicklistLine[]
-  createdAt: string | null
 }
 
 export type PicklistPage = {
@@ -42,11 +39,59 @@ export type PicklistPage = {
   last: boolean
 }
 
-export function listPicklists(page: number) {
-  const params = new URLSearchParams({ page: String(page), size: '25' })
-  return apiFetch<PicklistPage>(`/api/v1/picklists?${params.toString()}`)
+export type CreatePicklistRequest = {
+  salesOrderId: string
+  warehouseId: string
+  notes?: string
 }
 
-export function getPicklist(id: string) {
+export type UpdatePicklistLineRequest = {
+  lineId: string
+  pickedQuantity: number
+  batchNumber?: string
+  notes?: string
+}
+
+export async function listPicklists(page = 0) {
+  return apiFetch<PicklistPage>(`/api/v1/picklists?page=${page}&size=25&sort=createdAt,desc`)
+}
+
+export async function getPicklist(id: string) {
   return apiFetch<Picklist>(`/api/v1/picklists/${id}`)
+}
+
+export async function createPicklist(req: CreatePicklistRequest) {
+  return apiFetch<Picklist>('/api/v1/picklists', {
+    method: 'POST',
+    body: req,
+  })
+}
+
+export async function startPicking(id: string) {
+  return apiFetch<Picklist>(`/api/v1/picklists/${id}/start`, {
+    method: 'POST',
+  })
+}
+
+export const startPicklist = startPicking
+
+export async function updatePickedQuantities(id: string, req: UpdatePicklistLineRequest | UpdatePicklistLineRequest[]) {
+  return apiFetch<Picklist>(`/api/v1/picklists/${id}/lines`, {
+    method: 'PUT',
+    body: req,
+  })
+}
+
+export const updatePicklistLines = updatePickedQuantities
+
+export async function completePicklist(id: string) {
+  return apiFetch<Picklist>(`/api/v1/picklists/${id}/complete`, {
+    method: 'POST',
+  })
+}
+
+export async function cancelPicklist(id: string) {
+  return apiFetch<void>(`/api/v1/picklists/${id}/cancel`, {
+    method: 'POST',
+  })
 }

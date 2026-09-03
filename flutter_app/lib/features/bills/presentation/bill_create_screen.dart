@@ -13,6 +13,7 @@ import '../../../core/utils/date_formatter.dart';
 import '../../../routing/app_router.dart';
 import '../../contacts/data/contact_repository.dart';
 import '../../contacts/presentation/contact_picker_sheet.dart';
+import '../../custom_fields/data/custom_field_repository.dart';
 import '../../inventory/data/item_repository.dart';
 import '../../inventory/presentation/item_picker_sheet.dart';
 import '../../tax_groups/presentation/widgets/tax_group_picker.dart';
@@ -29,6 +30,7 @@ class BillCreateScreen extends ConsumerStatefulWidget {
 class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
     with FormErrorHandler {
   final _formKey = GlobalKey<FormState>();
+  final _customFieldsKey = GlobalKey<KCustomFieldsRendererState>();
   int _currentStep = 0;
   bool _isSubmitting = false;
   String? _errorMessage;
@@ -477,7 +479,21 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
             .toList(),
       };
 
-      await repo.createBill(data);
+      final res = await repo.createBill(data);
+      final billId = res['id']?.toString() ?? '';
+
+      final customInputs = _customFieldsKey.currentState?.getValues();
+      if (billId.isNotEmpty && customInputs != null && customInputs.isNotEmpty) {
+        try {
+          await ref.read(customFieldRepositoryProvider).saveValues(
+            'BILL',
+            billId,
+            customInputs,
+          );
+        } catch (e) {
+          debugPrint('Failed to save custom fields on bill: $e');
+        }
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -975,6 +991,11 @@ class _BillCreateScreenState extends ConsumerState<BillCreateScreen>
           maxLines: 3,
           initialValue: _notes,
           onChanged: (v) => _notes = v,
+        ),
+        KSpacing.vGapMd,
+        KCustomFieldsRenderer(
+          key: _customFieldsKey,
+          entityType: 'BILL',
         ),
       ],
     );

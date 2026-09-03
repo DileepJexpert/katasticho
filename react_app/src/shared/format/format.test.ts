@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatDate, formatDateTime, formatMoney, formatQuantity, formatStatusLabel } from '@/shared/format/format'
+import { formatDate, formatDateTime, formatMoney, formatPercent, formatQuantity, formatStatusLabel } from '@/shared/format/format'
 
 describe('finance formatters', () => {
   it('uses Indian digit grouping with a fixed decimal amount', () => {
@@ -16,6 +16,11 @@ describe('finance formatters', () => {
 
   it('formats inventory quantities with their server-provided unit', () => {
     expect(formatQuantity('1250.5', 'PCS')).toBe('1,250.5 PCS')
+  })
+
+  it('formats percentages correctly with suffix', () => {
+    expect(formatPercent(18)).toBe('18%')
+    expect(formatPercent(null)).toBe('--')
   })
 
   it('formats server lifecycle codes without changing their meaning', () => {

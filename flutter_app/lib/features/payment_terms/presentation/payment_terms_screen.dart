@@ -501,9 +501,9 @@ class _DunningRulesTab extends ConsumerWidget {
                           Container(
                             width: 32,
                             height: 32,
-                            decoration: BoxDecoration(
+                            decoration: const BoxDecoration(
                               color: KColors.warningLight,
-                              borderRadius: BorderRadius.circular(16),
+                              shape: BoxShape.circle,
                             ),
                             child: Center(
                               child: Text('${lvl['seq'] ?? 1}', style: KTypography.mono(weight: FontWeight.bold, color: KColors.warning)),

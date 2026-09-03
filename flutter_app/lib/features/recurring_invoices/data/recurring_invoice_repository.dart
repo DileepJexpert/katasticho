@@ -8,8 +8,6 @@ final recurringInvoiceRepositoryProvider =
   return RecurringInvoiceRepository(ref.watch(apiClientProvider));
 });
 
-/// Filter bundle for the list provider — value-equal so Riverpod
-/// can cache pages per-filter.
 class RecurringInvoiceFilters {
   final String? status;
 
@@ -82,8 +80,6 @@ class RecurringInvoiceRepository {
   }
 }
 
-// ── Providers ──
-
 final recurringInvoiceListProvider = FutureProvider.autoDispose
     .family<Map<String, dynamic>, RecurringInvoiceFilters>(
   (ref, filters) async {
@@ -100,8 +96,6 @@ final recurringInvoiceDetailProvider =
   },
 );
 
-/// List of invoices generated from a template — used on the detail
-/// screen's "Generated invoices" panel.
 final recurringGeneratedProvider =
     FutureProvider.autoDispose.family<List<Map<String, dynamic>>, String>(
   (ref, id) async {
