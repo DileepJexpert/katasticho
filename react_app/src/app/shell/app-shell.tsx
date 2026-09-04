@@ -39,7 +39,7 @@ export function AppShell() {
   const [flyoutPosition, setFlyoutPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
   const [expandedMobileGroups, setExpandedMobileGroups] = useState<Record<string, boolean>>({})
 
-  const hoverTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const profileMenuRef = useRef<HTMLDivElement>(null)
   const paletteMenuRef = useRef<HTMLDivElement>(null)
   const sidebarNavRef = useRef<HTMLElement>(null)
@@ -57,7 +57,9 @@ export function AppShell() {
   const navContext = {
     role: user?.role,
     industry: user?.industryCode ?? user?.industry,
-    country: user?.country ?? 'IN',
+    // The authenticated web-session contract does not include an organisation
+    // country. Keep country-gated navigation hidden rather than assume India.
+    country: undefined,
   }
 
   const { topItems, groups, bottomItems } = getVisibleNavStructure(navContext)
@@ -192,8 +194,10 @@ export function AppShell() {
                       if (window.innerWidth <= 760) {
                         toggleMobileGroup(group.id)
                       } else {
-                        // Desktop click navigates to first item or toggles flyout
-                        navigate(group.items[0].to)
+                        const firstItem = group.items[0]
+                        if (firstItem) {
+                          navigate(firstItem.to)
+                        }
                       }
                     }}
                     type="button"

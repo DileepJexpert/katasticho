@@ -22,7 +22,7 @@
 }
 .brand-mark {
   align-items: center;
-  background: linear-gradient(135deg, var(--brand-600), var(--brand-500));
+  background: var(--brand-600);
   border-radius: var(--radius-md);
   color: var(--text-on-brand);
   display: inline-flex;
@@ -31,7 +31,6 @@
   height: 32px;
   justify-content: center;
   width: 32px;
-  box-shadow: 0 2px 6px rgba(15, 133, 118, 0.25);
 }
 .brand-title {
   color: var(--text-primary);

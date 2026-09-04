@@ -1,9 +1,10 @@
-﻿import { apiFetch } from '@/api/client/api-client'
+import { apiFetch } from '@/api/client/api-client'
 
 export type PurchaseBillLine = {
   id: string
   lineNumber: number
   description: string | null
+  itemName?: string | null
   hsnCode: string | null
   itemId: string | null
   accountId: string | null
@@ -14,6 +15,7 @@ export type PurchaseBillLine = {
   taxableAmount: number | string | null
   gstRate: number | string | null
   taxAmount: number | string | null
+  lineTax?: number | string | null
   lineTotal: number | string | null
   purchaseOrderLineId: string | null
 }
@@ -31,6 +33,7 @@ export type PurchaseBill = {
   taxAmount: number | string | null
   totalAmount: number | string | null
   amountPaid: number | string | null
+  paidAmount?: number | string | null
   balanceDue: number | string | null
   tdsAmount: number | string | null
   currency: string | null
@@ -65,10 +68,10 @@ export type PurchaseBillPage = {
   last: boolean
 }
 
-type ListBillsOptions = {
-  page: number
-  search: string
-  status: string | null
+export type ListBillsOptions = {
+  page?: number
+  search?: string
+  status?: string | null
   vendorId?: string | null
 }
 
@@ -90,9 +93,9 @@ export type CreatePurchaseBillRequest = {
   }[]
 }
 
-export async function listBills({ page, search, status, vendorId }: ListBillsOptions) {
+export async function listBills({ page = 0, search = '', status = null, vendorId }: ListBillsOptions = {}) {
   const params = new URLSearchParams({ page: String(page), size: '25', sort: 'billDate,desc' })
-  if (search.trim()) params.set('search', search.trim())
+  if (search && search.trim()) params.set('search', search.trim())
   if (status) params.set('status', status)
   if (vendorId) params.set('contact_id', vendorId)
   return apiFetch<PurchaseBillPage>(`/api/v1/bills?${params.toString()}`)

@@ -2,6 +2,11 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Workflow, Cpu } from 'lucide-react'
 import { Button } from '@/design-system/button'
+import { FormField } from '@/design-system/form-field'
+import { FormGrid } from '@/design-system/form-grid'
+import { Modal } from '@/design-system/modal'
+import { NumberInput } from '@/design-system/number-input'
+import { TextInput } from '@/design-system/text-input'
 import { DataTable } from '@/design-system/data-table'
 import { PageHeader } from '@/design-system/page-header'
 import { StatusChip } from '@/design-system/status-chip'
@@ -139,94 +144,80 @@ export function RoutingsPage() {
         </section>
       </div>
 
-      {isCreateRoutingOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-card">
-            <h3>Create Production Routing</h3>
-            <label style={{ display: 'block', margin: '16px 0' }}>
-              <span style={{ fontSize: '13px', fontWeight: 600 }}>Routing Name:</span>
-              <input
-                className="search-input"
-                onChange={(e) => setNewRoutingName(e.target.value)}
-                placeholder="e.g. Standard 500ml Bottling & Packaging Sequence"
-                style={{ width: '100%', marginTop: '4px' }}
-                value={newRoutingName}
-              />
-            </label>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-              <Button onClick={() => setIsCreateRoutingOpen(false)} variant="secondary">Cancel</Button>
-              <Button
-                disabled={createRoutingMutation.isPending || !newRoutingName.trim()}
-                onClick={() => createRoutingMutation.mutate()}
-                variant="primary"
-              >
-                Create Routing
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        isOpen={isCreateRoutingOpen}
+        onClose={() => setIsCreateRoutingOpen(false)}
+        title="Create Production Routing"
+        footer={
+          <>
+            <Button onClick={() => setIsCreateRoutingOpen(false)} variant="secondary">Cancel</Button>
+            <Button
+              disabled={createRoutingMutation.isPending || !newRoutingName.trim()}
+              onClick={() => createRoutingMutation.mutate()}
+              variant="primary"
+            >
+              Create Routing
+            </Button>
+          </>
+        }
+      >
+        <FormField label="Routing Name" required>
+          <TextInput
+            onChange={(e) => setNewRoutingName(e.target.value)}
+            placeholder="e.g. Standard 500ml Bottling & Packaging Sequence"
+            value={newRoutingName}
+          />
+        </FormField>
+      </Modal>
 
-      {isCreateOpOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-card">
-            <h3>Add Operation Master</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Operation Code:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setNewOpCode(e.target.value)}
-                  placeholder="e.g. OP-MIX-01"
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={newOpCode}
-                />
-              </label>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Operation Name:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setNewOpName(e.target.value)}
-                  placeholder="e.g. High Shear Granulation & Blending"
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={newOpName}
-                />
-              </label>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <label style={{ flex: 1 }}>
-                  <span style={{ fontSize: '13px', fontWeight: 600 }}>Setup Time (min):</span>
-                  <input
-                    className="search-input"
-                    onChange={(e) => setNewOpSetup(Number(e.target.value))}
-                    style={{ width: '100%', marginTop: '4px' }}
-                    type="number"
-                    value={newOpSetup}
-                  />
-                </label>
-                <label style={{ flex: 1 }}>
-                  <span style={{ fontSize: '13px', fontWeight: 600 }}>Run Time (min/unit):</span>
-                  <input
-                    className="search-input"
-                    onChange={(e) => setNewOpRun(e.target.value)}
-                    style={{ width: '100%', marginTop: '4px' }}
-                    value={newOpRun}
-                  />
-                </label>
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '16px' }}>
-              <Button onClick={() => setIsCreateOpOpen(false)} variant="secondary">Cancel</Button>
-              <Button
-                disabled={createOpMutation.isPending || !newOpCode.trim() || !newOpName.trim()}
-                onClick={() => createOpMutation.mutate()}
-                variant="primary"
-              >
-                Save Operation
-              </Button>
-            </div>
-          </div>
+      <Modal
+        isOpen={isCreateOpOpen}
+        onClose={() => setIsCreateOpOpen(false)}
+        title="Add Operation Master"
+        footer={
+          <>
+            <Button onClick={() => setIsCreateOpOpen(false)} variant="secondary">Cancel</Button>
+            <Button
+              disabled={createOpMutation.isPending || !newOpCode.trim() || !newOpName.trim()}
+              onClick={() => createOpMutation.mutate()}
+              variant="primary"
+            >
+              Save Operation
+            </Button>
+          </>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <FormField label="Operation Code" required>
+            <TextInput
+              onChange={(e) => setNewOpCode(e.target.value)}
+              placeholder="e.g. OP-MIX-01"
+              value={newOpCode}
+            />
+          </FormField>
+          <FormField label="Operation Name" required>
+            <TextInput
+              onChange={(e) => setNewOpName(e.target.value)}
+              placeholder="e.g. High Shear Granulation & Blending"
+              value={newOpName}
+            />
+          </FormField>
+          <FormGrid columns={2}>
+            <FormField label="Setup Time (min)">
+              <NumberInput
+                onChange={(e) => setNewOpSetup(Number(e.target.value))}
+                value={newOpSetup}
+              />
+            </FormField>
+            <FormField label="Run Time (min/unit)">
+              <TextInput
+                onChange={(e) => setNewOpRun(e.target.value)}
+                value={newOpRun}
+              />
+            </FormField>
+          </FormGrid>
         </div>
-      )}
+      </Modal>
     </section>
   )
 }

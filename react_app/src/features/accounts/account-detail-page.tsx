@@ -166,24 +166,28 @@ export function AccountDetailPage() {
               </tr>
             </thead>
             <tbody>
-              {txList.map((tx) => (
-                <tr key={tx.id}>
-                  <td>{formatDate(tx.effectiveDate)}</td>
-                  <td>
-                    <Link to={`${appRoutes.journals}/${tx.journalEntryId}`}>
-                      <strong>{tx.entryNumber}</strong>
-                    </Link>
-                  </td>
-                  <td>{tx.description || '—'}</td>
-                  <td>{formatStatusLabel(tx.sourceModule)}</td>
-                  <td className="numeric-cell">
-                    {tx.debit > 0 ? <Money amount={tx.debit} currency={document.currency ?? 'INR'} /> : '—'}
-                  </td>
-                  <td className="numeric-cell">
-                    {tx.credit > 0 ? <Money amount={tx.credit} currency={document.currency ?? 'INR'} /> : '—'}
-                  </td>
-                </tr>
-              ))}
+              {txList.map((tx) => {
+                const debitVal = Number(tx.debit ?? 0)
+                const creditVal = Number(tx.credit ?? 0)
+                return (
+                  <tr key={tx.lineId || tx.id || tx.journalEntryId}>
+                    <td>{formatDate(tx.effectiveDate)}</td>
+                    <td>
+                      <Link to={`${appRoutes.journals}/${tx.journalEntryId}`}>
+                        <strong>{tx.entryNumber}</strong>
+                      </Link>
+                    </td>
+                    <td>{tx.lineDescription || tx.entryDescription || tx.description || '—'}</td>
+                    <td>{formatStatusLabel(tx.sourceModule)}</td>
+                    <td className="numeric-cell">
+                      {debitVal > 0 ? <Money amount={debitVal} currency={document.currency ?? 'INR'} /> : '—'}
+                    </td>
+                    <td className="numeric-cell">
+                      {creditVal > 0 ? <Money amount={creditVal} currency={document.currency ?? 'INR'} /> : '—'}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </DataTable>
         ) : (

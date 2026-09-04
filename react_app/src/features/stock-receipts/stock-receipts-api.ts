@@ -4,6 +4,7 @@ export type StockReceiptLine = {
   id: string
   lineNumber: number
   itemId: string
+  itemName?: string | null
   itemSku: string | null
   description: string | null
   hsnCode: string | null
@@ -16,6 +17,7 @@ export type StockReceiptLine = {
   taxAmount: number | string | null
   lineTotal: number | string | null
   landedUnitCost: number | string | null
+  landedCost?: number | string | null
   batchNumber: string | null
   expiryDate: string | null
   manufacturingDate: string | null

@@ -6,6 +6,10 @@ export type Contact = {
   id: string
   contactType: 'CUSTOMER' | 'VENDOR' | 'BOTH'
   displayName: string
+  name?: string
+  businessName?: string
+  legalName?: string
+  city?: string | null
   companyName: string | null
   email: string | null
   phone: string | null
@@ -16,6 +20,8 @@ export type Contact = {
   active: boolean
   supplierEnabled: boolean
 }
+
+export type ContactRoleFilter = ContactFilter
 
 export type ContactSummary = {
   total: number
@@ -32,15 +38,16 @@ export type ContactPage = {
   size: number
 }
 
-type ListContactsOptions = {
+export type ListContactsOptions = {
   filter: ContactFilter
   page: number
   search: string
+  size?: number | string
 }
 
 export async function listContacts(options: Partial<ListContactsOptions> = {}) {
-  const { filter = 'ALL', page = 0, search = '' } = options
-  const params = new URLSearchParams({ page: String(page), size: '25', sort: 'displayName,asc' })
+  const { filter = 'ALL', page = 0, search = '', size = 25 } = options
+  const params = new URLSearchParams({ page: String(page), size: String(size), sort: 'displayName,asc' })
   if (filter !== 'ALL') params.set('type', filter)
   if (search.trim()) params.set('search', search.trim())
   return apiFetch<ContactPage>(`/api/v1/contacts?${params.toString()}`)

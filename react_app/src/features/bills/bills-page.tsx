@@ -25,7 +25,7 @@ import { formatDate, formatStatusLabel } from '@/shared/format/format'
 import { listBills, type PurchaseBill } from '@/features/bills/bills-api'
 
 const billFilters = [
-  { label: 'All', value: null },
+  { label: 'All', value: '' },
   { label: 'Draft', value: 'DRAFT' },
   { label: 'Pending approval', value: 'PENDING_APPROVAL' },
   { label: 'Posted', value: 'POSTED' },
@@ -50,7 +50,7 @@ export function BillsPage() {
 
   const bills = useQuery({
     queryKey: ['bills', { page, search: deferredSearch, status: filter }],
-    queryFn: () => listBills({ page, search: deferredSearch, status: filter }),
+    queryFn: () => listBills({ page, search: deferredSearch, status: filter || null }),
   })
   const billPage = bills.data
 

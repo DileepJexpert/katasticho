@@ -149,7 +149,7 @@ export function CreditNoteCreatePage() {
                 onChange={(e) => setContactId(e.target.value)}
                 options={customers.map((c) => ({
                   value: c.id,
-                  label: c.displayName || c.name,
+                  label: c.displayName || c.name || '',
                 }))}
                 placeholderOption="-- Select Customer --"
                 required

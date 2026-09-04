@@ -8,10 +8,12 @@ import {
   Trash2,
   X,
 } from 'lucide-react'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  DataTable,
+  PageHeader,
+  StatusChip,
+} from '@/design-system'
 import {
   createRoute,
   deleteRoute,

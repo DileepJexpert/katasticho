@@ -5,9 +5,11 @@ import {
   Plus,
   X,
 } from 'lucide-react'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { PageHeader } from '@/design-system/page-header'
+import {
+  Button,
+  DataTable,
+  PageHeader,
+} from '@/design-system'
 import { formatDate } from '@/shared/format/format'
 import {
   listMyRcpaAudits,

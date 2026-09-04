@@ -3,12 +3,22 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Factory, Search, Plus, Play, RefreshCw, BarChart3, Layers } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
-import { Quantity } from '@/design-system/quantity'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  CheckboxInput,
+  DataTable,
+  FormField,
+  FormGrid,
+  Modal,
+  Money,
+  NumberInput,
+  PageHeader,
+  Quantity,
+  SelectInput,
+  StatusChip,
+  TextAreaInput,
+  TextInput,
+} from '@/design-system'
 import { formatDate, formatStatusLabel } from '@/shared/format/format'
 import { listWorkOrders, createWorkOrder, autoCreateFromReorder } from '@/features/work-orders/work-orders-api'
 

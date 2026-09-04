@@ -11,6 +11,6 @@ const statusTone = (status: string): StatusTone => {
   return 'neutral'
 }
 
-export function StatusChip({ status }: { status: string }) {
-  return <span className={clsx('status-chip', `status-chip--${statusTone(status)}`)}>{status}</span>
+export function StatusChip({ status, children }: { status: string; children?: React.ReactNode }) {
+  return <span className={clsx('status-chip', `status-chip--${statusTone(status)}`)}>{children ?? status}</span>
 }

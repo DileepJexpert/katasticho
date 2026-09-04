@@ -41,7 +41,7 @@ export function DeliveryChallansPage() {
   const effectiveStatus = filter === '' ? undefined : filter
   const challans = useQuery({
     queryKey: ['delivery-challans', { page, status: effectiveStatus }],
-    queryFn: () => listDeliveryChallans({ page, status: effectiveStatus }),
+    queryFn: () => listDeliveryChallans({ page, status: effectiveStatus ?? null }),
   })
   const challanPage = challans.data
 

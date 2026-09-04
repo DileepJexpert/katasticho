@@ -3,11 +3,15 @@ import { useQuery } from '@tanstack/react-query'
 import { Landmark, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  DataTable,
+  EmptyState,
+  Money,
+  PageHeader,
+  StatusChip,
+  TablePagination,
+} from '@/design-system'
 import { formatDate, formatStatusLabel } from '@/shared/format/format'
 import { listPayments, type Payment } from '@/features/payments/payments-api'
 

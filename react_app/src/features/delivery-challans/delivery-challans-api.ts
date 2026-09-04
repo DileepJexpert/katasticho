@@ -20,6 +20,7 @@ export type DeliveryChallan = {
   salesOrderNumber: string | null
   contactId: string | null
   contactName: string | null
+  customerName?: string | null
   challanDate: string | null
   status: string
   dispatchDate: string | null
@@ -28,6 +29,8 @@ export type DeliveryChallan = {
   deliveryMethod: string | null
   vehicleNumber: string | null
   trackingNumber: string | null
+  lrNumber?: string | null
+  ewayBillNumber?: string | null
   notes: string | null
   shippingAddress: string | null
   lines: DeliveryChallanLine[]
@@ -44,7 +47,7 @@ export type DeliveryChallanPage = {
   last: boolean
 }
 
-type ListDeliveryChallansOptions = {
+export type ListDeliveryChallansOptions = {
   page: number
   status: string | null
   salesOrderId?: string | null
@@ -63,6 +66,9 @@ export function getDeliveryChallan(id: string) {
 
 export type CreateDeliveryChallanLineRequest = {
   soLineId: string
+  salesOrderLineId?: string
+  itemId?: string
+  description?: string
   quantity: number
   batchId?: string
 }
@@ -74,6 +80,9 @@ export type CreateDeliveryChallanRequest = {
   deliveryMethod?: string
   vehicleNumber?: string
   trackingNumber?: string
+  lrNumber?: string
+  driverName?: string
+  driverPhone?: string
   notes?: string
   shippingAddress?: string
 }

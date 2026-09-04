@@ -283,7 +283,7 @@ export function TaxAccountMappingsPage() {
                   <option value="">Select GL Account</option>
                   {accounts.map((acc) => (
                     <option key={acc.id} value={acc.id}>
-                      {acc.code} - {acc.name} ({acc.accountType})
+                      {acc.code} - {acc.name} ({acc.accountType || acc.type})
                     </option>
                   ))}
                 </select>
@@ -300,7 +300,7 @@ export function TaxAccountMappingsPage() {
                   <option value="">Select GL Account</option>
                   {accounts.map((acc) => (
                     <option key={acc.id} value={acc.id}>
-                      {acc.code} - {acc.name} ({acc.accountType})
+                      {acc.code} - {acc.name} ({acc.accountType || acc.type})
                     </option>
                   ))}
                 </select>

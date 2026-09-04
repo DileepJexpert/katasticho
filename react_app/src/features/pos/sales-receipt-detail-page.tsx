@@ -11,6 +11,9 @@ import {
 } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { Button } from '@/design-system/button'
+import { FormField } from '@/design-system/form-field'
+import { Modal } from '@/design-system/modal'
+import { TextInput } from '@/design-system/text-input'
 import { DataTable } from '@/design-system/data-table'
 import { Money } from '@/design-system/money'
 import { PageHeader } from '@/design-system/page-header'
@@ -328,46 +331,34 @@ export function SalesReceiptDetailPage() {
       </div>
 
       {/* Return Modal */}
-      {isReturnModalOpen && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true">
-          <div className="modal-card">
-            <header className="modal-header">
-              <h2>Confirm Return / Void Receipt</h2>
-              <button className="modal-close" onClick={() => setIsReturnModalOpen(false)} type="button">
-                ×
-              </button>
-            </header>
-            <div className="modal-body form-grid">
-              <p className="cell-muted" style={{ fontSize: '0.85rem' }}>
-                This will reverse the GL journal entry, restore item stock balances in inventory, and deduct the cash/revenue from register totals.
-              </p>
-              <div className="form-field form-field--full">
-                <label htmlFor="returnReason">Return Reason *</label>
-                <input
-                  id="returnReason"
-                  type="text"
-                  required
-                  value={returnReason}
-                  onChange={(e) => setReturnReason(e.target.value)}
-                  placeholder="e.g. Customer returned damaged strips, billing error"
-                />
-              </div>
-            </div>
-            <footer className="modal-footer">
-              <Button onClick={() => setIsReturnModalOpen(false)} variant="secondary">
-                Cancel
-              </Button>
-              <Button
-                disabled={returnMutation.isPending || !returnReason.trim()}
-                onClick={() => returnMutation.mutate(returnReason.trim())}
-                variant="destructive"
-              >
-                {returnMutation.isPending ? 'Processing Return...' : 'Confirm Return & Restore Stock'}
-              </Button>
-            </footer>
-          </div>
-        </div>
-      )}
+      <Modal
+        isOpen={isReturnModalOpen}
+        onClose={() => setIsReturnModalOpen(false)}
+        title="Confirm Return / Void Receipt"
+        description="This will reverse the GL journal entry, restore item stock balances in inventory, and deduct the cash/revenue from register totals."
+        footer={
+          <>
+            <Button onClick={() => setIsReturnModalOpen(false)} variant="secondary">
+              Cancel
+            </Button>
+            <Button
+              disabled={returnMutation.isPending || !returnReason.trim()}
+              onClick={() => returnMutation.mutate(returnReason.trim())}
+              variant="destructive"
+            >
+              {returnMutation.isPending ? 'Processing Return...' : 'Confirm Return & Restore Stock'}
+            </Button>
+          </>
+        }
+      >
+        <FormField label="Return Reason" required>
+          <TextInput
+            onChange={(e) => setReturnReason(e.target.value)}
+            placeholder="e.g. Customer returned damaged strips, billing error"
+            value={returnReason}
+          />
+        </FormField>
+      </Modal>
     </section>
   )
 }

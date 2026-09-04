@@ -6,11 +6,19 @@ import {
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  DataTable,
+  FormField,
+  FormGrid,
+  Modal,
+  Money,
+  PageHeader,
+  SelectInput,
+  StatusChip,
+  TextAreaInput,
+  TextInput,
+} from '@/design-system'
 import { formatDate, formatStatusLabel } from '@/shared/format/format'
 import {
   initiateOffboarding,

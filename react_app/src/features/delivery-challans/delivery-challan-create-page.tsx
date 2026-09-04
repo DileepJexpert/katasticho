@@ -71,14 +71,14 @@ export function DeliveryChallanCreatePage() {
         const rem = Math.max(0, ord - shp)
         return {
           soLineId: l.id,
-          itemId: l.itemId,
-          itemName: l.itemName,
-          description: l.description,
+          itemId: l.itemId ?? '',
+          itemName: l.itemName ?? '',
+          description: l.description ?? '',
           orderedQty: ord,
           shippedQty: shp,
           remainingQty: rem,
           shipQty: rem,
-          unit: l.unitOfMeasure || 'units',
+          unit: l.unitOfMeasure || l.unit || 'units',
           included: rem > 0,
         }
       })
@@ -136,6 +136,7 @@ export function DeliveryChallanCreatePage() {
     }
 
     const reqLines: CreateDeliveryChallanLineRequest[] = linesToShip.map((l) => ({
+      soLineId: l.soLineId,
       salesOrderLineId: l.soLineId,
       itemId: l.itemId,
       description: l.description,

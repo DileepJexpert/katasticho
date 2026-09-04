@@ -11,6 +11,10 @@ import {
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/design-system/button'
+import { FormField } from '@/design-system/form-field'
+import { Modal } from '@/design-system/modal'
+import { NumberInput } from '@/design-system/number-input'
+import { TextInput } from '@/design-system/text-input'
 import { DataTable } from '@/design-system/data-table'
 import { Money } from '@/design-system/money'
 import { PageHeader } from '@/design-system/page-header'
@@ -523,276 +527,239 @@ export function CashRegisterPage() {
       </div>
 
       {/* Modal: Open Register */}
-      {isOpenModal && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true">
-          <div className="modal-card">
-            <header className="modal-header">
-              <h2>Open Today's Cash Register</h2>
-              <button className="modal-close" onClick={() => setIsOpenModal(false)} type="button">
-                ×
-              </button>
-            </header>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                openMutation.mutate()
+      <Modal
+        isOpen={isOpenModal}
+        onClose={() => setIsOpenModal(false)}
+        title="Open Today's Cash Register"
+        footer={
+          <>
+            <Button onClick={() => setIsOpenModal(false)} type="button" variant="secondary">
+              Cancel
+            </Button>
+            <Button
+              disabled={openMutation.isPending}
+              onClick={() => openMutation.mutate()}
+              type="button"
+              variant="primary"
+            >
+              {openMutation.isPending ? 'Opening...' : 'Confirm & Open Register'}
+            </Button>
+          </>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+          <FormField
+            hint="Physical cash placed into the drawer at the start of shift."
+            label="Opening Cash Float (₹)"
+            required
+          >
+            <NumberInput
+              onChange={(e) => setOpeningFloat(e.target.value)}
+              placeholder="1000"
+              value={openingFloat}
+            />
+          </FormField>
+          <FormField label="Cashier Notes (Optional)">
+            <TextInput
+              onChange={(e) => setOpenNotes(e.target.value)}
+              placeholder="e.g. Counter 1 - Morning shift"
+              value={openNotes}
+            />
+          </FormField>
+        </div>
+      </Modal>
+
+      {/* Modal: Add Petty Expense */}
+      <Modal
+        isOpen={isExpenseModal}
+        onClose={() => setIsExpenseModal(false)}
+        title="Record Mid-Shift Cash Expense / Drop"
+        footer={
+          <>
+            <Button onClick={() => setIsExpenseModal(false)} type="button" variant="secondary">
+              Cancel
+            </Button>
+            <Button
+              disabled={expenseMutation.isPending || !expenseAmount || !expenseDesc.trim()}
+              onClick={() => expenseMutation.mutate()}
+              type="button"
+              variant="primary"
+            >
+              {expenseMutation.isPending ? 'Saving...' : 'Record Expense'}
+            </Button>
+          </>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+          <FormField label="Expense Amount (₹)" required>
+            <NumberInput
+              onChange={(e) => setExpenseAmount(e.target.value)}
+              placeholder="50"
+              value={expenseAmount}
+            />
+          </FormField>
+          <FormField label="Reason / Description" required>
+            <TextInput
+              onChange={(e) => setExpenseDesc(e.target.value)}
+              placeholder="e.g. Cleaning supplies, tea for staff, cash drop"
+              value={expenseDesc}
+            />
+          </FormField>
+        </div>
+      </Modal>
+
+      {/* Modal: Close Shift & Denomination Balancing */}
+      <Modal
+        isOpen={isCloseModal}
+        onClose={() => setIsCloseModal(false)}
+        size="lg"
+        title="Shift Reconciliation & Physical Cash Count"
+        footer={
+          <>
+            <Button onClick={() => setIsCloseModal(false)} type="button" variant="secondary">
+              Cancel
+            </Button>
+            <Button
+              disabled={closeMutation.isPending}
+              onClick={() => closeMutation.mutate()}
+              type="button"
+              variant="primary"
+            >
+              {closeMutation.isPending ? 'Closing...' : 'Close Shift & Finalize'}
+            </Button>
+          </>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: 'var(--space-sm)',
+              padding: 'var(--space-md)',
+              background: 'var(--color-surface-subtle)',
+              borderRadius: 'var(--radius-md)',
+            }}
+          >
+            <div>
+              <span className="cell-muted" style={{ fontSize: '0.8rem', display: 'block' }}>
+                Expected Drawer Cash
+              </span>
+              <strong style={{ fontSize: '1.15rem' }}>
+                <Money amount={expectedClosing} />
+              </strong>
+            </div>
+            <div>
+              <span className="cell-muted" style={{ fontSize: '0.8rem', display: 'block' }}>
+                Physical Cash Counted
+              </span>
+              <strong style={{ fontSize: '1.15rem', color: 'var(--color-primary)' }}>
+                <Money amount={calculatedCountTotal} />
+              </strong>
+            </div>
+            <div>
+              <span className="cell-muted" style={{ fontSize: '0.8rem', display: 'block' }}>
+                Cash Variance
+              </span>
+              <strong
+                style={{
+                  fontSize: '1.15rem',
+                  color:
+                    countVariance === 0
+                      ? 'var(--color-success)'
+                      : countVariance > 0
+                      ? 'var(--color-primary)'
+                      : 'var(--color-danger)',
+                }}
+              >
+                {countVariance > 0 ? '+' : ''}
+                <Money amount={countVariance} />
+              </strong>
+            </div>
+          </div>
+
+          <div>
+            <h4 style={{ margin: '0 0 var(--space-xs) 0', fontSize: '0.9rem' }}>
+              Denomination Breakdown (₹ Currency Notes & Coins)
+            </h4>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, 1fr)',
+                gap: 'var(--space-xs) var(--space-md)',
               }}
             >
-              <div className="modal-body form-grid">
-                <div className="form-field">
-                  <label htmlFor="openFloatInput">Opening Cash Float (₹) *</label>
+              {DENOMINATIONS.map((val) => (
+                <div
+                  key={val}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 'var(--space-sm)',
+                  }}
+                >
+                  <span style={{ width: 60, fontWeight: 600 }}>₹{val} ×</span>
                   <input
-                    id="openFloatInput"
                     type="number"
                     min="0"
                     step="1"
-                    required
-                    value={openingFloat}
-                    onChange={(e) => setOpeningFloat(e.target.value)}
-                    placeholder="1000"
-                  />
-                  <span className="form-hint">Physical cash placed into the drawer at the start of shift.</span>
-                </div>
-                <div className="form-field">
-                  <label htmlFor="openNotesInput">Cashier Notes (Optional)</label>
-                  <input
-                    id="openNotesInput"
-                    type="text"
-                    value={openNotes}
-                    onChange={(e) => setOpenNotes(e.target.value)}
-                    placeholder="e.g. Counter 1 - Morning shift"
-                  />
-                </div>
-              </div>
-              <footer className="modal-footer">
-                <Button onClick={() => setIsOpenModal(false)} type="button" variant="secondary">
-                  Cancel
-                </Button>
-                <Button disabled={openMutation.isPending} type="submit" variant="primary">
-                  {openMutation.isPending ? 'Opening...' : 'Confirm & Open Register'}
-                </Button>
-              </footer>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal: Add Petty Expense */}
-      {isExpenseModal && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true">
-          <div className="modal-card">
-            <header className="modal-header">
-              <h2>Record Mid-Shift Cash Expense / Drop</h2>
-              <button className="modal-close" onClick={() => setIsExpenseModal(false)} type="button">
-                ×
-              </button>
-            </header>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                expenseMutation.mutate()
-              }}
-            >
-              <div className="modal-body form-grid">
-                <div className="form-field">
-                  <label htmlFor="expAmountInput">Expense Amount (₹) *</label>
-                  <input
-                    id="expAmountInput"
-                    type="number"
-                    min="1"
-                    step="0.01"
-                    required
-                    value={expenseAmount}
-                    onChange={(e) => setExpenseAmount(e.target.value)}
-                    placeholder="50"
-                  />
-                </div>
-                <div className="form-field">
-                  <label htmlFor="expDescInput">Reason / Description *</label>
-                  <input
-                    id="expDescInput"
-                    type="text"
-                    required
-                    value={expenseDesc}
-                    onChange={(e) => setExpenseDesc(e.target.value)}
-                    placeholder="e.g. Cleaning supplies, tea for staff, cash drop"
-                  />
-                </div>
-              </div>
-              <footer className="modal-footer">
-                <Button onClick={() => setIsExpenseModal(false)} type="button" variant="secondary">
-                  Cancel
-                </Button>
-                <Button disabled={expenseMutation.isPending} type="submit" variant="primary">
-                  {expenseMutation.isPending ? 'Saving...' : 'Record Expense'}
-                </Button>
-              </footer>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal: Close Shift & Denomination Balancing */}
-      {isCloseModal && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true">
-          <div className="modal-card modal-card--wide" style={{ maxWidth: 640 }}>
-            <header className="modal-header">
-              <h2>Shift Reconciliation & Physical Cash Count</h2>
-              <button className="modal-close" onClick={() => setIsCloseModal(false)} type="button">
-                ×
-              </button>
-            </header>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                closeMutation.mutate()
-              }}
-            >
-              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(3, 1fr)',
-                    gap: 'var(--space-sm)',
-                    padding: 'var(--space-md)',
-                    background: 'var(--color-surface-subtle)',
-                    borderRadius: 'var(--radius-md)',
-                  }}
-                >
-                  <div>
-                    <span className="cell-muted" style={{ fontSize: '0.8rem', display: 'block' }}>
-                      Expected Drawer Cash
-                    </span>
-                    <strong style={{ fontSize: '1.15rem' }}>
-                      <Money amount={expectedClosing} />
-                    </strong>
-                  </div>
-                  <div>
-                    <span className="cell-muted" style={{ fontSize: '0.8rem', display: 'block' }}>
-                      Physical Cash Counted
-                    </span>
-                    <strong style={{ fontSize: '1.15rem', color: 'var(--color-primary)' }}>
-                      <Money amount={calculatedCountTotal} />
-                    </strong>
-                  </div>
-                  <div>
-                    <span className="cell-muted" style={{ fontSize: '0.8rem', display: 'block' }}>
-                      Cash Variance
-                    </span>
-                    <strong
-                      style={{
-                        fontSize: '1.15rem',
-                        color:
-                          countVariance === 0
-                            ? 'var(--color-success)'
-                            : countVariance > 0
-                            ? 'var(--color-primary)'
-                            : 'var(--color-danger)',
-                      }}
-                    >
-                      {countVariance > 0 ? '+' : ''}
-                      <Money amount={countVariance} />
-                    </strong>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 style={{ margin: '0 0 var(--space-xs) 0', fontSize: '0.9rem' }}>
-                    Denomination Breakdown (₹ Currency Notes & Coins)
-                  </h4>
-                  <div
                     style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(2, 1fr)',
-                      gap: 'var(--space-xs) var(--space-md)',
+                      width: 80,
+                      padding: '4px 8px',
+                      textAlign: 'right',
+                      borderRadius: 'var(--radius-sm)',
+                      border: '1px solid var(--color-border)',
                     }}
-                  >
-                    {DENOMINATIONS.map((val) => (
-                      <div
-                        key={val}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          gap: 'var(--space-sm)',
-                        }}
-                      >
-                        <span style={{ width: 60, fontWeight: 600 }}>₹{val} ×</span>
-                        <input
-                          type="number"
-                          min="0"
-                          step="1"
-                          style={{
-                            width: 80,
-                            padding: '4px 8px',
-                            textAlign: 'right',
-                            borderRadius: 'var(--radius-sm)',
-                            border: '1px solid var(--color-border)',
-                          }}
-                          value={denomCounts[val] || ''}
-                          onChange={(e) => handleDenomChange(val, e.target.value)}
-                          placeholder="0"
-                        />
-                        <span style={{ width: 80, textAlign: 'right', fontSize: '0.85rem' }} className="cell-muted">
-                          = ₹{(val * (denomCounts[val] || 0)).toLocaleString('en-IN')}
-                        </span>
-                      </div>
-                    ))}
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: 'var(--space-sm)',
-                      }}
-                    >
-                      <span style={{ width: 60, fontWeight: 600 }}>Coins</span>
-                      <input
-                        type="number"
-                        min="0"
-                        step="1"
-                        style={{
-                          width: 80,
-                          padding: '4px 8px',
-                          textAlign: 'right',
-                          borderRadius: 'var(--radius-sm)',
-                          border: '1px solid var(--color-border)',
-                        }}
-                        value={coinsAmount}
-                        onChange={(e) => setCoinsAmount(e.target.value)}
-                        placeholder="0"
-                      />
-                      <span style={{ width: 80, textAlign: 'right', fontSize: '0.85rem' }} className="cell-muted">
-                        = ₹{(Number(coinsAmount) || 0).toLocaleString('en-IN')}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="form-field">
-                  <label htmlFor="closeNotesInput">Shift Closing Remarks / Variance Reason</label>
-                  <input
-                    id="closeNotesInput"
-                    type="text"
-                    value={closeNotes}
-                    onChange={(e) => setCloseNotes(e.target.value)}
-                    placeholder="e.g. Exact match, or ₹5 shortage due to rounding"
+                    value={denomCounts[val] || ''}
+                    onChange={(e) => handleDenomChange(val, e.target.value)}
+                    placeholder="0"
                   />
+                  <span style={{ width: 80, textAlign: 'right', fontSize: '0.85rem' }} className="cell-muted">
+                    = ₹{(val * (denomCounts[val] || 0)).toLocaleString('en-IN')}
+                  </span>
                 </div>
+              ))}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 'var(--space-sm)',
+                }}
+              >
+                <span style={{ width: 60, fontWeight: 600 }}>Coins</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  style={{
+                    width: 80,
+                    padding: '4px 8px',
+                    textAlign: 'right',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--color-border)',
+                  }}
+                  value={coinsAmount}
+                  onChange={(e) => setCoinsAmount(e.target.value)}
+                  placeholder="0"
+                />
+                <span style={{ width: 80, textAlign: 'right', fontSize: '0.85rem' }} className="cell-muted">
+                  = ₹{(Number(coinsAmount) || 0).toLocaleString('en-IN')}
+                </span>
               </div>
-
-              <footer className="modal-footer">
-                <Button onClick={() => setIsCloseModal(false)} type="button" variant="secondary">
-                  Cancel
-                </Button>
-                <Button disabled={closeMutation.isPending} type="submit" variant="primary">
-                  {closeMutation.isPending ? 'Closing...' : 'Close Shift & Finalize'}
-                </Button>
-              </footer>
-            </form>
+            </div>
           </div>
+
+          <FormField label="Shift Closing Remarks / Variance Reason">
+            <TextInput
+              onChange={(e) => setCloseNotes(e.target.value)}
+              placeholder="e.g. Exact match, or ₹5 shortage due to rounding"
+              value={closeNotes}
+            />
+          </FormField>
         </div>
-      )}
+      </Modal>
     </section>
   )
 }

@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
@@ -10,14 +10,16 @@ import {
 import {
   Button,
   DataTable,
+  DocumentError,
+  EntityPicker,
   FormField,
   Modal,
   NumberInput,
   PageHeader,
   SelectInput,
   StatusChip,
-  TextInput,
-} from '@/design-system'
+  } from '@/design-system'
+import { listContacts } from '@/features/contacts/contacts-api'
 import {
   addCustomerToBeat,
   getBeat,
@@ -205,12 +207,19 @@ function AddCustomerModal({
       title="Add Customer Stop to Beat"
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        <FormField label="Customer / Contact UUID" required>
-          <TextInput
-            onChange={(e) => setContactId(e.target.value)}
-            placeholder="Contact UUID"
-            required
-            value={contactId}
+        <FormField label="Select Customer / Contact" required>
+          <EntityPicker
+            value={contactId || null}
+            onChange={(id) => setContactId(id || '')}
+            onSearch={async (query) => {
+              const res = await listContacts({ search: query, size: 20 })
+              return res.content
+            }}
+            getOptionId={(c) => c.id}
+            getOptionLabel={(c) => c.displayName || c.companyName || c.name || 'Unknown Contact'}
+            getOptionDescription={(c) => [c.phone, c.companyName].filter(Boolean).join(' • ') || undefined}
+            getOptionBadge={(c) => c.contactType || undefined}
+            placeholder="Search customer by name, business or phone..."
           />
         </FormField>
 

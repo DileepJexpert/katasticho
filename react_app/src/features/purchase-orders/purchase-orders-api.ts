@@ -1,8 +1,9 @@
-﻿import { apiFetch } from '@/api/client/api-client'
+import { apiFetch } from '@/api/client/api-client'
 
 export type PurchaseOrderLine = {
   id: string
   poId: string
+  lineNumber?: number | string | null
   itemId: string
   itemName: string
   description: string | null

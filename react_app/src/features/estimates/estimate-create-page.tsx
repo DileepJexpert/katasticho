@@ -201,7 +201,7 @@ export function EstimateCreatePage() {
                 onChange={(e) => setContactId(e.target.value)}
                 options={contacts.map((c) => ({
                   value: c.id,
-                  label: `${c.name} ${c.phone ? '(' + c.phone + ')' : ''}`,
+                  label: `${c.displayName || c.name || ''} ${c.phone ? '(' + c.phone + ')' : ''}`,
                 }))}
                 placeholderOption="Select customer..."
                 required

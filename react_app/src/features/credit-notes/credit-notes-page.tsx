@@ -3,11 +3,17 @@ import { useQuery } from '@tanstack/react-query'
 import { FileBadge, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  DataTable,
+  DirectoryToolbar,
+  EmptyState,
+  FilterTabs,
+  Money,
+  PageHeader,
+  StatusChip,
+  TablePagination,
+} from '@/design-system'
 import { formatDate, formatStatusLabel } from '@/shared/format/format'
 import { listCreditNotes, type CreditNote } from '@/features/credit-notes/credit-notes-api'
 

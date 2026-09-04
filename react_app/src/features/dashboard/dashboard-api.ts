@@ -26,7 +26,7 @@ export type MonthlyProfit = {
 export async function getDashboardOverview() {
   const [todaySales, receivables, payables, monthlyProfit] = await Promise.all([
     apiFetch<TodaySales>('/api/v1/dashboard/today-sales'),
-    apiFetch<OutstandingSummary>('/api/v1/dashboard/ar-summary'),
+    apiFetch<OutstandingSummary>('/api/v1/dashboard/receivables'),
     apiFetch<OutstandingSummary>('/api/v1/dashboard/ap-summary'),
     apiFetch<MonthlyProfit>('/api/v1/dashboard/monthly-profit'),
   ])

@@ -1,21 +1,29 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import {
   Navigation,
   Play,
-  X,
 } from 'lucide-react'
 import { Button } from '@/design-system/button'
 import { DataTable } from '@/design-system/data-table'
+import { EntityPicker } from '@/design-system/entity-picker'
+import { FormField } from '@/design-system/form-field'
+import { FormGrid } from '@/design-system/form-grid'
+import { Modal } from '@/design-system/modal'
 import { Money } from '@/design-system/money'
 import { PageHeader } from '@/design-system/page-header'
 import { StatusChip } from '@/design-system/status-chip'
+import { TextInput } from '@/design-system/text-input'
 import { formatDate } from '@/shared/format/format'
 import {
   listExecutions,
+  listRoutes,
+  listVans,
   startExecution,
   type RouteExecution,
+  type RouteSummary,
+  type Van,
 } from '@/features/field-sales/field-sales-api'
 
 export function RouteExecutionsPage() {
@@ -147,86 +155,88 @@ function StartExecutionModal({
   const [vanId, setVanId] = useState('')
   const [executionDate, setExecutionDate] = useState(new Date().toISOString().slice(0, 10))
 
+  const routesQuery = useQuery({
+    queryKey: ['field-sales', 'routes', 'picker'],
+    queryFn: () => listRoutes(0, 100),
+  })
+
+  const vansQuery = useQuery({
+    queryKey: ['field-sales', 'vans', 'picker'],
+    queryFn: () => listVans(0, 100),
+  })
+
   return (
-    <div className="modal-backdrop">
-      <div className="modal-card" style={{ maxWidth: 440 }}>
-        <div className="modal-header">
-          <h2 className="modal-title">Start Route Execution</h2>
-          <button aria-label="Close" className="button button--ghost" onClick={onClose} type="button">
-            <X aria-hidden="true" size={18} />
-          </button>
-        </div>
+    <Modal
+      description="Dispatch a van or field rep on a scheduled route run."
+      footer={
+        <>
+          <Button onClick={onClose} type="button" variant="secondary">Cancel</Button>
+          <Button disabled={isPending || !routeId} form="start-exec-form" type="submit" variant="primary">
+            {isPending ? 'Starting Run...' : 'Start Execution Run'}
+          </Button>
+        </>
+      }
+      isOpen
+      onClose={onClose}
+      size="md"
+      title="Start Route Execution"
+    >
+      <form
+        id="start-exec-form"
+        onSubmit={(e) => {
+          e.preventDefault()
+          onSubmit({
+            routeId,
+            salespersonId: salespersonId || '00000000-0000-0000-0000-000000000001',
+            vanId: vanId || undefined,
+            executionDate,
+          })
+        }}
+        style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
+      >
+        <FormField label="Select Route" required>
+          <EntityPicker<RouteSummary>
+            value={routeId || null}
+            onChange={(id) => setRouteId(id || '')}
+            options={routesQuery.data?.content || []}
+            getOptionId={(r) => r.id}
+            getOptionLabel={(r) => r.name}
+            getOptionDescription={(r) => r.code ? `Code: ${r.code}` : undefined}
+            getOptionBadge={(r) => r.dayOfWeek || undefined}
+            placeholder="Search scheduled route by name..."
+          />
+        </FormField>
 
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            onSubmit({
-              routeId,
-              salespersonId,
-              vanId: vanId || undefined,
-              executionDate,
-            })
-          }}
-        >
-          <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div>
-              <label className="form-label" htmlFor="exec-route-id">Route ID *</label>
-              <input
-                className="form-input"
-                id="exec-route-id"
-                onChange={(e) => setRouteId(e.target.value)}
-                placeholder="Route UUID"
-                required
-                type="text"
-                value={routeId}
-              />
-            </div>
+        <FormField label="Assigned Van (Optional)">
+          <EntityPicker<Van>
+            value={vanId || null}
+            onChange={(id) => setVanId(id || '')}
+            options={vansQuery.data?.content || []}
+            getOptionId={(v) => v.id}
+            getOptionLabel={(v) => `${v.vehicleNumber} (${v.code})`}
+            getOptionDescription={(v) => v.name || undefined}
+            placeholder="Search delivery van by vehicle number..."
+          />
+        </FormField>
 
-            <div>
-              <label className="form-label" htmlFor="exec-salesperson">Salesperson ID *</label>
-              <input
-                className="form-input"
-                id="exec-salesperson"
-                onChange={(e) => setSalespersonId(e.target.value)}
-                placeholder="Salesperson User UUID"
-                required
-                type="text"
-                value={salespersonId}
-              />
-            </div>
-
-            <div>
-              <label className="form-label" htmlFor="exec-van">Van ID (Optional)</label>
-              <input
-                className="form-input"
-                id="exec-van"
-                onChange={(e) => setVanId(e.target.value)}
-                placeholder="Assigned Van UUID"
-                type="text"
-                value={vanId}
-              />
-            </div>
-
-            <div>
-              <label className="form-label" htmlFor="exec-date">Execution Date</label>
-              <input
-                className="form-input"
-                id="exec-date"
-                onChange={(e) => setExecutionDate(e.target.value)}
-                type="date"
-                value={executionDate}
-              />
-            </div>
-          </div>
-
-          <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
-            <Button onClick={onClose} type="button" variant="secondary">Cancel</Button>
-            <Button disabled={isPending || !routeId || !salespersonId} type="submit" variant="primary">
-              {isPending ? 'Starting...' : 'Launch Execution'}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <FormGrid columns={2}>
+          <FormField label="Execution Date" required>
+            <TextInput
+              onChange={(e) => setExecutionDate(e.target.value)}
+              required
+              type="date"
+              value={executionDate}
+            />
+          </FormField>
+          <FormField label="Salesperson ID / Ref">
+            <TextInput
+              onChange={(e) => setSalespersonId(e.target.value)}
+              placeholder="Current Rep (Auto-assigned)"
+              value={salespersonId}
+            />
+          </FormField>
+        </FormGrid>
+      </form>
+    </Modal>
   )
 }

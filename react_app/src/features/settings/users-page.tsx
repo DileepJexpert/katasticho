@@ -9,6 +9,10 @@ import {
   CheckCircle2,
   } from 'lucide-react'
 import { Button } from '@/design-system/button'
+import { FormField } from '@/design-system/form-field'
+import { Modal } from '@/design-system/modal'
+import { SelectInput } from '@/design-system/select-input'
+import { TextInput } from '@/design-system/text-input'
 import { DataTable } from '@/design-system/data-table'
 import { PageHeader } from '@/design-system/page-header'
 import { StatusChip } from '@/design-system/status-chip'
@@ -227,88 +231,76 @@ export function UsersPage() {
       )}
 
       {/* Invite Member Modal */}
-      {isInviteOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-card">
-            <h3>Invite Team Member</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '14px' }}>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Colleague's Email Address:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  placeholder="name@company.com"
-                  style={{ width: '100%', marginTop: '4px' }}
-                  type="email"
-                  value={inviteEmail}
-                />
-              </label>
-
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Role & Permissions:</span>
-                <select
-                  className="search-input"
-                  onChange={(e) => setInviteRole(e.target.value)}
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={inviteRole}
-                >
-                  <option value="ADMIN">ADMIN - Full operational and setting privileges</option>
-                  <option value="ACCOUNTANT">ACCOUNTANT - Ledger, billing, journal & tax access</option>
-                  <option value="OPERATOR">OPERATOR - Sales billing, inventory & warehouse operations</option>
-                  <option value="VIEWER">VIEWER - Read-only reporting access</option>
-                </select>
-              </label>
-            </div>
-
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '18px' }}>
-              <Button onClick={() => setIsInviteOpen(false)} variant="secondary">Cancel</Button>
-              <Button
-                disabled={inviteMutation.isPending || !inviteEmail.trim()}
-                onClick={() => inviteMutation.mutate()}
-                variant="primary"
-              >
-                Send Invite
-              </Button>
-            </div>
-          </div>
+      <Modal
+        isOpen={isInviteOpen}
+        onClose={() => setIsInviteOpen(false)}
+        title="Invite Team Member"
+        footer={
+          <>
+            <Button onClick={() => setIsInviteOpen(false)} variant="secondary">Cancel</Button>
+            <Button
+              disabled={inviteMutation.isPending || !inviteEmail.trim()}
+              onClick={() => inviteMutation.mutate()}
+              variant="primary"
+            >
+              Send Invite
+            </Button>
+          </>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <FormField label="Colleague's Email Address" required>
+            <TextInput
+              onChange={(e) => setInviteEmail(e.target.value)}
+              placeholder="name@company.com"
+              type="email"
+              value={inviteEmail}
+            />
+          </FormField>
+          <FormField label="Role & Permissions" required>
+            <SelectInput
+              onChange={(e) => setInviteRole(e.target.value)}
+              value={inviteRole}
+            >
+              <option value="ADMIN">ADMIN - Full operational and setting privileges</option>
+              <option value="ACCOUNTANT">ACCOUNTANT - Ledger, billing, journal & tax access</option>
+              <option value="OPERATOR">OPERATOR - Sales billing, inventory & warehouse operations</option>
+              <option value="VIEWER">VIEWER - Read-only reporting access</option>
+            </SelectInput>
+          </FormField>
         </div>
-      )}
+      </Modal>
 
       {/* Change Role Modal */}
-      {isRoleModalOpen && selectedUser && (
-        <div className="modal-backdrop">
-          <div className="modal-card">
-            <h3>Change Role: {selectedUser.email}</h3>
-            <div style={{ marginTop: '14px' }}>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Select New Role:</span>
-                <select
-                  className="search-input"
-                  onChange={(e) => setNewRole(e.target.value)}
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={newRole}
-                >
-                  <option value="ADMIN">ADMIN</option>
-                  <option value="ACCOUNTANT">ACCOUNTANT</option>
-                  <option value="OPERATOR">OPERATOR</option>
-                  <option value="VIEWER">VIEWER</option>
-                </select>
-              </label>
-            </div>
-
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '18px' }}>
-              <Button onClick={() => setIsRoleModalOpen(false)} variant="secondary">Cancel</Button>
-              <Button
-                disabled={updateRoleMutation.isPending}
-                onClick={() => updateRoleMutation.mutate()}
-                variant="primary"
-              >
-                Update Role
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        isOpen={isRoleModalOpen && Boolean(selectedUser)}
+        onClose={() => setIsRoleModalOpen(false)}
+        title={selectedUser ? `Change Role: ${selectedUser.email}` : 'Change Role'}
+        footer={
+          <>
+            <Button onClick={() => setIsRoleModalOpen(false)} variant="secondary">Cancel</Button>
+            <Button
+              disabled={updateRoleMutation.isPending}
+              onClick={() => updateRoleMutation.mutate()}
+              variant="primary"
+            >
+              Update Role
+            </Button>
+          </>
+        }
+      >
+        <FormField label="Select New Role" required>
+          <SelectInput
+            onChange={(e) => setNewRole(e.target.value)}
+            value={newRole}
+          >
+            <option value="ADMIN">ADMIN</option>
+            <option value="ACCOUNTANT">ACCOUNTANT</option>
+            <option value="OPERATOR">OPERATOR</option>
+            <option value="VIEWER">VIEWER</option>
+          </SelectInput>
+        </FormField>
+      </Modal>
     </section>
   )
 }

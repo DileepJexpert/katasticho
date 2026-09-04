@@ -38,6 +38,7 @@ export function CapaPage() {
   const [newPriority, setNewPriority] = useState('NORMAL')
   const [newDesc, setNewDesc] = useState('')
   const [newAction, setNewAction] = useState('')
+  const [newDueDate, setNewDueDate] = useState('')
 
   const query = useQuery({
     queryKey: ['capas', page, activeTab],
@@ -51,12 +52,14 @@ export function CapaPage() {
       description: newDesc,
       proposedAction: newAction,
       priority: newPriority,
+      dueDate: newDueDate || undefined,
     }),
     onSuccess: () => {
       setIsRaiseOpen(false)
       setNewTitle('')
       setNewDesc('')
       setNewAction('')
+      setNewDueDate('')
       queryClient.invalidateQueries({ queryKey: ['capas'] })
     },
   })

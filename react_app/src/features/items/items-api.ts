@@ -1,4 +1,4 @@
-﻿import { apiFetch } from '@/api/client/api-client'
+import { apiFetch } from '@/api/client/api-client'
 
 export type Item = {
   id: string
@@ -9,9 +9,12 @@ export type Item = {
   itemType: 'RAW_MATERIAL' | 'WORK_IN_PROGRESS' | 'FINISHED_GOOD' | 'MERCHANDISE' | 'SERVICE' | 'GOODS' | string
   hsnCode: string | null
   unitOfMeasure: string | null
+  unit?: string | null
   purchasePrice: number | string | null
   salePrice: number | string | null
+  sellingPrice?: number | string | null
   gstRate: number | string | null
+  taxGroupId?: string | null
   trackInventory: boolean
   trackBatches?: boolean
   trackSerials?: boolean
@@ -22,6 +25,8 @@ export type Item = {
   costingMethod?: 'FIFO' | 'WEIGHTED_AVERAGE' | string
   active: boolean
   totalOnHand: number | string | null
+  stockBalance?: number | string | null
+  onHandStock?: number | string | null
 }
 
 export type ItemPage = {
@@ -160,15 +165,16 @@ export type BatchRecallReport = {
   }[]
 }
 
-type ListItemsOptions = {
+export type ListItemsOptions = {
   page?: number
+  size?: number | string
   search?: string
   negativeStockOnly?: boolean
   activeOnly?: boolean
 }
 
-export async function listItems({ negativeStockOnly = false, activeOnly = false, page = 0, search = '' }: ListItemsOptions = {}) {
-  const params = new URLSearchParams({ page: String(page), size: '25', sort: 'name,asc' })
+export async function listItems({ negativeStockOnly = false, activeOnly = false, page = 0, size = 25, search = '' }: ListItemsOptions = {}) {
+  const params = new URLSearchParams({ page: String(page), size: String(size), sort: 'name,asc' })
   if (search.trim() && !negativeStockOnly) params.set('search', search.trim())
   if (negativeStockOnly) params.set('negativeStockOnly', 'true')
   if (activeOnly) params.set('activeOnly', 'true')

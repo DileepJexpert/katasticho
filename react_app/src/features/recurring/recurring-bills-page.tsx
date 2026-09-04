@@ -309,7 +309,7 @@ export function RecurringBillsPage() {
                     <option value="">Select vendor...</option>
                     {vendors.map((v) => (
                       <option key={v.id} value={v.id}>
-                        {v.name}
+                        {v.displayName || v.name}
                       </option>
                     ))}
                   </select>

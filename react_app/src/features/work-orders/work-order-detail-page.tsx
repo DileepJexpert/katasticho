@@ -17,6 +17,13 @@ import {
 } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button } from '@/design-system/button'
+import { FormField } from '@/design-system/form-field'
+import { FormGrid } from '@/design-system/form-grid'
+import { Modal } from '@/design-system/modal'
+import { NumberInput } from '@/design-system/number-input'
+import { SelectInput } from '@/design-system/select-input'
+import { TextAreaInput } from '@/design-system/textarea-input'
+import { TextInput } from '@/design-system/text-input'
 import { DataTable } from '@/design-system/data-table'
 import { Money } from '@/design-system/money'
 import { PageHeader } from '@/design-system/page-header'
@@ -859,477 +866,388 @@ export function WorkOrderDetailPage() {
       )}
 
       {/* Receive Finished Goods Modal */}
-      {isReceiveOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-card">
-            <h3>Receive Finished Goods Batch</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Quantity Received:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setReceiveQty(e.target.value)}
-                  style={{ width: '100%', marginTop: '4px' }}
-                  type="number"
-                  value={receiveQty}
-                />
-              </label>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Batch / Lot Number:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setBatchNo(e.target.value)}
-                  placeholder="e.g. BT-2026-09A"
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={batchNo}
-                />
-              </label>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Expiry Date:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setExpiryDate(e.target.value)}
-                  style={{ width: '100%', marginTop: '4px' }}
-                  type="date"
-                  value={expiryDate}
-                />
-              </label>
-            </div>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '16px' }}>
-              <Button onClick={() => setIsReceiveOpen(false)} variant="secondary">Cancel</Button>
-              <Button
-                disabled={receiveMutation.isPending}
-                onClick={() => receiveMutation.mutate()}
-                variant="primary"
-              >
-                Receive Batch
-              </Button>
-            </div>
-          </div>
+      <Modal
+        isOpen={isReceiveOpen}
+        onClose={() => setIsReceiveOpen(false)}
+        title="Receive Finished Goods Batch"
+        footer={
+          <>
+            <Button onClick={() => setIsReceiveOpen(false)} variant="secondary">Cancel</Button>
+            <Button
+              disabled={receiveMutation.isPending}
+              onClick={() => receiveMutation.mutate()}
+              variant="primary"
+            >
+              Receive Batch
+            </Button>
+          </>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <FormField label="Quantity Received" required>
+            <NumberInput
+              onChange={(e) => setReceiveQty(e.target.value)}
+              value={receiveQty}
+            />
+          </FormField>
+          <FormField label="Batch / Lot Number" required>
+            <TextInput
+              onChange={(e) => setBatchNo(e.target.value)}
+              placeholder="e.g. BT-2026-09A"
+              value={batchNo}
+            />
+          </FormField>
+          <FormField label="Expiry Date" required>
+            <TextInput
+              onChange={(e) => setExpiryDate(e.target.value)}
+              type="date"
+              value={expiryDate}
+            />
+          </FormField>
         </div>
-      )}
+      </Modal>
 
       {/* Update Costs Modal */}
-      {isCostOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-card">
-            <h3>Update Manufacturing Costs</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Direct Labor Cost:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setLaborCost(e.target.value)}
-                  style={{ width: '100%', marginTop: '4px' }}
-                  type="number"
-                  value={laborCost}
-                />
-              </label>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Manufacturing Overhead Cost:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setOverheadCost(e.target.value)}
-                  style={{ width: '100%', marginTop: '4px' }}
-                  type="number"
-                  value={overheadCost}
-                />
-              </label>
-            </div>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '16px' }}>
-              <Button onClick={() => setIsCostOpen(false)} variant="secondary">Cancel</Button>
-              <Button
-                disabled={costMutation.isPending}
-                onClick={() => costMutation.mutate()}
-                variant="primary"
-              >
-                Update Costs
-              </Button>
-            </div>
-          </div>
+      <Modal
+        isOpen={isCostOpen}
+        onClose={() => setIsCostOpen(false)}
+        title="Update Manufacturing Costs"
+        footer={
+          <>
+            <Button onClick={() => setIsCostOpen(false)} variant="secondary">Cancel</Button>
+            <Button
+              disabled={costMutation.isPending}
+              onClick={() => costMutation.mutate()}
+              variant="primary"
+            >
+              Update Costs
+            </Button>
+          </>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <FormField label="Direct Labor Cost (₹)">
+            <NumberInput
+              onChange={(e) => setLaborCost(e.target.value)}
+              value={laborCost}
+            />
+          </FormField>
+          <FormField label="Manufacturing Overhead Cost (₹)">
+            <NumberInput
+              onChange={(e) => setOverheadCost(e.target.value)}
+              value={overheadCost}
+            />
+          </FormField>
         </div>
-      )}
+      </Modal>
 
       {/* Record Scrap Modal */}
-      {isScrapOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-card">
-            <h3>Record Production Scrap / Wastage</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Scrapped Item ID:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setScrapItemId(e.target.value)}
-                  placeholder="Component Item UUID"
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={scrapItemId}
-                />
-              </label>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Scrap Quantity:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setScrapQty(e.target.value)}
-                  style={{ width: '100%', marginTop: '4px' }}
-                  type="number"
-                  value={scrapQty}
-                />
-              </label>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Reason / Notes:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setScrapNotes(e.target.value)}
-                  placeholder="Defective mold, packaging tear..."
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={scrapNotes}
-                />
-              </label>
-            </div>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '16px' }}>
-              <Button onClick={() => setIsScrapOpen(false)} variant="secondary">Cancel</Button>
-              <Button
-                disabled={recordScrapMutation.isPending || !scrapItemId.trim()}
-                onClick={() => recordScrapMutation.mutate()}
-                variant="destructive"
-              >
-                Record Scrap
-              </Button>
-            </div>
-          </div>
+      <Modal
+        isOpen={isScrapOpen}
+        onClose={() => setIsScrapOpen(false)}
+        title="Record Production Scrap / Wastage"
+        footer={
+          <>
+            <Button onClick={() => setIsScrapOpen(false)} variant="secondary">Cancel</Button>
+            <Button
+              disabled={recordScrapMutation.isPending || !scrapItemId.trim()}
+              onClick={() => recordScrapMutation.mutate()}
+              variant="destructive"
+            >
+              Record Scrap
+            </Button>
+          </>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <FormField label="Scrapped Item ID" required>
+            <TextInput
+              onChange={(e) => setScrapItemId(e.target.value)}
+              placeholder="Component Item UUID"
+              value={scrapItemId}
+            />
+          </FormField>
+          <FormField label="Scrap Quantity" required>
+            <NumberInput
+              onChange={(e) => setScrapQty(e.target.value)}
+              value={scrapQty}
+            />
+          </FormField>
+          <FormField label="Reason / Notes">
+            <TextInput
+              onChange={(e) => setScrapNotes(e.target.value)}
+              placeholder="Defective mold, packaging tear..."
+              value={scrapNotes}
+            />
+          </FormField>
         </div>
-      )}
+      </Modal>
 
       {/* Complete Job Card Modal */}
-      {isCompleteJobCardOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-card">
-            <h3>Complete Floor Job Card</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Completed Quantity:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setJcCompletedQty(e.target.value)}
-                  style={{ width: '100%', marginTop: '4px' }}
-                  type="number"
-                  value={jcCompletedQty}
-                />
-              </label>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Scrap Quantity:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setJcScrapQty(e.target.value)}
-                  style={{ width: '100%', marginTop: '4px' }}
-                  type="number"
-                  value={jcScrapQty}
-                />
-              </label>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Time Logged (minutes):</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setJcTimeLogged(Number(e.target.value))}
-                  style={{ width: '100%', marginTop: '4px' }}
-                  type="number"
-                  value={jcTimeLogged}
-                />
-              </label>
-            </div>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '16px' }}>
-              <Button onClick={() => setIsCompleteJobCardOpen(false)} variant="secondary">Cancel</Button>
-              <Button
-                disabled={completeJcMutation.isPending}
-                onClick={() => completeJcMutation.mutate()}
-                variant="primary"
-              >
-                Complete Job Card
-              </Button>
-            </div>
-          </div>
+      <Modal
+        isOpen={isCompleteJobCardOpen}
+        onClose={() => setIsCompleteJobCardOpen(false)}
+        title="Complete Floor Job Card"
+        footer={
+          <>
+            <Button onClick={() => setIsCompleteJobCardOpen(false)} variant="secondary">Cancel</Button>
+            <Button
+              disabled={completeJcMutation.isPending}
+              onClick={() => completeJcMutation.mutate()}
+              variant="primary"
+            >
+              Complete Job Card
+            </Button>
+          </>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <FormField label="Completed Quantity" required>
+            <NumberInput
+              onChange={(e) => setJcCompletedQty(e.target.value)}
+              value={jcCompletedQty}
+            />
+          </FormField>
+          <FormField label="Scrap Quantity">
+            <NumberInput
+              onChange={(e) => setJcScrapQty(e.target.value)}
+              value={jcScrapQty}
+            />
+          </FormField>
+          <FormField label="Time Logged (minutes)">
+            <NumberInput
+              onChange={(e) => setJcTimeLogged(Number(e.target.value))}
+              value={jcTimeLogged}
+            />
+          </FormField>
         </div>
-      )}
+      </Modal>
 
       {/* BMR Record Parameter Step Modal */}
-      {isStepRecordOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-card">
-            <h3>Record In-Process Parameter Check</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '12px' }}>
-                <label>
-                  <span style={{ fontSize: '13px', fontWeight: 600 }}>Step Number:</span>
-                  <input
-                    className="search-input"
-                    onChange={(e) => setBmrStepNum(Number(e.target.value))}
-                    style={{ width: '100%', marginTop: '4px' }}
-                    type="number"
-                    value={bmrStepNum}
-                  />
-                </label>
-                <label>
-                  <span style={{ fontSize: '13px', fontWeight: 600 }}>Operation Name:</span>
-                  <input
-                    className="search-input"
-                    onChange={(e) => setBmrOpName(e.target.value)}
-                    style={{ width: '100%', marginTop: '4px' }}
-                    value={bmrOpName}
-                  />
-                </label>
-              </div>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Parameter Name:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setBmrParamName(e.target.value)}
-                  placeholder="e.g. Dissolution rate, Blend uniformity, pH, Hardness"
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={bmrParamName}
-                />
-              </label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '8px' }}>
-                <label>
-                  <span style={{ fontSize: '12px', fontWeight: 600 }}>Target:</span>
-                  <input
-                    className="search-input"
-                    onChange={(e) => setBmrTargetVal(e.target.value)}
-                    style={{ width: '100%', marginTop: '4px' }}
-                    value={bmrTargetVal}
-                  />
-                </label>
-                <label>
-                  <span style={{ fontSize: '12px', fontWeight: 600 }}>Min Limit:</span>
-                  <input
-                    className="search-input"
-                    onChange={(e) => setBmrMinVal(e.target.value)}
-                    style={{ width: '100%', marginTop: '4px' }}
-                    value={bmrMinVal}
-                  />
-                </label>
-                <label>
-                  <span style={{ fontSize: '12px', fontWeight: 600 }}>Max Limit:</span>
-                  <input
-                    className="search-input"
-                    onChange={(e) => setBmrMaxVal(e.target.value)}
-                    style={{ width: '100%', marginTop: '4px' }}
-                    value={bmrMaxVal}
-                  />
-                </label>
-                <label>
-                  <span style={{ fontSize: '12px', fontWeight: 600 }}>Unit:</span>
-                  <input
-                    className="search-input"
-                    onChange={(e) => setBmrUnit(e.target.value)}
-                    style={{ width: '100%', marginTop: '4px' }}
-                    value={bmrUnit}
-                  />
-                </label>
-              </div>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Actual Measured Value:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setBmrMeasuredVal(e.target.value)}
-                  style={{ width: '100%', marginTop: '4px', fontWeight: 600, color: 'var(--color-primary)' }}
-                  value={bmrMeasuredVal}
-                />
-              </label>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Notes / Observations:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setBmrStepNotes(e.target.value)}
-                  placeholder="Calibration verified, instrument ID..."
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={bmrStepNotes}
-                />
-              </label>
-            </div>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '16px' }}>
-              <Button onClick={() => setIsStepRecordOpen(false)} variant="secondary">Cancel</Button>
-              <Button
-                disabled={recordStepMutation.isPending || !bmrParamName.trim()}
-                onClick={() => recordStepMutation.mutate()}
-                variant="primary"
-              >
-                Save Record
-              </Button>
-            </div>
+      <Modal
+        isOpen={isStepRecordOpen}
+        onClose={() => setIsStepRecordOpen(false)}
+        title="Record In-Process Parameter Check"
+        footer={
+          <>
+            <Button onClick={() => setIsStepRecordOpen(false)} variant="secondary">Cancel</Button>
+            <Button
+              disabled={recordStepMutation.isPending || !bmrParamName.trim()}
+              onClick={() => recordStepMutation.mutate()}
+              variant="primary"
+            >
+              Save Record
+            </Button>
+          </>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <FormGrid columns={2}>
+            <FormField label="Step Number" required>
+              <NumberInput
+                onChange={(e) => setBmrStepNum(Number(e.target.value))}
+                value={bmrStepNum}
+              />
+            </FormField>
+            <FormField label="Operation Name" required>
+              <TextInput
+                onChange={(e) => setBmrOpName(e.target.value)}
+                value={bmrOpName}
+              />
+            </FormField>
+          </FormGrid>
+          <FormField label="Parameter Name" required>
+            <TextInput
+              onChange={(e) => setBmrParamName(e.target.value)}
+              placeholder="e.g. Dissolution rate, Blend uniformity, pH, Hardness"
+              value={bmrParamName}
+            />
+          </FormField>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+            <FormField label="Target">
+              <TextInput
+                onChange={(e) => setBmrTargetVal(e.target.value)}
+                value={bmrTargetVal}
+              />
+            </FormField>
+            <FormField label="Min Limit">
+              <TextInput
+                onChange={(e) => setBmrMinVal(e.target.value)}
+                value={bmrMinVal}
+              />
+            </FormField>
+            <FormField label="Max Limit">
+              <TextInput
+                onChange={(e) => setBmrMaxVal(e.target.value)}
+                value={bmrMaxVal}
+              />
+            </FormField>
+            <FormField label="Unit">
+              <TextInput
+                onChange={(e) => setBmrUnit(e.target.value)}
+                value={bmrUnit}
+              />
+            </FormField>
           </div>
+          <FormField label="Actual Measured Value" required>
+            <TextInput
+              onChange={(e) => setBmrMeasuredVal(e.target.value)}
+              style={{ fontWeight: 600, color: 'var(--color-primary)' }}
+              value={bmrMeasuredVal}
+            />
+          </FormField>
+          <FormField label="Notes / Observations">
+            <TextInput
+              onChange={(e) => setBmrStepNotes(e.target.value)}
+              placeholder="Calibration verified, instrument ID..."
+              value={bmrStepNotes}
+            />
+          </FormField>
         </div>
-      )}
+      </Modal>
 
       {/* BMR Sign-Off Modal */}
-      {isSignoffOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-card">
-            <h3>Digital Stage Sign-Off (21 CFR Part 11)</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Manufacturing Stage:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setBmrStageName(e.target.value)}
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={bmrStageName}
-                />
-              </label>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Approver Role:</span>
-                <select
-                  className="search-input"
-                  onChange={(e) => setBmrRole(e.target.value)}
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={bmrRole}
-                >
-                  <option value="OPERATOR">Operator / Technician</option>
-                  <option value="SUPERVISOR">Production Supervisor</option>
-                  <option value="QA_MANAGER">Quality Assurance (QA) Head</option>
-                </select>
-              </label>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Approval Remarks:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setBmrSignoffRemarks(e.target.value)}
-                  placeholder="All parameters within acceptable pharmacopoeial limits."
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={bmrSignoffRemarks}
-                />
-              </label>
-            </div>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '16px' }}>
-              <Button onClick={() => setIsSignoffOpen(false)} variant="secondary">Cancel</Button>
-              <Button
-                disabled={signoffMutation.isPending}
-                onClick={() => signoffMutation.mutate()}
-                variant="primary"
-              >
-                Sign Off & Approve
-              </Button>
-            </div>
-          </div>
+      <Modal
+        isOpen={isSignoffOpen}
+        onClose={() => setIsSignoffOpen(false)}
+        title="Digital Stage Sign-Off (21 CFR Part 11)"
+        footer={
+          <>
+            <Button onClick={() => setIsSignoffOpen(false)} variant="secondary">Cancel</Button>
+            <Button
+              disabled={signoffMutation.isPending}
+              onClick={() => signoffMutation.mutate()}
+              variant="primary"
+            >
+              Sign Off & Approve
+            </Button>
+          </>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <FormField label="Manufacturing Stage" required>
+            <TextInput
+              onChange={(e) => setBmrStageName(e.target.value)}
+              value={bmrStageName}
+            />
+          </FormField>
+          <FormField label="Approver Role" required>
+            <SelectInput
+              onChange={(e) => setBmrRole(e.target.value)}
+              value={bmrRole}
+            >
+              <option value="OPERATOR">Operator / Technician</option>
+              <option value="SUPERVISOR">Production Supervisor</option>
+              <option value="QA_MANAGER">Quality Assurance (QA) Head</option>
+            </SelectInput>
+          </FormField>
+          <FormField label="Approval Remarks">
+            <TextInput
+              onChange={(e) => setBmrSignoffRemarks(e.target.value)}
+              placeholder="All parameters within acceptable pharmacopoeial limits."
+              value={bmrSignoffRemarks}
+            />
+          </FormField>
         </div>
-      )}
+      </Modal>
 
       {/* BMR Log Deviation Modal */}
-      {isDeviationOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-card">
-            <h3>Log Deviation / OOS Incident</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Incident Title:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setDevTitle(e.target.value)}
-                  placeholder="e.g. Temperature spike during drying stage"
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={devTitle}
-                />
-              </label>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Severity:</span>
-                <select
-                  className="search-input"
-                  onChange={(e) => setDevSeverity(e.target.value)}
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={devSeverity}
-                >
-                  <option value="MINOR">Minor Deviation</option>
-                  <option value="MAJOR">Major Deviation</option>
-                  <option value="CRITICAL">Critical Out-of-Specification</option>
-                </select>
-              </label>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Description:</span>
-                <textarea
-                  className="search-input"
-                  onChange={(e) => setDevDescription(e.target.value)}
-                  placeholder="Detailed description of the non-conformance..."
-                  rows={3}
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={devDescription}
-                />
-              </label>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Immediate Action Taken:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setDevImmediateAction(e.target.value)}
-                  placeholder="e.g. Paused granulation bed and notified QA."
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={devImmediateAction}
-                />
-              </label>
-            </div>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '16px' }}>
-              <Button onClick={() => setIsDeviationOpen(false)} variant="secondary">Cancel</Button>
-              <Button
-                disabled={raiseDevMutation.isPending || !devTitle.trim()}
-                onClick={() => raiseDevMutation.mutate()}
-                variant="destructive"
-              >
-                Log Deviation
-              </Button>
-            </div>
-          </div>
+      <Modal
+        isOpen={isDeviationOpen}
+        onClose={() => setIsDeviationOpen(false)}
+        title="Log Deviation / OOS Incident"
+        footer={
+          <>
+            <Button onClick={() => setIsDeviationOpen(false)} variant="secondary">Cancel</Button>
+            <Button
+              disabled={raiseDevMutation.isPending || !devTitle.trim()}
+              onClick={() => raiseDevMutation.mutate()}
+              variant="destructive"
+            >
+              Log Deviation
+            </Button>
+          </>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <FormField label="Incident Title" required>
+            <TextInput
+              onChange={(e) => setDevTitle(e.target.value)}
+              placeholder="e.g. Temperature spike during drying stage"
+              value={devTitle}
+            />
+          </FormField>
+          <FormField label="Severity" required>
+            <SelectInput
+              onChange={(e) => setDevSeverity(e.target.value)}
+              value={devSeverity}
+            >
+              <option value="MINOR">Minor Deviation</option>
+              <option value="MAJOR">Major Deviation</option>
+              <option value="CRITICAL">Critical Out-of-Specification</option>
+            </SelectInput>
+          </FormField>
+          <FormField label="Description" required>
+            <TextAreaInput
+              onChange={(e) => setDevDescription(e.target.value)}
+              placeholder="Detailed description of the non-conformance..."
+              rows={3}
+              value={devDescription}
+            />
+          </FormField>
+          <FormField label="Immediate Action Taken">
+            <TextInput
+              onChange={(e) => setDevImmediateAction(e.target.value)}
+              placeholder="e.g. Paused granulation bed and notified QA."
+              value={devImmediateAction}
+            />
+          </FormField>
         </div>
-      )}
+      </Modal>
 
       {/* BMR Resolve Deviation Modal */}
-      {isResolveDevOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-card">
-            <h3>Resolve Deviation & Log CAPA Plan</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Root Cause:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setDevRootCause(e.target.value)}
-                  placeholder="e.g. Thermocouple calibration drift."
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={devRootCause}
-                />
-              </label>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Corrective & Preventive Action (CAPA):</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setDevCapPlan(e.target.value)}
-                  placeholder="e.g. Replace sensor and recalibrate weekly."
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={devCapPlan}
-                />
-              </label>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Resolution Summary Notes:</span>
-                <textarea
-                  className="search-input"
-                  onChange={(e) => setDevResolutionNotes(e.target.value)}
-                  placeholder="QA review confirms no impact on product safety."
-                  rows={2}
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={devResolutionNotes}
-                />
-              </label>
-            </div>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '16px' }}>
-              <Button onClick={() => setIsResolveDevOpen(false)} variant="secondary">Cancel</Button>
-              <Button
-                disabled={resolveDevMutation.isPending}
-                onClick={() => resolveDevMutation.mutate()}
-                variant="primary"
-              >
-                Resolve Deviation
-              </Button>
-            </div>
-          </div>
+      <Modal
+        isOpen={isResolveDevOpen}
+        onClose={() => setIsResolveDevOpen(false)}
+        title="Resolve Deviation & Log CAPA Plan"
+        footer={
+          <>
+            <Button onClick={() => setIsResolveDevOpen(false)} variant="secondary">Cancel</Button>
+            <Button
+              disabled={resolveDevMutation.isPending}
+              onClick={() => resolveDevMutation.mutate()}
+              variant="primary"
+            >
+              Resolve Deviation
+            </Button>
+          </>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <FormField label="Root Cause" required>
+            <TextInput
+              onChange={(e) => setDevRootCause(e.target.value)}
+              placeholder="e.g. Thermocouple calibration drift."
+              value={devRootCause}
+            />
+          </FormField>
+          <FormField label="Corrective & Preventive Action (CAPA)" required>
+            <TextInput
+              onChange={(e) => setDevCapPlan(e.target.value)}
+              placeholder="e.g. Replace sensor and recalibrate weekly."
+              value={devCapPlan}
+            />
+          </FormField>
+          <FormField label="Resolution Summary Notes">
+            <TextAreaInput
+              onChange={(e) => setDevResolutionNotes(e.target.value)}
+              placeholder="QA review confirms no impact on product safety."
+              rows={2}
+              value={devResolutionNotes}
+            />
+          </FormField>
         </div>
-      )}
+      </Modal>
     </section>
   )
 }

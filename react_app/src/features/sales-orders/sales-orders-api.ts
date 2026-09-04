@@ -7,12 +7,17 @@ export type SalesOrderLine = {
   itemName: string | null
   description: string | null
   quantity: number | string | null
+  orderedQuantity?: number | string | null
   quantityShipped: number | string | null
+  shippedQuantity?: number | string | null
   quantityInvoiced: number | string | null
   quantityBackordered: number | string | null
   unit: string | null
+  unitOfMeasure?: string | null
   rate: number | string | null
+  unitPrice?: number | string | null
   discountPct: number | string | null
+  discountPercent?: number | string | null
   taxRate: number | string | null
   hsnCode: string | null
   amount: number | string | null
@@ -55,12 +60,12 @@ export type SalesOrderPage = {
   last: boolean
 }
 
-type ListSalesOrdersOptions = {
-  page: number
-  status: string | null
+export type ListSalesOrdersOptions = {
+  page?: number
+  status?: string | null
 }
 
-export async function listSalesOrders({ page, status }: ListSalesOrdersOptions) {
+export async function listSalesOrders({ page = 0, status = null }: ListSalesOrdersOptions = {}) {
   const params = new URLSearchParams({ page: String(page), size: '25', sort: 'orderDate,desc' })
   if (status) params.set('status', status)
   return apiFetch<SalesOrderPage>(`/api/v1/sales-orders?${params.toString()}`)
@@ -74,10 +79,13 @@ export type CreateSalesOrderLineRequest = {
   itemId?: string
   description: string
   hsnCode?: string
-  quantity: number
-  rate: number
+  quantity?: number
+  orderedQuantity?: number
+  rate?: number
+  unitPrice?: number
   unit?: string
   discountPct?: number
+  discountPercent?: number
   taxGroupId?: string
 }
 
@@ -86,11 +94,13 @@ export type CreateSalesOrderRequest = {
   lines: CreateSalesOrderLineRequest[]
   orderDate?: string
   expectedShipmentDate?: string
+  expectedDeliveryDate?: string
   referenceNumber?: string
   deliveryMethod?: string
   placeOfSupply?: string
   notes?: string
   terms?: string
+  termsAndConditions?: string
   warehouseId?: string
   allowBackorder?: boolean
 }

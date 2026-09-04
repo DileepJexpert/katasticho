@@ -5,10 +5,12 @@ import {
   Plus,
   X,
 } from 'lucide-react'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { PageHeader } from '@/design-system/page-header'
-import { Quantity } from '@/design-system/quantity'
+import {
+  Button,
+  DataTable,
+  PageHeader,
+  Quantity,
+} from '@/design-system'
 import {
   issueSamples,
   listMySampleBalances,

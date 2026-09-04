@@ -3,6 +3,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Send, PackageCheck, XCircle } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Button } from '@/design-system/button'
+import { FormField } from '@/design-system/form-field'
+import { Modal } from '@/design-system/modal'
+import { NumberInput } from '@/design-system/number-input'
+import { TextInput } from '@/design-system/text-input'
 import { DataTable } from '@/design-system/data-table'
 import { Money } from '@/design-system/money'
 import { PageHeader } from '@/design-system/page-header'
@@ -188,55 +192,45 @@ export function JobWorkDetailPage() {
         )}
       </section>
 
-      {isReceiveOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-card">
-            <h3>Receive Processed Goods from Job Worker</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Received Output Item ID:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setReceiveItemId(e.target.value)}
-                  placeholder="Processed Item UUID"
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={receiveItemId}
-                />
-              </label>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Received Good Quantity:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setReceivedQty(e.target.value)}
-                  style={{ width: '100%', marginTop: '4px' }}
-                  type="number"
-                  value={receivedQty}
-                />
-              </label>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Scrap / Process Wastage:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setWastageQty(e.target.value)}
-                  style={{ width: '100%', marginTop: '4px' }}
-                  type="number"
-                  value={wastageQty}
-                />
-              </label>
-            </div>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '16px' }}>
-              <Button onClick={() => setIsReceiveOpen(false)} variant="secondary">Cancel</Button>
-              <Button
-                disabled={receiveMutation.isPending || !receiveItemId.trim()}
-                onClick={() => receiveMutation.mutate()}
-                variant="primary"
-              >
-                Record Inward Receipt
-              </Button>
-            </div>
-          </div>
+      <Modal
+        isOpen={isReceiveOpen}
+        onClose={() => setIsReceiveOpen(false)}
+        title="Receive Processed Goods from Job Worker"
+        footer={
+          <>
+            <Button onClick={() => setIsReceiveOpen(false)} variant="secondary">Cancel</Button>
+            <Button
+              disabled={receiveMutation.isPending || !receiveItemId.trim()}
+              onClick={() => receiveMutation.mutate()}
+              variant="primary"
+            >
+              Record Inward Receipt
+            </Button>
+          </>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <FormField label="Received Output Item ID" required>
+            <TextInput
+              onChange={(e) => setReceiveItemId(e.target.value)}
+              placeholder="Processed Item UUID"
+              value={receiveItemId}
+            />
+          </FormField>
+          <FormField label="Received Good Quantity" required>
+            <NumberInput
+              onChange={(e) => setReceivedQty(e.target.value)}
+              value={receivedQty}
+            />
+          </FormField>
+          <FormField label="Scrap / Process Wastage">
+            <NumberInput
+              onChange={(e) => setWastageQty(e.target.value)}
+              value={wastageQty}
+            />
+          </FormField>
         </div>
-      )}
+      </Modal>
     </section>
   )
 }

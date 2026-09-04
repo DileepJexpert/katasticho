@@ -28,6 +28,8 @@ export type Invoice = {
   subtotal: number | string | null
   taxAmount: number | string | null
   tcsAmount: number | string | null
+  discountAmount?: number | string | null
+  adjustment?: number | string | null
   totalAmount: number | string | null
   amountPaid: number | string | null
   balanceDue: number | string | null
@@ -35,6 +37,7 @@ export type Invoice = {
   placeOfSupply: string | null
   reverseCharge: boolean
   notes: string | null
+  customerNotes?: string | null
   termsAndConditions: string | null
   lines: InvoiceLine[]
 }

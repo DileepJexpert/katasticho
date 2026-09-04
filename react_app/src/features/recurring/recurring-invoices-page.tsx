@@ -347,7 +347,7 @@ export function RecurringInvoicesPage() {
                     <option value="">Select customer...</option>
                     {contacts.map((c) => (
                       <option key={c.id} value={c.id}>
-                        {c.name}
+                        {c.displayName || c.name}
                       </option>
                     ))}
                   </select>

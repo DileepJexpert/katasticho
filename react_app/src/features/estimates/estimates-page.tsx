@@ -221,7 +221,7 @@ export function EstimatesPage() {
       ) : filtered.length === 0 ? (
         <EmptyState
           action={
-            <Button onClick={() => setShowCreateModal(true)} variant="primary">
+            <Button onClick={() => navigate('/estimates/new')} variant="primary">
               <Plus aria-hidden="true" size={16} />
               <span>Create Estimate</span>
             </Button>

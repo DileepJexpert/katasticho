@@ -158,7 +158,7 @@ export function PaymentCreatePage() {
                 }}
                 options={customers.map((c) => ({
                   value: c.id,
-                  label: c.displayName || c.name,
+                  label: c.displayName || c.name || '',
                 }))}
                 placeholderOption="-- All Customers --"
                 value={contactId}

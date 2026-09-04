@@ -160,7 +160,7 @@ export function DebitNoteDetailPage() {
                   <td>{line.batchNumber ? <code>{line.batchNumber}</code> : '--'}</td>
                   <td className="numeric-cell"><Quantity value={line.quantity} /></td>
                   <td className="numeric-cell"><Money amount={line.unitPrice} /></td>
-                  <td className="numeric-cell"><strong><Money amount={line.quantity * line.unitPrice} /></strong></td>
+                  <td className="numeric-cell"><strong><Money amount={(Number(line.quantity) || 0) * (Number(line.unitPrice) || 0)} /></strong></td>
                 </tr>
               ))}
             </tbody>

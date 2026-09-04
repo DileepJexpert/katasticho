@@ -3,11 +3,18 @@ import { useQuery } from '@tanstack/react-query'
 import { Plus, UsersRound } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  DataTable,
+  DirectoryToolbar,
+  EmptyState,
+  FilterTabs,
+  Money,
+  PageHeader,
+  SearchInput,
+  StatusChip,
+  TablePagination,
+} from '@/design-system'
 import { getContactSummary, listContacts, type Contact, type ContactFilter } from '@/features/contacts/contacts-api'
 
 type RoleTab = {
@@ -68,7 +75,7 @@ export function ContactsPage() {
               label: t.label,
               count: summary.isLoading ? undefined : (summary.data?.[t.countKey] ?? 0),
             }))}
-            onChange={(val) => setFilter(val as ContactRoleFilter)}
+            onChange={(val) => setFilter(val as ContactFilter)}
           />
           <SearchInput
             ariaLabel="Search contacts"

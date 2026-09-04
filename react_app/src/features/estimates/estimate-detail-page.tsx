@@ -237,14 +237,14 @@ export function EstimateDetailPage() {
             <Fact label="Estimate Date" value={estimate.estimateDate} />
             <Fact label="Expiry Date" value={estimate.expiryDate || 'No expiry'} />
             <Fact label="Reference Number" mono value={estimate.referenceNumber || 'None'} />
-            <Fact label="Converted Invoice" mono value={estimate.convertedInvoiceNumber || 'Not converted'} />
+            <Fact label="Converted Invoice" mono value={estimate.convertedInvoiceId || 'Not converted'} />
             <Fact label="Status" value={<StatusChip status={estimate.status} />} />
           </FactList>
         </DocumentCard>
 
         <DocumentCard title="Quotation Total" variant="summary">
           <SummaryRow label="Subtotal" value={<Money amount={estimate.subtotal} />} />
-          <SummaryRow label="Estimated Tax" value={<Money amount={estimate.taxTotal} />} />
+          <SummaryRow label="Estimated Tax" value={<Money amount={estimate.taxAmount} />} />
           <SummaryRow isTotal label="Grand Total" value={<Money amount={estimate.total} />} />
         </DocumentCard>
       </div>

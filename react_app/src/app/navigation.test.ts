@@ -136,4 +136,29 @@ describe('navigation', () => {
     expect(taxGroupKenya?.items.map((i) => i.id)).toContain('compliance.kenya')
     expect(taxGroupKenya?.items.map((i) => i.id)).not.toContain('compliance.gst')
   })
+
+  it('allows PLATFORM_ADMIN to bypass disabledIds and role restrictions', () => {
+    const adminVisible = getVisibleNavigation({
+      role: 'PLATFORM_ADMIN',
+      industry: null,
+      country: null,
+      disabledIds: ['contacts', 'dashboard'],
+    })
+
+    expect(adminVisible.some((i) => i.id === 'contacts')).toBe(true)
+    expect(adminVisible.some((i) => i.id === 'dashboard')).toBe(true)
+  })
+
+  it('restricts role-specific groups and items', () => {
+    const caStructure = getVisibleNavStructure({
+      role: 'CA_PARTNER',
+      industry: null,
+      country: null,
+    })
+
+    // CA partner should only see CA practice and settings groups
+    const groupIds = caStructure.groups.map((g) => g.id)
+    expect(groupIds).toContain('ca_practice')
+    expect(groupIds).not.toContain('manufacturing_operations')
+  })
 })

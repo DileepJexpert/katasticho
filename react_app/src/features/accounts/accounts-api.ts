@@ -7,6 +7,7 @@ export type Account = {
   code: string
   name: string
   type: string
+  accountType?: string
   subType: string | null
   parentId: string | null
   parentAccountName: string | null
@@ -22,6 +23,7 @@ export type Account = {
 }
 
 export type AccountTransaction = {
+  id?: string
   lineId: string
   journalEntryId: string
   entryNumber: string
@@ -29,6 +31,7 @@ export type AccountTransaction = {
   sourceModule: string | null
   entryDescription: string | null
   lineDescription: string | null
+  description?: string | null
   debit: number | string | null
   credit: number | string | null
   currency: string | null

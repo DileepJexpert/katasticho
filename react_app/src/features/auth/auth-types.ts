@@ -11,6 +11,7 @@ export type UserInfo = {
   industryCode: string | null
   onboardingCompleted: boolean
   defaultLandingPage: string | null
+  country?: string | null
 }
 
 export type WebAuthResponse = {

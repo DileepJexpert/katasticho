@@ -4,6 +4,12 @@ import { ArrowLeft, Calendar, Wrench } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
 import { Button } from '@/design-system/button'
+import { FormField } from '@/design-system/form-field'
+import { FormGrid } from '@/design-system/form-grid'
+import { Modal } from '@/design-system/modal'
+import { NumberInput } from '@/design-system/number-input'
+import { SelectInput } from '@/design-system/select-input'
+import { TextInput } from '@/design-system/text-input'
 import { DataTable } from '@/design-system/data-table'
 import { Money } from '@/design-system/money'
 import { PageHeader } from '@/design-system/page-header'
@@ -207,122 +213,102 @@ export function WorkCenterDetailPage() {
         )}
       </section>
 
-      {isScheduleModalOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-card">
-            <h3>Add Preventive Maintenance Schedule</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Schedule Code:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setSchedCode(e.target.value)}
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={schedCode}
-                />
-              </label>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Routine Title:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setSchedTitle(e.target.value)}
-                  placeholder="e.g. Monthly Hydraulic Fluid & Seal Check"
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={schedTitle}
-                />
-              </label>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <label style={{ flex: 1 }}>
-                  <span style={{ fontSize: '13px', fontWeight: 600 }}>Frequency (Days):</span>
-                  <input
-                    className="search-input"
-                    onChange={(e) => setSchedDays(Number(e.target.value))}
-                    style={{ width: '100%', marginTop: '4px' }}
-                    type="number"
-                    value={schedDays}
-                  />
-                </label>
-                <label style={{ flex: 1 }}>
-                  <span style={{ fontSize: '13px', fontWeight: 600 }}>Next Due Date:</span>
-                  <input
-                    className="search-input"
-                    onChange={(e) => setSchedNextDue(e.target.value)}
-                    style={{ width: '100%', marginTop: '4px' }}
-                    type="date"
-                    value={schedNextDue}
-                  />
-                </label>
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '16px' }}>
-              <Button onClick={() => setIsScheduleModalOpen(false)} variant="secondary">Cancel</Button>
-              <Button
-                disabled={createSchedMutation.isPending || !schedTitle.trim()}
-                onClick={() => createSchedMutation.mutate()}
-                variant="primary"
-              >
-                Save Schedule
-              </Button>
-            </div>
-          </div>
+      <Modal
+        isOpen={isScheduleModalOpen}
+        onClose={() => setIsScheduleModalOpen(false)}
+        title="Add Preventive Maintenance Schedule"
+        footer={
+          <>
+            <Button onClick={() => setIsScheduleModalOpen(false)} variant="secondary">Cancel</Button>
+            <Button
+              disabled={createSchedMutation.isPending || !schedTitle.trim()}
+              onClick={() => createSchedMutation.mutate()}
+              variant="primary"
+            >
+              Save Schedule
+            </Button>
+          </>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <FormField label="Schedule Code">
+            <TextInput
+              onChange={(e) => setSchedCode(e.target.value)}
+              value={schedCode}
+            />
+          </FormField>
+          <FormField label="Routine Title" required>
+            <TextInput
+              onChange={(e) => setSchedTitle(e.target.value)}
+              placeholder="e.g. Monthly Hydraulic Fluid & Seal Check"
+              value={schedTitle}
+            />
+          </FormField>
+          <FormGrid columns={2}>
+            <FormField label="Frequency (Days)" required>
+              <NumberInput
+                onChange={(e) => setSchedDays(Number(e.target.value))}
+                value={schedDays}
+              />
+            </FormField>
+            <FormField label="Next Due Date" required>
+              <TextInput
+                onChange={(e) => setSchedNextDue(e.target.value)}
+                type="date"
+                value={schedNextDue}
+              />
+            </FormField>
+          </FormGrid>
         </div>
-      )}
+      </Modal>
 
-      {isMwoModalOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-card">
-            <h3>Log Maintenance Work Order</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Maintenance Type:</span>
-                <select
-                  className="search-input"
-                  onChange={(e) => setMwoType(e.target.value)}
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={mwoType}
-                >
-                  <option value="BREAKDOWN">Breakdown / Emergency Repair</option>
-                  <option value="PREVENTIVE">Preventive Maintenance (PM)</option>
-                  <option value="INSPECTION">Safety / Calibration Inspection</option>
-                </select>
-              </label>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Title:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setMwoTitle(e.target.value)}
-                  placeholder="e.g. Spindle bearing overheating"
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={mwoTitle}
-                />
-              </label>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Priority:</span>
-                <select
-                  className="search-input"
-                  onChange={(e) => setMwoPriority(e.target.value)}
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={mwoPriority}
-                >
-                  <option value="NORMAL">Normal</option>
-                  <option value="HIGH">High</option>
-                  <option value="URGENT">Urgent (Line Down)</option>
-                </select>
-              </label>
-            </div>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '16px' }}>
-              <Button onClick={() => setIsMwoModalOpen(false)} variant="secondary">Cancel</Button>
-              <Button
-                disabled={createMwoMutation.isPending || !mwoTitle.trim()}
-                onClick={() => createMwoMutation.mutate()}
-                variant="primary"
-              >
-                Log Maintenance Order
-              </Button>
-            </div>
-          </div>
+      <Modal
+        isOpen={isMwoModalOpen}
+        onClose={() => setIsMwoModalOpen(false)}
+        title="Log Maintenance Work Order"
+        footer={
+          <>
+            <Button onClick={() => setIsMwoModalOpen(false)} variant="secondary">Cancel</Button>
+            <Button
+              disabled={createMwoMutation.isPending || !mwoTitle.trim()}
+              onClick={() => createMwoMutation.mutate()}
+              variant="primary"
+            >
+              Log Maintenance Order
+            </Button>
+          </>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <FormField label="Maintenance Type" required>
+            <SelectInput
+              onChange={(e) => setMwoType(e.target.value)}
+              value={mwoType}
+            >
+              <option value="BREAKDOWN">Breakdown / Emergency Repair</option>
+              <option value="PREVENTIVE">Preventive Maintenance (PM)</option>
+              <option value="INSPECTION">Safety / Calibration Inspection</option>
+            </SelectInput>
+          </FormField>
+          <FormField label="Title" required>
+            <TextInput
+              onChange={(e) => setMwoTitle(e.target.value)}
+              placeholder="e.g. Spindle bearing overheating"
+              value={mwoTitle}
+            />
+          </FormField>
+          <FormField label="Priority" required>
+            <SelectInput
+              onChange={(e) => setMwoPriority(e.target.value)}
+              value={mwoPriority}
+            >
+              <option value="NORMAL">Normal</option>
+              <option value="HIGH">High</option>
+              <option value="URGENT">Urgent (Line Down)</option>
+            </SelectInput>
+          </FormField>
         </div>
-      )}
+      </Modal>
     </section>
   )
 }

@@ -1,4 +1,4 @@
-﻿import { apiFetch } from '@/api/client/api-client'
+import { apiFetch } from '@/api/client/api-client'
 
 export type WorkOrderLine = {
   id: string
@@ -6,9 +6,13 @@ export type WorkOrderLine = {
   itemId: string
   itemName: string | null
   requiredQty: number | string
+  requiredQuantity?: number | string
   issuedQty: number | string
+  issuedQuantity?: number | string
   unitCost: number | string
   lineCost: number | string
+  totalCost?: number | string
+  uom?: string | null
   status: string
   batchId: string | null
   batchNumber: string | null
@@ -54,9 +58,11 @@ export type WorkOrder = {
 export type JobCard = {
   id: string
   workOrderId: string
+  jobCardNumber?: string
   operationId: string
   workstationId: string | null
   sequenceNumber: number
+  sequence?: number
   assignedTo: string | null
   operationName: string | null
   workstationName: string | null

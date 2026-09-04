@@ -1111,6 +1111,7 @@ const navigationItems: readonly NavigationItem[] = [
 ]
 
 function isItemAllowed(item: NavigationItem, context: NavigationContext, disabledIds: Set<string>, capabilities: Set<string>): boolean {
+  if (context.role?.toUpperCase() === 'PLATFORM_ADMIN') return true
   if (disabledIds.has(item.id)) return false
   if (item.roles && (!context.role || !item.roles.includes(context.role))) return false
   if (item.industries && (!context.industry || !item.industries.includes(context.industry))) return false
@@ -1127,40 +1128,42 @@ export function getVisibleNavigation(context: NavigationContext): NavigationItem
 }
 
 export type VisibleNavStructure = {
-  topItems: NavigationItem[]
-  groups: NavGroup[]
-  bottomItems: NavigationItem[]
+  topItems: readonly NavigationItem[]
+  groups: readonly NavGroup[]
+  bottomItems: readonly NavigationItem[]
 }
 
 export function getVisibleNavStructure(context: NavigationContext): VisibleNavStructure {
   const disabledIds = new Set(context.disabledIds ?? [])
   const capabilities = new Set(context.capabilities ?? [])
+  const isPlatformAdmin = context.role?.toUpperCase() === 'PLATFORM_ADMIN'
+  const isCaUser = context.role === 'CA_PARTNER' || context.role === 'CA_STAFF'
 
   const topItems = topLevelNavItems.filter((item) => isItemAllowed(item, context, disabledIds, capabilities))
   const bottomItems = bottomLevelNavItems.filter((item) => isItemAllowed(item, context, disabledIds, capabilities))
 
-  const isCaUser = context.role === 'CA_PARTNER' || context.role === 'CA_STAFF'
-
   const groups = navGroups
     .map((group) => {
-      if (disabledIds.has(group.id)) return null
-      if (group.roles && (!context.role || !group.roles.includes(context.role))) return null
-      if (group.industries && (!context.industry || !group.industries.includes(context.industry))) return null
-      if (group.countries && (!context.country || !group.countries.includes(context.country))) return null
-      if (group.capability && !capabilities.has(group.capability)) return null
+      if (!isPlatformAdmin) {
+        if (disabledIds.has(group.id)) return null
+        if (group.roles && (!context.role || !group.roles.includes(context.role))) return null
+        if (group.industries && (!context.industry || !group.industries.includes(context.industry))) return null
+        if (group.countries && (!context.country || !group.countries.includes(context.country))) return null
+        if (group.capability && !capabilities.has(group.capability)) return null
+      }
 
       // Filter children
       const visibleItems = group.items.filter((item) => isItemAllowed(item, context, disabledIds, capabilities))
       if (visibleItems.length === 0) return null
 
       // CA user prioritization
-      if (isCaUser && group.id !== 'ca_practice' && group.id !== 'settings_group') {
+      if (!isPlatformAdmin && isCaUser && group.id !== 'ca_practice' && group.id !== 'settings_group') {
         return null
       }
 
       return {
         ...group,
-        items: visibleItems,
+        items: visibleItems as readonly NavigationItem[],
       }
     })
     .filter((group): group is NavGroup => group !== null)

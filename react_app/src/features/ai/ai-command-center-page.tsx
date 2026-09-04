@@ -180,8 +180,10 @@ export function AiCommandCenterPage() {
     reader.onload = (ev) => {
       const b64 = ev.target?.result as string
       setBillImageBase64(b64)
-      const cleanB64 = b64.includes(',') ? b64.split(',')[1] : b64
-      scanBillMutation.mutate(cleanB64)
+      const cleanB64 = (b64.includes(',') ? b64.split(',')[1] : b64) ?? ''
+      if (cleanB64) {
+        scanBillMutation.mutate(cleanB64)
+      }
     }
     reader.readAsDataURL(file)
   }
