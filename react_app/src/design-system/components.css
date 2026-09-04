@@ -40,6 +40,36 @@
 .table-row-link { color: var(--brand-700); font-weight: var(--fw-semibold); text-decoration: none; }
 .table-row-link:hover, .table-row-link:focus-visible { text-decoration: underline; }
 
+/* Shared operational layout primitives retained by older migrated screens. */
+.panel-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-4); }
+.summary-strip { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-bottom: var(--space-4); }
+.summary-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius); display: grid; gap: var(--space-1); min-height: 116px; padding: var(--space-4); }
+.summary-card--accent { background: var(--brand-50); border-color: var(--brand-100); }
+.summary-card__label { color: var(--text-secondary); font-size: var(--text-xs); font-weight: var(--fw-medium); }
+.summary-card__value { align-items: center; color: var(--text-primary); display: flex; font-size: var(--text-lg); font-variant-numeric: tabular-nums lining-nums; font-weight: var(--fw-semibold); min-height: var(--control-h); }
+.summary-card__hint { color: var(--text-muted); font-size: var(--text-xs); }
+
+.search-field { align-items: center; background: var(--bg-surface); border: 1px solid var(--border-strong); border-radius: var(--radius); display: flex; gap: var(--space-2); min-height: var(--control-h); padding: 0 var(--space-3); }
+.search-field:focus-within { border-color: var(--brand-600); outline: 2px solid var(--brand-50); outline-offset: 1px; }
+.search-field svg { color: var(--text-muted); flex: 0 0 auto; }
+.search-field input { background: transparent; border: 0; color: var(--text-primary); flex: 1; min-width: 0; outline: 0; padding: 0; width: 100%; }
+.search-field input::placeholder { color: var(--text-muted); }
+
+.select-field { background: var(--bg-surface); border: 1px solid var(--border-strong); border-radius: var(--radius); color: var(--text-primary); font: inherit; min-height: var(--control-h); }
+.select-field:focus { border-color: var(--brand-600); outline: 2px solid var(--brand-50); outline-offset: 1px; }
+.filter-chips { align-items: center; display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.filter-chip { align-items: center; background: var(--bg-surface); border: 1px solid var(--border-strong); border-radius: var(--radius); color: var(--text-secondary); cursor: pointer; display: inline-flex; font: inherit; font-size: var(--text-sm); font-weight: var(--fw-medium); gap: var(--space-1); min-height: var(--control-h); }
+.filter-chip:hover { background: var(--bg-subtle); color: var(--text-primary); }
+.filter-chip--active { background: var(--brand-50); border-color: var(--brand-500); color: var(--brand-900); }
+.icon-button { align-items: center; background: transparent; border: 0; border-radius: var(--radius); color: var(--text-secondary); display: inline-flex; justify-content: center; }
+.icon-button:hover { background: var(--bg-subtle); color: var(--text-primary); }
+
+.pos-checkout-grid { align-items: start; display: grid; gap: var(--space-4); grid-template-columns: minmax(0, 1.4fr) minmax(360px, 1fr); }
+
+@media (max-width: 900px) {
+  .pos-checkout-grid { grid-template-columns: 1fr; }
+}
+
 /* ==========================================================================
    Centralized Form & Alignment Architecture
    Follows docs/design-system.md: calm, dense, trustworthy, tokens-first.
@@ -135,6 +165,118 @@
   cursor: pointer;
   height: 16px;
   width: 16px;
+}
+
+.form-checkbox-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.form-checkbox-description {
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: var(--fw-regular);
+}
+
+/* Form field label and hints */
+.field-label-row {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.field-label-row label {
+  align-items: center;
+  cursor: pointer;
+  display: inline-flex;
+  gap: var(--space-1);
+}
+
+.field-required-mark {
+  color: var(--neg-text);
+  font-weight: var(--fw-semibold);
+}
+
+.field-optional-tag {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.field-tooltip {
+  color: var(--text-muted);
+  cursor: help;
+  font-size: 12px;
+}
+
+/* Text input with icons */
+.input-with-icons {
+  align-items: center;
+  display: flex;
+  position: relative;
+  width: 100%;
+}
+
+.input-with-icons__icon {
+  align-items: center;
+  color: var(--text-muted);
+  display: flex;
+  pointer-events: none;
+  position: absolute;
+}
+
+.input-with-icons__icon--left {
+  left: 10px;
+}
+
+.input-with-icons__icon--right {
+  right: 10px;
+}
+
+.input-with-icons__input--left {
+  padding-left: 34px;
+}
+
+.input-with-icons__input--right {
+  padding-right: 34px;
+}
+
+/* Number input */
+.number-input-wrap {
+  align-items: center;
+  display: flex;
+  position: relative;
+  width: 100%;
+}
+
+.number-input-prefix {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: var(--fw-medium);
+  left: 10px;
+  pointer-events: none;
+  position: absolute;
+}
+
+.number-input-suffix {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  pointer-events: none;
+  position: absolute;
+  right: 10px;
+}
+
+.number-input {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.number-input--prefix {
+  padding-left: 26px;
+}
+
+.number-input--suffix {
+  padding-right: 44px;
 }
 
 /* Form Container & Layout */
@@ -580,4 +722,24 @@
   gap: var(--space-2);
   justify-content: flex-end;
   padding: var(--space-3) var(--space-5);
+}
+
+/* Document error view */
+.document-error__back {
+  margin-bottom: var(--space-4);
+}
+
+.document-error__icon {
+  margin-bottom: var(--space-2);
+}
+
+/* Directory state / empty state */
+.directory-state__icon {
+  color: var(--text-muted);
+}
+
+.directory-state__actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
 }

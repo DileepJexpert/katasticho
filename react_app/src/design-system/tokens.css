@@ -69,6 +69,33 @@
   --ease: cubic-bezier(0.2, 0, 0, 1);
   --dur-fast: 120ms;
   --dur-base: 180ms;
+
+  /*
+   * Compatibility aliases for pages migrated before the current token names.
+   * They intentionally resolve to the canonical design-system tokens above;
+   * new components must use the canonical names directly.
+   */
+  --space-xs: var(--space-1);
+  --space-sm: var(--space-2);
+  --space-md: var(--space-4);
+  --space-lg: var(--space-6);
+  --radius-lg: var(--radius-md);
+
+  --color-surface: var(--bg-surface);
+  --color-surface-subtle: var(--bg-subtle);
+  --color-bg-subtle: var(--bg-subtle);
+  --color-border: var(--border);
+  --color-primary: var(--brand-600);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-muted: var(--text-muted);
+  --color-success: var(--pos-text);
+  --color-success-subtle: var(--pos-bg);
+  --color-warning: var(--warn-text);
+  --color-danger: var(--neg-text);
+  --color-danger-subtle: var(--neg-bg);
+  --color-error: var(--neg-text);
 }
 
 /* Dark Mode */

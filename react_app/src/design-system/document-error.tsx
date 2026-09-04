@@ -16,14 +16,14 @@ export function DocumentError({
 }: DocumentErrorProps) {
   return (
     <section className="workspace-page">
-      <div style={{ marginBottom: 'var(--space-4)' }}>
+      <div className="document-error__back">
         <Button onClick={onBack} variant="secondary">
           <ArrowLeft aria-hidden="true" size={16} />
           {backLabel}
         </Button>
       </div>
       <div className="directory-state directory-state--error" role="alert">
-        <AlertCircle size={32} style={{ marginBottom: 'var(--space-2)' }} />
+        <AlertCircle size={32} className="document-error__icon" />
         <strong>{title}</strong>
         <p>{message}</p>
       </div>

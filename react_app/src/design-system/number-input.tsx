@@ -15,27 +15,27 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(functi
 
   if (prefix || unitSuffix) {
     return (
-      <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%' }}>
+      <div className="number-input-wrap">
         {prefix && (
-          <span style={{ position: 'absolute', left: '10px', color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', fontWeight: 'var(--fw-medium)', pointerEvents: 'none' }}>
+          <span className="number-input-prefix">
             {prefix}
           </span>
         )}
         <input
           ref={ref}
           type="number"
-          className={clsx(className, isInvalid && 'field-input--error')}
-          style={{
-            paddingLeft: prefix ? '26px' : undefined,
-            paddingRight: unitSuffix ? '44px' : undefined,
-            textAlign: 'right',
-            fontVariantNumeric: 'tabular-nums',
-            ...style,
-          }}
+          className={clsx(
+            'number-input',
+            prefix && 'number-input--prefix',
+            unitSuffix && 'number-input--suffix',
+            className,
+            isInvalid && 'field-input--error'
+          )}
+          style={style}
           {...props}
         />
         {unitSuffix && (
-          <span style={{ position: 'absolute', right: '10px', color: 'var(--text-muted)', fontSize: 'var(--text-xs)', pointerEvents: 'none' }}>
+          <span className="number-input-suffix">
             {unitSuffix}
           </span>
         )}
@@ -47,8 +47,8 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(functi
     <input
       ref={ref}
       type="number"
-      className={clsx(className, isInvalid && 'field-input--error')}
-      style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', ...style }}
+      className={clsx('number-input', className, isInvalid && 'field-input--error')}
+      style={style}
       {...props}
     />
   )

@@ -20,11 +20,11 @@ export function EmptyState({
 }: EmptyStateProps) {
   return (
     <div className={`directory-state ${className}`.trim()} role="status">
-      {Icon && <Icon aria-hidden="true" size={28} style={{ color: 'var(--text-muted)' }} />}
+      {Icon && <Icon aria-hidden="true" size={28} className="directory-state__icon" />}
       <strong>{title}</strong>
       {description && <p>{description}</p>}
       {(action || secondaryAction) && (
-        <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
+        <div className="directory-state__actions">
           {action}
           {secondaryAction}
         </div>

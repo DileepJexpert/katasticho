@@ -13,23 +13,24 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function T
 ) {
   if (leftIcon || rightIcon) {
     return (
-      <div className="input-with-icons" style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%' }}>
+      <div className="input-with-icons">
         {leftIcon && (
-          <span style={{ position: 'absolute', left: '10px', display: 'flex', alignItems: 'center', pointerEvents: 'none', color: 'var(--text-muted)' }}>
+          <span className="input-with-icons__icon input-with-icons__icon--left">
             {leftIcon}
           </span>
         )}
         <input
           ref={ref}
-          className={clsx(className, isInvalid && 'field-input--error')}
-          style={{
-            paddingLeft: leftIcon ? '34px' : undefined,
-            paddingRight: rightIcon ? '34px' : undefined,
-          }}
+          className={clsx(
+            className,
+            leftIcon && 'input-with-icons__input--left',
+            rightIcon && 'input-with-icons__input--right',
+            isInvalid && 'field-input--error'
+          )}
           {...props}
         />
         {rightIcon && (
-          <span style={{ position: 'absolute', right: '10px', display: 'flex', alignItems: 'center', pointerEvents: 'none', color: 'var(--text-muted)' }}>
+          <span className="input-with-icons__icon input-with-icons__icon--right">
             {rightIcon}
           </span>
         )}

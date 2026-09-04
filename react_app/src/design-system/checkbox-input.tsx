@@ -15,10 +15,10 @@ export const CheckboxInput = forwardRef<HTMLInputElement, CheckboxInputProps>(fu
   return (
     <label className={clsx('form-checkbox-label', className)} style={style}>
       <input ref={ref} type="checkbox" {...props} />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+      <div className="form-checkbox-body">
         {displayLabel && <span>{displayLabel}</span>}
         {description && (
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 'var(--fw-regular)' }}>
+          <span className="form-checkbox-description">
             {description}
           </span>
         )}

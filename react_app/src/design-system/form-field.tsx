@@ -47,25 +47,25 @@ export const FormField = forwardRef<HTMLDivElement, FormFieldProps>(function For
       )}
       {...props}
     >
-      <div className="field-label-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <label htmlFor={inputId} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+      <div className="field-label-row">
+        <label htmlFor={inputId}>
           <span>{label}</span>
-          {required && <span style={{ color: 'var(--neg-text)', fontWeight: 'var(--fw-semibold)' }}>*</span>}
-          {optional && <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>(optional)</span>}
+          {required && <span className="field-required-mark">*</span>}
+          {optional && <span className="field-optional-tag">(optional)</span>}
         </label>
         {tooltip && (
-          <span className="field-tooltip" style={{ cursor: 'help', color: 'var(--text-muted)', fontSize: '12px' }} title={tooltip}>
+          <span className="field-tooltip" title={tooltip}>
             ℹ
           </span>
         )}
       </div>
       {renderedChild}
       {error ? (
-        <small className="field-error" role="alert" style={{ color: 'var(--neg-text)', fontSize: 'var(--text-xs)' }}>
+        <small className="field-error" role="alert">
           {error}
         </small>
       ) : hint ? (
-        <small className="field-hint" style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>
+        <small className="field-hint">
           {hint}
         </small>
       ) : null}

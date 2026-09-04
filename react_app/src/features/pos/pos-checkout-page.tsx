@@ -304,14 +304,7 @@ export function PosCheckoutPage() {
       </div>
 
       {/* Main Two-Column POS Layout */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1.4fr) minmax(360px, 1fr)',
-          gap: 'var(--space-md)',
-          alignItems: 'start',
-        }}
-      >
+      <div className="pos-checkout-grid">
         {/* LEFT: Item Search & Cart Lines */}
         <div className="panel-card" style={{ padding: 'var(--space-md)' }}>
           <div style={{ position: 'relative', marginBottom: 'var(--space-md)' }}>
