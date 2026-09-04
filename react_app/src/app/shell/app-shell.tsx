@@ -14,6 +14,7 @@ import {
   X,
 } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   appRoutes,
@@ -25,6 +26,7 @@ import { Button } from '@/design-system/button'
 import { CommandPalette } from '@/design-system/command-palette'
 import { QuickCreateMenu } from '@/app/shell/quick-create-menu'
 import { OrgSwitcherModal } from '@/features/auth/org-switcher-modal'
+import { getDisabledNavigationIds } from '@/shared/navigation/navigation-settings'
 import { useSessionStore } from '@/shared/session/session-store'
 import {
   brandPaletteOptions,
@@ -55,6 +57,11 @@ export function AppShell() {
   const cycleThemeMode = useThemeStore((state) => state.cycleThemeMode)
   const brandPalette = useThemeStore((state) => state.brandPalette)
   const setBrandPalette = useThemeStore((state) => state.setBrandPalette)
+  const navigationOverrides = useQuery({
+    queryKey: ['navigation-overrides', user?.orgId],
+    queryFn: getDisabledNavigationIds,
+    enabled: Boolean(user?.orgId),
+  })
 
   const navContext = {
     role: user?.role,
@@ -62,6 +69,8 @@ export function AppShell() {
     // The authenticated web-session contract does not include an organisation
     // country. Keep country-gated navigation hidden rather than assume India.
     country: undefined,
+    // Navigation visibility is a convenience only; backend authorization remains authoritative.
+    disabledIds: navigationOverrides.data ?? [],
   }
 
   const { topItems, groups, bottomItems } = getVisibleNavStructure(navContext)

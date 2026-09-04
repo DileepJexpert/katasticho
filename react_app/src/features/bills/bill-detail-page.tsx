@@ -190,7 +190,7 @@ export function BillDetailPage() {
           <SummaryRow label="Amount Paid" value={<Money amount={document.paidAmount} currency={currency} />} />
           <SummaryRow isTotal label="Balance Due" value={<Money amount={document.balanceDue} currency={currency} />} />
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
+          <div className="document-card__actions">
             {document.status === 'DRAFT' && (
               <Button
                 disabled={postMutation.isPending}

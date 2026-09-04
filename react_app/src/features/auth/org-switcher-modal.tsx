@@ -57,97 +57,51 @@ export function OrgSwitcherModal({ isOpen, onClose }: OrgSwitcherModalProps) {
       size="md"
       title="Switch Organisation"
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md, 12px)' }}>
+      <div className="org-switcher">
         {errorMsg && (
-          <div
-            role="alert"
-            style={{
-              padding: '10px 14px',
-              borderRadius: 'var(--radius-md, 6px)',
-              backgroundColor: 'var(--color-danger-subtle, #fef2f2)',
-              color: 'var(--color-danger, #b91c1c)',
-              fontSize: 'var(--text-sm, 13px)',
-            }}
-          >
+          <div className="org-switcher__error" role="alert">
             {errorMsg}
           </div>
         )}
 
         {isLoading ? (
-          <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary, #6b7280)' }}>
+          <p className="org-switcher__state">
             Loading your organisations...
-          </div>
+          </p>
         ) : isError ? (
-          <div style={{ padding: '16px', textAlign: 'center', color: 'var(--color-danger, #b91c1c)' }}>
+          <p className="org-switcher__state org-switcher__state--error">
             Unable to load organisations. Please check your network connection.
-          </div>
+          </p>
         ) : orgs.length === 0 ? (
-          <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-secondary, #6b7280)' }}>
+          <p className="org-switcher__state">
             No organisations found for this account.
-          </div>
+          </p>
         ) : (
-          <div
-            role="list"
-            style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}
-          >
+          <div className="org-switcher__list" role="list">
             {orgs.map((org) => {
               const isCurrent = org.orgId === currentUser?.orgId
               const isSwitching = switchingOrgId === org.orgId
 
               return (
                 <div
+                  className={isCurrent ? 'org-switcher__organisation org-switcher__organisation--current' : 'org-switcher__organisation'}
                   key={org.orgId}
                   role="listitem"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '12px 14px',
-                    borderRadius: 'var(--radius-md, 6px)',
-                    border: isCurrent
-                      ? '1.5px solid var(--brand-500, #0f8576)'
-                      : '1px solid var(--border-color, #e5e7eb)',
-                    backgroundColor: isCurrent
-                      ? 'var(--brand-50, #f0fdf9)'
-                      : 'var(--surface-color, #ffffff)',
-                  }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: '36px',
-                        height: '36px',
-                        borderRadius: 'var(--radius-sm, 4px)',
-                        backgroundColor: isCurrent ? 'var(--brand-600, #0f8576)' : 'var(--surface-subtle, #f3f4f6)',
-                        color: isCurrent ? '#ffffff' : 'var(--text-secondary, #6b7280)',
-                      }}
-                    >
+                  <div className="org-switcher__identity">
+                    <div className="org-switcher__icon" aria-hidden="true">
                       <Building2 size={18} aria-hidden="true" />
                     </div>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <strong style={{ fontSize: 'var(--text-base, 14px)', color: 'var(--text-primary, #111827)' }}>
-                          {org.orgName}
-                        </strong>
+                    <div className="org-switcher__details">
+                      <div className="org-switcher__title-row">
+                        <strong>{org.orgName}</strong>
                         {isCurrent && (
-                          <span
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              fontSize: 'var(--text-xs, 11px)',
-                              fontWeight: 600,
-                              color: 'var(--brand-600, #0f8576)',
-                            }}
-                          >
+                          <span className="org-switcher__current">
                             <Check size={12} aria-hidden="true" /> Current
                           </span>
                         )}
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                      <div className="org-switcher__role">
                         <StatusChip status={org.role} />
                       </div>
                     </div>

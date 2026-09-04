@@ -111,7 +111,7 @@ export function StockReceiptDetailPage() {
           <SummaryRow label="GST Input Tax" value={<Money amount={document.taxAmount} currency={currency} />} />
           <SummaryRow isTotal label="Total Invoice Value" value={<Money amount={document.totalAmount} currency={currency} />} />
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
+          <div className="document-card__actions">
             {document.status === 'DRAFT' && (
               <Button
                 disabled={receiveMutation.isPending}

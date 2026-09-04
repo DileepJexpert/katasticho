@@ -65,6 +65,7 @@
   --row-h: 36px;
   --row-h-compact: 32px;
   --control-h: 34px;
+  --directory-search-max: 360px;
   --ease: cubic-bezier(0.2, 0, 0, 1);
   --dur-fast: 120ms;
   --dur-base: 180ms;

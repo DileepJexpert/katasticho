@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { DirectoryToolbar } from './directory-toolbar'
+import { DataTable } from './data-table'
 import { SearchInput } from './search-input'
 import { FilterTabs } from './filter-tabs'
 import { EmptyState } from './empty-state'
@@ -111,5 +112,18 @@ describe('Directory Primitives', () => {
       />
     )
     expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled()
+  })
+
+  it('provides a keyboard-focusable region for horizontally scrolling dense tables', () => {
+    render(
+      <DataTable caption="Invoice register">
+        <thead><tr><th scope="col">Invoice</th></tr></thead>
+        <tbody><tr><td>INV-2026-000001</td></tr></tbody>
+      </DataTable>
+    )
+
+    const scrollRegion = screen.getByRole('region', { name: /invoice register table/i })
+    expect(scrollRegion).toHaveAttribute('tabindex', '0')
+    expect(screen.getByRole('table', { name: 'Invoice register' })).toBeInTheDocument()
   })
 })

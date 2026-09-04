@@ -130,15 +130,15 @@ export function AccountDetailPage() {
       </div>
 
       <DocumentCard className="document-card--lines" title="Ledger Transaction History">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-          <span style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
+        <div className="document-card__toolbar">
+          <span className="document-card__toolbar-meta">
             Total entries: {txList.length}
           </span>
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <label style={{ fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <div className="document-card__toolbar-controls">
+            <label className="filter-label">
               From: <TextInput onChange={(e) => setStartDate(e.target.value)} type="date" value={startDate} />
             </label>
-            <label style={{ fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <label className="filter-label">
               To: <TextInput onChange={(e) => setEndDate(e.target.value)} type="date" value={endDate} />
             </label>
             {(startDate || endDate) && (

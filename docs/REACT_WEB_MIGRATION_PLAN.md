@@ -270,8 +270,10 @@ page-specific components.
   Money, PageHeader, and DataTable.
 - [x] Connect browser-only login, restore, refresh, logout, tenant headers,
   organisation switching, and server-error handling to the web-session contract.
-- [ ] Build the nav registry from stable IDs, roles, industries, countries,
-  capability gates, and `nav.disabled` settings.
+- [ ] Complete the nav registry from stable IDs, roles, industries, countries,
+  capability gates, and `nav.disabled` settings. Role/industry gates and the
+  organisation's `nav.disabled` setting are live; country and capability inputs
+  remain blocked until the browser-session contract provides authoritative data.
 - [ ] Add URL-driven global search, command palette skeleton, dark mode, locale
   switching, and RTL verification for Arabic.
 - [ ] Establish table, picker, document-line, and bulk-action accessibility
@@ -295,6 +297,10 @@ the ERP.
 - [x] Items pilot: server-paginated read-only directory with search, item code,
   unit, GST, prices, on-hand, and negative-stock exception filtering. Item
   create/edit/import/detail remain pending.
+  **Release guard:** unverified Item mutations currently present in the React
+  source are prototypes, not accepted Wave 2 functionality. Do not expand or
+  expose them for operational use until the backend can export the approved
+  OpenAPI snapshot and their typed contracts and acceptance cases are reviewed.
 - [x] Sales Orders pilot: server-paginated, status-filtered directory and
   read-only document review using the existing Sales Order list/detail
   contracts. Creation, confirmation, cancellation, dispatch, invoicing, and

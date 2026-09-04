@@ -39,7 +39,39 @@ export async function apiFetch<T>(path: string, request: ApiRequest = {}): Promi
   return send<T>(path, request, request.retryUnauthorized ?? true)
 }
 
+/**
+ * Reads an existing endpoint that returns JSON directly rather than the
+ * standard ApiResponse envelope. Keep use sites narrow and contract-specific.
+ */
+export async function apiFetchRawJson<T>(path: string, request: ApiRequest = {}): Promise<T> {
+  return sendRawJson<T>(path, request, request.retryUnauthorized ?? true)
+}
+
 async function send<T>(path: string, request: ApiRequest, canRetry: boolean): Promise<T> {
+  const { method, response } = await requestResponse(path, request, canRetry)
+  const payload = await parseEnvelope<T>(response)
+  traceResponse(method, path, response.status, payload)
+  if (!response.ok || !payload.success) {
+    throw new ApiError(
+      payload.message ?? 'The request could not be completed.',
+      response.status,
+      payload.errors ?? [],
+    )
+  }
+  return payload.data === null ? undefined as T : payload.data
+}
+
+async function sendRawJson<T>(path: string, request: ApiRequest, canRetry: boolean): Promise<T> {
+  const { method, response } = await requestResponse(path, request, canRetry)
+  const payload = await parseRawJson<T>(response)
+  traceResponse(method, path, response.status, payload)
+  if (!response.ok) {
+    throw new ApiError(rawErrorMessage(payload, response), response.status)
+  }
+  return payload
+}
+
+async function requestResponse(path: string, request: ApiRequest, canRetry: boolean): Promise<{ method: string; response: Response }> {
   const headers = new Headers(request.headers)
   const token = getAccessToken()
   const orgId = getOrganisationId()
@@ -75,19 +107,10 @@ async function send<T>(path: string, request: ApiRequest, canRetry: boolean): Pr
     refreshInFlight ??= tokenRefresher().finally(() => {
       refreshInFlight = null
     })
-    if (await refreshInFlight) return send<T>(path, request, false)
+    if (await refreshInFlight) return requestResponse(path, request, false)
   }
 
-  const payload = await parseEnvelope<T>(response)
-  traceResponse(method, path, response.status, payload)
-  if (!response.ok || !payload.success) {
-    throw new ApiError(
-      payload.message ?? 'The request could not be completed.',
-      response.status,
-      payload.errors ?? [],
-    )
-  }
-  return payload.data === null ? undefined as T : payload.data
+  return { method, response }
 }
 
 async function parseEnvelope<T>(response: Response): Promise<ApiEnvelope<T>> {
@@ -105,6 +128,27 @@ async function parseEnvelope<T>(response: Response): Promise<ApiEnvelope<T>> {
   } catch {
     return fallback
   }
+}
+
+async function parseRawJson<T>(response: Response): Promise<T> {
+  if (response.status === 204) return undefined as T
+
+  const contentType = response.headers.get('content-type') ?? ''
+  if (!contentType.includes('application/json')) return undefined as T
+
+  try {
+    return await response.json() as T
+  } catch {
+    return undefined as T
+  }
+}
+
+function rawErrorMessage(payload: unknown, response: Response): string {
+  if (payload && typeof payload === 'object' && 'message' in payload) {
+    const message = (payload as { message?: unknown }).message
+    if (typeof message === 'string' && message.trim()) return message
+  }
+  return response.statusText || 'The request could not be completed.'
 }
 
 function traceRequest(method: string, path: string, body: unknown) {

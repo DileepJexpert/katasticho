@@ -63,6 +63,52 @@ describe('Modal Primitive', () => {
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
+
+  it('traps keyboard focus and restores the invoking control when closed', () => {
+    const onClose = vi.fn()
+    const { rerender } = render(
+      <>
+        <button type="button">Open journal voucher</button>
+        <Modal isOpen={false} onClose={onClose} title="Journal Voucher">
+          <button type="button">Review entries</button>
+        </Modal>
+      </>
+    )
+
+    const trigger = screen.getByRole('button', { name: 'Open journal voucher' })
+    trigger.focus()
+
+    rerender(
+      <>
+        <button type="button">Open journal voucher</button>
+        <Modal isOpen onClose={onClose} title="Journal Voucher">
+          <button type="button">Review entries</button>
+        </Modal>
+      </>
+    )
+
+    const closeButton = screen.getByRole('button', { name: 'Close dialog' })
+    const reviewButton = screen.getByRole('button', { name: 'Review entries' })
+    expect(closeButton).toHaveFocus()
+
+    reviewButton.focus()
+    fireEvent.keyDown(document, { key: 'Tab' })
+    expect(closeButton).toHaveFocus()
+
+    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true })
+    expect(reviewButton).toHaveFocus()
+
+    rerender(
+      <>
+        <button type="button">Open journal voucher</button>
+        <Modal isOpen={false} onClose={onClose} title="Journal Voucher">
+          <button type="button">Review entries</button>
+        </Modal>
+      </>
+    )
+
+    expect(trigger).toHaveFocus()
+  })
 })
 
 describe('FormField Primitive', () => {

@@ -107,7 +107,7 @@ export function DebitNoteDetailPage() {
           <SummaryRow label="Tax Return" value={<Money amount={document.taxAmount} />} />
           <SummaryRow isTotal label="Total Debit Amount" value={<Money amount={document.totalAmount} />} />
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
+          <div className="document-card__actions">
             {document.status === 'DRAFT' ? (
               <Button
                 disabled={submitMutation.isPending}

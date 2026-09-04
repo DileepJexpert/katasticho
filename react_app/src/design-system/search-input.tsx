@@ -53,15 +53,6 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(functi
             e.preventDefault()
             onClear?.()
           }}
-          style={{
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            padding: 0,
-            display: 'flex',
-            alignItems: 'center',
-            color: 'var(--text-muted)',
-          }}
           type="button"
         >
           <X aria-hidden="true" size={14} />

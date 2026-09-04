@@ -132,7 +132,7 @@ export function PurchaseOrderDetailPage() {
           <SummaryRow label="Fulfilment Status" value={<StatusChip status={formatStatusLabel(document.status)} />} />
           <SummaryRow isTotal label="Total Order Amount" value={<Money amount={document.totalAmount} />} />
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
+          <div className="document-card__actions">
             {document.status === 'DRAFT' && (
               <Button
                 disabled={sendMutation.isPending}

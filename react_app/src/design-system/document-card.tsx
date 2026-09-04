@@ -1,12 +1,11 @@
-import React from 'react'
+import type { ReactNode } from 'react'
 
 export interface DocumentCardProps {
-  children: React.ReactNode
+  children: ReactNode
   title?: string
-  headerAction?: React.ReactNode
+  headerAction?: ReactNode
   variant?: 'default' | 'summary' | 'lines' | 'notes'
   className?: string
-  style?: React.CSSProperties
 }
 
 export function DocumentCard({
@@ -15,7 +14,6 @@ export function DocumentCard({
   headerAction,
   variant = 'default',
   className = '',
-  style,
 }: DocumentCardProps) {
   const variantClass =
     variant === 'summary'
@@ -27,11 +25,11 @@ export function DocumentCard({
           : ''
 
   return (
-    <section className={`document-card ${variantClass} ${className}`.trim()} style={style}>
+    <section className={`document-card ${variantClass} ${className}`.trim()}>
       {title && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
-          <h2 style={{ margin: 0 }}>{title}</h2>
-          {headerAction && <div>{headerAction}</div>}
+        <div className="document-card__header">
+          <h2>{title}</h2>
+          {headerAction && <div className="document-card__header-action">{headerAction}</div>}
         </div>
       )}
       {children}

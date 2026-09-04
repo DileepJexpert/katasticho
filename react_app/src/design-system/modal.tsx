@@ -93,26 +93,25 @@ export function Modal({
 
   return (
     <div
-      aria-describedby={description ? descId : undefined}
-      aria-labelledby={titleId}
-      aria-modal="true"
       className="modal-backdrop"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
-      role="dialog"
     >
-      <div ref={dialogRef} className={clsx('modal-dialog', sizeClass)} tabIndex={-1}>
+      <div
+        ref={dialogRef}
+        aria-describedby={description ? descId : undefined}
+        aria-labelledby={titleId}
+        aria-modal="true"
+        className={clsx('modal-dialog', sizeClass)}
+        role="dialog"
+        tabIndex={-1}
+      >
         <header className="modal-header">
           <div>
             <h3 id={titleId}>{title}</h3>
             {description && (
-              <p
-                id={descId}
-                style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: '2px' }}
-              >
-                {description}
-              </p>
+              <p id={descId} className="modal-description">{description}</p>
             )}
           </div>
           <button
@@ -126,20 +125,7 @@ export function Modal({
         </header>
         <div className="modal-body">
           {error && (
-            <div
-              role="alert"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '10px 14px',
-                borderRadius: 'var(--radius)',
-                backgroundColor: 'rgba(190, 58, 52, 0.08)',
-                border: '1px solid var(--color-danger, #BE3A34)',
-                color: 'var(--color-danger, #BE3A34)',
-                fontSize: '0.875rem',
-              }}
-            >
+            <div className="modal-error" role="alert">
               <AlertCircle size={16} />
               <span>{error}</span>
             </div>

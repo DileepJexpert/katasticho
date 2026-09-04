@@ -18,6 +18,7 @@ export interface EntityPickerProps<T> {
   selectedLabel?: string | null
   className?: string
   id?: string
+  ariaLabel?: string
 }
 
 export function EntityPicker<T>({
@@ -36,6 +37,7 @@ export function EntityPicker<T>({
   selectedLabel,
   className,
   id,
+  ariaLabel = 'Search options',
 }: EntityPickerProps<T>) {
   const generatedId = useId()
   const inputId = id || generatedId
@@ -51,13 +53,16 @@ export function EntityPicker<T>({
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const searchRequestRef = useRef(0)
 
   // Sync selectedEntity when prop changes
   useEffect(() => {
-    if (selectedEntity !== undefined) {
+    if (!value) {
+      setCurrentEntity(null)
+    } else if (selectedEntity !== undefined) {
       setCurrentEntity(selectedEntity)
     }
-  }, [selectedEntity])
+  }, [selectedEntity, value])
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -70,7 +75,7 @@ export function EntityPicker<T>({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Execute search
+  // Keep local results responsive while preventing stale remote searches from winning.
   useEffect(() => {
     if (!isOpen) return
 
@@ -79,35 +84,32 @@ export function EntityPicker<T>({
     }
 
     if (options) {
-      const q = query.trim().toLowerCase()
-      if (!q) {
-        setResults(options.slice(0, 20))
-      } else {
-        setResults(
-          options.filter((item) => {
-            const label = getOptionLabel(item).toLowerCase()
-            const desc = getOptionDescription ? getOptionDescription(item)?.toLowerCase() : ''
-            return label.includes(q) || (desc && desc.includes(q))
-          }).slice(0, 20)
-        )
-      }
-      setHighlightedIndex(-1)
+      const nextResults = filterOptions(options, query, getOptionLabel, getOptionDescription)
+      setResults(nextResults)
+      setHighlightedIndex((index) => index >= nextResults.length ? -1 : index)
+      setIsLoading(false)
       return
     }
 
     if (onSearch) {
+      const requestId = ++searchRequestRef.current
       debounceTimerRef.current = setTimeout(async () => {
         setIsLoading(true)
         try {
           const items = await onSearch(query.trim())
-          setResults(items || [])
-          setHighlightedIndex(-1)
+          if (requestId === searchRequestRef.current) {
+            setResults(items || [])
+            setHighlightedIndex(-1)
+          }
         } catch {
-          setResults([])
+          if (requestId === searchRequestRef.current) setResults([])
         } finally {
-          setIsLoading(false)
+          if (requestId === searchRequestRef.current) setIsLoading(false)
         }
       }, 200)
+    } else {
+      setResults([])
+      setIsLoading(false)
     }
 
     return () => {
@@ -116,6 +118,19 @@ export function EntityPicker<T>({
       }
     }
   }, [query, isOpen, options, onSearch, getOptionLabel, getOptionDescription])
+
+  function openPicker(highlight: 'first' | 'last' | 'none' = 'none') {
+    setIsOpen(true)
+    if (!options) return
+
+    const nextResults = filterOptions(options, query, getOptionLabel, getOptionDescription)
+    setResults(nextResults)
+    setHighlightedIndex(
+      highlight === 'first' ? (nextResults.length ? 0 : -1) :
+      highlight === 'last' ? nextResults.length - 1 :
+      -1,
+    )
+  }
 
   function handleSelect(item: T) {
     const idVal = getOptionId(item)
@@ -136,14 +151,14 @@ export function EntityPicker<T>({
     if (e.key === 'ArrowDown') {
       e.preventDefault()
       if (!isOpen) {
-        setIsOpen(true)
+        openPicker('first')
       } else {
         setHighlightedIndex((prev) => (prev < results.length - 1 ? prev + 1 : 0))
       }
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
       if (!isOpen) {
-        setIsOpen(true)
+        openPicker('last')
       } else {
         setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : results.length - 1))
       }
@@ -167,29 +182,14 @@ export function EntityPicker<T>({
         ref={containerRef}
         className={clsx(
           'entity-picker entity-picker--selected',
-          isInvalid && 'field-input--error',
+          isInvalid && 'entity-picker--invalid',
           className
         )}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          minHeight: 'var(--control-h, 36px)',
-          padding: '0 10px',
-          border: '1px solid var(--color-border)',
-          borderRadius: 'var(--radius-sm, 6px)',
-          background: 'var(--color-surface)',
-          gap: '8px',
-        }}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-primary)' }}>
-            {displayLabel}
-          </span>
+        <div className="entity-picker__selection">
+          <span className="entity-picker__selection-label">{displayLabel}</span>
           {displayDesc && (
-            <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
-              {displayDesc}
-            </span>
+            <span className="entity-picker__selection-description">{displayDesc}</span>
           )}
         </div>
         {!disabled && (
@@ -197,19 +197,7 @@ export function EntityPicker<T>({
             type="button"
             onClick={handleClear}
             aria-label="Clear selection"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: 22,
-              height: 22,
-              border: 'none',
-              background: 'transparent',
-              borderRadius: 'var(--radius-full)',
-              color: 'var(--color-text-muted)',
-              cursor: 'pointer',
-              padding: 0,
-            }}
+            className="entity-picker__clear"
           >
             <X size={14} />
           </button>
@@ -221,54 +209,37 @@ export function EntityPicker<T>({
   return (
     <div
       ref={containerRef}
-      className={clsx('entity-picker', isInvalid && 'field-input--error', className)}
-      style={{ position: 'relative', width: '100%' }}
+      className={clsx('entity-picker', isInvalid && 'entity-picker--invalid', className)}
     >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          minHeight: 'var(--control-h, 36px)',
-          border: '1px solid var(--color-border)',
-          borderRadius: 'var(--radius-sm, 6px)',
-          background: disabled ? 'var(--color-surface-subtle)' : 'var(--color-surface)',
-          padding: '0 10px',
-          gap: '8px',
-        }}
-      >
-        <Search size={14} style={{ color: 'var(--color-text-muted)', flexShrink: 0 }} />
+      <div className="entity-picker__control">
+        <Search aria-hidden="true" className="entity-picker__search-icon" size={14} />
         <input
           ref={inputRef}
           id={inputId}
           type="text"
           role="combobox"
           aria-autocomplete="list"
+          aria-activedescendant={isOpen && highlightedIndex >= 0 ? `${listboxId}-option-${highlightedIndex}` : undefined}
           aria-expanded={isOpen}
           aria-controls={listboxId}
+          aria-haspopup="listbox"
+          aria-label={ariaLabel}
           disabled={disabled}
           placeholder={placeholder}
           value={query}
           onChange={(e) => {
             setQuery(e.target.value)
-            if (!isOpen) setIsOpen(true)
+            if (!isOpen) openPicker()
           }}
-          onFocus={() => setIsOpen(true)}
+          onFocus={() => openPicker()}
           onKeyDown={handleKeyDown}
-          style={{
-            flex: 1,
-            border: 'none',
-            background: 'transparent',
-            outline: 'none',
-            fontSize: '13px',
-            color: 'var(--color-text-primary)',
-            padding: 0,
-          }}
+          className="entity-picker__input"
         />
         {isLoading && (
           <Loader2
             size={14}
-            className="spin"
-            style={{ color: 'var(--color-text-muted)', flexShrink: 0 }}
+            aria-label="Searching"
+            className="entity-picker__loader"
           />
         )}
       </div>
@@ -277,30 +248,10 @@ export function EntityPicker<T>({
         <div
           id={listboxId}
           role="listbox"
-          style={{
-            position: 'absolute',
-            top: 'calc(100% + 4px)',
-            left: 0,
-            right: 0,
-            zIndex: 100,
-            background: 'var(--color-surface)',
-            border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius-md, 8px)',
-            boxShadow: 'var(--shadow-md, 0 4px 12px rgba(0,0,0,0.1))',
-            maxHeight: 220,
-            overflowY: 'auto',
-            padding: '4px',
-          }}
+          className="entity-picker__options"
         >
           {results.length === 0 ? (
-            <div
-              style={{
-                padding: '10px 12px',
-                fontSize: '12px',
-                color: 'var(--color-text-muted)',
-                textAlign: 'center',
-              }}
-            >
+            <div className="entity-picker__empty">
               {isLoading ? 'Searching...' : 'No matching records found'}
             </div>
           ) : (
@@ -314,60 +265,31 @@ export function EntityPicker<T>({
 
               return (
                 <div
+                  id={`${listboxId}-option-${idx}`}
                   key={itemId}
                   role="option"
                   aria-selected={isSelected}
                   onClick={() => handleSelect(item)}
                   onMouseEnter={() => setHighlightedIndex(idx)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '8px 10px',
-                    borderRadius: 'var(--radius-sm, 4px)',
-                    cursor: 'pointer',
-                    background: isHighlighted
-                      ? 'var(--color-surface-subtle)'
-                      : isSelected
-                      ? 'rgba(15, 133, 118, 0.08)'
-                      : 'transparent',
-                  }}
+                  className={clsx(
+                    'entity-picker__option',
+                    isHighlighted && 'entity-picker__option--highlighted',
+                    isSelected && 'entity-picker__option--selected',
+                  )}
                 >
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span
-                        style={{
-                          fontSize: '13px',
-                          fontWeight: isSelected ? 600 : 500,
-                          color: isSelected ? 'var(--color-primary)' : 'var(--color-text-primary)',
-                        }}
-                      >
-                        {itemLabel}
-                      </span>
+                  <div className="entity-picker__option-copy">
+                    <div className="entity-picker__option-title-row">
+                      <span className="entity-picker__option-label">{itemLabel}</span>
                       {itemBadge && (
-                        <span
-                          style={{
-                            fontSize: '10px',
-                            fontWeight: 600,
-                            padding: '1px 5px',
-                            borderRadius: '3px',
-                            background: 'var(--color-surface-subtle)',
-                            color: 'var(--color-text-muted)',
-                            border: '1px solid var(--color-border)',
-                          }}
-                        >
-                          {itemBadge}
-                        </span>
+                        <span className="entity-picker__option-badge">{itemBadge}</span>
                       )}
                     </div>
                     {itemDesc && (
-                      <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
-                        {itemDesc}
-                      </span>
+                      <span className="entity-picker__option-description">{itemDesc}</span>
                     )}
                   </div>
                   {isSelected && (
-                    <Check size={14} style={{ color: 'var(--color-primary)' }} />
+                    <Check aria-hidden="true" className="entity-picker__selected-icon" size={14} />
                   )}
                 </div>
               )
@@ -377,4 +299,19 @@ export function EntityPicker<T>({
       )}
     </div>
   )
+}
+
+function filterOptions<T>(
+  options: readonly T[],
+  query: string,
+  getOptionLabel: (item: T) => string,
+  getOptionDescription?: (item: T) => string | undefined,
+): T[] {
+  const normalizedQuery = query.trim().toLowerCase()
+  return options.filter((item) => {
+    if (!normalizedQuery) return true
+    const label = getOptionLabel(item).toLowerCase()
+    const description = getOptionDescription?.(item)?.toLowerCase() ?? ''
+    return label.includes(normalizedQuery) || description.includes(normalizedQuery)
+  }).slice(0, 20)
 }
