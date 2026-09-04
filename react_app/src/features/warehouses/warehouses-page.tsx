@@ -77,11 +77,17 @@ export function WarehousesPage() {
             </tbody>
           </DataTable>
         ) : (
-          <div className="directory-state">
-            <Building2 aria-hidden="true" size={24} />
-            <strong>No warehouses defined.</strong>
-            <p>Create central warehouses, regional distribution centers, or transit stock depots.</p>
-          </div>
+          <EmptyState
+            action={
+              <Button onClick={() => setShowCreateModal(true)} variant="primary">
+                <Plus aria-hidden="true" size={16} />
+                <span>New Warehouse</span>
+              </Button>
+            }
+            description="Create central warehouses, regional distribution centers, or transit stock depots."
+            icon={Building2}
+            title="No warehouses defined."
+          />
         )}
       </section>
 

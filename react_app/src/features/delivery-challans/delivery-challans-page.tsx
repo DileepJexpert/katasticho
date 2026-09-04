@@ -1,17 +1,26 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, Plus, Truck } from 'lucide-react'
+import { Plus, Truck } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  DataTable,
+  DirectoryToolbar,
+  EmptyState,
+  FilterTabs,
+  PageHeader,
+  StatusChip,
+  TablePagination,
+} from '@/design-system'
 import { formatDate, formatStatusLabel } from '@/shared/format/format'
-import { listDeliveryChallans, type DeliveryChallan } from '@/features/delivery-challans/delivery-challans-api'
+import {
+  listDeliveryChallans,
+  type DeliveryChallan,
+} from '@/features/delivery-challans/delivery-challans-api'
 
 const challanFilters = [
-  { label: 'All', value: null },
+  { label: 'All', value: '' },
   { label: 'Draft', value: 'DRAFT' },
   { label: 'Dispatched', value: 'DISPATCHED' },
   { label: 'Delivered', value: 'DELIVERED' },
@@ -21,7 +30,7 @@ const challanFilters = [
 type ChallanFilter = typeof challanFilters[number]['value']
 
 export function DeliveryChallansPage() {
-  const [filter, setFilter] = useState<ChallanFilter>(null)
+  const [filter, setFilter] = useState<ChallanFilter>('')
   const [page, setPage] = useState(0)
   const navigate = useNavigate()
 
@@ -29,43 +38,36 @@ export function DeliveryChallansPage() {
     setPage(0)
   }, [filter])
 
+  const effectiveStatus = filter === '' ? undefined : filter
   const challans = useQuery({
-    queryKey: ['delivery-challans', { page, status: filter }],
-    queryFn: () => listDeliveryChallans({ page, status: filter }),
+    queryKey: ['delivery-challans', { page, status: effectiveStatus }],
+    queryFn: () => listDeliveryChallans({ page, status: effectiveStatus }),
   })
   const challanPage = challans.data
 
   return (
     <section className="workspace-page">
       <PageHeader
-        eyebrow="Sales / Fulfilment"
-        title="Delivery Challans"
-        description="Customer dispatches, warehouse shipment progress, and stock movement records."
         actions={
           <Button onClick={() => navigate(appRoutes.deliveryChallanCreate)} variant="primary">
             <Plus aria-hidden="true" size={16} />
             <span>New Delivery Challan</span>
           </Button>
         }
+        description="Warehouse dispatch notes that deduct inventory and carry goods under Rule 55 / e-Way bill."
+        eyebrow="Sales / Logistics"
+        title="Delivery Challans"
       />
 
       <section className="list-panel" aria-label="Delivery challan directory">
-        <div className="list-toolbar">
-          <div className="role-tabs" aria-label="Filter delivery challans by status" role="tablist">
-            {challanFilters.map((option) => (
-              <button
-                aria-selected={filter === option.value}
-                className={filter === option.value ? 'role-tab role-tab--active' : 'role-tab'}
-                key={option.label}
-                onClick={() => setFilter(option.value)}
-                role="tab"
-                type="button"
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        <DirectoryToolbar ariaLabel="Filter delivery challans by status">
+          <FilterTabs
+            activeValue={filter}
+            ariaLabel="Filter delivery challans by status"
+            items={challanFilters}
+            onChange={(val) => setFilter(val as ChallanFilter)}
+          />
+        </DirectoryToolbar>
 
         {challans.isError ? (
           <div className="directory-state directory-state--error" role="alert">
@@ -99,72 +101,70 @@ export function DeliveryChallansPage() {
                 ))}
               </tbody>
             </DataTable>
-            <footer className="table-footer">
-              <span>Showing {challanPage.content.length} of {challanPage.totalElements} challans · Page {challanPage.page + 1} of {Math.max(challanPage.totalPages, 1)}</span>
-              <div className="pagination-actions">
-                <Button
-                  aria-label="Previous page"
-                  disabled={page === 0}
-                  onClick={() => setPage((current) => Math.max(0, current - 1))}
-                  variant="secondary"
-                >
-                  <ChevronLeft aria-hidden="true" size={16} />
-                </Button>
-                <Button
-                  aria-label="Next page"
-                  disabled={challanPage.last || page + 1 >= challanPage.totalPages}
-                  onClick={() => setPage((current) => current + 1)}
-                  variant="secondary"
-                >
-                  <ChevronRight aria-hidden="true" size={16} />
-                </Button>
-              </div>
-            </footer>
+            <TablePagination
+              filterDescription={filter ? `with ${formatStatusLabel(filter).toLowerCase()} status` : 'in this organisation'}
+              isFiltered={Boolean(filter)}
+              itemLabel="challan"
+              onPageChange={setPage}
+              page={challanPage.page}
+              totalElements={challanPage.totalElements}
+              totalPages={challanPage.totalPages}
+            />
           </>
         ) : (
-          <div className="directory-state">
-            <Truck aria-hidden="true" size={24} />
-            <strong>No delivery challans found</strong>
-            <p>Delivery challans generated from confirmed sales orders or created directly will appear here for dispatch tracking.</p>
-            <Button onClick={() => navigate(appRoutes.deliveryChallanCreate)} variant="primary">
-              <Plus aria-hidden="true" size={16} />
-              <span>New Delivery Challan</span>
-            </Button>
-          </div>
+          <EmptyState
+            action={
+              <Button onClick={() => navigate(appRoutes.deliveryChallanCreate)} variant="primary">
+                <Plus aria-hidden="true" size={16} />
+                <span>New Delivery Challan</span>
+              </Button>
+            }
+            description="Delivery challans generated from confirmed sales orders or created directly will appear here for dispatch tracking."
+            icon={Truck}
+            title="No delivery challans found"
+          />
         )}
       </section>
     </section>
   )
 }
 
-function DeliveryChallanRow({ challan, onOpen }: { challan: DeliveryChallan; onOpen: () => void }) {
+function DeliveryChallanRow({
+  challan,
+  onOpen,
+}: {
+  challan: DeliveryChallan
+  onOpen: () => void
+}) {
   return (
     <tr>
       <td>
-        <Button className="document-link" onClick={onOpen} variant="ghost">
-          <code>{challan.challanNumber}</code>
-        </Button>
-      </td>
-      <td>
         <div className="cell-stack">
-          <strong>{challan.contactName ?? 'Walk-in / Unknown'}</strong>
-          <span className="cell-muted">{challan.shippingAddress ?? '--'}</span>
+          <Button className="document-link" onClick={onOpen} variant="ghost">
+            <code>{challan.challanNumber}</code>
+          </Button>
+          {challan.ewayBillNumber && <span>e-Way: {challan.ewayBillNumber}</span>}
         </div>
       </td>
+      <td><strong>{challan.customerName ?? '--'}</strong></td>
       <td>{formatDate(challan.challanDate)}</td>
-      <td>{formatDate(challan.dispatchDate)}</td>
+      <td>{challan.dispatchDate ? formatDate(challan.dispatchDate) : '—'}</td>
       <td>
         {challan.salesOrderNumber ? (
           <code>{challan.salesOrderNumber}</code>
         ) : (
-          <span className="cell-muted">Direct / Manual</span>
+          <span className="cell-muted">—</span>
         )}
       </td>
-      <td>{challan.warehouseName ?? '--'}</td>
-      <td>{challan.vehicleNumber ?? (challan.deliveryMethod ?? '--')}</td>
+      <td>{challan.warehouseName ?? 'Default'}</td>
       <td>
-        <StatusChip status={formatStatusLabel(challan.status)} />
+        {challan.vehicleNumber ? (
+          <code>{challan.vehicleNumber}</code>
+        ) : (
+          <span className="cell-muted">—</span>
+        )}
       </td>
+      <td><StatusChip status={formatStatusLabel(challan.status)} /></td>
     </tr>
   )
 }

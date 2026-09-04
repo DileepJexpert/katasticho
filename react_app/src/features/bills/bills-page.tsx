@@ -2,21 +2,25 @@ import { useDeferredValue, useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   BarChart2,
-  ChevronLeft,
-  ChevronRight,
   FileBadge,
   FileSpreadsheet,
   Layers,
   Plus,
-  Search,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  DataTable,
+  DirectoryToolbar,
+  EmptyState,
+  FilterTabs,
+  Money,
+  PageHeader,
+  SearchInput,
+  StatusChip,
+  TablePagination,
+} from '@/design-system'
 import { formatDate, formatStatusLabel } from '@/shared/format/format'
 import { listBills, type PurchaseBill } from '@/features/bills/bills-api'
 
@@ -34,7 +38,7 @@ const billFilters = [
 type BillFilter = typeof billFilters[number]['value']
 
 export function BillsPage() {
-  const [filter, setFilter] = useState<BillFilter>(null)
+  const [filter, setFilter] = useState<BillFilter>('')
   const [page, setPage] = useState(0)
   const [search, setSearch] = useState('')
   const deferredSearch = useDeferredValue(search)
@@ -79,31 +83,21 @@ export function BillsPage() {
       />
 
       <section className="list-panel" aria-label="Vendor bill directory">
-        <div className="list-toolbar">
-          <div className="role-tabs" aria-label="Filter vendor bills by status" role="tablist">
-            {billFilters.map((option) => (
-              <button
-                aria-selected={filter === option.value}
-                className={filter === option.value ? 'role-tab role-tab--active' : 'role-tab'}
-                key={option.label}
-                onClick={() => setFilter(option.value)}
-                role="tab"
-                type="button"
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-          <label className="directory-search">
-            <Search aria-hidden="true" size={18} />
-            <span className="sr-only">Search vendor bills</span>
-            <input
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search bill or vendor"
-              value={search}
-            />
-          </label>
-        </div>
+        <DirectoryToolbar ariaLabel="Filter vendor bills by status and search">
+          <FilterTabs
+            activeValue={filter}
+            ariaLabel="Filter vendor bills by status"
+            items={billFilters}
+            onChange={(val) => setFilter(val as BillFilter)}
+          />
+          <SearchInput
+            ariaLabel="Search vendor bills"
+            onChange={setSearch}
+            onClear={() => setSearch('')}
+            placeholder="Search bill or vendor"
+            value={search}
+          />
+        </DirectoryToolbar>
 
         {bills.isError ? (
           <div className="directory-state directory-state--error" role="alert">
@@ -137,38 +131,28 @@ export function BillsPage() {
                 ))}
               </tbody>
             </DataTable>
-            <footer className="table-footer">
-              <span>Showing {billPage.content.length} of {billPage.totalElements} bills · Page {billPage.page + 1} of {Math.max(billPage.totalPages, 1)}</span>
-              <div className="pagination-actions">
-                <Button
-                  aria-label="Previous page"
-                  disabled={page === 0}
-                  onClick={() => setPage((current) => Math.max(0, current - 1))}
-                  variant="secondary"
-                >
-                  <ChevronLeft aria-hidden="true" size={16} />
-                </Button>
-                <Button
-                  aria-label="Next page"
-                  disabled={billPage.last || page + 1 >= billPage.totalPages}
-                  onClick={() => setPage((current) => current + 1)}
-                  variant="secondary"
-                >
-                  <ChevronRight aria-hidden="true" size={16} />
-                </Button>
-              </div>
-            </footer>
+            <TablePagination
+              filterDescription={deferredSearch ? 'matching this search' : filter ? `with ${formatStatusLabel(filter).toLowerCase()} status` : 'in this organisation'}
+              isFiltered={Boolean(deferredSearch || filter)}
+              itemLabel="bill"
+              onPageChange={(p) => setPage(p)}
+              page={billPage.page}
+              totalElements={billPage.totalElements}
+              totalPages={billPage.totalPages}
+            />
           </>
         ) : (
-          <div className="directory-state">
-            <FileSpreadsheet aria-hidden="true" size={24} />
-            <strong>No vendor bills match your filters</strong>
-            <p>Vendor bills recorded from purchase orders or manual entry will appear here.</p>
-            <Button onClick={() => navigate(appRoutes.billCreate)} variant="primary">
-              <Plus size={16} />
-              New Bill
-            </Button>
-          </div>
+          <EmptyState
+            action={
+              <Button onClick={() => navigate(appRoutes.billCreate)} variant="primary">
+                <Plus size={16} />
+                New Bill
+              </Button>
+            }
+            description={deferredSearch ? 'Try a different bill number or vendor keyword.' : 'Vendor bills recorded from purchase orders or manual entry will appear here.'}
+            icon={FileSpreadsheet}
+            title="No vendor bills match your filters"
+          />
         )}
       </section>
     </section>

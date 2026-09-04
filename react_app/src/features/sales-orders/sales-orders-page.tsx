@@ -1,35 +1,34 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, FileText, Plus } from 'lucide-react'
+import { FileText, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { DataTable } from '@/design-system/data-table'
-import { Button } from '@/design-system/button'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  DataTable,
+  DirectoryToolbar,
+  EmptyState,
+  FilterTabs,
+  Money,
+  PageHeader,
+  StatusChip,
+  TablePagination,
+} from '@/design-system'
 import { formatDate, formatStatusLabel } from '@/shared/format/format'
 import { listSalesOrders, type SalesOrder } from '@/features/sales-orders/sales-orders-api'
 
 const salesOrderFilters = [
-  { label: 'All', value: null },
+  { label: 'All', value: '' },
   { label: 'Draft', value: 'DRAFT' },
-  { label: 'Pending approval', value: 'PENDING_APPROVAL' },
   { label: 'Confirmed', value: 'CONFIRMED' },
-  { label: 'Backorder', value: 'BACKORDER' },
-  { label: 'Partial ship', value: 'PARTIALLY_SHIPPED' },
-  { label: 'Shipped', value: 'SHIPPED' },
-  { label: 'Partial invoice', value: 'PARTIALLY_INVOICED' },
-  { label: 'Invoiced', value: 'INVOICED' },
-  { label: 'Completed', value: 'COMPLETED' },
+  { label: 'Closed', value: 'CLOSED' },
   { label: 'Cancelled', value: 'CANCELLED' },
-  { label: 'Void', value: 'VOID' },
 ] as const
 
 type SalesOrderFilter = typeof salesOrderFilters[number]['value']
 
 export function SalesOrdersPage() {
-  const [filter, setFilter] = useState<SalesOrderFilter>(null)
+  const [filter, setFilter] = useState<SalesOrderFilter>('')
   const [page, setPage] = useState(0)
   const navigate = useNavigate()
 
@@ -37,16 +36,17 @@ export function SalesOrdersPage() {
     setPage(0)
   }, [filter])
 
+  const effectiveStatus = filter === '' ? null : filter
   const orders = useQuery({
-    queryKey: ['sales-orders', { page, status: filter }],
-    queryFn: () => listSalesOrders({ page, status: filter }),
+    queryKey: ['sales-orders', { page, status: effectiveStatus }],
+    queryFn: () => listSalesOrders({ page, status: effectiveStatus }),
   })
   const orderPage = orders.data
 
   return (
     <section className="workspace-page">
       <PageHeader
-        eyebrow="Sales"
+        eyebrow="Sales / Fulfilment"
         title="Sales Orders"
         description="Customer commitments, fulfilment progress, and invoicing progress from the existing sales workflow."
         actions={
@@ -58,22 +58,14 @@ export function SalesOrdersPage() {
       />
 
       <section className="list-panel" aria-label="Sales order directory">
-        <div className="list-toolbar">
-          <div className="role-tabs" aria-label="Filter sales orders by status" role="tablist">
-            {salesOrderFilters.map((option) => (
-              <button
-                aria-selected={filter === option.value}
-                className={filter === option.value ? 'role-tab role-tab--active' : 'role-tab'}
-                key={option.label}
-                onClick={() => setFilter(option.value)}
-                role="tab"
-                type="button"
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        <DirectoryToolbar ariaLabel="Filter sales orders by status">
+          <FilterTabs
+            activeValue={filter}
+            ariaLabel="Filter sales orders by status"
+            items={salesOrderFilters}
+            onChange={(val) => setFilter(val as SalesOrderFilter)}
+          />
+        </DirectoryToolbar>
 
         {orders.isError ? (
           <div className="directory-state directory-state--error" role="alert">
@@ -101,25 +93,28 @@ export function SalesOrdersPage() {
                 {orderPage.content.map((order) => <SalesOrderRow key={order.id} onOpen={() => navigate(appRoutes.salesOrderDetail(order.id))} order={order} />)}
               </tbody>
             </DataTable>
-            <footer className="table-footer">
-              <span>{orderPage.totalElements} order{orderPage.totalElements === 1 ? '' : 's'} {filter ? `with ${formatStatusLabel(filter).toLowerCase()} status` : 'in this organisation'}</span>
-              <div className="pagination-actions">
-                <button aria-label="Previous page" disabled={orderPage.page === 0} onClick={() => setPage((current) => current - 1)} type="button"><ChevronLeft aria-hidden="true" size={16} /></button>
-                <span>Page {orderPage.page + 1} of {Math.max(orderPage.totalPages, 1)}</span>
-                <button aria-label="Next page" disabled={orderPage.last} onClick={() => setPage((current) => current + 1)} type="button"><ChevronRight aria-hidden="true" size={16} /></button>
-              </div>
-            </footer>
+            <TablePagination
+              filterDescription={filter ? `with ${formatStatusLabel(filter).toLowerCase()} status` : 'in this organisation'}
+              isFiltered={Boolean(filter)}
+              itemLabel="sales order"
+              onPageChange={setPage}
+              page={orderPage.page}
+              totalElements={orderPage.totalElements}
+              totalPages={orderPage.totalPages}
+            />
           </>
         ) : (
-          <div className="directory-state">
-            <FileText aria-hidden="true" size={24} />
-            <strong>No {filter ? formatStatusLabel(filter).toLowerCase() : ''} sales orders found.</strong>
-            <p>{filter ? 'Choose another status to review other orders.' : 'Create your first sales order to begin commercial tracking.'}</p>
-            <Button onClick={() => navigate(appRoutes.salesOrderCreate)} variant="primary">
-              <Plus aria-hidden="true" size={16} />
-              <span>New Sales Order</span>
-            </Button>
-          </div>
+          <EmptyState
+            action={
+              <Button onClick={() => navigate(appRoutes.salesOrderCreate)} variant="primary">
+                <Plus aria-hidden="true" size={16} />
+                <span>New Sales Order</span>
+              </Button>
+            }
+            description={filter ? 'Choose another status to review other orders.' : 'Create your first sales order to begin commercial tracking.'}
+            icon={FileText}
+            title={`No ${filter ? formatStatusLabel(filter).toLowerCase() : ''} sales orders found.`}
+          />
         )}
       </section>
     </section>

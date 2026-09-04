@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, PackageCheck, Plus } from 'lucide-react'
+import { PackageCheck, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
 import { Button } from '@/design-system/button'
@@ -111,38 +111,26 @@ export function StockReceiptsPage() {
                 ))}
               </tbody>
             </DataTable>
-            <footer className="table-footer">
-              <span>Showing {filteredReceipts.length} of {receiptPage?.totalElements ?? 0} receipts · Page {(receiptPage?.page ?? 0) + 1} of {Math.max(receiptPage?.totalPages ?? 1, 1)}</span>
-              <div className="pagination-actions">
-                <Button
-                  aria-label="Previous page"
-                  disabled={page === 0}
-                  onClick={() => setPage((current) => Math.max(0, current - 1))}
-                  variant="secondary"
-                >
-                  <ChevronLeft aria-hidden="true" size={16} />
-                </Button>
-                <Button
-                  aria-label="Next page"
-                  disabled={receiptPage?.last || page + 1 >= (receiptPage?.totalPages ?? 1)}
-                  onClick={() => setPage((current) => current + 1)}
-                  variant="secondary"
-                >
-                  <ChevronRight aria-hidden="true" size={16} />
-                </Button>
-              </div>
-            </footer>
+            <TablePagination
+              itemLabel="stock receipt"
+              onPageChange={(p) => setPage(p)}
+              page={receiptPage?.page ?? 0}
+              totalElements={receiptPage?.totalElements ?? 0}
+              totalPages={receiptPage?.totalPages ?? 1}
+            />
           </>
         ) : (
-          <div className="directory-state">
-            <PackageCheck aria-hidden="true" size={24} />
-            <strong>No stock receipts found</strong>
-            <p>Inbound warehouse receipts and purchase order GRNs will appear here.</p>
-            <Button onClick={() => navigate(appRoutes.stockReceiptCreate)} variant="primary">
-              <Plus aria-hidden="true" size={16} />
-              <span>New Stock Receipt</span>
-            </Button>
-          </div>
+          <EmptyState
+            action={
+              <Button onClick={() => navigate(appRoutes.stockReceiptCreate)} variant="primary">
+                <Plus aria-hidden="true" size={16} />
+                <span>New Stock Receipt</span>
+              </Button>
+            }
+            description="Inbound warehouse receipts and purchase order GRNs will appear here."
+            icon={PackageCheck}
+            title="No stock receipts found"
+          />
         )}
       </section>
     </section>

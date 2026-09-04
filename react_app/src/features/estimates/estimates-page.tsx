@@ -5,17 +5,22 @@ import {
   FileCheck,
   FileText,
   Plus,
-  Search,
   Send,
   Share2,
 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
-import { Quantity } from '@/design-system/quantity'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  DataTable,
+  DirectoryToolbar,
+  EmptyState,
+  FilterTabs,
+  Money,
+  PageHeader,
+  Quantity,
+  SearchInput,
+  StatusChip,
+} from '@/design-system'
 import {
   convertEstimateToInvoice,
   getEstimateWhatsAppLink,
@@ -176,34 +181,29 @@ export function EstimatesPage() {
       </div>
 
       {/* Toolbar */}
-      <div
-        className="list-toolbar"
-        style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-sm)' }}
-      >
-        <div className="search-field" style={{ maxWidth: 360 }}>
-          <Search aria-hidden="true" size={16} />
-          <input
-            aria-label="Search estimates by number, customer, or reference"
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search estimate #, customer, or ref..."
-            type="search"
-            value={searchTerm}
-          />
-        </div>
-
-        <div className="filter-chip-group">
-          {['all', 'DRAFT', 'SENT', 'ACCEPTED', 'DECLINED', 'INVOICED', 'EXPIRED'].map((st) => (
-            <button
-              key={st}
-              className={`filter-chip ${statusFilter === st ? 'filter-chip--active' : ''}`}
-              onClick={() => setStatusFilter(st)}
-              type="button"
-            >
-              {st === 'all' ? 'All Statuses' : st}
-            </button>
-          ))}
-        </div>
-      </div>
+      <DirectoryToolbar ariaLabel="Filter estimates by status and keyword">
+        <FilterTabs
+          activeValue={statusFilter}
+          ariaLabel="Filter estimates by status"
+          items={[
+            { value: 'all', label: 'All Statuses' },
+            { value: 'DRAFT', label: 'Draft' },
+            { value: 'SENT', label: 'Sent' },
+            { value: 'ACCEPTED', label: 'Accepted' },
+            { value: 'DECLINED', label: 'Declined' },
+            { value: 'INVOICED', label: 'Invoiced' },
+            { value: 'EXPIRED', label: 'Expired' },
+          ]}
+          onChange={setStatusFilter}
+        />
+        <SearchInput
+          ariaLabel="Search estimates"
+          onChange={setSearchTerm}
+          onClear={() => setSearchTerm('')}
+          placeholder="Search estimate #, customer, or ref..."
+          value={searchTerm}
+        />
+      </DirectoryToolbar>
 
       {/* Data Table */}
       {query.isLoading ? (
@@ -219,11 +219,17 @@ export function EstimatesPage() {
           </Button>
         </div>
       ) : filtered.length === 0 ? (
-        <div className="directory-state">
-          <FileCheck aria-hidden="true" size={24} />
-          <strong>No estimates found.</strong>
-          <p>{searchTerm ? 'Try a different search keyword.' : 'Draft a new quote proposal for a customer.'}</p>
-        </div>
+        <EmptyState
+          action={
+            <Button onClick={() => setShowCreateModal(true)} variant="primary">
+              <Plus aria-hidden="true" size={16} />
+              <span>Create Estimate</span>
+            </Button>
+          }
+          description={searchTerm ? 'Try a different search keyword.' : 'Draft a new quote proposal for a customer.'}
+          icon={FileCheck}
+          title="No estimates found"
+        />
       ) : (
         <DataTable caption="Estimates and quotations list">
           <thead>

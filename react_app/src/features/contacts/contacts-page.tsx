@@ -1,6 +1,6 @@
 import { useDeferredValue, useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, Plus, Search, UsersRound } from 'lucide-react'
+import { Plus, UsersRound } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
 import { Button } from '@/design-system/button'
@@ -59,32 +59,25 @@ export function ContactsPage() {
       />
 
       <section className="list-panel" aria-label="Contact directory">
-        <div className="list-toolbar">
-          <div className="role-tabs" aria-label="Filter contacts by role" role="tablist">
-            {roleTabs.map((tab) => (
-              <button
-                aria-selected={filter === tab.value}
-                className={filter === tab.value ? 'role-tab role-tab--active' : 'role-tab'}
-                key={tab.value}
-                onClick={() => setFilter(tab.value)}
-                role="tab"
-                type="button"
-              >
-                {tab.label}
-                <span>{summary.isLoading ? '...' : summary.data?.[tab.countKey] ?? 0}</span>
-              </button>
-            ))}
-          </div>
-          <label className="directory-search">
-            <Search size={18} aria-hidden="true" />
-            <span className="sr-only">Search contacts</span>
-            <input
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search name, company, phone or GSTIN"
-              value={search}
-            />
-          </label>
-        </div>
+        <DirectoryToolbar ariaLabel="Filter contacts by role and search">
+          <FilterTabs
+            activeValue={filter}
+            ariaLabel="Filter contacts by role"
+            items={roleTabs.map((t) => ({
+              value: t.value,
+              label: t.label,
+              count: summary.isLoading ? undefined : (summary.data?.[t.countKey] ?? 0),
+            }))}
+            onChange={(val) => setFilter(val as ContactRoleFilter)}
+          />
+          <SearchInput
+            ariaLabel="Search contacts"
+            onChange={setSearch}
+            onClear={() => setSearch('')}
+            placeholder="Search name, company, phone or GSTIN"
+            value={search}
+          />
+        </DirectoryToolbar>
 
         {contacts.isError ? (
           <div className="directory-state directory-state--error" role="alert">
@@ -111,25 +104,28 @@ export function ContactsPage() {
                 {contactPage.content.map((contact) => <ContactRow contact={contact} key={contact.id} />)}
               </tbody>
             </DataTable>
-            <footer className="table-footer">
-              <span>{contactPage.totalElements} contact{contactPage.totalElements === 1 ? '' : 's'} {deferredSearch ? 'matching this search' : `in ${currentTab.label.toLowerCase()}`}</span>
-              <div className="pagination-actions">
-                <button aria-label="Previous page" disabled={contactPage.number === 0} onClick={() => setPage((current) => current - 1)} type="button"><ChevronLeft size={16} /></button>
-                <span>Page {contactPage.number + 1} of {Math.max(contactPage.totalPages, 1)}</span>
-                <button aria-label="Next page" disabled={contactPage.number + 1 >= contactPage.totalPages} onClick={() => setPage((current) => current + 1)} type="button"><ChevronRight size={16} /></button>
-              </div>
-            </footer>
+            <TablePagination
+              filterDescription={deferredSearch ? 'matching this search' : `in ${currentTab.label.toLowerCase()}`}
+              isFiltered={Boolean(deferredSearch || filter !== 'ALL')}
+              itemLabel="contact"
+              onPageChange={(p) => setPage(p)}
+              page={contactPage.number}
+              totalElements={contactPage.totalElements}
+              totalPages={contactPage.totalPages}
+            />
           </>
         ) : (
-          <div className="directory-state">
-            <UsersRound size={24} aria-hidden="true" />
-            <strong>No {currentTab.label.toLowerCase()} found.</strong>
-            <p>{deferredSearch ? 'Try a different name, phone, company, or GSTIN.' : 'Add your first contact to get started.'}</p>
-            <Button onClick={() => navigate(appRoutes.contactCreate)} variant="primary">
-              <Plus aria-hidden="true" size={16} />
-              <span>New Contact</span>
-            </Button>
-          </div>
+          <EmptyState
+            action={
+              <Button onClick={() => navigate(appRoutes.contactCreate)} variant="primary">
+                <Plus aria-hidden="true" size={16} />
+                <span>New Contact</span>
+              </Button>
+            }
+            description={deferredSearch ? 'Try a different name, phone, company, or GSTIN.' : 'Add your first contact to get started.'}
+            icon={UsersRound}
+            title={`No ${currentTab.label.toLowerCase()} found.`}
+          />
         )}
       </section>
 

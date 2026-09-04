@@ -1,18 +1,25 @@
 import { useDeferredValue, useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, FileText, Plus, Search } from 'lucide-react'
+import { FileText, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  DataTable,
+  DirectoryToolbar,
+  EmptyState,
+  FilterTabs,
+  Money,
+  PageHeader,
+  SearchInput,
+  StatusChip,
+  TablePagination,
+} from '@/design-system'
 import { formatDate, formatStatusLabel } from '@/shared/format/format'
 import { listInvoices, type Invoice } from '@/features/invoices/invoices-api'
 
 const invoiceFilters = [
-  { label: 'All', value: null },
+  { label: 'All', value: '' },
   { label: 'Draft', value: 'DRAFT' },
   { label: 'Sent', value: 'SENT' },
   { label: 'Partial', value: 'PARTIALLY_PAID' },
@@ -24,7 +31,7 @@ const invoiceFilters = [
 type InvoiceFilter = typeof invoiceFilters[number]['value']
 
 export function InvoicesPage() {
-  const [filter, setFilter] = useState<InvoiceFilter>(null)
+  const [filter, setFilter] = useState<InvoiceFilter>('')
   const [page, setPage] = useState(0)
   const [search, setSearch] = useState('')
   const deferredSearch = useDeferredValue(search)
@@ -34,9 +41,10 @@ export function InvoicesPage() {
     setPage(0)
   }, [deferredSearch, filter])
 
+  const effectiveStatus = filter === '' ? null : filter
   const invoices = useQuery({
-    queryKey: ['invoices', { page, search: deferredSearch, status: filter }],
-    queryFn: () => listInvoices({ page, search: deferredSearch, status: filter }),
+    queryKey: ['invoices', { page, search: deferredSearch, status: effectiveStatus }],
+    queryFn: () => listInvoices({ page, search: deferredSearch, status: effectiveStatus }),
   })
   const invoicePage = invoices.data
 
@@ -55,27 +63,21 @@ export function InvoicesPage() {
       />
 
       <section className="list-panel" aria-label="Invoice directory">
-        <div className="list-toolbar">
-          <div className="role-tabs" aria-label="Filter invoices by status" role="tablist">
-            {invoiceFilters.map((option) => (
-              <button
-                aria-selected={filter === option.value}
-                className={filter === option.value ? 'role-tab role-tab--active' : 'role-tab'}
-                key={option.label}
-                onClick={() => setFilter(option.value)}
-                role="tab"
-                type="button"
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-          <label className="directory-search">
-            <Search aria-hidden="true" size={18} />
-            <span className="sr-only">Search invoices</span>
-            <input onChange={(event) => setSearch(event.target.value)} placeholder="Search invoice or customer" value={search} />
-          </label>
-        </div>
+        <DirectoryToolbar ariaLabel="Filter invoices by status and search">
+          <FilterTabs
+            activeValue={filter}
+            ariaLabel="Filter invoices by status"
+            items={invoiceFilters}
+            onChange={(val) => setFilter(val as InvoiceFilter)}
+          />
+          <SearchInput
+            ariaLabel="Search invoices"
+            onChange={setSearch}
+            onClear={() => setSearch('')}
+            placeholder="Search invoice or customer"
+            value={search}
+          />
+        </DirectoryToolbar>
 
         {invoices.isError ? (
           <div className="directory-state directory-state--error" role="alert">
@@ -103,25 +105,38 @@ export function InvoicesPage() {
                 {invoicePage.content.map((invoice) => <InvoiceRow invoice={invoice} key={invoice.id} onOpen={() => navigate(appRoutes.invoiceDetail(invoice.id))} />)}
               </tbody>
             </DataTable>
-            <footer className="table-footer">
-              <span>{invoicePage.totalElements} invoice{invoicePage.totalElements === 1 ? '' : 's'} {deferredSearch ? 'matching this search' : filter ? `with ${formatStatusLabel(filter).toLowerCase()} status` : 'in this organisation'}</span>
-              <div className="pagination-actions">
-                <button aria-label="Previous page" disabled={invoicePage.page === 0} onClick={() => setPage((current) => current - 1)} type="button"><ChevronLeft aria-hidden="true" size={16} /></button>
-                <span>Page {invoicePage.page + 1} of {Math.max(invoicePage.totalPages, 1)}</span>
-                <button aria-label="Next page" disabled={invoicePage.last} onClick={() => setPage((current) => current + 1)} type="button"><ChevronRight aria-hidden="true" size={16} /></button>
-              </div>
-            </footer>
+            <TablePagination
+              filterDescription={
+                deferredSearch
+                  ? 'matching this search'
+                  : filter
+                    ? `with ${formatStatusLabel(filter).toLowerCase()} status`
+                    : 'in this organisation'
+              }
+              isFiltered={Boolean(deferredSearch || filter)}
+              itemLabel="invoice"
+              onPageChange={setPage}
+              page={invoicePage.page}
+              totalElements={invoicePage.totalElements}
+              totalPages={invoicePage.totalPages}
+            />
           </>
         ) : (
-          <div className="directory-state">
-            <FileText aria-hidden="true" size={24} />
-            <strong>No {filter ? formatStatusLabel(filter).toLowerCase() : ''} invoices found.</strong>
-            <p>{deferredSearch ? 'Try a different invoice number or customer name.' : 'Create your first invoice to bill customers and manage receivables.'}</p>
-            <Button onClick={() => navigate(appRoutes.invoiceCreate)} variant="primary">
-              <Plus aria-hidden="true" size={16} />
-              <span>New Invoice</span>
-            </Button>
-          </div>
+          <EmptyState
+            action={
+              <Button onClick={() => navigate(appRoutes.invoiceCreate)} variant="primary">
+                <Plus aria-hidden="true" size={16} />
+                <span>New Invoice</span>
+              </Button>
+            }
+            description={
+              deferredSearch
+                ? 'Try a different invoice number or customer name.'
+                : 'Create your first invoice to bill customers and manage receivables.'
+            }
+            icon={FileText}
+            title={`No ${filter ? formatStatusLabel(filter).toLowerCase() : ''} invoices found.`}
+          />
         )}
       </section>
     </section>

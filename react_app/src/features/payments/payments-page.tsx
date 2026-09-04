@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, Landmark, Plus } from 'lucide-react'
+import { Landmark, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
 import { Button } from '@/design-system/button'
@@ -69,38 +69,26 @@ export function PaymentsPage() {
                 ))}
               </tbody>
             </DataTable>
-            <footer className="table-footer">
-              <span>Showing {paymentPage.content.length} of {paymentPage.totalElements} payments · Page {paymentPage.page + 1} of {Math.max(paymentPage.totalPages, 1)}</span>
-              <div className="pagination-actions">
-                <Button
-                  aria-label="Previous page"
-                  disabled={page === 0}
-                  onClick={() => setPage((current) => Math.max(0, current - 1))}
-                  variant="secondary"
-                >
-                  <ChevronLeft aria-hidden="true" size={16} />
-                </Button>
-                <Button
-                  aria-label="Next page"
-                  disabled={paymentPage.last || page + 1 >= paymentPage.totalPages}
-                  onClick={() => setPage((current) => current + 1)}
-                  variant="secondary"
-                >
-                  <ChevronRight aria-hidden="true" size={16} />
-                </Button>
-              </div>
-            </footer>
+            <TablePagination
+              itemLabel="payment"
+              onPageChange={(p) => setPage(p)}
+              page={paymentPage.page}
+              totalElements={paymentPage.totalElements}
+              totalPages={paymentPage.totalPages}
+            />
           </>
         ) : (
-          <div className="directory-state">
-            <Landmark aria-hidden="true" size={24} />
-            <strong>No customer payments found</strong>
-            <p>Recorded payments and receipts applied to customer invoices will appear here.</p>
-            <Button onClick={() => navigate(appRoutes.paymentCreate)} variant="primary">
-              <Plus aria-hidden="true" size={16} />
-              <span>Record Payment</span>
-            </Button>
-          </div>
+          <EmptyState
+            action={
+              <Button onClick={() => navigate(appRoutes.paymentCreate)} variant="primary">
+                <Plus aria-hidden="true" size={16} />
+                <span>Record Payment</span>
+              </Button>
+            }
+            description="Recorded payments and receipts applied to customer invoices will appear here."
+            icon={Landmark}
+            title="No customer payments found"
+          />
         )}
       </section>
     </section>

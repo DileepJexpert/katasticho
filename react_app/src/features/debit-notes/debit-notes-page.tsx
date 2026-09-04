@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, FileMinus, Plus } from 'lucide-react'
+import { FileMinus, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
 import { Button } from '@/design-system/button'
@@ -47,28 +47,20 @@ export function DebitNotesPage() {
       />
 
       <section className="list-panel" aria-label="Debit note directory">
-        <div className="list-toolbar list-toolbar--stacked">
-          <div className="filter-chips" role="tablist" aria-label="Filter by debit note status">
-            {statusTabs.map((tab) => (
-              <button
-                key={tab.value}
-                aria-selected={selectedTab === tab.value}
-                className={`filter-chip ${selectedTab === tab.value ? 'filter-chip--active' : ''}`}
-                onClick={() => {
-                  setSelectedTab(tab.value)
-                  setPage(0)
-                }}
-                role="tab"
-                type="button"
-              >
-                <span>{tab.label}</span>
-              </button>
-            ))}
-          </div>
+        <DirectoryToolbar ariaLabel="Filter debit notes by status" stacked>
+          <FilterTabs
+            activeValue={selectedTab}
+            ariaLabel="Filter by debit note status"
+            items={statusTabs}
+            onChange={(val) => {
+              setSelectedTab(val);
+              setPage(0);
+            }}
+          />
           <p className="list-toolbar-note">
             Debit notes claim credit against vendor bills for returned goods, damaged inventory, or pricing discrepancies.
           </p>
-        </div>
+        </DirectoryToolbar>
 
         {debitNotes.isError ? (
           <div className="directory-state directory-state--error" role="alert">
@@ -101,38 +93,28 @@ export function DebitNotesPage() {
                 ))}
               </tbody>
             </DataTable>
-            <footer className="table-footer">
-              <span>Showing {notePage.content.length} of {notePage.totalElements} notes · Page {(notePage.number ?? 0) + 1} of {Math.max(notePage.totalPages, 1)}</span>
-              <div className="pagination-actions">
-                <Button
-                  aria-label="Previous page"
-                  disabled={page === 0}
-                  onClick={() => setPage((current) => Math.max(0, current - 1))}
-                  variant="secondary"
-                >
-                  <ChevronLeft aria-hidden="true" size={16} />
-                </Button>
-                <Button
-                  aria-label="Next page"
-                  disabled={notePage.last || page + 1 >= notePage.totalPages}
-                  onClick={() => setPage((current) => current + 1)}
-                  variant="secondary"
-                >
-                  <ChevronRight aria-hidden="true" size={16} />
-                </Button>
-              </div>
-            </footer>
+            <TablePagination
+              filterDescription={selectedTab !== 'ALL' ? `with ${selectedTab.toLowerCase()} status` : 'in this organisation'}
+              isFiltered={selectedTab !== 'ALL'}
+              itemLabel="debit note"
+              onPageChange={(p) => setPage(p)}
+              page={notePage?.number ?? 0}
+              totalElements={notePage?.totalElements ?? 0}
+              totalPages={notePage?.totalPages ?? 1}
+            />
           </>
         ) : (
-          <div className="directory-state">
-            <FileMinus aria-hidden="true" size={24} />
-            <strong>No debit notes found</strong>
-            <p>Vendor debit claims and purchase return notes will appear here.</p>
-            <Button onClick={() => navigate(appRoutes.debitNoteCreate)} variant="primary">
-              <Plus aria-hidden="true" size={16} />
-              <span>New Debit Note</span>
-            </Button>
-          </div>
+          <EmptyState
+            action={
+              <Button onClick={() => navigate(appRoutes.debitNoteCreate)} variant="primary">
+                <Plus aria-hidden="true" size={16} />
+                <span>New Debit Note</span>
+              </Button>
+            }
+            description="Vendor debit claims and purchase return notes will appear here."
+            icon={FileMinus}
+            title="No debit notes found"
+          />
         )}
       </section>
     </section>

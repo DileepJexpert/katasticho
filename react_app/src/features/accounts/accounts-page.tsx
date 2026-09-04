@@ -2,11 +2,8 @@ import { useDeferredValue, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   BookOpen,
-  ChevronLeft,
-  ChevronRight,
   Edit2,
   Plus,
-  Search,
   Sparkles,
   Trash2,
 } from 'lucide-react'
@@ -16,14 +13,19 @@ import {
   Button,
   CheckboxInput,
   DataTable,
+  DirectoryToolbar,
+  EmptyState,
+  FilterTabs,
   FormField,
   FormGrid,
   Modal,
   Money,
   NumberInput,
   PageHeader,
+  SearchInput,
   SelectInput,
   StatusChip,
+  TablePagination,
   TextAreaInput,
   TextInput,
 } from '@/design-system'
@@ -109,47 +111,36 @@ export function AccountsPage() {
       />
 
       <section className="list-panel" aria-label="Chart of accounts directory">
-        <div className="list-toolbar list-toolbar--stacked">
-          <div aria-label="Filter by account type" className="filter-chips" role="tablist">
-            {typeTabs.map((tab) => {
-              const count =
-                tab.value === 'ALL'
-                  ? allAccounts.length
-                  : allAccounts.filter((a) => a.type?.toUpperCase() === tab.value).length
-
-              return (
-                <button
-                  aria-selected={selectedTab === tab.value}
-                  className={`filter-chip ${selectedTab === tab.value ? 'filter-chip--active' : ''}`}
-                  key={tab.value}
-                  onClick={() => {
-                    setSelectedTab(tab.value)
-                    setPage(0)
-                  }}
-                  role="tab"
-                  type="button"
-                >
-                  <span>{tab.label}</span>
-                  {accounts.data ? <span className="filter-chip-count">{count}</span> : null}
-                </button>
-              )
-            })}
-          </div>
-
-          <label className="directory-search">
-            <Search aria-hidden="true" size={18} />
-            <span className="sr-only">Search accounts</span>
-            <input
-              onChange={(event) => {
-                setSearch(event.target.value)
-                setPage(0)
-              }}
-              placeholder="Search by account code, name, category..."
-              type="search"
-              value={search}
-            />
-          </label>
-        </div>
+        <DirectoryToolbar ariaLabel="Filter chart of accounts by type and search" stacked>
+          <FilterTabs
+            activeValue={selectedTab}
+            ariaLabel="Filter by account type"
+            items={typeTabs.map((t) => ({
+              value: t.value,
+              label: t.label,
+              count: t.value === 'ALL'
+                ? allAccounts.length
+                : allAccounts.filter((a) => a.type?.toUpperCase() === t.value).length,
+            }))}
+            onChange={(val) => {
+              setSelectedTab(val);
+              setPage(0);
+            }}
+          />
+          <SearchInput
+            ariaLabel="Search accounts"
+            onChange={(val) => {
+              setSearch(val);
+              setPage(0);
+            }}
+            onClear={() => {
+              setSearch('');
+              setPage(0);
+            }}
+            placeholder="Search by account code, name, category..."
+            value={search}
+          />
+        </DirectoryToolbar>
 
         {accounts.isError ? (
           <div className="directory-state directory-state--error" role="alert">
@@ -229,44 +220,28 @@ export function AccountsPage() {
               </tbody>
             </DataTable>
 
-            <footer className="table-footer">
-              <span>
-                {filteredAccounts.length} account{filteredAccounts.length === 1 ? '' : 's'}{' '}
-                {deferredSearch ? 'matching this search' : selectedTab !== 'ALL' ? `in ${selectedTab.toLowerCase()}` : 'in total'}
-              </span>
-              <div className="pagination-actions">
-                <button
-                  aria-label="Previous page"
-                  disabled={page === 0}
-                  onClick={() => setPage((current) => current - 1)}
-                  type="button"
-                >
-                  <ChevronLeft aria-hidden="true" size={16} />
-                </button>
-                <span>
-                  Page {page + 1} of {totalPages}
-                </span>
-                <button
-                  aria-label="Next page"
-                  disabled={page + 1 >= totalPages}
-                  onClick={() => setPage((current) => current + 1)}
-                  type="button"
-                >
-                  <ChevronRight aria-hidden="true" size={16} />
-                </button>
-              </div>
-            </footer>
+            <TablePagination
+              filterDescription={deferredSearch ? 'matching this search' : selectedTab !== 'ALL' ? `in ${selectedTab.toLowerCase()}` : 'in total'}
+              isFiltered={Boolean(deferredSearch || selectedTab !== 'ALL')}
+              itemLabel="account"
+              onPageChange={(p) => setPage(p)}
+              page={page}
+              totalElements={filteredAccounts.length}
+              totalPages={totalPages}
+            />
           </>
         ) : (
-          <div className="directory-state">
-            <BookOpen aria-hidden="true" size={24} />
-            <strong>No accounts found.</strong>
-            <p>
-              {deferredSearch
-                ? 'Try a different code, name, or classification.'
-                : 'Seed standard industry accounts or create custom ledger accounts.'}
-            </p>
-          </div>
+          <EmptyState
+            action={
+              <Button onClick={() => setShowCreateModal(true)} variant="primary">
+                <Plus aria-hidden="true" size={16} />
+                <span>New Account</span>
+              </Button>
+            }
+            description={deferredSearch ? 'Try a different code, name, or classification.' : 'Seed standard industry accounts or create custom ledger accounts.'}
+            icon={BookOpen}
+            title="No accounts found."
+          />
         )}
       </section>
 

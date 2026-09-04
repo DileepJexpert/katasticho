@@ -1,13 +1,20 @@
 import { useDeferredValue, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, Plus, Search, ShoppingBag } from 'lucide-react'
+import { Plus, ShoppingBag } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  DataTable,
+  DirectoryToolbar,
+  EmptyState,
+  FilterTabs,
+  Money,
+  PageHeader,
+  SearchInput,
+  StatusChip,
+  TablePagination,
+} from '@/design-system'
 import { formatDate, formatStatusLabel } from '@/shared/format/format'
 import { listPurchaseOrders, type PurchaseOrder } from '@/features/purchase-orders/purchase-orders-api'
 
@@ -66,48 +73,39 @@ export function PurchaseOrdersPage() {
       />
 
       <section className="list-panel" aria-label="Purchase order directory">
-        <div className="list-toolbar list-toolbar--stacked">
-          <div className="filter-chips" role="tablist" aria-label="Filter by order status">
-            {statusTabs.map((tab) => {
-              const count = tab.value === 'ALL'
+        <DirectoryToolbar ariaLabel="Filter purchase orders by status and search" stacked>
+          <FilterTabs
+            activeValue={selectedTab}
+            ariaLabel="Filter by order status"
+            items={statusTabs.map((t) => ({
+              value: t.value,
+              label: t.label,
+              count: t.value === 'ALL'
                 ? allOrders.length
-                : allOrders.filter((o) => o.status?.toUpperCase() === tab.value).length
-
-              return (
-                <button
-                  key={tab.value}
-                  aria-selected={selectedTab === tab.value}
-                  className={`filter-chip ${selectedTab === tab.value ? 'filter-chip--active' : ''}`}
-                  onClick={() => {
-                    setSelectedTab(tab.value)
-                    setPage(0)
-                  }}
-                  role="tab"
-                  type="button"
-                >
-                  <span>{tab.label}</span>
-                  {orders.data ? <span className="filter-chip-count">{count}</span> : null}
-                </button>
-              )
-            })}
-          </div>
-
-          <label className="directory-search">
-            <Search aria-hidden="true" size={18} />
-            <span className="sr-only">Search purchase orders</span>
-            <input
-              onChange={(event) => {
-                setSearch(event.target.value)
-                setPage(0)
-              }}
-              placeholder="Search by PO number, supplier name, notes..."
-              value={search}
-            />
-          </label>
+                : allOrders.filter((o) => o.status?.toUpperCase() === t.value).length,
+            }))}
+            onChange={(val) => {
+              setSelectedTab(val);
+              setPage(0);
+            }}
+          />
+          <SearchInput
+            ariaLabel="Search purchase orders"
+            onChange={(val) => {
+              setSearch(val);
+              setPage(0);
+            }}
+            onClear={() => {
+              setSearch('');
+              setPage(0);
+            }}
+            placeholder="Search by PO number, supplier name, notes..."
+            value={search}
+          />
           <p className="list-toolbar-note">
             Purchase orders track procurement commitments before receiving goods into inventory and matching vendor bills.
           </p>
-        </div>
+        </DirectoryToolbar>
 
         {orders.isError ? (
           <div className="directory-state directory-state--error" role="alert">
@@ -140,38 +138,28 @@ export function PurchaseOrdersPage() {
                 ))}
               </tbody>
             </DataTable>
-            <footer className="table-footer">
-              <span>Showing {paginatedOrders.length} of {filteredOrders.length} orders · Page {page + 1} of {totalPages}</span>
-              <div className="pagination-actions">
-                <Button
-                  aria-label="Previous page"
-                  disabled={page === 0}
-                  onClick={() => setPage((current) => Math.max(0, current - 1))}
-                  variant="secondary"
-                >
-                  <ChevronLeft aria-hidden="true" size={16} />
-                </Button>
-                <Button
-                  aria-label="Next page"
-                  disabled={page + 1 >= totalPages}
-                  onClick={() => setPage((current) => current + 1)}
-                  variant="secondary"
-                >
-                  <ChevronRight aria-hidden="true" size={16} />
-                </Button>
-              </div>
-            </footer>
+            <TablePagination
+              filterDescription={search ? 'matching this search' : selectedTab !== 'ALL' ? `with ${selectedTab.toLowerCase()} status` : 'in this organisation'}
+              isFiltered={Boolean(search || selectedTab !== 'ALL')}
+              itemLabel="purchase order"
+              onPageChange={(p) => setPage(p)}
+              page={page}
+              totalElements={filteredOrders.length}
+              totalPages={totalPages}
+            />
           </>
         ) : (
-          <div className="directory-state">
-            <ShoppingBag aria-hidden="true" size={24} />
-            <strong>No purchase orders found</strong>
-            <p>Supplier procurement purchase orders will appear here.</p>
-            <Button onClick={() => navigate(appRoutes.purchaseOrderCreate)} variant="primary">
-              <Plus aria-hidden="true" size={16} />
-              <span>New Purchase Order</span>
-            </Button>
-          </div>
+          <EmptyState
+            action={
+              <Button onClick={() => navigate(appRoutes.purchaseOrderCreate)} variant="primary">
+                <Plus aria-hidden="true" size={16} />
+                <span>New Purchase Order</span>
+              </Button>
+            }
+            description="Supplier procurement purchase orders will appear here."
+            icon={ShoppingBag}
+            title="No purchase orders found"
+          />
         )}
       </section>
     </section>

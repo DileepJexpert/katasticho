@@ -1,14 +1,21 @@
 import { useDeferredValue, useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Boxes, ChevronLeft, ChevronRight, Plus, Search, UploadCloud } from 'lucide-react'
+import { Boxes, Plus, UploadCloud } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
-import { Quantity } from '@/design-system/quantity'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  DataTable,
+  DirectoryToolbar,
+  EmptyState,
+  FilterTabs,
+  Money,
+  PageHeader,
+  Quantity,
+  SearchInput,
+  StatusChip,
+  TablePagination,
+} from '@/design-system'
 import {
   createItem,
   getNegativeStockCount,
@@ -73,49 +80,37 @@ export function ItemsPage() {
       />
 
       <section className="list-panel" aria-label="Item directory">
-        <div className="list-toolbar">
-          <div className="role-tabs" aria-label="Filter inventory items" role="tablist">
-            <button
-              aria-selected={filter === 'ALL'}
-              className={filter === 'ALL' ? 'role-tab role-tab--active' : 'role-tab'}
-              onClick={() => selectFilter('ALL')}
-              role="tab"
-              type="button"
-            >
-              All items
-              <span>{filter === 'ALL' ? itemPage?.totalElements ?? 0 : '--'}</span>
-            </button>
-            <button
-              aria-selected={negativeStockOnly}
-              className={negativeStockOnly ? 'role-tab role-tab--active' : 'role-tab'}
-              onClick={() => selectFilter('NEGATIVE_STOCK')}
-              role="tab"
-              type="button"
-            >
-              Negative stock
-              <span>{negativeStock.isLoading ? '...' : negativeStock.data ?? 0}</span>
-            </button>
-            <button
-              aria-selected={activeOnly}
-              className={activeOnly ? 'role-tab role-tab--active' : 'role-tab'}
-              onClick={() => selectFilter('ACTIVE_ONLY')}
-              role="tab"
-              type="button"
-            >
-              Active Only
-            </button>
-          </div>
-          <label className="directory-search">
-            <Search aria-hidden="true" size={18} />
-            <span className="sr-only">Search items</span>
-            <input
-              disabled={negativeStockOnly}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder={negativeStockOnly ? 'Search is unavailable in negative-stock view' : 'Search name, SKU, barcode, HSN'}
-              value={search}
-            />
-          </label>
-        </div>
+        <DirectoryToolbar ariaLabel="Filter inventory items by status and search">
+          <FilterTabs
+            activeValue={negativeStockOnly ? 'NEGATIVE_STOCK' : activeOnly ? 'ACTIVE_ONLY' : 'ALL'}
+            ariaLabel="Filter inventory items"
+            items={[
+              {
+                value: 'ALL',
+                label: 'All items',
+                count: filter === 'ALL' ? itemPage?.totalElements ?? 0 : undefined,
+              },
+              {
+                value: 'NEGATIVE_STOCK',
+                label: 'Negative stock',
+                count: negativeStock.isLoading ? undefined : (negativeStock.data ?? 0),
+              },
+              {
+                value: 'ACTIVE_ONLY',
+                label: 'Active Only',
+              },
+            ]}
+            onChange={(val) => selectFilter(val as 'ALL' | 'NEGATIVE_STOCK' | 'ACTIVE_ONLY')}
+          />
+          <SearchInput
+            ariaLabel="Search items"
+            disabled={negativeStockOnly}
+            onChange={setSearch}
+            onClear={() => setSearch('')}
+            placeholder={negativeStockOnly ? 'Search is unavailable in negative-stock view' : 'Search name, SKU, barcode, HSN'}
+            value={search}
+          />
+        </DirectoryToolbar>
 
         {items.isError ? (
           <div className="directory-state directory-state--error" role="alert">
@@ -149,21 +144,30 @@ export function ItemsPage() {
                 ))}
               </tbody>
             </DataTable>
-            <footer className="table-footer">
-              <span>{itemPage.totalElements} item{itemPage.totalElements === 1 ? '' : 's'} {deferredSearch ? 'matching this search' : negativeStockOnly ? 'with negative stock' : 'in this organisation'}</span>
-              <div className="pagination-actions">
-                <button aria-label="Previous page" disabled={itemPage.page === 0} onClick={() => setPage((current) => current - 1)} type="button"><ChevronLeft aria-hidden="true" size={16} /></button>
-                <span>Page {itemPage.page + 1} of {Math.max(itemPage.totalPages, 1)}</span>
-                <button aria-label="Next page" disabled={itemPage.last} onClick={() => setPage((current) => current + 1)} type="button"><ChevronRight aria-hidden="true" size={16} /></button>
-              </div>
-            </footer>
+            <TablePagination
+              filterDescription={deferredSearch ? 'matching this search' : negativeStockOnly ? 'with negative stock' : 'in this organisation'}
+              isFiltered={Boolean(deferredSearch || negativeStockOnly)}
+              itemLabel="item"
+              onPageChange={(p) => setPage(p)}
+              page={itemPage.page}
+              totalElements={itemPage.totalElements}
+              totalPages={itemPage.totalPages}
+            />
           </>
         ) : (
-          <div className="directory-state">
-            <Boxes aria-hidden="true" size={24} />
-            <strong>{negativeStockOnly ? 'No items have negative stock.' : 'No items found.'}</strong>
-            <p>{negativeStockOnly ? 'Every inventory-tracked item is at zero or above.' : deferredSearch ? 'Try a different name, SKU, barcode, or HSN.' : 'Create your first item to start tracking inventory and sales.'}</p>
-          </div>
+          <EmptyState
+            action={
+              !negativeStockOnly ? (
+                <Button onClick={() => navigate(appRoutes.itemCreate)} variant="primary">
+                  <Plus aria-hidden="true" size={16} />
+                  <span>New Item</span>
+                </Button>
+              ) : null
+            }
+            description={negativeStockOnly ? 'Every inventory-tracked item is at zero or above.' : deferredSearch ? 'Try a different name, SKU, barcode, or HSN.' : 'Create your first item to start tracking inventory and sales.'}
+            icon={Boxes}
+            title={negativeStockOnly ? 'No items have negative stock.' : 'No items found.'}
+          />
         )}
       </section>
 

@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowUpRight, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { ArrowUpRight, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
 import {
   Button,
   DataTable,
+  EmptyState,
   FormField,
   Modal,
   Money,
@@ -13,6 +14,7 @@ import {
   PageHeader,
   SelectInput,
   StatusChip,
+  TablePagination,
   TextInput,
 } from '@/design-system'
 import { formatDate, formatStatusLabel } from '@/shared/format/format'
@@ -107,34 +109,26 @@ export function VendorPaymentsPage() {
                 ))}
               </tbody>
             </DataTable>
-            <footer className="table-footer">
-              <span>Showing {paymentPage.content.length} of {paymentPage.totalElements} disbursements · Page {paymentPage.page + 1} of {Math.max(paymentPage.totalPages, 1)}</span>
-              <div className="pagination-actions">
-                <Button
-                  aria-label="Previous page"
-                  disabled={page === 0}
-                  onClick={() => setPage((current) => Math.max(0, current - 1))}
-                  variant="secondary"
-                >
-                  <ChevronLeft aria-hidden="true" size={16} />
-                </Button>
-                <Button
-                  aria-label="Next page"
-                  disabled={paymentPage.last || page + 1 >= paymentPage.totalPages}
-                  onClick={() => setPage((current) => current + 1)}
-                  variant="secondary"
-                >
-                  <ChevronRight aria-hidden="true" size={16} />
-                </Button>
-              </div>
-            </footer>
+            <TablePagination
+              itemLabel="disbursement"
+              onPageChange={(p) => setPage(p)}
+              page={paymentPage.page}
+              totalElements={paymentPage.totalElements}
+              totalPages={paymentPage.totalPages}
+            />
           </>
         ) : (
-          <div className="directory-state">
-            <ArrowUpRight aria-hidden="true" size={24} />
-            <strong>No vendor disbursements found</strong>
-            <p>Recorded payments and bank disbursements applied to supplier bills will appear here.</p>
-          </div>
+          <EmptyState
+            action={
+              <Button onClick={() => setDisburseModalOpen(true)} variant="primary">
+                <Plus aria-hidden="true" size={16} />
+                <span>Disburse Payment</span>
+              </Button>
+            }
+            description="Recorded payments and bank disbursements applied to supplier bills will appear here."
+            icon={ArrowUpRight}
+            title="No vendor disbursements found"
+          />
         )}
       </section>
 

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, FileBadge, Plus } from 'lucide-react'
+import { FileBadge, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
 import { Button } from '@/design-system/button'
@@ -51,34 +51,23 @@ export function CreditNotesPage() {
       />
 
       <section className="list-panel" aria-label="Credit note directory">
-        <div className="list-toolbar list-toolbar--stacked">
-          <div className="filter-chips" role="tablist" aria-label="Filter by credit note status">
-            {statusTabs.map((tab) => {
-              const count = tab.value === 'ALL'
+        <DirectoryToolbar ariaLabel="Filter credit notes by status" stacked>
+          <FilterTabs
+            activeValue={selectedTab}
+            ariaLabel="Filter by credit note status"
+            items={statusTabs.map((t) => ({
+              value: t.value,
+              label: t.label,
+              count: t.value === 'ALL'
                 ? notePage?.content.length ?? 0
-                : (notePage?.content ?? []).filter((n) => n.status?.toUpperCase() === tab.value).length
-
-              return (
-                <button
-                  key={tab.value}
-                  aria-selected={selectedTab === tab.value}
-                  className={`filter-chip ${selectedTab === tab.value ? 'filter-chip--active' : ''}`}
-                  onClick={() => {
-                    setSelectedTab(tab.value)
-                  }}
-                  role="tab"
-                  type="button"
-                >
-                  <span>{tab.label}</span>
-                  {notePage ? <span className="filter-chip-count">{count}</span> : null}
-                </button>
-              )
-            })}
-          </div>
+                : (notePage?.content ?? []).filter((n) => n.status?.toUpperCase() === t.value).length,
+            }))}
+            onChange={setSelectedTab}
+          />
           <p className="list-toolbar-note">
             Credit notes reduce customer receivable balances and post adjusting output GST and sales return journals upon issuance.
           </p>
-        </div>
+        </DirectoryToolbar>
 
         {creditNotes.isError ? (
           <div className="directory-state directory-state--error" role="alert">
@@ -110,38 +99,28 @@ export function CreditNotesPage() {
                 ))}
               </tbody>
             </DataTable>
-            <footer className="table-footer">
-              <span>Showing {filteredNotes.length} of {notePage?.totalElements ?? 0} notes · Page {(notePage?.page ?? 0) + 1} of {Math.max(notePage?.totalPages ?? 1, 1)}</span>
-              <div className="pagination-actions">
-                <Button
-                  aria-label="Previous page"
-                  disabled={page === 0}
-                  onClick={() => setPage((current) => Math.max(0, current - 1))}
-                  variant="secondary"
-                >
-                  <ChevronLeft aria-hidden="true" size={16} />
-                </Button>
-                <Button
-                  aria-label="Next page"
-                  disabled={notePage?.last || page + 1 >= (notePage?.totalPages ?? 1)}
-                  onClick={() => setPage((current) => current + 1)}
-                  variant="secondary"
-                >
-                  <ChevronRight aria-hidden="true" size={16} />
-                </Button>
-              </div>
-            </footer>
+            <TablePagination
+              filterDescription={selectedTab !== 'ALL' ? `with ${selectedTab.toLowerCase()} status` : 'in this organisation'}
+              isFiltered={selectedTab !== 'ALL'}
+              itemLabel="credit note"
+              onPageChange={(p) => setPage(p)}
+              page={notePage?.page ?? 0}
+              totalElements={notePage?.totalElements ?? 0}
+              totalPages={notePage?.totalPages ?? 1}
+            />
           </>
         ) : (
-          <div className="directory-state">
-            <FileBadge aria-hidden="true" size={24} />
-            <strong>No credit notes found</strong>
-            <p>Customer credit adjustments and sales return notes will appear here.</p>
-            <Button onClick={() => navigate(appRoutes.creditNoteCreate)} variant="primary">
-              <Plus aria-hidden="true" size={16} />
-              <span>New Credit Note</span>
-            </Button>
-          </div>
+          <EmptyState
+            action={
+              <Button onClick={() => navigate(appRoutes.creditNoteCreate)} variant="primary">
+                <Plus aria-hidden="true" size={16} />
+                <span>New Credit Note</span>
+              </Button>
+            }
+            description="Customer credit adjustments and sales return notes will appear here."
+            icon={FileBadge}
+            title="No credit notes found"
+          />
         )}
       </section>
     </section>
