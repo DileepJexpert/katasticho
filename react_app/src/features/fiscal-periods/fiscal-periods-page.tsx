@@ -1,34 +1,22 @@
 import { useMemo, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
+import { Calendar } from 'lucide-react'
 import {
-  AlertTriangle,
-  CheckCircle,
-  CheckCircle2,
-  FileCheck,
-  Lock,
-  ShieldCheck,
-  Unlock,
-  XCircle,
-} from 'lucide-react'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
-import { Quantity } from '@/design-system/quantity'
-import { StatusChip } from '@/design-system/status-chip'
-import {
-  closePeriod,
-  closePeriodGuarded,
-  closeYear,
-  getContinuousCloseChecklist,
-  listPeriods,
-  lockPeriod,
-  reopenPeriod,
-  reopenYear,
-  type ContinuousCloseChecklist,
-} from '@/features/fiscal-periods/fiscal-periods-api'
+  Button,
+  DataTable,
+  DirectoryToolbar,
+  EmptyState,
+  Fact,
+  FactList,
+  FilterTabs,
+  Modal,
+  PageHeader,
+  SearchInput,
+  StatusChip,
+} from '@/design-system'
+import { listPeriods, type FiscalPeriod } from '@/features/fiscal-periods/fiscal-periods-api'
 
-const monthNames = [
+const MONTH_NAMES = [
   'January',
   'February',
   'March',
@@ -43,537 +31,323 @@ const monthNames = [
   'December',
 ]
 
+function getMonthName(month: number): string {
+  if (month >= 1 && month <= 12) {
+    return MONTH_NAMES[month - 1]!
+  }
+  return `Month ${month}`
+}
+
+function getQuarter(month: number): string {
+  if (month >= 1 && month <= 3) return 'Q4 (Jan - Mar)'
+  if (month >= 4 && month <= 6) return 'Q1 (Apr - Jun)'
+  if (month >= 7 && month <= 9) return 'Q2 (Jul - Sep)'
+  return 'Q3 (Oct - Dec)'
+}
+
+function formatDate(isoString?: string | null): string {
+  if (!isoString) return '--'
+  try {
+    const d = new Date(isoString)
+    return d.toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  } catch {
+    return isoString
+  }
+}
+
 export function FiscalPeriodsPage() {
-  const queryClient = useQueryClient()
   const currentYear = new Date().getFullYear()
   const [selectedYear, setSelectedYear] = useState<number>(currentYear)
-  const [activeChecklistPeriod, setActiveChecklistPeriod] = useState<{
-    year: number
-    month: number
-  } | null>(null)
-  const [isYearCloseModalOpen, setIsYearCloseModalOpen] = useState(false)
-  const [closingResult, setClosingResult] = useState<{
-    journalEntryId: string
-    closingAmount: number
-  } | null>(null)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'OPEN' | 'CLOSED' | 'LOCKED'>('ALL')
+  const [selectedPeriod, setSelectedPeriod] = useState<FiscalPeriod | null>(null)
 
-  // Queries
   const periodsQuery = useQuery({
     queryKey: ['fiscal-periods'],
     queryFn: listPeriods,
   })
 
-  const checklistQuery = useQuery({
-    queryKey: [
-      'continuous-close-checklist',
-      activeChecklistPeriod?.year,
-      activeChecklistPeriod?.month,
-    ],
-    queryFn: () =>
-      getContinuousCloseChecklist(
-        activeChecklistPeriod!.year,
-        activeChecklistPeriod!.month
-      ),
-    enabled: Boolean(activeChecklistPeriod),
-  })
+  const periods = periodsQuery.data ?? []
 
-  // Mutations
-  const closePeriodMutation = useMutation({
-    mutationFn: ({ year, month, force }: { year: number; month: number; force?: boolean }) =>
-      force ? closePeriodGuarded(year, month, true) : closePeriod(year, month),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['fiscal-periods'] })
-      queryClient.invalidateQueries({ queryKey: ['continuous-close-checklist'] })
-      setActiveChecklistPeriod(null)
-    },
-  })
+  // Extract distinct financial years present in data
+  const availableYears = useMemo(() => {
+    const set = new Set<number>()
+    periods.forEach((p) => set.add(p.periodYear))
+    if (!set.has(currentYear)) set.add(currentYear)
+    return Array.from(set).sort((a, b) => b - a)
+  }, [periods, currentYear])
 
-  const reopenPeriodMutation = useMutation({
-    mutationFn: ({ year, month }: { year: number; month: number }) =>
-      reopenPeriod(year, month),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['fiscal-periods'] }),
-  })
+  // If selectedYear is not in availableYears, pick first
+  const activeYear = availableYears.includes(selectedYear)
+    ? selectedYear
+    : availableYears[0] ?? currentYear
 
-  const lockPeriodMutation = useMutation({
-    mutationFn: ({ year, month }: { year: number; month: number }) =>
-      lockPeriod(year, month),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['fiscal-periods'] }),
-  })
+  // Filter by year
+  const yearPeriods = useMemo(
+    () => periods.filter((p) => p.periodYear === activeYear),
+    [periods, activeYear]
+  )
 
-  const closeYearMutation = useMutation({
-    mutationFn: (year: number) => closeYear(year),
-    onSuccess: (res) => {
-      queryClient.invalidateQueries({ queryKey: ['fiscal-periods'] })
-      setClosingResult(res)
-    },
-  })
+  // Metrics for active year
+  const openCount = useMemo(
+    () => yearPeriods.filter((p) => (p.status ?? '').toUpperCase() === 'OPEN').length,
+    [yearPeriods]
+  )
 
-  const reopenYearMutation = useMutation({
-    mutationFn: (year: number) => reopenYear(year),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['fiscal-periods'] }),
-  })
+  const closedCount = useMemo(
+    () =>
+      yearPeriods.filter((p) => {
+        const s = (p.status ?? '').toUpperCase()
+        return s === 'CLOSED' || s === 'SOFT_CLOSED'
+      }).length,
+    [yearPeriods]
+  )
 
-  const allPeriods = periodsQuery.data ?? []
+  const lockedCount = useMemo(
+    () => yearPeriods.filter((p) => (p.status ?? '').toUpperCase() === 'LOCKED').length,
+    [yearPeriods]
+  )
 
-  // Generate 12 months for selected year
-  const yearPeriods = useMemo(() => {
-    const months = []
-    for (let m = 1; m <= 12; m++) {
-      const existing = allPeriods.find(
-        (p) => p.periodYear === selectedYear && p.periodMonth === m
+  // Table filtering by status and search
+  const filteredPeriods = useMemo(() => {
+    const query = search.trim().toLowerCase()
+    return yearPeriods.filter((p) => {
+      const s = (p.status ?? '').toUpperCase()
+      const matchesStatus =
+        statusFilter === 'ALL' ||
+        (statusFilter === 'OPEN' && s === 'OPEN') ||
+        (statusFilter === 'CLOSED' && (s === 'CLOSED' || s === 'SOFT_CLOSED')) ||
+        (statusFilter === 'LOCKED' && s === 'LOCKED')
+
+      if (!matchesStatus) return false
+
+      if (!query) return true
+
+      const mName = getMonthName(p.periodMonth).toLowerCase()
+      const quarter = getQuarter(p.periodMonth).toLowerCase()
+      const statusText = s.toLowerCase()
+
+      return (
+        mName.includes(query) ||
+        quarter.includes(query) ||
+        statusText.includes(query) ||
+        String(p.periodMonth).includes(query)
       )
-      months.push({
-        month: m,
-        monthName: monthNames[m - 1],
-        year: selectedYear,
-        status: existing?.status || 'OPEN',
-        closedBy: existing?.closedBy,
-        closedAt: existing?.closedAt,
-        lockedBy: existing?.lockedBy,
-        lockedAt: existing?.lockedAt,
-        id: existing?.id,
-      })
-    }
-    return months
-  }, [allPeriods, selectedYear])
-
-  // Summary Metrics
-  const openCount = yearPeriods.filter((p) => p.status === 'OPEN').length
-  const softClosedCount = yearPeriods.filter((p) => p.status === 'SOFT_CLOSED' || p.status === 'CLOSED').length
-  const lockedCount = yearPeriods.filter((p) => p.status === 'LOCKED').length
-
-  const checklist: ContinuousCloseChecklist | undefined = checklistQuery.data
+    })
+  }, [yearPeriods, statusFilter, search])
 
   return (
     <section className="workspace-page">
       <PageHeader
-        eyebrow="Financial Governance & Auditing"
-        title="Fiscal Periods & Financial Close"
-        description="Accounting period boundaries, continuous close checklist, soft closures, audit locks, and statutory year-end retained earnings rollup."
-        actions={
-          <div style={{ display: 'flex', gap: 'var(--space-sm)', alignItems: 'center' }}>
-            <select
-              className="select-field"
-              onChange={(e) => setSelectedYear(Number(e.target.value))}
-              style={{
-                padding: '6px 12px',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--color-border)',
-                fontWeight: 600,
-                background: 'var(--color-surface)',
-              }}
-              value={selectedYear}
-            >
-              {[currentYear - 2, currentYear - 1, currentYear, currentYear + 1].map((yr) => (
-                <option key={yr} value={yr}>
-                  Calendar Year {yr}
-                </option>
-              ))}
-            </select>
-
-            <Button onClick={() => setIsYearCloseModalOpen(true)} variant="secondary">
-              <FileCheck aria-hidden="true" size={14} style={{ marginRight: 6 }} />
-              Year-End Close Console
-            </Button>
-          </div>
-        }
+        eyebrow="Accounting Governance / Governance"
+        title="Fiscal periods & financial years"
+        description="Review accounting periods, period closure governance (OPEN, LOCKED, CLOSED), and financial year boundaries. Mutations remain in Flutter during migration."
       />
 
-      {/* KPI Summary Strip */}
-      <div className="summary-strip">
-        <div className="summary-card">
-          <span className="summary-card__label">Open Accounting Periods</span>
-          <strong className="summary-card__value" style={{ color: 'var(--color-primary)' }}>
-            <Quantity value={openCount} /> Months
-          </strong>
-          <span className="summary-card__hint">Open for voucher postings</span>
+      {/* Year Selector Tabs */}
+      <nav aria-label="Fiscal year selector" className="form-card">
+        <div className="directory-toolbar">
+          <span className="text-secondary font-medium">Financial year:</span>
+          <FilterTabs
+            activeValue={String(activeYear)}
+            ariaLabel="Select financial year"
+            items={availableYears.map((yr) => ({
+              value: String(yr),
+              label: `FY ${yr}`,
+              count: periods.filter((p) => p.periodYear === yr).length,
+            }))}
+            onChange={(val) => setSelectedYear(Number(val))}
+          />
         </div>
+      </nav>
 
-        <div className="summary-card">
-          <span className="summary-card__label">Closed Periods</span>
-          <strong className="summary-card__value" style={{ color: 'var(--color-warning)' }}>
-            <Quantity value={softClosedCount} /> Months
-          </strong>
-          <span className="summary-card__hint">Soft closed for final audit</span>
+      {/* Year Summary KPI Cards */}
+      <section
+        aria-label="Fiscal period governance summary"
+        className="document-facts form-grid--4col"
+      >
+        <div className="summary-stat-card">
+          <dt>Financial year</dt>
+          <dd>
+            <strong>FY {activeYear}</strong>
+          </dd>
         </div>
-
-        <div className="summary-card summary-card--accent">
-          <span className="summary-card__label">Immutable Locked Periods</span>
-          <strong className="summary-card__value" style={{ color: 'var(--color-success)' }}>
-            <Quantity value={lockedCount} /> Months
-          </strong>
-          <span className="summary-card__hint">Hard locked against edits</span>
+        <div className="summary-stat-card">
+          <dt>Open periods</dt>
+          <dd>
+            <strong className="text-pos">{openCount}</strong>
+          </dd>
         </div>
-      </div>
-
-      {/* Monthly Periods Grid */}
-      <div className="panel-card" style={{ padding: 'var(--space-md)' }}>
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: 'var(--space-md)',
-          }}
-        >
-          <h3 style={{ fontSize: '1.05rem', fontWeight: 600 }}>
-            Period Lifecycle Matrix ({selectedYear})
-          </h3>
-          <span className="cell-muted" style={{ fontSize: '0.85rem' }}>
-            All dates and postings in closed periods require explicit reopening overrides.
-          </span>
+        <div className="summary-stat-card">
+          <dt>Closed periods</dt>
+          <dd>
+            <strong>{closedCount}</strong>
+          </dd>
         </div>
+        <div className="summary-stat-card">
+          <dt>Locked periods</dt>
+          <dd>
+            <strong className="text-warn">{lockedCount}</strong>
+          </dd>
+        </div>
+      </section>
 
-        <DataTable caption={`Fiscal Periods Matrix for ${selectedYear}`}>
-          <thead>
-            <tr>
-              <th scope="col">Period</th>
-              <th scope="col">Calendar Month</th>
-              <th scope="col">Status</th>
-              <th scope="col">Closing Metadata</th>
-              <th className="numeric-cell" scope="col">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {yearPeriods.map((period) => {
-              const isOpen = period.status === 'OPEN'
-              const isClosed = period.status === 'SOFT_CLOSED' || period.status === 'CLOSED'
-              const isLocked = period.status === 'LOCKED'
+      {/* Periods Table Panel */}
+      <section aria-label="Fiscal periods timeline" className="list-panel">
+        <DirectoryToolbar ariaLabel="Filter fiscal periods by status and search">
+          <SearchInput
+            onChange={setSearch}
+            onClear={() => setSearch('')}
+            placeholder="Search period month or quarter..."
+            value={search}
+          />
+          <FilterTabs
+            activeValue={statusFilter}
+            ariaLabel="Filter period status"
+            items={[
+              { value: 'ALL', label: 'All periods', count: yearPeriods.length },
+              { value: 'OPEN', label: 'Open', count: openCount },
+              { value: 'CLOSED', label: 'Closed', count: closedCount },
+              { value: 'LOCKED', label: 'Locked', count: lockedCount },
+            ]}
+            onChange={(val) =>
+              setStatusFilter(val as 'ALL' | 'OPEN' | 'CLOSED' | 'LOCKED')
+            }
+          />
+        </DirectoryToolbar>
 
-              return (
-                <tr key={period.month}>
+        {periodsQuery.isError ? (
+          <div className="directory-state directory-state--error" role="alert">
+            <strong>Fiscal periods could not be loaded.</strong>
+            <p>Check your connection and permissions, then refresh the page.</p>
+          </div>
+        ) : periodsQuery.isLoading ? (
+          <div aria-live="polite" className="directory-state">
+            Loading fiscal periods...
+          </div>
+        ) : filteredPeriods.length ? (
+          <DataTable caption={`Fiscal periods for FY ${activeYear}`}>
+            <thead>
+              <tr>
+                <th scope="col">Period / Month</th>
+                <th scope="col">Quarter</th>
+                <th scope="col">Period number</th>
+                <th scope="col">Status</th>
+                <th scope="col">Closed at</th>
+                <th scope="col">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredPeriods.map((period) => (
+                <tr key={period.id || `${period.periodYear}-${period.periodMonth}`}>
                   <td>
-                    <span className="table-code">
-                      {selectedYear}-{String(period.month).padStart(2, '0')}
+                    <div className="cell-stack">
+                      <strong>
+                        {getMonthName(period.periodMonth)} {period.periodYear}
+                      </strong>
+                      <small className="table-secondary-text">
+                        Month {String(period.periodMonth).padStart(2, '0')}
+                      </small>
+                    </div>
+                  </td>
+                  <td>
+                    <span className="text-secondary font-medium">
+                      {getQuarter(period.periodMonth)}
                     </span>
                   </td>
                   <td>
-                    <strong>{period.monthName} {selectedYear}</strong>
+                    <span className="font-mono">
+                      Period {period.periodMonth}
+                    </span>
                   </td>
                   <td>
                     <StatusChip status={period.status} />
                   </td>
                   <td>
-                    {isLocked ? (
-                      <span className="cell-muted" style={{ fontSize: '0.8rem' }}>
-                        Locked at {period.lockedAt ? new Date(period.lockedAt).toLocaleDateString() : 'Audited'}
-                      </span>
-                    ) : isClosed ? (
-                      <span className="cell-muted" style={{ fontSize: '0.8rem' }}>
-                        Closed at {period.closedAt ? new Date(period.closedAt).toLocaleDateString() : 'Recent'}
-                      </span>
-                    ) : (
-                      <span className="cell-muted" style={{ fontSize: '0.8rem' }}>
-                        Active for journal postings
-                      </span>
-                    )}
+                    <span className="table-secondary-text">
+                      {formatDate(period.closedAt)}
+                    </span>
                   </td>
-                  <td className="numeric-cell">
-                    <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                      {isOpen && (
-                        <Button
-                          onClick={() =>
-                            setActiveChecklistPeriod({ year: selectedYear, month: period.month })
-                          }
-                          variant="secondary"
-                        >
-                          <CheckCircle aria-hidden="true" size={13} style={{ marginRight: 4 }} />
-                          Checklist & Close
-                        </Button>
-                      )}
-
-                      {isClosed && (
-                        <>
-                          <Button
-                            onClick={() =>
-                              lockPeriodMutation.mutate({ year: selectedYear, month: period.month })
-                            }
-                            variant="primary"
-                          >
-                            <Lock aria-hidden="true" size={13} style={{ marginRight: 4 }} />
-                            Hard Lock
-                          </Button>
-                          <Button
-                            onClick={() =>
-                              reopenPeriodMutation.mutate({ year: selectedYear, month: period.month })
-                            }
-                            variant="ghost"
-                          >
-                            <Unlock aria-hidden="true" size={13} style={{ marginRight: 4 }} />
-                            Reopen
-                          </Button>
-                        </>
-                      )}
-
-                      {isLocked && (
-                        <span
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 4,
-                            fontSize: '0.8rem',
-                            fontWeight: 600,
-                            color: 'var(--color-text-secondary)',
-                          }}
-                        >
-                          <Lock size={12} /> Audit Locked
-                        </span>
-                      )}
-                    </div>
+                  <td>
+                    <Button
+                      onClick={() => setSelectedPeriod(period)}
+                      variant="ghost"
+                    >
+                      View details
+                    </Button>
                   </td>
                 </tr>
-              )
-            })}
-          </tbody>
-        </DataTable>
-      </div>
+              ))}
+            </tbody>
+          </DataTable>
+        ) : (
+          <EmptyState
+            description="No fiscal periods match the active filter criteria for this financial year."
+            icon={Calendar}
+            title="No periods found"
+          />
+        )}
+      </section>
 
-      {/* DRAWER / MODAL: CONTINUOUS CLOSE CHECKLIST */}
-      {activeChecklistPeriod && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: 'var(--space-md)',
-          }}
+      {/* Period Details Modal */}
+      {selectedPeriod && (
+        <Modal
+          description="Read-only governance properties and closure history. Period close and year-end close remain in Flutter."
+          footer={
+            <Button
+              onClick={() => setSelectedPeriod(null)}
+              variant="secondary"
+            >
+              Close
+            </Button>
+          }
+          isOpen={Boolean(selectedPeriod)}
+          onClose={() => setSelectedPeriod(null)}
+          size="md"
+          title={`${getMonthName(selectedPeriod.periodMonth)} ${selectedPeriod.periodYear} (Period ${selectedPeriod.periodMonth})`}
         >
-          <div
-            className="panel-card"
-            style={{
-              width: '100%',
-              maxWidth: 600,
-              backgroundColor: 'var(--color-surface)',
-              borderRadius: 'var(--radius-lg)',
-              padding: 'var(--space-lg)',
-              border: '1px solid var(--color-border)',
-            }}
-          >
-            <div style={{ marginBottom: 'var(--space-md)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <ShieldCheck size={22} color="var(--color-primary)" />
-                <h3 style={{ fontSize: '1.2rem', fontWeight: 600 }}>
-                  Continuous Close Audit Checklist
-                </h3>
-              </div>
-              <p className="cell-muted" style={{ fontSize: '0.85rem', marginTop: 4 }}>
-                Period: {monthNames[activeChecklistPeriod.month - 1]} {activeChecklistPeriod.year}
-              </p>
-            </div>
-
-            {checklistQuery.isLoading ? (
-              <div className="directory-state">Running ledger integrity validations...</div>
-            ) : checklist ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)', marginBottom: 'var(--space-lg)' }}>
-                {checklist.checks.map((c, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: 12,
-                      padding: '10px 12px',
-                      borderRadius: 'var(--radius-md)',
-                      background: c.passed ? 'rgba(16, 185, 129, 0.06)' : 'rgba(239, 68, 68, 0.06)',
-                      border: `1px solid ${c.passed ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`,
-                    }}
-                  >
-                    {c.passed ? (
-                      <CheckCircle2 size={18} color="var(--color-success)" style={{ marginTop: 2 }} />
-                    ) : (
-                      <XCircle size={18} color="var(--color-error)" style={{ marginTop: 2 }} />
-                    )}
-                    <div style={{ flex: 1 }}>
-                      <strong style={{ fontSize: '0.9rem', display: 'block' }}>{c.name}</strong>
-                      <span className="cell-muted" style={{ fontSize: '0.8rem' }}>
-                        {c.description}
-                      </span>
-                      {c.unresolvedCount !== undefined && c.unresolvedCount > 0 && (
-                        <span
-                          style={{
-                            display: 'block',
-                            fontSize: '0.75rem',
-                            fontWeight: 600,
-                            color: 'var(--color-error)',
-                            marginTop: 2,
-                          }}
-                        >
-                          {c.unresolvedCount} unresolved items requiring action
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="directory-state">Unable to load integrity checklist.</div>
-            )}
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <Button onClick={() => setActiveChecklistPeriod(null)} variant="secondary">
-                Cancel
-              </Button>
-
-              {checklist && !checklist.canClose && (
-                <Button
-                  disabled={closePeriodMutation.isPending}
-                  onClick={() =>
-                    closePeriodMutation.mutate({
-                      year: activeChecklistPeriod.year,
-                      month: activeChecklistPeriod.month,
-                      force: true,
-                    })
-                  }
-                  variant="destructive"
-                >
-                  <AlertTriangle aria-hidden="true" size={14} style={{ marginRight: 4 }} />
-                  Force Close Period
-                </Button>
-              )}
-
-              {checklist && checklist.canClose && (
-                <Button
-                  disabled={closePeriodMutation.isPending}
-                  onClick={() =>
-                    closePeriodMutation.mutate({
-                      year: activeChecklistPeriod.year,
-                      month: activeChecklistPeriod.month,
-                      force: false,
-                    })
-                  }
-                  variant="primary"
-                >
-                  <CheckCircle aria-hidden="true" size={14} style={{ marginRight: 4 }} />
-                  Confirm & Close Period
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: YEAR END CLOSE CONSOLE */}
-      {isYearCloseModalOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: 'var(--space-md)',
-          }}
-        >
-          <div
-            className="panel-card"
-            style={{
-              width: '100%',
-              maxWidth: 540,
-              backgroundColor: 'var(--color-surface)',
-              borderRadius: 'var(--radius-lg)',
-              padding: 'var(--space-lg)',
-              border: '1px solid var(--color-border)',
-            }}
-          >
-            <div style={{ marginBottom: 'var(--space-md)' }}>
-              <h3 style={{ fontSize: '1.2rem', fontWeight: 600 }}>
-                Year-End Financial Close Console
-              </h3>
-              <p className="cell-muted" style={{ fontSize: '0.85rem' }}>
-                Rolls all nominal income and expense balances into Retained Earnings for FY {selectedYear}.
-              </p>
-            </div>
-
-            {closingResult ? (
-              <div
-                style={{
-                  padding: 'var(--space-md)',
-                  background: 'rgba(16, 185, 129, 0.08)',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid rgba(16, 185, 129, 0.2)',
-                  marginBottom: 'var(--space-md)',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                  <CheckCircle2 size={18} color="var(--color-success)" />
-                  <strong style={{ color: 'var(--color-success)' }}>
-                    Year-End Close Completed Successfully
-                  </strong>
-                </div>
-                <div style={{ fontSize: '0.85rem' }}>
-                  <p>
-                    Closing Journal Voucher ID: <code>{closingResult.journalEntryId}</code>
-                  </p>
-                  <p style={{ marginTop: 4 }}>
-                    Net Retained Earnings Transferred:{' '}
-                    <strong>
-                      <Money amount={closingResult.closingAmount} />
-                    </strong>
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div
-                style={{
-                  padding: 'var(--space-md)',
-                  background: 'var(--color-bg-subtle)',
-                  borderRadius: 'var(--radius-md)',
-                  marginBottom: 'var(--space-md)',
-                  fontSize: '0.85rem',
-                }}
-              >
-                <p>
-                  Executing year-end closure will:
-                </p>
-                <ul style={{ paddingLeft: 20, marginTop: 6 }}>
-                  <li>Lock all 12 fiscal periods in FY {selectedYear}.</li>
-                  <li>Generate an automated Closing Journal Entry debiting revenue and crediting expenses.</li>
-                  <li>Transfer the net profit or loss directly to the Retained Earnings balance sheet equity account.</li>
-                </ul>
-              </div>
-            )}
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <Button
-                onClick={() => {
-                  setIsYearCloseModalOpen(false)
-                  setClosingResult(null)
-                }}
-                variant="secondary"
-              >
-                Close
-              </Button>
-
-              {!closingResult && (
-                <>
-                  <Button
-                    onClick={() => reopenYearMutation.mutate(selectedYear)}
-                    variant="ghost"
-                  >
-                    Reopen Year
-                  </Button>
-                  <Button
-                    disabled={closeYearMutation.isPending}
-                    onClick={() => closeYearMutation.mutate(selectedYear)}
-                    variant="primary"
-                  >
-                    {closeYearMutation.isPending ? 'Closing Year...' : 'Execute Year-End Close'}
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
+          <FactList columns={2}>
+            <Fact
+              label="Financial year"
+              value={`FY ${selectedPeriod.periodYear}`}
+            />
+            <Fact
+              label="Calendar month"
+              value={`${getMonthName(selectedPeriod.periodMonth)} (M${selectedPeriod.periodMonth})`}
+            />
+            <Fact
+              label="Accounting quarter"
+              value={getQuarter(selectedPeriod.periodMonth)}
+            />
+            <Fact
+              label="Governance status"
+              value={<StatusChip status={selectedPeriod.status} />}
+            />
+            <Fact
+              label="Closed at"
+              value={formatDate(selectedPeriod.closedAt)}
+            />
+            <Fact
+              label="Closed by"
+              mono
+              value={selectedPeriod.closedBy ?? '--'}
+            />
+            <Fact
+              label="Created at"
+              value={formatDate(selectedPeriod.createdAt)}
+            />
+            <Fact
+              label="Last updated"
+              value={formatDate(selectedPeriod.updatedAt)}
+            />
+          </FactList>
+        </Modal>
       )}
     </section>
   )

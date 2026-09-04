@@ -294,12 +294,12 @@ the ERP.
   search, detail view, statement with date range filter, ledger entries, and
   same-name disambiguation through company, phone, GSTIN, and role badges.
   Contact create/edit/import remain pending.
-- [x] Items: server-paginated directory, detail review, and typed create/edit
+- [ ] Items: server-paginated directory, detail review, and typed create/edit
   workflow for catalog identity, pricing, GST/HSN, primary and transaction
   units, batch controls, preferred vendor, and create-only opening stock. Stock
   adjustments, reversals, imports, and barcode/serial mutations remain
   Flutter-only. Item writes use the existing ItemController request contracts
-  and preserve its opening-stock audit rule.
+  and preserve its opening-stock audit rule. Manual acceptance is pending.
 - [x] Sales Orders pilot: server-paginated, status-filtered directory and
   read-only document review using the existing Sales Order list/detail
   contracts. Creation, confirmation, cancellation, dispatch, invoicing, and
@@ -348,10 +348,13 @@ the same backend document state during parallel testing.
 **Goal:** complete the daily office ERP used by an owner, accountant, and
 operator.
 
-- [ ] Accounting: the Chart of Accounts directory and immutable account-ledger
-  review are complete. Account writes, journals, guided transactions, vouchers,
-  fiscal periods, audit trail, fixed assets, amortisation, bank accounts, and
-  reconciliation remain pending.
+- [ ] Accounting: the Chart of Accounts directory, immutable account-ledger review,
+  verified read-only Bank Accounts directory review (with balance cards, masked
+  account numbers, IFSC, and GL bindings), and verified read-only Fiscal Periods &
+  Financial Years review (with period timeline, year selector, and governance status
+  chips) are complete with unit test suites. Account writes, bank reconciliation mutations,
+  period close/lock mutations, journals, guided transactions, vouchers, audit trail,
+  fixed assets, and amortisation remain Flutter-only.
 - [ ] Inventory: stock views, warehouse/rack management, batch/serial/expiry,
   stock count, transfer orders, picklists, putaway, valuation, reorder, and
   consignment where approved.
