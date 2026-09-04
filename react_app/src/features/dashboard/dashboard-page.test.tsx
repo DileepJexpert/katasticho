@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { DashboardPage } from './dashboard-page'
@@ -16,7 +16,31 @@ vi.mock('./dashboard-api', () => ({
   getCashFlow: vi.fn(),
   getExpiringSoon: vi.fn(),
   getRecentTransactions: vi.fn(),
+  getDailySummary: vi.fn(),
+  getOutstandingReceivable: vi.fn(),
+  getRecentBills: vi.fn(),
+  getRecentJournals: vi.fn(),
+  getArAging: vi.fn(),
+  getApAging: vi.fn(),
+  listBranches: vi.fn(),
 }))
+
+const mockBranches: dashboardApi.BranchResponse[] = [
+  {
+    id: 'branch-1',
+    code: 'MB01',
+    name: 'Main Warehouse',
+    isDefault: true,
+    active: true,
+  },
+  {
+    id: 'branch-2',
+    code: 'SB02',
+    name: 'City Pharmacy Outlet',
+    isDefault: false,
+    active: true,
+  },
+]
 
 const mockTodaySales: dashboardApi.TodaySalesResponse = {
   totalSales: 154000,
@@ -28,6 +52,20 @@ const mockTodaySales: dashboardApi.TodaySalesResponse = {
   posTransactionCount: 30,
   invoiceTransactionCount: 12,
   currency: 'INR',
+  byBranch: [
+    {
+      branchId: 'branch-1',
+      branchName: 'Main Warehouse',
+      totalSales: 104000,
+      transactionCount: 26,
+    },
+    {
+      branchId: 'branch-2',
+      branchName: 'City Pharmacy Outlet',
+      totalSales: 50000,
+      transactionCount: 16,
+    },
+  ],
 }
 
 const mockArSummary: dashboardApi.ArSummaryResponse = {
@@ -60,6 +98,17 @@ const mockSoAlerts: dashboardApi.SoAlertResponse = {
   draftChallanCount: 2,
   dispatchedChallanCount: 5,
   deliveredChallanCount: 12,
+  recentOrders: [
+    {
+      id: 'so-1',
+      orderNumber: 'SO-2026-0042',
+      contactName: 'Apollo Hospital Indiranagar',
+      status: 'CONFIRMED',
+      totalAmount: 125000,
+      orderDate: '2026-09-02',
+      daysPending: 3,
+    },
+  ],
 }
 
 const mockTopSelling: dashboardApi.TopSellingItem[] = [
@@ -125,6 +174,83 @@ const mockRecentTransactions: dashboardApi.RecentTransactionResponse[] = [
   },
 ]
 
+const mockDailySummary: dashboardApi.DailySummaryResponse = {
+  today: {
+    totalSale: 154000,
+    totalCost: 110000,
+    earning: 44000,
+    cashUpiIn: 84000,
+    creditSale: 70000,
+    billCount: 42,
+  },
+  daily: [
+    { date: '2026-09-04', sale: 154000, cost: 110000, earning: 44000 },
+  ],
+  thisWeek: {
+    totalSale: 890000,
+    totalEarning: 260000,
+    vsLastWeekSalePct: 12.5,
+    vsLastWeekEarningPct: 18.2,
+  },
+  currency: 'INR',
+}
+
+const mockArAging: dashboardApi.AgeingReportResponse = {
+  totalOutstanding: 620000,
+  current: 350000,
+  days1to30: 150000,
+  days31to60: 70000,
+  days61to90: 30000,
+  days90plus: 20000,
+}
+
+const mockApAging: dashboardApi.ApAgeingReportResponse = {
+  totalOutstanding: 450000,
+  current: 250000,
+  days1to30: 120000,
+  days31to60: 50000,
+  days61to90: 20000,
+  days90plus: 10000,
+}
+
+const mockOutstandingReceivable: dashboardApi.OutstandingReceivableResponse = {
+  totalOutstanding: 620000,
+  overdueCount: 8,
+  overdueAmount: 120000,
+  currency: 'INR',
+  topCustomers: [
+    {
+      contactId: 'c-1',
+      name: 'Fortis Hospital Cunningham Road',
+      outstanding: 280000,
+      invoiceCount: 4,
+    },
+  ],
+}
+
+const mockRecentBills: dashboardApi.RecentBillResponse[] = [
+  {
+    id: 'bill-1',
+    billNumber: 'BILL-2026-0412',
+    vendorName: 'Sun Pharma Distribution Ltd',
+    status: 'POSTED',
+    totalAmount: 180000,
+    billDate: '2026-09-01',
+  },
+]
+
+const mockRecentJournals: dashboardApi.RecentJournalResponse[] = [
+  {
+    id: 'je-1',
+    entryNumber: 'JE-2026-1029',
+    effectiveDate: '2026-09-04',
+    description: 'Bank payment to vendor',
+    sourceModule: 'PAYMENT',
+    status: 'POSTED',
+    totalDebit: 50000,
+  },
+]
+
 describe('DashboardPage', () => {
   let queryClient: QueryClient
 
@@ -154,6 +280,7 @@ describe('DashboardPage', () => {
       },
     })
 
+    vi.mocked(dashboardApi.listBranches).mockResolvedValue(mockBranches)
     vi.mocked(dashboardApi.getTodaySales).mockResolvedValue(mockTodaySales)
     vi.mocked(dashboardApi.getArSummary).mockResolvedValue(mockArSummary)
     vi.mocked(dashboardApi.getApSummary).mockResolvedValue(mockApSummary)
@@ -164,6 +291,12 @@ describe('DashboardPage', () => {
     vi.mocked(dashboardApi.getCashFlow).mockResolvedValue(mockCashFlow)
     vi.mocked(dashboardApi.getExpiringSoon).mockResolvedValue(mockExpiringSoon)
     vi.mocked(dashboardApi.getRecentTransactions).mockResolvedValue(mockRecentTransactions)
+    vi.mocked(dashboardApi.getDailySummary).mockResolvedValue(mockDailySummary)
+    vi.mocked(dashboardApi.getArAging).mockResolvedValue(mockArAging)
+    vi.mocked(dashboardApi.getApAging).mockResolvedValue(mockApAging)
+    vi.mocked(dashboardApi.getOutstandingReceivable).mockResolvedValue(mockOutstandingReceivable)
+    vi.mocked(dashboardApi.getRecentBills).mockResolvedValue(mockRecentBills)
+    vi.mocked(dashboardApi.getRecentJournals).mockResolvedValue(mockRecentJournals)
   })
 
   it('renders executive greeting and the four core KPI metric cards', async () => {
@@ -188,69 +321,129 @@ describe('DashboardPage', () => {
     expect(screen.getByText(/3 overdue bills/i)).toBeInTheDocument()
   })
 
-  it('renders the distribution and fulfillment SO alerts banner with overdue indicators', async () => {
+  it('renders Global Filter bar with period presets and branch dropdown', async () => {
     render(
       <QueryClientProvider client={queryClient}>
         <DashboardPage />
       </QueryClientProvider>
     )
 
-    expect(await screen.findByText('14')).toBeInTheDocument()
+    expect(await screen.findByLabelText('Filter by branch')).toBeInTheDocument()
+    expect(await screen.findByText('Main Warehouse (MB01) [Primary]')).toBeInTheDocument()
+    expect(screen.getByText('City Pharmacy Outlet (SB02)')).toBeInTheDocument()
+
+    const branchSelect = screen.getByLabelText('Filter by branch')
+    fireEvent.change(branchSelect, { target: { value: 'branch-2' } })
+
+    await waitFor(() => {
+      expect(dashboardApi.getTodaySales).toHaveBeenCalledWith(expect.any(String), expect.any(String), 'branch-2')
+    })
+  })
+
+  it('renders Aaj Ka Hisaab performance card with net margin and sales breakdown', async () => {
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DashboardPage />
+      </QueryClientProvider>
+    )
+
+    expect(await screen.findByText('Aaj Ka Hisaab — Daily Performance Snapshot')).toBeInTheDocument()
+    expect(await screen.findByText("Today's Net Earning / Margin")).toBeInTheDocument()
+    expect(screen.getByText(/vs last week:/i)).toBeInTheDocument()
+    expect(screen.getByText('18.2%')).toBeInTheDocument()
+    expect(screen.getByText('42 bills today')).toBeInTheDocument()
+    expect(screen.getByText('Total Cost (COGS)')).toBeInTheDocument()
+    expect(screen.getByText('Cash / UPI Received')).toBeInTheDocument()
+    expect(screen.getByText('Credit Sales')).toBeInTheDocument()
+  })
+
+  it('renders SO alerts banner and recent pending orders table', async () => {
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DashboardPage />
+      </QueryClientProvider>
+    )
+
+    expect(await screen.findByText('Distribution & Fulfillment Telemetry')).toBeInTheDocument()
+    expect(screen.getByText('14')).toBeInTheDocument()
     expect(screen.getByText(/pending dispatch/i)).toBeInTheDocument()
     expect(screen.getByText('3')).toBeInTheDocument()
     expect(screen.getByText(/on backorder/i)).toBeInTheDocument()
     expect(screen.getByText('4')).toBeInTheDocument()
     expect(screen.getByText(/delayed >2 days/i)).toBeInTheDocument()
-    expect(screen.getByText('5')).toBeInTheDocument()
-    expect(screen.getByText(/challans in transit/i)).toBeInTheDocument()
+
+    // Recent pending order
+    expect(await screen.findByText('SO-2026-0042')).toBeInTheDocument()
+    expect(screen.getByText('Apollo Hospital Indiranagar')).toBeInTheDocument()
+    expect(screen.getByText('3d')).toBeInTheDocument()
   })
 
-  it('renders top selling products table and recent transactions', async () => {
+  it('renders AR & AP Aging buckets and supports tab switching', async () => {
     render(
       <QueryClientProvider client={queryClient}>
         <DashboardPage />
       </QueryClientProvider>
     )
+
+    expect(await screen.findByText('Accounts Receivable Aging')).toBeInTheDocument()
+    expect(screen.getByText('Current (Not Due)')).toBeInTheDocument()
+    expect(screen.getByText('1–30 Days')).toBeInTheDocument()
+    expect(screen.getByText('31–60 Days')).toBeInTheDocument()
+    expect(screen.getByText('61–90 Days')).toBeInTheDocument()
+    expect(screen.getByText('90+ Days (Critical)')).toBeInTheDocument()
+
+    // Top debtor customer
+    expect(await screen.findByText('Top Debtors Outstanding')).toBeInTheDocument()
+    expect(screen.getByText('Fortis Hospital Cunningham Road')).toBeInTheDocument()
+    expect(screen.getByText('4 invoices')).toBeInTheDocument()
+
+    // Switch to Payables Aging tab
+    const apTab = screen.getByRole('tab', { name: /Payables Aging/i })
+    fireEvent.click(apTab)
+
+    expect(await screen.findByText('Accounts Payable Aging')).toBeInTheDocument()
+  })
+
+  it('renders branch sales rollup and top selling products', async () => {
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DashboardPage />
+      </QueryClientProvider>
+    )
+
+    // Branch sales rollup
+    expect(await screen.findByText('Branch Sales Rollup')).toBeInTheDocument()
+    expect(screen.getByText('Main Warehouse')).toBeInTheDocument()
+    expect(screen.getByText('City Pharmacy Outlet')).toBeInTheDocument()
 
     // Top selling
-    expect(await screen.findByText('Paracetamol 500mg Tablets')).toBeInTheDocument()
+    expect(screen.getByText('Paracetamol 500mg Tablets')).toBeInTheDocument()
     expect(screen.getByText('MED-PAC-500')).toBeInTheDocument()
     expect(screen.getByText('Amoxicillin 250mg Capsules')).toBeInTheDocument()
-
-    // Recent transactions
-    expect(await screen.findByText('INV-2026-0891')).toBeInTheDocument()
-    expect(screen.getByText('Metro Healthcare Ltd')).toBeInTheDocument()
   })
 
-  it('switches revenue trend days filter tabs', async () => {
+  it('renders bills to pay, general ledger activity, cash flow, and expiring soon', async () => {
     render(
       <QueryClientProvider client={queryClient}>
         <DashboardPage />
       </QueryClientProvider>
     )
 
-    expect(await screen.findByText(/Period revenue.*30 days/i)).toBeInTheDocument()
+    // Bills to pay
+    expect(await screen.findByText('BILL-2026-0412')).toBeInTheDocument()
+    expect(screen.getByText('Sun Pharma Distribution Ltd')).toBeInTheDocument()
 
-    const tab7d = screen.getByRole('tab', { name: /7 days/i })
-    fireEvent.click(tab7d)
-
-    expect(dashboardApi.getRevenueTrend).toHaveBeenCalledWith(7)
-  })
-
-  it('renders cash flow snapshot and near-expiry batch watch', async () => {
-    render(
-      <QueryClientProvider client={queryClient}>
-        <DashboardPage />
-      </QueryClientProvider>
-    )
+    // Recent journals
+    expect(await screen.findByText('JE-2026-1029')).toBeInTheDocument()
+    expect(screen.getByText('Bank payment to vendor')).toBeInTheDocument()
 
     // Cash flow
-    expect(await screen.findByText('Cash In')).toBeInTheDocument()
+    expect(screen.getByText('Cash In')).toBeInTheDocument()
     expect(screen.getByText('Cash Out')).toBeInTheDocument()
     expect(screen.getByText('Net Flow')).toBeInTheDocument()
 
     // Expiring soon
-    expect(await screen.findByText('Cough Syrup 100ml')).toBeInTheDocument()
+    expect(screen.getByText('Cough Syrup 100ml')).toBeInTheDocument()
     expect(screen.getByText('B-2024-X9')).toBeInTheDocument()
     expect(screen.getByText('41d left')).toBeInTheDocument()
   })
@@ -268,11 +461,13 @@ describe('DashboardPage', () => {
     fireEvent.click(refreshBtn)
 
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['dashboard'] })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['branches'] })
   })
 
   it('handles optional endpoint failure gracefully without breaking dashboard', async () => {
-    // Simulate expiring-soon endpoint failing (e.g. 403 Forbidden or module disabled)
     vi.mocked(dashboardApi.getExpiringSoon).mockRejectedValue(new Error('BATCH_EXPIRY module disabled'))
+    vi.mocked(dashboardApi.getRecentJournals).mockRejectedValue(new Error('Forbidden'))
+    vi.mocked(dashboardApi.getRecentBills).mockRejectedValue(new Error('Network error'))
 
     render(
       <QueryClientProvider client={queryClient}>
@@ -280,9 +475,10 @@ describe('DashboardPage', () => {
       </QueryClientProvider>
     )
 
-    // Dashboard continues to render today's sales and other cards normally
     expect(await screen.findByText('Today’s sales')).toBeInTheDocument()
     expect(screen.getByText('Receivables')).toBeInTheDocument()
     expect(screen.getByText('No batches expiring soon')).toBeInTheDocument()
+    expect(screen.getByText('No pending bills')).toBeInTheDocument()
+    expect(screen.getByText('No journal entries recorded.')).toBeInTheDocument()
   })
 })

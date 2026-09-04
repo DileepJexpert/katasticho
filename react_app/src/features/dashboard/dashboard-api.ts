@@ -35,6 +35,7 @@ export interface BranchPurchaseRow {
   branchId: string
   branchName: string
   totalPurchases: number | string
+  sharePercent?: number | null
 }
 
 export interface ApSummaryResponse {
@@ -128,6 +129,104 @@ export interface RecentTransactionResponse {
   createdAt: string
 }
 
+export interface BranchResponse {
+  id: string
+  code: string
+  name: string
+  addressLine1?: string | null
+  addressLine2?: string | null
+  city?: string | null
+  state?: string | null
+  stateCode?: string | null
+  postalCode?: string | null
+  country?: string | null
+  gstin?: string | null
+  isDefault: boolean
+  active: boolean
+}
+
+export interface DailySummarySnapshot {
+  totalSale: number | string
+  totalCost: number | string
+  earning: number | string
+  cashUpiIn: number | string
+  creditSale: number | string
+  billCount: number
+}
+
+export interface DailySummaryRow {
+  date: string
+  sale: number | string
+  cost: number | string
+  earning: number | string
+}
+
+export interface WeekComparison {
+  totalSale: number | string
+  totalEarning: number | string
+  vsLastWeekSalePct: number | string
+  vsLastWeekEarningPct: number | string
+}
+
+export interface DailySummaryResponse {
+  today: DailySummarySnapshot
+  daily: DailySummaryRow[]
+  thisWeek: WeekComparison
+  currency?: string | null
+}
+
+export interface TopCustomerRow {
+  contactId: string
+  name: string
+  outstanding: number | string
+  invoiceCount: number
+}
+
+export interface OutstandingReceivableResponse {
+  totalOutstanding: number | string
+  overdueCount: number
+  overdueAmount: number | string
+  currency?: string | null
+  topCustomers: TopCustomerRow[]
+}
+
+export interface RecentBillResponse {
+  id: string
+  billNumber: string
+  vendorName: string
+  status: string
+  totalAmount: number | string
+  billDate: string
+}
+
+export interface RecentJournalResponse {
+  id: string
+  entryNumber: string
+  effectiveDate: string
+  description?: string | null
+  sourceModule: string
+  status: string
+  totalDebit: number | string
+}
+
+export interface AgeingReportResponse {
+  totalOutstanding: number | string
+  current: number | string
+  days1to30: number | string
+  days31to60: number | string
+  days61to90: number | string
+  days90plus: number | string
+}
+
+export interface ApAgeingReportResponse {
+  totalOutstanding: number | string
+  current: number | string
+  days1to30: number | string
+  days31to60: number | string
+  days61to90: number | string
+  days90plus: number | string
+}
+
 // ── Dashboard API Fetchers ──
 
 export async function getTodaySales(from?: string, to?: string, branchId?: string): Promise<TodaySalesResponse> {
@@ -192,4 +291,34 @@ export async function getRecentTransactions(from?: string, to?: string, limit = 
   if (from) params.set('from', from)
   if (to) params.set('to', to)
   return apiFetch<RecentTransactionResponse[]>(`/api/v1/dashboard/recent-transactions?${params.toString()}`)
+}
+
+export async function getDailySummary(days = 7): Promise<DailySummaryResponse> {
+  return apiFetch<DailySummaryResponse>(`/api/v1/dashboard/daily-summary?days=${days}`)
+}
+
+export async function getOutstandingReceivable(): Promise<OutstandingReceivableResponse> {
+  return apiFetch<OutstandingReceivableResponse>('/api/v1/dashboard/outstanding-receivable')
+}
+
+export async function getRecentBills(limit = 5): Promise<RecentBillResponse[]> {
+  return apiFetch<RecentBillResponse[]>(`/api/v1/dashboard/recent-bills?limit=${limit}`)
+}
+
+export async function getRecentJournals(limit = 10): Promise<RecentJournalResponse[]> {
+  return apiFetch<RecentJournalResponse[]>(`/api/v1/dashboard/recent-journals?limit=${limit}`)
+}
+
+export async function getArAging(asOfDate?: string): Promise<AgeingReportResponse> {
+  const qs = asOfDate ? `?asOfDate=${asOfDate}` : ''
+  return apiFetch<AgeingReportResponse>(`/api/v1/ar/reports/ageing${qs}`)
+}
+
+export async function getApAging(asOfDate?: string): Promise<ApAgeingReportResponse> {
+  const qs = asOfDate ? `?asOfDate=${asOfDate}` : ''
+  return apiFetch<ApAgeingReportResponse>(`/api/v1/ap/reports/ageing${qs}`)
+}
+
+export async function listBranches(): Promise<BranchResponse[]> {
+  return apiFetch<BranchResponse[]>('/api/v1/branches')
 }
