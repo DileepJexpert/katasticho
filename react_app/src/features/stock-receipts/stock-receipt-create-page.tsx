@@ -124,21 +124,10 @@ export function StockReceiptCreatePage() {
 
   return (
     <section className="workspace-page">
-      <div style={{ marginBottom: 'var(--space-3)' }}>
-        <Link
-          to={appRoutes.stockReceipts}
-          style={{
-            alignItems: 'center',
-            color: 'var(--text-secondary)',
-            display: 'inline-flex',
-            fontSize: 'var(--text-sm)',
-            gap: 'var(--space-1)',
-            textDecoration: 'none',
-          }}
-        >
-          <ArrowLeft size={16} /> Back to Stock Receipts
-        </Link>
-      </div>
+      <Link className="form-back-link" to={appRoutes.stockReceipts}>
+        <ArrowLeft size={16} /> Back to Stock Receipts
+        
+      </Link>
 
       <PageHeader
         eyebrow="Purchases / Warehouse"
@@ -176,27 +165,17 @@ export function StockReceiptCreatePage() {
         </div>
       )}
 
-      <form id="grn-form" onSubmit={handleSubmit}>
-        <div style={{ display: 'grid', gap: 'var(--space-4)', marginBottom: 'var(--space-6)' }}>
-          <div className="document-card">
-            <h2 style={{ marginBottom: 'var(--space-3)' }}>1. Supplier & Receipt Info</h2>
-            <div style={{ display: 'grid', gap: 'var(--space-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Supplier *
-                </label>
+      <form className="create-form-container" id="grn-form" onSubmit={handleSubmit}>
+          <div className="form-card">
+          <div className="form-card-header">
+            <h2 className="form-card-title">1. Supplier & Receipt Info</h2>
+          </div>
+            <div className="form-grid--auto">
+              <label className="field-group">
+                <span>Supplier *</span>
                 <select
                   onChange={(e) => setSupplierId(e.target.value)}
                   required
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   value={supplierId}
                 >
                   <option value="">-- Select Supplier --</option>
@@ -206,65 +185,32 @@ export function StockReceiptCreatePage() {
                     </option>
                   ))}
                 </select>
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Receipt Date *
-                </label>
+              <label className="field-group">
+                <span>Receipt Date *</span>
                 <input
                   onChange={(e) => setReceiptDate(e.target.value)}
                   required
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="date"
                   value={receiptDate}
                 />
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Supplier DC / Invoice #
-                </label>
+              <label className="field-group">
+                <span>Supplier DC / Invoice #</span>
                 <input
                   onChange={(e) => setSupplierInvoiceNo(e.target.value)}
                   placeholder="e.g. DC-987"
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="text"
                   value={supplierInvoiceNo}
                 />
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Linked Purchase Order
-                </label>
+              <label className="field-group">
+                <span>Linked Purchase Order</span>
                 <select
                   onChange={(e) => setPurchaseOrderId(e.target.value)}
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   value={purchaseOrderId}
                 >
                   <option value="">-- None / Direct GRN --</option>
@@ -274,54 +220,35 @@ export function StockReceiptCreatePage() {
                     </option>
                   ))}
                 </select>
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Supplier Invoice Date
-                </label>
+              <label className="field-group">
+                <span>Supplier Invoice Date</span>
                 <input
                   onChange={(e) => setSupplierInvoiceDate(e.target.value)}
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="date"
                   value={supplierInvoiceDate}
                 />
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Receiving Notes
-                </label>
+              <label className="field-group">
+                <span>Receiving Notes</span>
                 <input
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="e.g. Gate pass #, condition..."
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="text"
                   value={notes}
                 />
-              </div>
+              </label>
             </div>
           </div>
 
-          <div className="document-card document-card--lines">
-            <div style={{ alignItems: 'center', display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-3)' }}>
-              <h2>2. Items Received</h2>
+          <div className="form-card">
+            <div className="form-card-header">
+              <div>
+                <h2 className="form-card-title">2. Items Received</h2>
+                <p className="form-card-description">Select catalog products, quantities, batches, and shelf life</p>
+              </div>
               <div>
                 <select
                   onChange={(e) => {
@@ -329,14 +256,6 @@ export function StockReceiptCreatePage() {
                       handleAddItem(e.target.value)
                       e.target.value = ''
                     }
-                  }}
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: '32px',
-                    padding: '0 var(--space-2)',
                   }}
                   value=""
                 >
@@ -464,7 +383,6 @@ export function StockReceiptCreatePage() {
               </DataTable>
             )}
           </div>
-        </div>
       </form>
     </section>
   )

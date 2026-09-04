@@ -87,7 +87,7 @@ export function QcInspectionDetailPage() {
       <PageHeader
         eyebrow="Quality / QC Inspections"
         title={document.inspectionNumber}
-        description={`Audit for: ${document.itemName || `Item ${document.itemId.slice(0, 8)}`} Â· Type: ${document.inspectionType}`}
+        description={`Audit for: ${document.itemName || `Item ${document.itemId.slice(0, 8)}`} · Type: ${document.inspectionType}`}
         actions={
           <div className="table-actions">
             {document.disposition && (

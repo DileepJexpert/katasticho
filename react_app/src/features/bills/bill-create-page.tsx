@@ -159,21 +159,10 @@ export function BillCreatePage() {
 
   return (
     <section className="workspace-page">
-      <div style={{ marginBottom: 'var(--space-3)' }}>
-        <Link
-          to={appRoutes.bills}
-          style={{
-            alignItems: 'center',
-            color: 'var(--text-secondary)',
-            display: 'inline-flex',
-            fontSize: 'var(--text-sm)',
-            gap: 'var(--space-1)',
-            textDecoration: 'none',
-          }}
-        >
-          <ArrowLeft size={16} /> Back to Bills
-        </Link>
-      </div>
+      <Link className="form-back-link" to={appRoutes.bills}>
+        <ArrowLeft size={16} /> Back to Bills
+        
+      </Link>
 
       <PageHeader
         eyebrow="Purchases / Payables"
@@ -211,27 +200,17 @@ export function BillCreatePage() {
         </div>
       )}
 
-      <form id="bill-form" onSubmit={handleSubmit}>
-        <div style={{ display: 'grid', gap: 'var(--space-4)', marginBottom: 'var(--space-6)' }}>
-          <div className="document-card">
-            <h2 style={{ marginBottom: 'var(--space-3)' }}>1. Vendor & Invoice Reference</h2>
-            <div style={{ display: 'grid', gap: 'var(--space-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Vendor / Supplier *
-                </label>
+      <form className="create-form-container" id="bill-form" onSubmit={handleSubmit}>
+          <div className="form-card">
+          <div className="form-card-header">
+            <h2 className="form-card-title">1. Vendor & Invoice Reference</h2>
+          </div>
+            <div className="form-grid--auto">
+              <label className="field-group">
+                <span>Vendor / Supplier *</span>
                 <select
                   onChange={(e) => setContactId(e.target.value)}
                   required
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   value={contactId}
                 >
                   <option value="">-- Select Vendor --</option>
@@ -241,90 +220,46 @@ export function BillCreatePage() {
                     </option>
                   ))}
                 </select>
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Vendor Invoice #
-                </label>
+              <label className="field-group">
+                <span>Vendor Invoice #</span>
                 <input
                   onChange={(e) => setVendorBillNumber(e.target.value)}
                   placeholder="e.g. INV-2026-908"
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="text"
                   value={vendorBillNumber}
                 />
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Bill Date *
-                </label>
+              <label className="field-group">
+                <span>Bill Date *</span>
                 <input
                   onChange={(e) => setBillDate(e.target.value)}
                   required
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="date"
                   value={billDate}
                 />
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Due Date
-                </label>
+              <label className="field-group">
+                <span>Due Date</span>
                 <input
                   onChange={(e) => setDueDate(e.target.value)}
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="date"
                   value={dueDate}
                 />
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Place of Supply
-                </label>
+              <label className="field-group">
+                <span>Place of Supply</span>
                 <input
                   onChange={(e) => setPlaceOfSupply(e.target.value)}
                   placeholder="e.g. 29-Karnataka"
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="text"
                   value={placeOfSupply}
                 />
-              </div>
+              </label>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '22px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: 'var(--text-xs)', cursor: 'pointer' }}>
@@ -339,9 +274,12 @@ export function BillCreatePage() {
             </div>
           </div>
 
-          <div className="document-card document-card--lines">
-            <div style={{ alignItems: 'center', display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-3)' }}>
-              <h2>2. Billed Items & Services</h2>
+          <div className="form-card">
+            <div className="form-card-header">
+              <div>
+                <h2 className="form-card-title">2. Bill Line Items</h2>
+                <p className="form-card-description">Vendor items, received quantities, tax rates, and landed costs</p>
+              </div>
               <div>
                 <select
                   onChange={(e) => {
@@ -349,14 +287,6 @@ export function BillCreatePage() {
                       handleAddItem(e.target.value)
                       e.target.value = ''
                     }
-                  }}
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: '32px',
-                    padding: '0 var(--space-2)',
                   }}
                   value=""
                 >
@@ -512,42 +442,56 @@ export function BillCreatePage() {
 
             {lines.length > 0 && (
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--space-4)' }}>
-                <div style={{ minWidth: '260px' }}>
-                  <div className="progress-row">
+                <div className="form-summary-card">
+                  <div className="form-summary-row">
                     <span>Taxable Subtotal</span>
-                    <Money amount={subtotal} />
+                    <strong><Money amount={subtotal} /></strong>
                   </div>
-                  <div className="progress-row">
+                  <div className="form-summary-row">
                     <span>Input GST (ITC)</span>
-                    <Money amount={totalGst} />
+                    <strong><Money amount={totalGst} /></strong>
                   </div>
-                  <div className="progress-row progress-row--total">
+                  <div className="form-summary-row form-summary-row--total">
                     <span>Bill Amount</span>
-                    <Money amount={grandTotal} />
+                    <span className="amount"><Money amount={grandTotal} /></span>
                   </div>
                 </div>
               </div>
             )}
           </div>
 
-          <div className="document-card">
-            <h2 style={{ marginBottom: 'var(--space-3)' }}>3. Notes & References</h2>
-            <textarea
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Vendor notes, verification comments..."
-              rows={3}
-              style={{
-                background: 'var(--bg-surface)',
-                border: '1px solid var(--border-strong)',
-                borderRadius: 'var(--radius)',
-                color: 'var(--text-primary)',
-                padding: 'var(--space-2)',
-                width: '100%',
-              }}
-              value={notes}
-            />
+          <div className="form-card">
+            <div className="form-card-header">
+              <h2 className="form-card-title">3. Notes & References</h2>
+            </div>
+            <label className="field-group">
+              <span>Internal / Vendor Notes</span>
+              <textarea
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Vendor notes, verification comments..."
+                rows={3}
+                value={notes}
+              />
+            </label>
           </div>
-        </div>
+
+          <div className="form-actions-bar">
+            <Button
+              onClick={() => navigate(appRoutes.bills)}
+              type="button"
+              variant="secondary"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={createMutation.isPending || !contactId || lines.length === 0}
+              type="submit"
+              variant="primary"
+            >
+              <Save size={16} />
+              {createMutation.isPending ? 'Saving...' : 'Record Vendor Bill'}
+            </Button>
+          </div>
       </form>
     </section>
   )

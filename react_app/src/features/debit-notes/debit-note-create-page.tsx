@@ -113,21 +113,10 @@ export function DebitNoteCreatePage() {
 
   return (
     <section className="workspace-page">
-      <div style={{ marginBottom: 'var(--space-3)' }}>
-        <Link
-          to={appRoutes.debitNotes}
-          style={{
-            alignItems: 'center',
-            color: 'var(--text-secondary)',
-            display: 'inline-flex',
-            fontSize: 'var(--text-sm)',
-            gap: 'var(--space-1)',
-            textDecoration: 'none',
-          }}
-        >
-          <ArrowLeft size={16} /> Back to Debit Notes
-        </Link>
-      </div>
+      <Link className="form-back-link" to={appRoutes.debitNotes}>
+        <ArrowLeft size={16} /> Back to Debit Notes
+        
+      </Link>
 
       <PageHeader
         eyebrow="Purchases / Returns"
@@ -165,27 +154,17 @@ export function DebitNoteCreatePage() {
         </div>
       )}
 
-      <form id="dn-form" onSubmit={handleSubmit}>
-        <div style={{ display: 'grid', gap: 'var(--space-4)', marginBottom: 'var(--space-6)' }}>
-          <div className="document-card">
-            <h2 style={{ marginBottom: 'var(--space-3)' }}>1. Supplier & Reason</h2>
-            <div style={{ display: 'grid', gap: 'var(--space-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Supplier / Vendor *
-                </label>
+      <form className="create-form-container" id="dn-form" onSubmit={handleSubmit}>
+          <div className="form-card">
+          <div className="form-card-header">
+            <h2 className="form-card-title">1. Supplier & Reason</h2>
+          </div>
+            <div className="form-grid--auto">
+              <label className="field-group">
+                <span>Supplier / Vendor *</span>
                 <select
                   onChange={(e) => setSupplierId(e.target.value)}
                   required
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   value={supplierId}
                 >
                   <option value="">-- Select Supplier --</option>
@@ -195,76 +174,46 @@ export function DebitNoteCreatePage() {
                     </option>
                   ))}
                 </select>
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Debit Note Date *
-                </label>
+              <label className="field-group">
+                <span>Debit Note Date *</span>
                 <input
                   onChange={(e) => setNoteDate(e.target.value)}
                   required
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="date"
                   value={noteDate}
                 />
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Return Reason
-                </label>
+              <label className="field-group">
+                <span>Return Reason</span>
                 <input
                   onChange={(e) => setReturnReason(e.target.value)}
                   placeholder="e.g. Damaged during transit / expired"
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="text"
                   value={returnReason}
                 />
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Internal Notes
-                </label>
+              <label className="field-group">
+                <span>Internal Notes</span>
                 <input
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Additional remarks..."
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="text"
                   value={notes}
                 />
-              </div>
+              </label>
             </div>
           </div>
 
-          <div className="document-card document-card--lines">
-            <div style={{ alignItems: 'center', display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-3)' }}>
-              <h2>2. Items to Return</h2>
+          <div className="form-card">
+            <div className="form-card-header">
+              <div>
+                <h2 className="form-card-title">2. Items to Return</h2>
+                <p className="form-card-description">Select goods to return to supplier for credit adjustment</p>
+              </div>
               <div>
                 <select
                   onChange={(e) => {
@@ -272,14 +221,6 @@ export function DebitNoteCreatePage() {
                       handleAddItem(e.target.value)
                       e.target.value = ''
                     }
-                  }}
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: '32px',
-                    padding: '0 var(--space-2)',
                   }}
                   value=""
                 >
@@ -390,6 +331,23 @@ export function DebitNoteCreatePage() {
               </DataTable>
             )}
           </div>
+
+        <div className="form-actions-bar">
+          <Button
+            onClick={() => navigate(appRoutes.debitNotes)}
+            type="button"
+            variant="secondary"
+          >
+            Cancel
+          </Button>
+          <Button
+            disabled={createMutation.isPending || !contactId || lines.length === 0}
+            type="submit"
+            variant="primary"
+          >
+            <Save size={16} />
+            {createMutation.isPending ? 'Saving...' : 'Issue Debit Note'}
+          </Button>
         </div>
       </form>
     </section>

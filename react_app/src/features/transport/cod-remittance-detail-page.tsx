@@ -60,7 +60,7 @@ export function CodRemittanceDetailPage() {
       <PageHeader
         eyebrow="Logistics & Transport / COD Remittance"
         title={remittance.remittanceNumber}
-        description={`${remittance.courierPartner} Â· ${formatDate(remittance.remittanceDate)} Â· UTR: ${remittance.utr ?? 'Pending'}`}
+        description={`${remittance.courierPartner} · ${formatDate(remittance.remittanceDate)} · UTR: ${remittance.utr ?? 'Pending'}`}
         actions={
           <div className="button-group">
             {remittance.status !== 'RECONCILED' ? (

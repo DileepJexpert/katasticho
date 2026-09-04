@@ -241,7 +241,7 @@ export function EmployeeDetailPage() {
       <PageHeader
         eyebrow="HR & Payroll / Staff Record"
         title={employee.fullName}
-        description={`${employee.designation || 'Staff'} Â· ${employee.department || 'Operations'} Â· Joining: ${employee.dateOfJoining ? formatDate(employee.dateOfJoining) : 'â€”'}`}
+        description={`${employee.designation || 'Staff'} · ${employee.department || 'Operations'} · Joining: ${employee.dateOfJoining ? formatDate(employee.dateOfJoining) : 'â€”'}`}
         actions={
           <div className="table-actions">
             <span className="status-badge">
@@ -506,7 +506,7 @@ export function EmployeeDetailPage() {
               <strong className="summary-card__value">
                 <Money amount={taxDecl?.section80cTotal ?? 0} />
               </strong>
-              <span className="summary-card__hint">PF, PPF, ELSS, LIC (Cap â‚¹1.5L)</span>
+              <span className="summary-card__hint">PF, PPF, ELSS, LIC (Cap ₹1.5L)</span>
             </div>
             <div className="summary-card">
               <span className="summary-card__label">Section 80D</span>
@@ -866,7 +866,7 @@ export function EmployeeDetailPage() {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div>
-                    <label className="form-label">Section 80C (Max â‚¹1.5L)</label>
+                    <label className="form-label">Section 80C (Max ₹1.5L)</label>
                     <input className="text-input" defaultValue={Number(taxDecl?.section80cTotal ?? 150000)} name="section80cTotal" type="number" />
                   </div>
                   <div>
@@ -1124,7 +1124,7 @@ function SalaryStructureModal({
           <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
               <div>
-                <label className="form-label">Gross Monthly Pay (â‚¹) *</label>
+                <label className="form-label">Gross Monthly Pay (₹) *</label>
                 <input
                   className="text-input"
                   min={1}

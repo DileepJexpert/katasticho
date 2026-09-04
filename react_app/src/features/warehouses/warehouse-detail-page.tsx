@@ -62,7 +62,7 @@ export function WarehouseDetailPage() {
       <PageHeader
         eyebrow="Inventory / Infrastructure / Warehouse"
         title={doc.name}
-        description={`Code: ${doc.code} Â· Type: ${doc.warehouseType ?? 'CENTRAL'} Â· GSTIN: ${doc.gstin ?? '--'}`}
+        description={`Code: ${doc.code} · Type: ${doc.warehouseType ?? 'CENTRAL'} · GSTIN: ${doc.gstin ?? '--'}`}
         actions={
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
             <StatusChip status={doc.isDefault ? 'Primary Hub' : 'Standard'} />
@@ -287,7 +287,7 @@ function AddZoneModal({
       <div className="modal-dialog">
         <header className="modal-header">
           <h3>Add Storage Zone</h3>
-          <Button onClick={onClose} variant="ghost">âœ•</Button>
+          <Button onClick={onClose} variant="ghost">✕</Button>
         </header>
         <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1rem' }}>
@@ -364,7 +364,7 @@ function ConfirmPutawayModal({
       <div className="modal-dialog">
         <header className="modal-header">
           <h3>Confirm Bin / Rack Putaway</h3>
-          <Button onClick={onClose} variant="ghost">âœ•</Button>
+          <Button onClick={onClose} variant="ghost">✕</Button>
         </header>
         <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <p>

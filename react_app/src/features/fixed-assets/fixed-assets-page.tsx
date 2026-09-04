@@ -365,7 +365,7 @@ export function FixedAssetsPage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--space-sm)', marginBottom: 'var(--space-sm)' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                  Gross Cost (â‚¹) *
+                  Gross Cost (₹) *
                 </label>
                 <input
                   style={{
@@ -383,7 +383,7 @@ export function FixedAssetsPage() {
 
               <div>
                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                  Salvage Value (â‚¹)
+                  Salvage Value (₹)
                 </label>
                 <input
                   style={{

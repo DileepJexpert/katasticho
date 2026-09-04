@@ -148,7 +148,7 @@ function CreateStockCountModal({ onClose, onSuccess }: { onClose: () => void; on
       <div className="modal-dialog">
         <header className="modal-header">
           <h3>Start Physical Stock Count</h3>
-          <Button onClick={onClose} variant="ghost">âœ•</Button>
+          <Button onClick={onClose} variant="ghost">✕</Button>
         </header>
         <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <label className="field-group">

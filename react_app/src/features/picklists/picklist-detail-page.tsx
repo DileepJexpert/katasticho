@@ -63,7 +63,7 @@ export function PicklistDetailPage() {
       <PageHeader
         eyebrow="Inventory / Warehouse / Picklist"
         title={document.picklistNumber}
-        description={`${document.warehouseName ?? 'Warehouse'} Â· created ${formatDateTime(document.createdAt)}`}
+        description={`${document.warehouseName ?? 'Warehouse'} · created ${formatDateTime(document.createdAt)}`}
         actions={
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
             {isDraft && (
@@ -244,7 +244,7 @@ function UpdatePickLineModal({
       <div className="modal-dialog">
         <header className="modal-header">
           <h3>Record Picked Quantity</h3>
-          <Button onClick={onClose} variant="ghost">âœ•</Button>
+          <Button onClick={onClose} variant="ghost">✕</Button>
         </header>
         <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <p>

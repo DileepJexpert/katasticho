@@ -111,21 +111,10 @@ export function PaymentCreatePage() {
 
   return (
     <section className="workspace-page">
-      <div style={{ marginBottom: 'var(--space-3)' }}>
-        <Link
-          to={appRoutes.payments}
-          style={{
-            alignItems: 'center',
-            color: 'var(--text-secondary)',
-            display: 'inline-flex',
-            fontSize: 'var(--text-sm)',
-            gap: 'var(--space-1)',
-            textDecoration: 'none',
-          }}
-        >
-          <ArrowLeft size={16} /> Back to Customer Payments
-        </Link>
-      </div>
+      <Link className="form-back-link" to={appRoutes.payments}>
+        <ArrowLeft size={16} /> Back to Customer Payments
+        
+      </Link>
 
       <PageHeader
         eyebrow="Sales / Receivables"
@@ -163,28 +152,18 @@ export function PaymentCreatePage() {
         </div>
       )}
 
-      <form id="payment-form" onSubmit={handleSubmit}>
-        <div style={{ display: 'grid', gap: 'var(--space-4)', marginBottom: 'var(--space-6)' }}>
-          <div className="document-card">
-            <h2 style={{ marginBottom: 'var(--space-3)' }}>1. Customer & Invoice Details</h2>
-            <div style={{ display: 'grid', gap: 'var(--space-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Filter by Customer
-                </label>
+      <form className="create-form-container" id="payment-form" onSubmit={handleSubmit}>
+          <div className="form-card">
+          <div className="form-card-header">
+            <h2 className="form-card-title">1. Customer & Invoice Details</h2>
+          </div>
+            <div className="form-grid--auto">
+              <label className="field-group">
+                <span>Filter by Customer</span>
                 <select
                   onChange={(e) => {
                     setContactId(e.target.value)
                     setInvoiceId('')
-                  }}
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
                   }}
                   value={contactId}
                 >
@@ -195,24 +174,13 @@ export function PaymentCreatePage() {
                     </option>
                   ))}
                 </select>
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Invoice to Pay *
-                </label>
+              <label className="field-group">
+                <span>Invoice to Pay *</span>
                 <select
                   onChange={(e) => handleSelectInvoice(e.target.value)}
                   required
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   value={invoiceId}
                 >
                   <option value="">-- Select Unpaid Invoice --</option>
@@ -222,7 +190,7 @@ export function PaymentCreatePage() {
                     </option>
                   ))}
                 </select>
-              </div>
+              </label>
 
               {selectedInvoice && (
                 <div style={{ alignItems: 'center', background: 'var(--bg-subtle)', borderRadius: 'var(--radius)', display: 'flex', gap: 'var(--space-4)', padding: 'var(--space-2) var(--space-3)' }}>
@@ -239,68 +207,37 @@ export function PaymentCreatePage() {
             </div>
           </div>
 
-          <div className="document-card">
-            <h2 style={{ marginBottom: 'var(--space-3)' }}>2. Payment Transaction</h2>
-            <div style={{ display: 'grid', gap: 'var(--space-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Amount Received (₹) *
-                </label>
+          <div className="form-card">
+          <div className="form-card-header">
+            <h2 className="form-card-title">2. Payment Transaction</h2>
+          </div>
+            <div className="form-grid--auto">
+              <label className="field-group">
+                <span>Amount Received (₹) *</span>
                 <input
                   min="0.01"
                   onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
                   required
                   step="0.01"
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="number"
                   value={amount}
                 />
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Payment Date *
-                </label>
+              <label className="field-group">
+                <span>Payment Date *</span>
                 <input
                   onChange={(e) => setPaymentDate(e.target.value)}
                   required
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="date"
                   value={paymentDate}
                 />
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Payment Method *
-                </label>
+              <label className="field-group">
+                <span>Payment Method *</span>
                 <select
                   onChange={(e) => setPaymentMethod(e.target.value)}
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   value={paymentMethod}
                 >
                   {PAYMENT_METHODS.map((pm) => (
@@ -309,71 +246,56 @@ export function PaymentCreatePage() {
                     </option>
                   ))}
                 </select>
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Reference / UTR / Cheque #
-                </label>
+              <label className="field-group">
+                <span>Reference / UTR / Cheque #</span>
                 <input
                   onChange={(e) => setReferenceNumber(e.target.value)}
                   placeholder="e.g. UTR12345678"
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="text"
                   value={referenceNumber}
                 />
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Bank Account / Ledger
-                </label>
+              <label className="field-group">
+                <span>Bank Account / Ledger</span>
                 <input
                   onChange={(e) => setBankAccount(e.target.value)}
                   placeholder="e.g. HDFC Current Account"
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="text"
                   value={bankAccount}
                 />
-              </div>
+              </label>
             </div>
 
-            <div style={{ marginTop: 'var(--space-4)' }}>
-              <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                Payment Notes
-              </label>
+            <label className="field-group" style={{ marginTop: 'var(--space-4)' }}>
+              <span>Payment Notes</span>
               <textarea
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Collection remarks, customer receipt note..."
                 rows={2}
-                style={{
-                  background: 'var(--bg-surface)',
-                  border: '1px solid var(--border-strong)',
-                  borderRadius: 'var(--radius)',
-                  color: 'var(--text-primary)',
-                  padding: 'var(--space-2)',
-                  width: '100%',
-                }}
                 value={notes}
               />
-            </div>
+            </label>
           </div>
+
+        <div className="form-actions-bar">
+          <Button
+            onClick={() => navigate(appRoutes.payments)}
+            type="button"
+            variant="secondary"
+          >
+            Cancel
+          </Button>
+          <Button
+            disabled={createMutation.isPending || !invoiceId || amount <= 0}
+            type="submit"
+            variant="primary"
+          >
+            <Save size={16} />
+            {createMutation.isPending ? 'Recording...' : 'Record Payment'}
+          </Button>
         </div>
       </form>
     </section>

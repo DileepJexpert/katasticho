@@ -92,7 +92,7 @@ export function PriceListDetailPage() {
             )}
           </div>
         }
-        description={`Scheme: ${priceList.schemeType} Â· Currency: ${priceList.currency}`}
+        description={`Scheme: ${priceList.schemeType} · Currency: ${priceList.currency}`}
         eyebrow="Inventory / Pricing & Tier Schemes"
         title={priceList.name}
       />
@@ -272,7 +272,7 @@ function AddPriceListItemModal({
       <div className="modal-dialog">
         <header className="modal-header">
           <h3>Add Item Pricing Rule</h3>
-          <Button onClick={onClose} variant="ghost">âœ•</Button>
+          <Button onClick={onClose} variant="ghost">✕</Button>
         </header>
         <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <label className="field-group">
@@ -355,7 +355,7 @@ function AddPriceListContactModal({
       <div className="modal-dialog">
         <header className="modal-header">
           <h3>Assign Customer to Price Tier</h3>
-          <Button onClick={onClose} variant="ghost">âœ•</Button>
+          <Button onClick={onClose} variant="ghost">✕</Button>
         </header>
         <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <label className="field-group">

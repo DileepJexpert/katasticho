@@ -146,7 +146,7 @@ function CreatePriceListModal({ onClose, onSuccess }: { onClose: () => void; onS
       <div className="modal-dialog">
         <header className="modal-header">
           <h3>Create Price List</h3>
-          <Button onClick={onClose} variant="ghost">âœ•</Button>
+          <Button onClick={onClose} variant="ghost">✕</Button>
         </header>
         <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1rem' }}>

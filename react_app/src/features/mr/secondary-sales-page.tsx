@@ -206,7 +206,7 @@ function CreateStatementModal({
             </div>
 
             <div className="form-field">
-              <label className="form-label" htmlFor="stk-sval">Sales Value â‚¹ *</label>
+              <label className="form-label" htmlFor="stk-sval">Sales Value ₹ *</label>
               <input
                 className="form-input"
                 id="stk-sval"

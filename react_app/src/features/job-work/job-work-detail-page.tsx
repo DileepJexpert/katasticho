@@ -73,7 +73,7 @@ export function JobWorkDetailPage() {
       <PageHeader
         eyebrow="Manufacturing / Job Work (Subcontracting)"
         title={document.jobWorkNumber}
-        description={`Challan 45: ${document.challanNumber || 'Pending dispatch'} Â· Processing Charges: `}
+        description={`Challan 45: ${document.challanNumber || 'Pending dispatch'} · Processing Charges: `}
         actions={
           <div className="table-actions">
             {document.challanNumber && (

@@ -153,7 +153,7 @@ export function AttendancePage() {
             </h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 12 }}>
               <p className="cell-muted" style={{ fontSize: '0.9rem' }}>
-                Current timestamp: <strong>{new Date().toLocaleTimeString()}</strong> Â· Work location: <strong>Headquarters / Main Office</strong>
+                Current timestamp: <strong>{new Date().toLocaleTimeString()}</strong> · Work location: <strong>Headquarters / Main Office</strong>
               </p>
               <div style={{ display: 'flex', gap: 12 }}>
                 <Button onClick={() => alert('Punch In registered successfully at ' + new Date().toLocaleTimeString())} variant="primary">

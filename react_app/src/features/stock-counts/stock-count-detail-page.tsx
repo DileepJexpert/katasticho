@@ -61,7 +61,7 @@ export function StockCountDetailPage() {
       <PageHeader
         eyebrow="Inventory / Audits / Stock Count"
         title={doc.countNumber}
-        description={`Warehouse: ${doc.warehouseName ?? doc.warehouseId} Â· Created ${formatDate(doc.createdAt)}`}
+        description={`Warehouse: ${doc.warehouseName ?? doc.warehouseId} · Created ${formatDate(doc.createdAt)}`}
         actions={
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
             {isInProgress && (
@@ -206,7 +206,7 @@ function UpdateCountLineModal({
       <div className="modal-dialog">
         <header className="modal-header">
           <h3>Record Physical Count</h3>
-          <Button onClick={onClose} variant="ghost">âœ•</Button>
+          <Button onClick={onClose} variant="ghost">✕</Button>
         </header>
         <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <p>

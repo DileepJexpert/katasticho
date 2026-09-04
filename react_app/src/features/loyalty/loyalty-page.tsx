@@ -356,7 +356,7 @@ export function LoyaltyPage() {
               Redeem Loyalty Points
             </h3>
             <p className="cell-muted" style={{ fontSize: '0.85rem', marginBottom: 'var(--space-md)' }}>
-              Available Balance: <strong>{wallet?.balance || 0} points</strong> (â‚¹{(wallet?.balance || 0).toFixed(2)})
+              Available Balance: <strong>{wallet?.balance || 0} points</strong> (₹{(wallet?.balance || 0).toFixed(2)})
             </p>
             <div style={{ marginBottom: 'var(--space-sm)' }}>
               <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>

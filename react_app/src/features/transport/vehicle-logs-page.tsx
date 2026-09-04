@@ -186,7 +186,7 @@ export function VehicleLogsPage() {
                   <div className="progress-row">
                     <span>Operating Cost / km</span>
                     <strong style={{ color: 'var(--k-color-brand, #0f8576)' }}>
-                      â‚¹{Number(tcoQuery.data.costPerKm || 0).toFixed(2)} / km
+                      ₹{Number(tcoQuery.data.costPerKm || 0).toFixed(2)} / km
                     </strong>
                   </div>
                   <div className="progress-row">
@@ -338,7 +338,7 @@ function CreateVehicleLogModal({
               />
             </div>
             <div className="form-group">
-              <label htmlFor="vl-amt">Expense Amount (â‚¹) *</label>
+              <label htmlFor="vl-amt">Expense Amount (₹) *</label>
               <input
                 id="vl-amt"
                 min="0.01"

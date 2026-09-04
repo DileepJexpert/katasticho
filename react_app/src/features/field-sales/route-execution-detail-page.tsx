@@ -350,7 +350,7 @@ function RecordOrderModal({
         >
           <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div>
-              <label className="form-label" htmlFor="order-val">Order Value (â‚¹) *</label>
+              <label className="form-label" htmlFor="order-val">Order Value (₹) *</label>
               <input
                 className="form-input"
                 id="order-val"
@@ -421,7 +421,7 @@ function RecordCollectionModal({
         >
           <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div>
-              <label className="form-label" htmlFor="coll-amt">Collected Amount (â‚¹) *</label>
+              <label className="form-label" htmlFor="coll-amt">Collected Amount (₹) *</label>
               <input
                 className="form-input"
                 id="coll-amt"

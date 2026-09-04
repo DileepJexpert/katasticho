@@ -170,7 +170,7 @@ function CreateTransferOrderModal({
       <div className="modal-dialog" style={{ maxWidth: '650px' }}>
         <header className="modal-header">
           <h3>Create Inter-Warehouse Transfer Order</h3>
-          <Button onClick={onClose} variant="ghost">âœ•</Button>
+          <Button onClick={onClose} variant="ghost">✕</Button>
         </header>
         <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
@@ -226,7 +226,7 @@ function CreateTransferOrderModal({
                     placeholder="Batch (Opt)"
                     value={line.batchNumber ?? ''}
                   />
-                  <Button disabled={lines.length === 1} onClick={() => removeLine(idx)} variant="ghost">âœ•</Button>
+                  <Button disabled={lines.length === 1} onClick={() => removeLine(idx)} variant="ghost">✕</Button>
                 </div>
               ))}
             </div>

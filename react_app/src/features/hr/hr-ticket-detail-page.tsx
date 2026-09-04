@@ -72,7 +72,7 @@ export function HrTicketDetailPage() {
       <PageHeader
         eyebrow="Core HR / Help Desk"
         title={ticket.subject}
-        description={`Category: ${ticket.category} Â· Priority: ${ticket.priority} Â· Raised: ${ticket.createdAt ? formatDate(ticket.createdAt) : 'â€”'}`}
+        description={`Category: ${ticket.category} · Priority: ${ticket.priority} · Raised: ${ticket.createdAt ? formatDate(ticket.createdAt) : 'â€”'}`}
         actions={
           <div className="table-actions">
             <StatusChip status={formatStatusLabel(ticket.status)} />

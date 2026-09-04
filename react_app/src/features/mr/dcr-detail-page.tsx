@@ -258,7 +258,7 @@ function AddDoctorCallModal({
             </div>
 
             <div className="form-field">
-              <label className="form-label" htmlFor="doc-pob">Personal Order Booking (POB) â‚¹</label>
+              <label className="form-label" htmlFor="doc-pob">Personal Order Booking (POB) ₹</label>
               <input
                 className="form-input"
                 id="doc-pob"

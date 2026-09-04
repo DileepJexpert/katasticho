@@ -219,7 +219,7 @@ export function TimesheetsPage() {
                   <tr key={e.id}>
                     <td>{formatDate(e.workDate)}</td>
                     <td><strong>{e.userName || 'Staff Member'}</strong></td>
-                    <td>{e.project} Â· {e.task}</td>
+                    <td>{e.project} · {e.task}</td>
                     <td className="numeric-cell"><strong>{e.hours} hrs</strong></td>
                     <td><StatusChip status={e.billable ? 'Billable' : 'Internal'} /></td>
                     <td>

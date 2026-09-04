@@ -92,7 +92,7 @@ export function BarcodeLabelsPage() {
                 <input onChange={(e) => setExpiryDate(e.target.value)} value={expiryDate} />
               </label>
               <label className="field-group">
-                <span>MRP (â‚¹)</span>
+                <span>MRP (₹)</span>
                 <input onChange={(e) => setMrp(Number(e.target.value))} type="number" value={mrp} />
               </label>
             </div>
@@ -196,7 +196,7 @@ export function BarcodeLabelsPage() {
                   </div>
                   {includeMrp && (
                     <div style={{ textAlign: 'right', fontWeight: 'bold' }}>
-                      MRP: â‚¹{mrp.toFixed(2)}
+                      MRP: ₹{mrp.toFixed(2)}
                     </div>
                   )}
                 </div>

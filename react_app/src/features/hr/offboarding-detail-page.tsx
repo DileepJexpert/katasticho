@@ -88,7 +88,7 @@ export function OffboardingDetailPage() {
       <PageHeader
         eyebrow="Core HR / Exit Clearance"
         title={`Offboarding: ${offboarding.employeeName || 'Staff Member'}`}
-        description={`Last Working Day: ${offboarding.lastWorkingDay ? formatDate(offboarding.lastWorkingDay) : 'To be confirmed'} Â· Reason: ${offboarding.reason || 'Career Transition'}`}
+        description={`Last Working Day: ${offboarding.lastWorkingDay ? formatDate(offboarding.lastWorkingDay) : 'To be confirmed'} · Reason: ${offboarding.reason || 'Career Transition'}`}
         actions={
           <div className="table-actions">
             <StatusChip status={formatStatusLabel(offboarding.status)} />
@@ -209,7 +209,7 @@ export function OffboardingDetailPage() {
             >
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <div>
-                  <label className="form-label">Computed Net FnF Settlement Amount (â‚¹) *</label>
+                  <label className="form-label">Computed Net FnF Settlement Amount (₹) *</label>
                   <input
                     className="text-input"
                     onChange={(e) => setFnfAmount(Number(e.target.value) || 0)}

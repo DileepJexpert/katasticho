@@ -104,7 +104,7 @@ export function FixedAssetDetailPage() {
       <PageHeader
         eyebrow="Financial / Fixed Assets"
         title={asset.name}
-        description={`Code: ${asset.assetCode} Â· Category: ${asset.category || 'General'} Â· Method: ${asset.bookMethod}`}
+        description={`Code: ${asset.assetCode} · Category: ${asset.category || 'General'} · Method: ${asset.bookMethod}`}
         actions={
           <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
             <Button onClick={() => navigate(appRoutes.fixedAssets)} variant="secondary">
@@ -393,7 +393,7 @@ export function FixedAssetDetailPage() {
 
             <div style={{ marginBottom: 'var(--space-sm)' }}>
               <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                Realized Sale / Salvage Proceeds (â‚¹)
+                Realized Sale / Salvage Proceeds (₹)
               </label>
               <input
                 style={{

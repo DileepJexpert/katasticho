@@ -362,7 +362,7 @@ function CreateCourierShipmentModal({
 
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="shipment-freight">Freight Amount (â‚¹)</label>
+              <label htmlFor="shipment-freight">Freight Amount (₹)</label>
               <input
                 id="shipment-freight"
                 min="0"
@@ -373,7 +373,7 @@ function CreateCourierShipmentModal({
               />
             </div>
             <div className="form-group">
-              <label htmlFor="shipment-declared">Declared Value (â‚¹)</label>
+              <label htmlFor="shipment-declared">Declared Value (₹)</label>
               <input
                 id="shipment-declared"
                 min="0"
@@ -399,7 +399,7 @@ function CreateCourierShipmentModal({
           {cod ? (
             <div className="form-row">
               <div className="form-group">
-                <label htmlFor="shipment-cod-amount">COD Collection Amount (â‚¹) *</label>
+                <label htmlFor="shipment-cod-amount">COD Collection Amount (₹) *</label>
                 <input
                   id="shipment-cod-amount"
                   min="0"
@@ -411,7 +411,7 @@ function CreateCourierShipmentModal({
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="shipment-cod-fee">Estimated COD Fee (â‚¹)</label>
+                <label htmlFor="shipment-cod-fee">Estimated COD Fee (₹)</label>
                 <input
                   id="shipment-cod-fee"
                   min="0"

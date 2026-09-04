@@ -66,7 +66,7 @@ export function MaintenanceWorkOrderDetailPage() {
       <PageHeader
         eyebrow="Manufacturing / Equipment Maintenance"
         title={document.mwoNumber}
-        description={`Work Center: ${document.workstationName || document.workstationId} Â· Type: ${document.maintenanceType}`}
+        description={`Work Center: ${document.workstationName || document.workstationId} · Type: ${document.maintenanceType}`}
         actions={
           <div className="table-actions">
             <span className={document.priority === 'URGENT' ? 'status-badge status-badge--danger' : 'status-badge'}>

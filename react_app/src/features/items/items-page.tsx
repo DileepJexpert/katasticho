@@ -1,6 +1,6 @@
 import { useDeferredValue, useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Boxes, ChevronLeft, ChevronRight, Plus, Search, UploadCloud } from 'lucide-react'
+import { Boxes, ChevronLeft, ChevronRight, Plus, Search, UploadCloud, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
 import { Button } from '@/design-system/button'
@@ -65,7 +65,7 @@ export function ItemsPage() {
             <Button onClick={() => setShowImportModal(true)} variant="secondary">
               <UploadCloud size={16} /> Import CSV
             </Button>
-            <Button onClick={() => setShowCreateModal(true)} variant="primary">
+            <Button onClick={() => navigate(appRoutes.itemCreate)} variant="primary">
               <Plus size={16} /> Create Item
             </Button>
           </div>
@@ -213,7 +213,7 @@ function ItemRow({ item, onOpen }: { item: Item; onOpen: () => void }) {
       <td>
         <div className="cell-stack">
           <code>{item.hsnCode ? `HSN ${item.hsnCode}` : '--'}</code>
-          <span>{formatGst(item.gstRate)} Â· {item.unitOfMeasure ?? '--'}</span>
+          <span>{formatGst(item.gstRate)} · {item.unitOfMeasure ?? '--'}</span>
         </div>
       </td>
       <td><StatusChip status={item.active ? 'Active' : 'Inactive'} /></td>
@@ -298,13 +298,15 @@ function CreateItemModal({ onClose, onSuccess }: { onClose: () => void; onSucces
 
   return (
     <div className="modal-backdrop" role="dialog">
-      <div className="modal-dialog" style={{ maxWidth: '640px' }}>
+      <div className="modal-dialog modal-dialog--lg">
         <header className="modal-header">
           <h3>Create Inventory Item</h3>
-          <Button onClick={onClose} variant="ghost">âœ•</Button>
+          <button aria-label="Close dialog" className="modal-close-btn" onClick={onClose} type="button">
+            <X size={16} />
+          </button>
         </header>
-        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '70vh', overflowY: 'auto' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1rem' }}>
+        <div className="modal-body">
+          <div className="form-grid--2col">
             <label className="field-group">
               <span>Item Name *</span>
               <input onChange={(e) => setName(e.target.value)} placeholder="e.g. Paracetamol 500mg" value={name} />
@@ -321,7 +323,7 @@ function CreateItemModal({ onClose, onSuccess }: { onClose: () => void; onSucces
             </label>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div className="form-grid--2col">
             <label className="field-group">
               <span>SKU</span>
               <input onChange={(e) => setSku(e.target.value)} placeholder="e.g. SKU-PARA-500" value={sku} />
@@ -332,7 +334,7 @@ function CreateItemModal({ onClose, onSuccess }: { onClose: () => void; onSucces
             </label>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+          <div className="form-grid--3col">
             <label className="field-group">
               <span>HSN Code</span>
               <input onChange={(e) => setHsnCode(e.target.value)} placeholder="e.g. 3004" value={hsnCode} />
@@ -347,18 +349,18 @@ function CreateItemModal({ onClose, onSuccess }: { onClose: () => void; onSucces
             </label>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div className="form-grid--2col">
             <label className="field-group">
-              <span>Purchase Price (â‚¹)</span>
+              <span>Purchase Price (₹)</span>
               <input onChange={(e) => setPurchasePrice(Number(e.target.value))} type="number" value={purchasePrice} />
             </label>
             <label className="field-group">
-              <span>Sale Price / MRP (â‚¹)</span>
+              <span>Sale Price / MRP (₹)</span>
               <input onChange={(e) => setSalePrice(Number(e.target.value))} type="number" value={salePrice} />
             </label>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+          <div className="form-grid--3col">
             <label className="field-group">
               <span>Reorder Level</span>
               <input onChange={(e) => setReorderLevel(Number(e.target.value))} type="number" value={reorderLevel} />
@@ -376,16 +378,16 @@ function CreateItemModal({ onClose, onSuccess }: { onClose: () => void; onSucces
             </label>
           </div>
 
-          <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.5rem' }}>
-            <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-4)', marginTop: 'var(--space-2)' }}>
+            <label className="form-checkbox-label">
               <input checked={trackInventory} onChange={(e) => setTrackInventory(e.target.checked)} type="checkbox" />
               <span>Track Inventory</span>
             </label>
-            <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <label className="form-checkbox-label">
               <input checked={trackBatches} onChange={(e) => setTrackBatches(e.target.checked)} type="checkbox" />
               <span>Track Batches & FEFO</span>
             </label>
-            <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <label className="form-checkbox-label">
               <input checked={trackSerials} onChange={(e) => setTrackSerials(e.target.checked)} type="checkbox" />
               <span>Track Serial Numbers</span>
             </label>
@@ -425,26 +427,28 @@ function ImportItemsModal({ onClose, onSuccess }: { onClose: () => void; onSucce
 
   return (
     <div className="modal-backdrop" role="dialog">
-      <div className="modal-dialog" style={{ maxWidth: '600px' }}>
+      <div className="modal-dialog modal-dialog--md">
         <header className="modal-header">
           <h3>Bulk Import Items CSV</h3>
-          <Button onClick={onClose} variant="ghost">âœ•</Button>
+          <button aria-label="Close dialog" className="modal-close-btn" onClick={onClose} type="button">
+            <X size={16} />
+          </button>
         </header>
-        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>
+        <div className="modal-body">
+          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
             Upload CSV with columns: <code>name, sku, barcode, itemType, hsnCode, gstRate, uom, purchasePrice, salePrice</code>
           </p>
           <input accept=".csv" onChange={handleFileChange} type="file" />
 
           {previewRows.length > 0 && (
-            <div style={{ marginTop: '0.5rem' }}>
-              <h4>Preview (First {previewRows.length} rows)</h4>
-              <table style={{ width: '100%', fontSize: '0.75rem', borderCollapse: 'collapse' }}>
+            <div style={{ marginTop: 'var(--space-2)' }}>
+              <h4 style={{ fontSize: 'var(--text-sm)', marginBottom: 'var(--space-2)' }}>Preview (First {previewRows.length} rows)</h4>
+              <table style={{ width: '100%', fontSize: 'var(--text-xs)', borderCollapse: 'collapse' }}>
                 <tbody>
                   {previewRows.map((row, i) => (
-                    <tr key={i} style={{ borderBottom: '1px solid var(--color-border)' }}>
+                    <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
                       {row.map((col, j) => (
-                        <td key={j} style={{ padding: '0.25rem 0.5rem' }}>{col}</td>
+                        <td key={j} style={{ padding: 'var(--space-1) var(--space-2)' }}>{col}</td>
                       ))}
                     </tr>
                   ))}

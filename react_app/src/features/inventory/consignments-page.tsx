@@ -167,7 +167,7 @@ function ReceiveConsignmentModal({ onClose, onSuccess }: { onClose: () => void; 
       <div className="modal-dialog">
         <header className="modal-header">
           <h3>Receive Consignment Stock</h3>
-          <Button onClick={onClose} variant="ghost">âœ•</Button>
+          <Button onClick={onClose} variant="ghost">✕</Button>
         </header>
         <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <label className="field-group">
@@ -188,7 +188,7 @@ function ReceiveConsignmentModal({ onClose, onSuccess }: { onClose: () => void; 
               <input onChange={(e) => setQuantity(Number(e.target.value))} type="number" value={quantity} />
             </label>
             <label className="field-group">
-              <span>Agreed Unit Cost (â‚¹)</span>
+              <span>Agreed Unit Cost (₹)</span>
               <input onChange={(e) => setUnitCost(Number(e.target.value))} type="number" value={unitCost} />
             </label>
           </div>
@@ -233,7 +233,7 @@ function RecordSaleModal({
       <div className="modal-dialog">
         <header className="modal-header">
           <h3>Record Consignment Sale / Consumption</h3>
-          <Button onClick={onClose} variant="ghost">âœ•</Button>
+          <Button onClick={onClose} variant="ghost">✕</Button>
         </header>
         <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <p>

@@ -237,7 +237,7 @@ function CreateTargetModal({
                   onChange={(e) => setTargetType(e.target.value)}
                   value={targetType}
                 >
-                  <option value="REVENUE">Revenue â‚¹</option>
+                  <option value="REVENUE">Revenue ₹</option>
                   <option value="VISITS">Visits Count</option>
                   <option value="NEW_ACCOUNTS">New Accounts</option>
                 </select>

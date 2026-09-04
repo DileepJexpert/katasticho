@@ -79,6 +79,7 @@ import { FluxCommentaryPage } from '@/features/analytics/flux-commentary-page'
 import { UsersPage } from '@/features/settings/users-page'
 import { PdfTemplateCustomizerPage } from '@/features/settings/pdf-template-customizer-page'
 import { ItemDetailPage } from '@/features/items/item-detail-page'
+import { ItemCreatePage } from '@/features/items/item-create-page'
 import { ItemsPage } from '@/features/items/items-page'
 import { BatchTracePage } from '@/features/inventory/batch-trace-page'
 import { ShortbookPage } from '@/features/inventory/shortbook-page'
@@ -227,6 +228,10 @@ export const router = createBrowserRouter([
           {
             path: 'items',
             element: <ItemsPage />,
+          },
+          {
+            path: 'items/new',
+            element: <ItemCreatePage />,
           },
           {
             path: 'items/:itemId',

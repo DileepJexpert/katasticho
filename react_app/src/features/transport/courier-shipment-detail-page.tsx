@@ -86,7 +86,7 @@ export function CourierShipmentDetailPage() {
       <PageHeader
         eyebrow="Logistics & Transport / Shipment"
         title={shipment.courierShipmentNumber}
-        description={`${shipment.courierPartner} Â· ${shipment.awbNumber ? `AWB: ${shipment.awbNumber}` : 'AWB Not Assigned'}`}
+        description={`${shipment.courierPartner} · ${shipment.awbNumber ? `AWB: ${shipment.awbNumber}` : 'AWB Not Assigned'}`}
         actions={
           <div className="button-group">
             <Button
@@ -146,8 +146,8 @@ export function CourierShipmentDetailPage() {
             <Fact label="Air Waybill (AWB)" value={shipment.awbNumber ?? 'Not assigned'} />
             <Fact label="Carrier Service" value={shipment.courierService ?? '--'} />
             <Fact label="Weight" value={shipment.weightKg ? `${shipment.weightKg} kg` : '--'} />
-            <Fact label="Declared Value" value={shipment.declaredValue ? `â‚¹${shipment.declaredValue}` : '--'} />
-            <Fact label="Freight Cost" value={shipment.freightAmount ? `â‚¹${shipment.freightAmount}` : '--'} />
+            <Fact label="Declared Value" value={shipment.declaredValue ? `₹${shipment.declaredValue}` : '--'} />
+            <Fact label="Freight Cost" value={shipment.freightAmount ? `₹${shipment.freightAmount}` : '--'} />
             <Fact label="Booked At" value={formatDateTime(shipment.bookedAt)} />
             <Fact label="Delivered At" value={formatDateTime(shipment.deliveredAt)} />
             <Fact label="RTO Initiated" value={formatDateTime(shipment.rtoInitiatedAt)} />

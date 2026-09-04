@@ -248,7 +248,7 @@ function CreatePoFromShortbookModal({
       <div className="modal-dialog" style={{ maxWidth: '600px' }}>
         <header className="modal-header">
           <h3>Create Purchase Order from Shortbook</h3>
-          <Button onClick={onClose} variant="ghost">âœ•</Button>
+          <Button onClick={onClose} variant="ghost">✕</Button>
         </header>
         <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>

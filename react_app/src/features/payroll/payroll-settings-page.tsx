@@ -116,7 +116,7 @@ export function PayrollSettingsPage() {
                   </label>
                   <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                     <input defaultChecked={settings.esiEnabled !== false} name="esiEnabled" type="checkbox" />
-                    <span>Employee State Insurance (ESIC 0.75% + 3.25% Match for wages â‰¤ â‚¹21,000)</span>
+                    <span>Employee State Insurance (ESIC 0.75% + 3.25% Match for wages â‰¤ ₹21,000)</span>
                   </label>
                   <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                     <input defaultChecked={settings.ptEnabled !== false} name="ptEnabled" type="checkbox" />

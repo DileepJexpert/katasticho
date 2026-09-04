@@ -360,7 +360,7 @@ export function AmortizationPage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--space-sm)', marginBottom: 'var(--space-md)' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                  Total Amount (â‚¹) *
+                  Total Amount (₹) *
                 </label>
                 <input
                   style={{

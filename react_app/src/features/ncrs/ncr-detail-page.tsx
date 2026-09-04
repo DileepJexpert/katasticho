@@ -87,7 +87,7 @@ export function NcrDetailPage() {
       <PageHeader
         eyebrow="Quality / Non-Conformance Reports"
         title={document.ncrNumber}
-        description={`Defect report for: ${document.itemName || document.itemId} Â· Severity: ${document.severity}`}
+        description={`Defect report for: ${document.itemName || document.itemId} · Severity: ${document.severity}`}
         actions={
           <div className="table-actions">
             <span className={document.severity === 'CRITICAL' ? 'status-badge status-badge--danger' : 'status-badge status-badge--warning'}>

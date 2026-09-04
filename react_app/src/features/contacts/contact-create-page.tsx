@@ -95,21 +95,10 @@ export function ContactCreatePage() {
 
   return (
     <section className="workspace-page">
-      <div style={{ marginBottom: 'var(--space-3)' }}>
-        <Link
-          to={appRoutes.contacts}
-          style={{
-            alignItems: 'center',
-            color: 'var(--text-secondary)',
-            display: 'inline-flex',
-            fontSize: 'var(--text-sm)',
-            gap: 'var(--space-1)',
-            textDecoration: 'none',
-          }}
-        >
-          <ArrowLeft size={16} /> Back to Contacts
-        </Link>
-      </div>
+      <Link className="form-back-link" to={appRoutes.contacts}>
+        <ArrowLeft size={16} /> Back to Contacts
+        
+      </Link>
 
       <PageHeader
         eyebrow="Master Data"
@@ -147,314 +136,163 @@ export function ContactCreatePage() {
         </div>
       )}
 
-      <form id="contact-form" onSubmit={handleSubmit}>
-        <div style={{ display: 'grid', gap: 'var(--space-4)', marginBottom: 'var(--space-6)' }}>
-          <div className="document-card">
-            <h2 style={{ marginBottom: 'var(--space-3)' }}>1. General & Tax Details</h2>
-            <div style={{ display: 'grid', gap: 'var(--space-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Contact Role *
-                </label>
+      <form className="create-form-container" id="contact-form" onSubmit={handleSubmit}>
+          <div className="form-card">
+          <div className="form-card-header">
+            <h2 className="form-card-title">1. General & Tax Details</h2>
+          </div>
+            <div className="form-grid--auto">
+              <label className="field-group">
+                <span>Contact Role *</span>
                 <select
                   onChange={(e) => setContactType(e.target.value as 'CUSTOMER' | 'VENDOR' | 'BOTH')}
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   value={contactType}
                 >
                   <option value="CUSTOMER">Customer (Sales & Receivables)</option>
                   <option value="VENDOR">Vendor (Purchases & Payables)</option>
                   <option value="BOTH">Both (Customer & Vendor)</option>
                 </select>
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Display Name *
-                </label>
+              <label className="field-group">
+                <span>Display Name *</span>
                 <input
                   onChange={(e) => setDisplayName(e.target.value)}
                   placeholder="e.g. Apex Health Corp"
                   required
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="text"
                   value={displayName}
                 />
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Company / Legal Entity Name
-                </label>
+              <label className="field-group">
+                <span>Company / Legal Entity Name</span>
                 <input
                   onChange={(e) => setCompanyName(e.target.value)}
                   placeholder="Official registered company name"
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="text"
                   value={companyName}
                 />
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  GSTIN (15 characters)
-                </label>
+              <label className="field-group">
+                <span>GSTIN (15 characters)</span>
                 <input
                   maxLength={15}
                   onChange={(e) => setGstin(e.target.value.toUpperCase())}
                   placeholder="e.g. 27AAAAA0000A1Z5"
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="text"
                   value={gstin}
                 />
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  PAN Number
-                </label>
+              <label className="field-group">
+                <span>PAN Number</span>
                 <input
                   maxLength={10}
                   onChange={(e) => setPan(e.target.value.toUpperCase())}
                   placeholder="e.g. AAAAA0000A"
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="text"
                   value={pan}
                 />
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Email Address
-                </label>
+              <label className="field-group">
+                <span>Email Address</span>
                 <input
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="billing@company.com"
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="email"
                   value={email}
                 />
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Phone / Landline
-                </label>
+              <label className="field-group">
+                <span>Phone / Landline</span>
                 <input
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="022-28001234"
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="text"
                   value={phone}
                 />
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Mobile Number
-                </label>
+              <label className="field-group">
+                <span>Mobile Number</span>
                 <input
                   onChange={(e) => setMobile(e.target.value)}
                   placeholder="+91 98200 12345"
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="text"
                   value={mobile}
                 />
-              </div>
+              </label>
             </div>
           </div>
 
-          <div className="document-card">
-            <h2 style={{ marginBottom: 'var(--space-3)' }}>2. Billing & Shipping Address</h2>
-            <div style={{ display: 'grid', gap: 'var(--space-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-              <div style={{ gridColumn: 'span 2' }}>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Billing Address Line 1
-                </label>
+          <div className="form-card">
+          <div className="form-card-header">
+            <h2 className="form-card-title">2. Billing & Shipping Address</h2>
+          </div>
+            <div className="form-grid--auto">
+              <label className="field-group field-group--span-2">
+                <span>Billing Address Line 1</span>
                 <input
                   onChange={(e) => setBillingAddressLine1(e.target.value)}
                   placeholder="Street, suite, floor, industrial area"
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="text"
                   value={billingAddressLine1}
                 />
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  City
-                </label>
+              <label className="field-group">
+                <span>City</span>
                 <input
                   onChange={(e) => setBillingCity(e.target.value)}
                   placeholder="e.g. Mumbai"
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="text"
                   value={billingCity}
                 />
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  State
-                </label>
+              <label className="field-group">
+                <span>State</span>
                 <input
                   onChange={(e) => setBillingState(e.target.value)}
                   placeholder="e.g. Maharashtra"
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="text"
                   value={billingState}
                 />
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  State Code (GST)
-                </label>
+              <label className="field-group">
+                <span>State Code (GST)</span>
                 <input
                   maxLength={2}
                   onChange={(e) => setBillingStateCode(e.target.value)}
                   placeholder="e.g. 27"
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="text"
                   value={billingStateCode}
                 />
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Postal Code
-                </label>
+              <label className="field-group">
+                <span>Postal Code</span>
                 <input
                   onChange={(e) => setBillingPostalCode(e.target.value)}
                   placeholder="e.g. 400001"
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="text"
                   value={billingPostalCode}
                 />
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Country
-                </label>
+              <label className="field-group">
+                <span>Country</span>
                 <input
                   onChange={(e) => setBillingCountry(e.target.value)}
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="text"
                   value={billingCountry}
                 />
-              </div>
+              </label>
             </div>
 
             <div style={{ marginTop: 'var(--space-4)' }}>
@@ -472,217 +310,127 @@ export function ContactCreatePage() {
 
             {!sameAsBilling && (
               <div style={{ display: 'grid', gap: 'var(--space-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', marginTop: 'var(--space-4)' }}>
-                <div style={{ gridColumn: 'span 2' }}>
-                  <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                    Shipping Address Line 1
-                  </label>
+                <label className="field-group field-group--span-2">
+                <span>Shipping Address Line 1</span>
                   <input
                     onChange={(e) => setShippingAddressLine1(e.target.value)}
                     placeholder="Shipping destination address"
-                    style={{
-                      background: 'var(--bg-surface)',
-                      border: '1px solid var(--border-strong)',
-                      borderRadius: 'var(--radius)',
-                      color: 'var(--text-primary)',
-                      height: 'var(--control-h)',
-                      padding: '0 var(--space-2)',
-                      width: '100%',
-                    }}
                     type="text"
                     value={shippingAddressLine1}
                   />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                    Shipping City
-                  </label>
+              </label>
+                <label className="field-group">
+                <span>Shipping City</span>
                   <input
                     onChange={(e) => setShippingCity(e.target.value)}
                     placeholder="e.g. Pune"
-                    style={{
-                      background: 'var(--bg-surface)',
-                      border: '1px solid var(--border-strong)',
-                      borderRadius: 'var(--radius)',
-                      color: 'var(--text-primary)',
-                      height: 'var(--control-h)',
-                      padding: '0 var(--space-2)',
-                      width: '100%',
-                    }}
                     type="text"
                     value={shippingCity}
                   />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                    Shipping State
-                  </label>
+              </label>
+                <label className="field-group">
+                <span>Shipping State</span>
                   <input
                     onChange={(e) => setShippingState(e.target.value)}
                     placeholder="e.g. Maharashtra"
-                    style={{
-                      background: 'var(--bg-surface)',
-                      border: '1px solid var(--border-strong)',
-                      borderRadius: 'var(--radius)',
-                      color: 'var(--text-primary)',
-                      height: 'var(--control-h)',
-                      padding: '0 var(--space-2)',
-                      width: '100%',
-                    }}
                     type="text"
                     value={shippingState}
                   />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                    Shipping State Code
-                  </label>
+              </label>
+                <label className="field-group">
+                <span>Shipping State Code</span>
                   <input
                     maxLength={2}
                     onChange={(e) => setShippingStateCode(e.target.value)}
                     placeholder="e.g. 27"
-                    style={{
-                      background: 'var(--bg-surface)',
-                      border: '1px solid var(--border-strong)',
-                      borderRadius: 'var(--radius)',
-                      color: 'var(--text-primary)',
-                      height: 'var(--control-h)',
-                      padding: '0 var(--space-2)',
-                      width: '100%',
-                    }}
                     type="text"
                     value={shippingStateCode}
                   />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                    Shipping Postal Code
-                  </label>
+              </label>
+                <label className="field-group">
+                <span>Shipping Postal Code</span>
                   <input
                     onChange={(e) => setShippingPostalCode(e.target.value)}
                     placeholder="e.g. 411001"
-                    style={{
-                      background: 'var(--bg-surface)',
-                      border: '1px solid var(--border-strong)',
-                      borderRadius: 'var(--radius)',
-                      color: 'var(--text-primary)',
-                      height: 'var(--control-h)',
-                      padding: '0 var(--space-2)',
-                      width: '100%',
-                    }}
                     type="text"
                     value={shippingPostalCode}
                   />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                    Shipping Country
-                  </label>
+              </label>
+                <label className="field-group">
+                <span>Shipping Country</span>
                   <input
                     onChange={(e) => setShippingCountry(e.target.value)}
-                    style={{
-                      background: 'var(--bg-surface)',
-                      border: '1px solid var(--border-strong)',
-                      borderRadius: 'var(--radius)',
-                      color: 'var(--text-primary)',
-                      height: 'var(--control-h)',
-                      padding: '0 var(--space-2)',
-                      width: '100%',
-                    }}
                     type="text"
                     value={shippingCountry}
                   />
-                </div>
+              </label>
               </div>
             )}
           </div>
 
-          <div className="document-card">
-            <h2 style={{ marginBottom: 'var(--space-3)' }}>3. Credit & Commercial Terms</h2>
-            <div style={{ display: 'grid', gap: 'var(--space-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Credit Limit (₹)
-                </label>
+          <div className="form-card">
+          <div className="form-card-header">
+            <h2 className="form-card-title">3. Credit & Commercial Terms</h2>
+          </div>
+            <div className="form-grid--auto">
+              <label className="field-group">
+                <span>Credit Limit (₹)</span>
                 <input
                   min="0"
                   onChange={(e) => setCreditLimit(parseFloat(e.target.value) || 0)}
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="number"
                   value={creditLimit}
                 />
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Payment Terms (Days)
-                </label>
+              <label className="field-group">
+                <span>Payment Terms (Days)</span>
                 <input
                   min="0"
                   onChange={(e) => setPaymentTermsDays(parseInt(e.target.value) || 0)}
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="number"
                   value={paymentTermsDays}
                 />
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Opening Balance (₹)
-                </label>
+              <label className="field-group">
+                <span>Opening Balance (₹)</span>
                 <input
                   onChange={(e) => setOpeningBalance(parseFloat(e.target.value) || 0)}
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="number"
                   value={openingBalance}
                 />
-              </div>
+              </label>
             </div>
 
-            <div style={{ marginTop: 'var(--space-4)' }}>
-              <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                Internal Notes
-              </label>
+            <label className="field-group" style={{ marginTop: 'var(--space-4)' }}>
+              <span>Internal Notes</span>
               <textarea
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Internal customer background, credit remarks, etc."
                 rows={2}
-                style={{
-                  background: 'var(--bg-surface)',
-                  border: '1px solid var(--border-strong)',
-                  borderRadius: 'var(--radius)',
-                  color: 'var(--text-primary)',
-                  padding: 'var(--space-2)',
-                  width: '100%',
-                }}
                 value={notes}
               />
-            </div>
+            </label>
           </div>
-        </div>
+
+          <div className="form-actions-bar">
+            <Button
+              onClick={() => navigate(appRoutes.contacts)}
+              type="button"
+              variant="secondary"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={createMutation.isPending || !displayName.trim()}
+              type="submit"
+              variant="primary"
+            >
+              <Save size={16} />
+              {createMutation.isPending ? 'Saving...' : 'Save Contact'}
+            </Button>
+          </div>
       </form>
     </section>
   )

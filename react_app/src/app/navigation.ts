@@ -60,6 +60,7 @@ export const appRoutes = {
   contacts: '/contacts',
   contactCreate: '/contacts/new',
   items: '/items',
+  itemCreate: '/items/new',
   itemDetail: (id: string) => `/items/${id}`,
   batchTrace: '/batch-trace',
   shortbook: '/shortbook',

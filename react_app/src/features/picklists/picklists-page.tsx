@@ -156,7 +156,7 @@ function CreatePicklistModal({ onClose, onSuccess }: { onClose: () => void; onSu
       <div className="modal-dialog">
         <header className="modal-header">
           <h3>Create Warehouse Picklist</h3>
-          <Button onClick={onClose} variant="ghost">âœ•</Button>
+          <Button onClick={onClose} variant="ghost">✕</Button>
         </header>
         <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <label className="field-group">

@@ -421,7 +421,7 @@ function CreateLorryReceiptModal({
               />
             </div>
             <div className="form-group">
-              <label htmlFor="lr-declared">Declared Goods Value (â‚¹)</label>
+              <label htmlFor="lr-declared">Declared Goods Value (₹)</label>
               <input
                 id="lr-declared"
                 min="0"
@@ -435,7 +435,7 @@ function CreateLorryReceiptModal({
 
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="lr-freight">Freight Amount (â‚¹)</label>
+              <label htmlFor="lr-freight">Freight Amount (₹)</label>
               <input
                 id="lr-freight"
                 min="0"

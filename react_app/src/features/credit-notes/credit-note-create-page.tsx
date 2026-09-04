@@ -89,21 +89,10 @@ export function CreditNoteCreatePage() {
 
   return (
     <section className="workspace-page">
-      <div style={{ marginBottom: 'var(--space-3)' }}>
-        <Link
-          to={appRoutes.creditNotes}
-          style={{
-            alignItems: 'center',
-            color: 'var(--text-secondary)',
-            display: 'inline-flex',
-            fontSize: 'var(--text-sm)',
-            gap: 'var(--space-1)',
-            textDecoration: 'none',
-          }}
-        >
-          <ArrowLeft size={16} /> Back to Credit Notes
-        </Link>
-      </div>
+      <Link className="form-back-link" to={appRoutes.creditNotes}>
+        <ArrowLeft size={16} /> Back to Credit Notes
+        
+      </Link>
 
       <PageHeader
         eyebrow="Sales / Adjustments"
@@ -141,27 +130,17 @@ export function CreditNoteCreatePage() {
         </div>
       )}
 
-      <form id="cn-form" onSubmit={handleSubmit}>
-        <div style={{ display: 'grid', gap: 'var(--space-4)', marginBottom: 'var(--space-6)' }}>
-          <div className="document-card">
-            <h2 style={{ marginBottom: 'var(--space-3)' }}>1. Customer & Adjustment Reason</h2>
-            <div style={{ display: 'grid', gap: 'var(--space-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Customer *
-                </label>
+      <form className="create-form-container" id="cn-form" onSubmit={handleSubmit}>
+          <div className="form-card">
+          <div className="form-card-header">
+            <h2 className="form-card-title">1. Customer & Adjustment Reason</h2>
+          </div>
+            <div className="form-grid--auto">
+              <label className="field-group">
+                <span>Customer *</span>
                 <select
                   onChange={(e) => setContactId(e.target.value)}
                   required
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   value={contactId}
                 >
                   <option value="">-- Select Customer --</option>
@@ -171,50 +150,28 @@ export function CreditNoteCreatePage() {
                     </option>
                   ))}
                 </select>
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Credit Note Date *
-                </label>
+              <label className="field-group">
+                <span>Credit Note Date *</span>
                 <input
                   onChange={(e) => setCreditNoteDate(e.target.value)}
                   required
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="date"
                   value={creditNoteDate}
                 />
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Reason *
-                </label>
+              <label className="field-group">
+                <span>Reason *</span>
                 <input
                   onChange={(e) => setReason(e.target.value)}
                   placeholder="e.g. Sales return / Damaged goods"
                   required
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="text"
                   value={reason}
                 />
-              </div>
+              </label>
             </div>
           </div>
 
@@ -331,7 +288,6 @@ export function CreditNoteCreatePage() {
               </tbody>
             </DataTable>
           </div>
-        </div>
       </form>
     </section>
   )

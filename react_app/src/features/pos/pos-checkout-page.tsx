@@ -566,7 +566,7 @@ export function PosCheckoutPage() {
           {paymentMode === 'CASH' && (
             <div style={{ marginBottom: 'var(--space-md)', padding: 12, background: 'var(--color-bg-subtle)', borderRadius: 'var(--radius-md)' }}>
               <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                Cash Tendered (â‚¹)
+                Cash Tendered (₹)
               </label>
               <input
                 style={{
@@ -592,7 +592,7 @@ export function PosCheckoutPage() {
                     style={{ fontSize: '0.8rem', padding: '4px 8px' }}
                     type="button"
                   >
-                    â‚¹{denom}
+                    ₹{denom}
                   </button>
                 ))}
                 <button
@@ -601,7 +601,7 @@ export function PosCheckoutPage() {
                   style={{ fontSize: '0.8rem', padding: '4px 8px' }}
                   type="button"
                 >
-                  Exact (â‚¹{Math.ceil(grandTotal)})
+                  Exact (₹{Math.ceil(grandTotal)})
                 </button>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -679,7 +679,7 @@ export function PosCheckoutPage() {
             variant="primary"
           >
             <CheckCircle2 aria-hidden="true" size={18} style={{ marginRight: 8 }} />
-            {saleCheckoutMutation.isPending ? 'Processing Sale...' : `Complete Sale (â‚¹${grandTotal.toFixed(2)})`}
+            {saleCheckoutMutation.isPending ? 'Processing Sale...' : `Complete Sale (₹${grandTotal.toFixed(2)})`}
           </Button>
         </div>
       </div>
@@ -785,7 +785,7 @@ export function PosCheckoutPage() {
               Count and enter initial float cash in drawer to start today's counter billing.
             </p>
             <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-              Opening Cash Balance (â‚¹)
+              Opening Cash Balance (₹)
             </label>
             <input
               style={{
@@ -857,7 +857,7 @@ export function PosCheckoutPage() {
             </p>
             <div style={{ marginBottom: 'var(--space-sm)' }}>
               <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                Payout Amount (â‚¹)
+                Payout Amount (₹)
               </label>
               <input
                 style={{
@@ -947,7 +947,7 @@ export function PosCheckoutPage() {
               <strong><Money amount={register?.expectedClosing || 0} /></strong>.
             </p>
             <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-              Actual Cash Counted (â‚¹)
+              Actual Cash Counted (₹)
             </label>
             <input
               style={{

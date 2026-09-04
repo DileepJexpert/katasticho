@@ -225,7 +225,7 @@ function ShipOrderModal({
       <div className="modal-dialog">
         <header className="modal-header">
           <h3>Ship & Dispatch Transfer Order</h3>
-          <Button onClick={onClose} variant="ghost">âœ•</Button>
+          <Button onClick={onClose} variant="ghost">✕</Button>
         </header>
         <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <label className="field-group">
@@ -291,7 +291,7 @@ function ReceiveOrderModal({
       <div className="modal-dialog" style={{ maxWidth: '600px' }}>
         <header className="modal-header">
           <h3>Inward Goods Receipt</h3>
-          <Button onClick={onClose} variant="ghost">âœ•</Button>
+          <Button onClick={onClose} variant="ghost">✕</Button>
         </header>
         <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>
@@ -364,7 +364,7 @@ function TransitPingModal({
       <div className="modal-dialog">
         <header className="modal-header">
           <h3>Record Transit Telemetry Ping</h3>
-          <Button onClick={onClose} variant="ghost">âœ•</Button>
+          <Button onClick={onClose} variant="ghost">✕</Button>
         </header>
         <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <label className="field-group">

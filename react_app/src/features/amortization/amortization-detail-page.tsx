@@ -77,7 +77,7 @@ export function AmortizationDetailPage() {
       <PageHeader
         eyebrow="Financial / Amortization"
         title={schedule.description}
-        description={`Type: ${schedule.scheduleType} Â· Ref: ${schedule.reference || 'Direct schedule'} Â· Periods: ${schedule.numberOfPeriods || 12} Months`}
+        description={`Type: ${schedule.scheduleType} · Ref: ${schedule.reference || 'Direct schedule'} · Periods: ${schedule.numberOfPeriods || 12} Months`}
         actions={
           <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
             <Button onClick={() => navigate(appRoutes.amortization)} variant="secondary">

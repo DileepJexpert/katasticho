@@ -160,7 +160,7 @@ export function CapaDetailPage() {
       <PageHeader
         eyebrow="Quality & Compliance / CAPA"
         title={`CAPA #${capa.capaNumber}: ${capa.title}`}
-        description={`${capa.capaType} action Â· Priority: ${capa.priority}`}
+        description={`${capa.capaType} action · Priority: ${capa.priority}`}
         actions={
           <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
             {capa.status === 'OPEN' && (

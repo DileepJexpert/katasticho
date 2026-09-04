@@ -429,13 +429,13 @@ function CreateRateCardModal({
             <div className="form-group">
               <label htmlFor="rc-type">Rate Type *</label>
               <select id="rc-type" value={rateType} onChange={(e) => setRateType(e.target.value)}>
-                <option value="PER_KG">Per Kilogram (â‚¹/kg)</option>
-                <option value="FLAT">Flat Fee per Trip (â‚¹)</option>
-                <option value="PER_UNIT">Per Package / Unit (â‚¹/pkg)</option>
+                <option value="PER_KG">Per Kilogram (₹/kg)</option>
+                <option value="FLAT">Flat Fee per Trip (₹)</option>
+                <option value="PER_UNIT">Per Package / Unit (₹/pkg)</option>
               </select>
             </div>
             <div className="form-group">
-              <label htmlFor="rc-rate">Rate Amount (â‚¹) *</label>
+              <label htmlFor="rc-rate">Rate Amount (₹) *</label>
               <input
                 id="rc-rate"
                 min="0.01"
@@ -447,7 +447,7 @@ function CreateRateCardModal({
               />
             </div>
             <div className="form-group">
-              <label htmlFor="rc-min">Minimum Charge (â‚¹)</label>
+              <label htmlFor="rc-min">Minimum Charge (₹)</label>
               <input
                 id="rc-min"
                 min="0"

@@ -246,7 +246,7 @@ function InitiateDayCloseModal({
             </div>
 
             <div>
-              <label className="form-label" htmlFor="init-opening-cash">Opening Cash (â‚¹)</label>
+              <label className="form-label" htmlFor="init-opening-cash">Opening Cash (₹)</label>
               <input
                 className="form-input"
                 id="init-opening-cash"
@@ -308,7 +308,7 @@ function SubmitDayCloseModal({
         >
           <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div>
-              <label className="form-label" htmlFor="submit-closing-cash">Closing Cash on Hand (â‚¹)</label>
+              <label className="form-label" htmlFor="submit-closing-cash">Closing Cash on Hand (₹)</label>
               <input
                 className="form-input"
                 id="submit-closing-cash"
@@ -321,7 +321,7 @@ function SubmitDayCloseModal({
             </div>
 
             <div>
-              <label className="form-label" htmlFor="submit-cash-dep">Cash Deposited to Bank/HQ (â‚¹)</label>
+              <label className="form-label" htmlFor="submit-cash-dep">Cash Deposited to Bank/HQ (₹)</label>
               <input
                 className="form-input"
                 id="submit-cash-dep"

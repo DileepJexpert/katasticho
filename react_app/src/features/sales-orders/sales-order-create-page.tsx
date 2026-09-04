@@ -152,21 +152,10 @@ export function SalesOrderCreatePage() {
 
   return (
     <section className="workspace-page">
-      <div style={{ marginBottom: 'var(--space-3)' }}>
-        <Link
-          to={appRoutes.salesOrders}
-          style={{
-            alignItems: 'center',
-            color: 'var(--text-secondary)',
-            display: 'inline-flex',
-            fontSize: 'var(--text-sm)',
-            gap: 'var(--space-1)',
-            textDecoration: 'none',
-          }}
-        >
-          <ArrowLeft size={16} /> Back to Sales Orders
-        </Link>
-      </div>
+      <Link className="form-back-link" to={appRoutes.salesOrders}>
+        <ArrowLeft size={16} /> Back to Sales Orders
+        
+      </Link>
 
       <PageHeader
         eyebrow="Sales"
@@ -204,27 +193,17 @@ export function SalesOrderCreatePage() {
         </div>
       )}
 
-      <form id="so-form" onSubmit={handleSubmit}>
-        <div style={{ display: 'grid', gap: 'var(--space-4)', marginBottom: 'var(--space-6)' }}>
-          <div className="document-card">
-            <h2 style={{ marginBottom: 'var(--space-3)' }}>1. Customer & Order Specifics</h2>
-            <div style={{ display: 'grid', gap: 'var(--space-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Customer *
-                </label>
+      <form className="create-form-container" id="so-form" onSubmit={handleSubmit}>
+          <div className="form-card">
+          <div className="form-card-header">
+            <h2 className="form-card-title">1. Customer & Order Specifics</h2>
+          </div>
+            <div className="form-grid--auto">
+              <label className="field-group">
+                <span>Customer *</span>
                 <select
                   onChange={(e) => setContactId(e.target.value)}
                   required
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   value={contactId}
                 >
                   <option value="">-- Select Customer --</option>
@@ -234,90 +213,52 @@ export function SalesOrderCreatePage() {
                     </option>
                   ))}
                 </select>
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Order Date *
-                </label>
+              <label className="field-group">
+                <span>Order Date *</span>
                 <input
                   onChange={(e) => setOrderDate(e.target.value)}
                   required
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="date"
                   value={orderDate}
                 />
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Expected Shipment Date
-                </label>
+              <label className="field-group">
+                <span>Expected Shipment Date</span>
                 <input
                   onChange={(e) => setExpectedShipmentDate(e.target.value)}
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="date"
                   value={expectedShipmentDate}
                 />
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  PO / Ref Number
-                </label>
+              <label className="field-group">
+                <span>PO / Ref Number</span>
                 <input
                   onChange={(e) => setReferenceNumber(e.target.value)}
                   placeholder="e.g. PO-89012"
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="text"
                   value={referenceNumber}
                 />
-              </div>
+              </label>
             </div>
           </div>
 
-          <div className="document-card document-card--lines">
-            <div style={{ alignItems: 'center', display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-3)' }}>
-              <h2>2. Line Items</h2>
-              <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+          <div className="form-card">
+            <div className="form-card-header">
+              <div>
+                <h2 className="form-card-title">2. Line Items</h2>
+                <p className="form-card-description">Select products, quantities, prices, and line discounts</p>
+              </div>
+              <div>
                 <select
                   onChange={(e) => {
                     if (e.target.value) {
                       handleAddItem(e.target.value)
                       e.target.value = ''
                     }
-                  }}
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: '32px',
-                    padding: '0 var(--space-2)',
                   }}
                   value=""
                 >
@@ -469,68 +410,48 @@ export function SalesOrderCreatePage() {
 
             {lines.length > 0 && (
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--space-4)' }}>
-                <div style={{ minWidth: '260px' }}>
-                  <div className="progress-row">
+                <div className="form-summary-card">
+                  <div className="form-summary-row">
                     <span>Subtotal</span>
-                    <Money amount={subtotal} />
+                    <strong><Money amount={subtotal} /></strong>
                   </div>
-                  <div className="progress-row">
+                  <div className="form-summary-row">
                     <span>Estimated GST (18%)</span>
-                    <Money amount={estimatedTax} />
+                    <strong><Money amount={estimatedTax} /></strong>
                   </div>
-                  <div className="progress-row progress-row--total">
+                  <div className="form-summary-row form-summary-row--total">
                     <span>Grand Total</span>
-                    <Money amount={totalAmount} />
+                    <span className="amount"><Money amount={totalAmount} /></span>
                   </div>
                 </div>
               </div>
             )}
           </div>
 
-          <div className="document-card">
-            <h2 style={{ marginBottom: 'var(--space-3)' }}>3. Fulfilment & Commercial Terms</h2>
-            <div style={{ display: 'grid', gap: 'var(--space-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Delivery Method
-                </label>
+          <div className="form-card">
+          <div className="form-card-header">
+            <h2 className="form-card-title">3. Fulfilment & Commercial Terms</h2>
+          </div>
+            <div className="form-grid--auto">
+              <label className="field-group">
+                <span>Delivery Method</span>
                 <input
                   onChange={(e) => setDeliveryMethod(e.target.value)}
                   placeholder="e.g. Courier / Hand Delivery / Road"
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="text"
                   value={deliveryMethod}
                 />
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Place of Supply
-                </label>
+              <label className="field-group">
+                <span>Place of Supply</span>
                 <input
                   onChange={(e) => setPlaceOfSupply(e.target.value)}
                   placeholder="e.g. 27-Maharashtra"
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="text"
                   value={placeOfSupply}
                 />
-              </div>
+              </label>
 
               <div style={{ display: 'flex', alignItems: 'center', marginTop: '20px' }}>
                 <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
@@ -546,46 +467,42 @@ export function SalesOrderCreatePage() {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gap: 'var(--space-4)', gridTemplateColumns: '1fr 1fr', marginTop: 'var(--space-4)' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Customer Notes
-                </label>
+            <div className="form-grid--2col" style={{ marginTop: 'var(--space-4)' }}>
+              <label className="field-group">
+                <span>Customer Notes</span>
                 <textarea
                   onChange={(e) => setNotes(e.target.value)}
                   rows={3}
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    padding: 'var(--space-2)',
-                    width: '100%',
-                  }}
                   value={notes}
                 />
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Terms & Conditions
-                </label>
+              <label className="field-group">
+                <span>Terms & Conditions</span>
                 <textarea
                   onChange={(e) => setTerms(e.target.value)}
                   rows={3}
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    padding: 'var(--space-2)',
-                    width: '100%',
-                  }}
                   value={terms}
                 />
-              </div>
+              </label>
             </div>
           </div>
+        <div className="form-actions-bar">
+          <Button
+            onClick={() => navigate(appRoutes.salesOrders)}
+            type="button"
+            variant="secondary"
+          >
+            Cancel
+          </Button>
+          <Button
+            disabled={createMutation.isPending || !contactId || lines.length === 0}
+            type="submit"
+            variant="primary"
+          >
+            <Save size={16} />
+            {createMutation.isPending ? 'Saving...' : 'Save Sales Order'}
+          </Button>
         </div>
       </form>
     </section>

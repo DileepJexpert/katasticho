@@ -147,21 +147,10 @@ export function DeliveryChallanCreatePage() {
 
   return (
     <section className="workspace-page">
-      <div style={{ marginBottom: 'var(--space-3)' }}>
-        <Link
-          to={appRoutes.deliveryChallans}
-          style={{
-            alignItems: 'center',
-            color: 'var(--text-secondary)',
-            display: 'inline-flex',
-            fontSize: 'var(--text-sm)',
-            gap: 'var(--space-1)',
-            textDecoration: 'none',
-          }}
-        >
-          <ArrowLeft size={16} /> Back to Delivery Challans
-        </Link>
-      </div>
+      <Link className="form-back-link" to={appRoutes.deliveryChallans}>
+        <ArrowLeft size={16} /> Back to Delivery Challans
+        
+      </Link>
 
       <PageHeader
         eyebrow="Sales / Fulfilment"
@@ -199,27 +188,17 @@ export function DeliveryChallanCreatePage() {
         </div>
       )}
 
-      <form id="dc-form" onSubmit={handleSubmit}>
-        <div style={{ display: 'grid', gap: 'var(--space-4)', marginBottom: 'var(--space-6)' }}>
-          <div className="document-card">
-            <h2 style={{ marginBottom: 'var(--space-3)' }}>1. Order & Dispatch Information</h2>
-            <div style={{ display: 'grid', gap: 'var(--space-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Sales Order *
-                </label>
+      <form className="create-form-container" id="dc-form" onSubmit={handleSubmit}>
+          <div className="form-card">
+          <div className="form-card-header">
+            <h2 className="form-card-title">1. Order & Dispatch Information</h2>
+          </div>
+            <div className="form-grid--auto">
+              <label className="field-group">
+                <span>Sales Order *</span>
                 <select
                   onChange={(e) => setSelectedSoId(e.target.value)}
                   required
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   value={selectedSoId}
                 >
                   <option value="">-- Select Sales Order --</option>
@@ -229,49 +208,27 @@ export function DeliveryChallanCreatePage() {
                     </option>
                   ))}
                 </select>
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Challan Date *
-                </label>
+              <label className="field-group">
+                <span>Challan Date *</span>
                 <input
                   onChange={(e) => setChallanDate(e.target.value)}
                   required
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="date"
                   value={challanDate}
                 />
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Delivery Method
-                </label>
+              <label className="field-group">
+                <span>Delivery Method</span>
                 <input
                   onChange={(e) => setDeliveryMethod(e.target.value)}
                   placeholder="e.g. Road, Courier, Own Vehicle"
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="text"
                   value={deliveryMethod}
                 />
-              </div>
+              </label>
             </div>
           </div>
 
@@ -354,93 +311,69 @@ export function DeliveryChallanCreatePage() {
             )}
           </div>
 
-          <div className="document-card">
-            <h2 style={{ marginBottom: 'var(--space-3)' }}>3. Vehicle & Logistics Details</h2>
-            <div style={{ display: 'grid', gap: 'var(--space-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Vehicle Number
-                </label>
+          <div className="form-card">
+          <div className="form-card-header">
+            <h2 className="form-card-title">3. Vehicle & Logistics Details</h2>
+          </div>
+            <div className="form-grid--auto">
+              <label className="field-group">
+                <span>Vehicle Number</span>
                 <input
                   onChange={(e) => setVehicleNumber(e.target.value)}
                   placeholder="e.g. MH-12-AB-1234"
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="text"
                   value={vehicleNumber}
                 />
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Tracking / LR Number
-                </label>
+              <label className="field-group">
+                <span>Tracking / LR Number</span>
                 <input
                   onChange={(e) => setTrackingNumber(e.target.value)}
                   placeholder="e.g. LR-987654"
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="text"
                   value={trackingNumber}
                 />
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Shipping Address
-                </label>
+              <label className="field-group">
+                <span>Shipping Address</span>
                 <input
                   onChange={(e) => setShippingAddress(e.target.value)}
                   placeholder="Delivery destination address"
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="text"
                   value={shippingAddress}
                 />
-              </div>
+              </label>
             </div>
 
-            <div style={{ marginTop: 'var(--space-4)' }}>
-              <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                Delivery / Dispatch Notes
-              </label>
+            <label className="field-group" style={{ marginTop: 'var(--space-4)' }}>
+              <span>Delivery / Dispatch Notes</span>
               <textarea
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Instructions for driver or customer receiving goods..."
                 rows={3}
-                style={{
-                  background: 'var(--bg-surface)',
-                  border: '1px solid var(--border-strong)',
-                  borderRadius: 'var(--radius)',
-                  color: 'var(--text-primary)',
-                  padding: 'var(--space-2)',
-                  width: '100%',
-                }}
                 value={notes}
               />
-            </div>
+            </label>
           </div>
+
+        <div className="form-actions-bar">
+          <Button
+            onClick={() => navigate(appRoutes.deliveryChallans)}
+            type="button"
+            variant="secondary"
+          >
+            Cancel
+          </Button>
+          <Button
+            disabled={createMutation.isPending || !selectedSoId}
+            type="submit"
+            variant="primary"
+          >
+            <Save size={16} />
+            {createMutation.isPending ? 'Saving...' : 'Create Delivery Challan'}
+          </Button>
         </div>
       </form>
     </section>

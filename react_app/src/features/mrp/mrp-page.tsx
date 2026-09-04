@@ -111,7 +111,7 @@ export function MrpPage() {
           {activeRun ? (
             <div>
               <p className="cell-muted" style={{ marginBottom: '16px' }}>
-                Run <strong>{activeRun.runNumber}</strong> (Horizon: {activeRun.horizonDays} days) Â· Planned Demand vs Supply recommendations.
+                Run <strong>{activeRun.runNumber}</strong> (Horizon: {activeRun.horizonDays} days) · Planned Demand vs Supply recommendations.
               </p>
 
               {activeRun.plannedOrders && activeRun.plannedOrders.length > 0 ? (

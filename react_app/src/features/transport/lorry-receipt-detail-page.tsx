@@ -81,7 +81,7 @@ export function LorryReceiptDetailPage() {
       <PageHeader
         eyebrow="Logistics & Transport / Consignment Note"
         title={lr.lrNumber}
-        description={`${lr.origin ?? 'Origin'} â†’ ${lr.destination ?? 'Destination'} Â· Vehicle: ${lr.vehicleNumber ?? 'Unassigned'}`}
+        description={`${lr.origin ?? 'Origin'} â†’ ${lr.destination ?? 'Destination'} · Vehicle: ${lr.vehicleNumber ?? 'Unassigned'}`}
         actions={
           <div className="button-group">
             {lr.status === 'DRAFT' ? (

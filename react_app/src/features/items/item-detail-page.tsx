@@ -141,7 +141,7 @@ export function ItemDetailPage() {
       <PageHeader
         eyebrow="Inventory / Product Catalog"
         title={item.name}
-        description={`SKU: ${item.sku ?? '--'} Â· Barcode: ${item.barcode ?? '--'} Â· Type: ${item.itemType}`}
+        description={`SKU: ${item.sku ?? '--'} · Barcode: ${item.barcode ?? '--'} · Type: ${item.itemType}`}
         actions={
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
             <Button onClick={() => setShowAdjustModal(true)} variant="secondary">
@@ -700,7 +700,7 @@ function StockAdjustmentModal({
       <div className="modal-dialog">
         <header className="modal-header">
           <h3>Manual Stock Adjustment</h3>
-          <Button onClick={onClose} variant="ghost">âœ•</Button>
+          <Button onClick={onClose} variant="ghost">✕</Button>
         </header>
         <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <label className="field-group">
@@ -712,7 +712,7 @@ function StockAdjustmentModal({
             <input onChange={(e) => setQuantityDelta(Number(e.target.value))} placeholder="e.g. 10 or -5" type="number" value={quantityDelta} />
           </label>
           <label className="field-group">
-            <span>Unit Cost (â‚¹)</span>
+            <span>Unit Cost (₹)</span>
             <input onChange={(e) => setUnitCost(Number(e.target.value))} placeholder="0.00" type="number" value={unitCost} />
           </label>
           <label className="field-group">
@@ -755,7 +755,7 @@ function AtpModal({ itemId, onClose }: { itemId: string; onClose: () => void }) 
       <div className="modal-dialog">
         <header className="modal-header">
           <h3>Available-to-Promise (ATP) Calculator</h3>
-          <Button onClick={onClose} variant="ghost">âœ•</Button>
+          <Button onClick={onClose} variant="ghost">✕</Button>
         </header>
         <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
@@ -846,7 +846,7 @@ function AddPackagingBarcodeModal({
       <div className="modal-dialog">
         <header className="modal-header">
           <h3>Add Packaging Barcode</h3>
-          <Button onClick={onClose} variant="ghost">âœ•</Button>
+          <Button onClick={onClose} variant="ghost">✕</Button>
         </header>
         <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <label className="field-group">

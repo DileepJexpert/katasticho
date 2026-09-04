@@ -475,7 +475,7 @@ export function BudgetsPage() {
                     <th style={{ padding: '8px' }}>Account Name</th>
                     <th style={{ padding: '8px' }}>Type</th>
                     <th style={{ padding: '8px', textAlign: 'right', width: 200 }}>
-                      Annual Budget (â‚¹)
+                      Annual Budget (₹)
                     </th>
                   </tr>
                 </thead>

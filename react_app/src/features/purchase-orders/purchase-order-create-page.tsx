@@ -129,21 +129,10 @@ export function PurchaseOrderCreatePage() {
 
   return (
     <section className="workspace-page">
-      <div style={{ marginBottom: 'var(--space-3)' }}>
-        <Link
-          to={appRoutes.purchaseOrders}
-          style={{
-            alignItems: 'center',
-            color: 'var(--text-secondary)',
-            display: 'inline-flex',
-            fontSize: 'var(--text-sm)',
-            gap: 'var(--space-1)',
-            textDecoration: 'none',
-          }}
-        >
-          <ArrowLeft size={16} /> Back to Purchase Orders
-        </Link>
-      </div>
+      <Link className="form-back-link" to={appRoutes.purchaseOrders}>
+        <ArrowLeft size={16} /> Back to Purchase Orders
+        
+      </Link>
 
       <PageHeader
         eyebrow="Purchases / Procurement"
@@ -181,27 +170,17 @@ export function PurchaseOrderCreatePage() {
         </div>
       )}
 
-      <form id="po-form" onSubmit={handleSubmit}>
-        <div style={{ display: 'grid', gap: 'var(--space-4)', marginBottom: 'var(--space-6)' }}>
-          <div className="document-card">
-            <h2 style={{ marginBottom: 'var(--space-3)' }}>1. Supplier & Procurement Details</h2>
-            <div style={{ display: 'grid', gap: 'var(--space-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Supplier / Vendor *
-                </label>
+      <form className="create-form-container" id="po-form" onSubmit={handleSubmit}>
+          <div className="form-card">
+          <div className="form-card-header">
+            <h2 className="form-card-title">1. Supplier & Procurement Details</h2>
+          </div>
+            <div className="form-grid--auto">
+              <label className="field-group">
+                <span>Supplier / Vendor *</span>
                 <select
                   onChange={(e) => setSupplierId(e.target.value)}
                   required
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   value={supplierId}
                 >
                   <option value="">-- Select Supplier --</option>
@@ -211,54 +190,35 @@ export function PurchaseOrderCreatePage() {
                     </option>
                   ))}
                 </select>
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Order Date *
-                </label>
+              <label className="field-group">
+                <span>Order Date *</span>
                 <input
                   onChange={(e) => setOrderDate(e.target.value)}
                   required
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="date"
                   value={orderDate}
                 />
-              </div>
+              </label>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-medium)', marginBottom: '4px' }}>
-                  Expected Delivery Date
-                </label>
+              <label className="field-group">
+                <span>Expected Delivery Date</span>
                 <input
                   onChange={(e) => setExpectedDeliveryDate(e.target.value)}
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: 'var(--control-h)',
-                    padding: '0 var(--space-2)',
-                    width: '100%',
-                  }}
                   type="date"
                   value={expectedDeliveryDate}
                 />
-              </div>
+              </label>
             </div>
           </div>
 
-          <div className="document-card document-card--lines">
-            <div style={{ alignItems: 'center', display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-3)' }}>
-              <h2>2. Line Items to Procure</h2>
+          <div className="form-card">
+            <div className="form-card-header">
+              <div>
+                <h2 className="form-card-title">2. Line Items to Procure</h2>
+                <p className="form-card-description">Select goods, quantities, and expected purchase unit costs</p>
+              </div>
               <div>
                 <select
                   onChange={(e) => {
@@ -266,14 +226,6 @@ export function PurchaseOrderCreatePage() {
                       handleAddItem(e.target.value)
                       e.target.value = ''
                     }
-                  }}
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-primary)',
-                    height: '32px',
-                    padding: '0 var(--space-2)',
                   }}
                   value=""
                 >
@@ -388,32 +340,48 @@ export function PurchaseOrderCreatePage() {
             {lines.length > 0 && (
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--space-4)' }}>
                 <div style={{ minWidth: '240px' }}>
-                  <div className="progress-row progress-row--total">
-                    <span>Estimated PO Total</span>
-                    <Money amount={totalAmount} />
+                  <div className="form-summary-card">
+                    <div className="form-summary-row form-summary-row--total">
+                      <span>Estimated PO Total</span>
+                      <span className="amount"><Money amount={totalAmount} /></span>
+                    </div>
                   </div>
                 </div>
               </div>
             )}
           </div>
 
-          <div className="document-card">
-            <h2 style={{ marginBottom: 'var(--space-3)' }}>3. Supplier Notes & Instructions</h2>
-            <textarea
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Delivery notes, packaging guidelines, quality terms..."
-              rows={3}
-              style={{
-                background: 'var(--bg-surface)',
-                border: '1px solid var(--border-strong)',
-                borderRadius: 'var(--radius)',
-                color: 'var(--text-primary)',
-                padding: 'var(--space-2)',
-                width: '100%',
-              }}
-              value={notes}
-            />
+          <div className="form-card">
+            <div className="form-card-header">
+              <h2 className="form-card-title">3. Supplier Notes & Instructions</h2>
+            </div>
+            <label className="field-group">
+              <span>Delivery Instructions & Remarks</span>
+              <textarea
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Delivery notes, packaging guidelines, quality terms..."
+                rows={3}
+                value={notes}
+              />
+            </label>
           </div>
+
+        <div className="form-actions-bar">
+          <Button
+            onClick={() => navigate(appRoutes.purchaseOrders)}
+            type="button"
+            variant="secondary"
+          >
+            Cancel
+          </Button>
+          <Button
+            disabled={createMutation.isPending || !contactId || lines.length === 0}
+            type="submit"
+            variant="primary"
+          >
+            <Save size={16} />
+            {createMutation.isPending ? 'Saving...' : 'Create Purchase Order'}
+          </Button>
         </div>
       </form>
     </section>

@@ -374,7 +374,7 @@ function CreateCodModal({
               />
             </div>
             <div className="form-group">
-              <label htmlFor="cod-net">Net Remitted Amount (â‚¹)</label>
+              <label htmlFor="cod-net">Net Remitted Amount (₹)</label>
               <input
                 id="cod-net"
                 min="0"
@@ -403,8 +403,8 @@ function CreateCodModal({
                 <thead>
                   <tr>
                     <th>AWB Number *</th>
-                    <th>COD Amount Collected (â‚¹) *</th>
-                    <th>Courier Fee Deducted (â‚¹)</th>
+                    <th>COD Amount Collected (₹) *</th>
+                    <th>Courier Fee Deducted (₹)</th>
                     <th>Action</th>
                   </tr>
                 </thead>
