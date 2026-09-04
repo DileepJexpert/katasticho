@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   LogOut,
   Plus,
-  X,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
@@ -139,61 +138,59 @@ export function OffboardingPage() {
       )}
 
       {/* Initiate Offboarding Modal */}
-      {isInitiateOpen ? (
-        <div className="modal-backdrop" role="presentation">
-          <div aria-labelledby="off-title" aria-modal="true" className="modal-dialog" role="dialog">
-            <div className="modal-header">
-              <h2 id="off-title">Initiate Employee Offboarding</h2>
-              <button className="icon-button" onClick={() => setIsInitiateOpen(false)} type="button">
-                <X aria-hidden="true" size={18} />
-              </button>
-            </div>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                const fd = new FormData(e.currentTarget)
-                initMutation.mutate({
-                  employeeUserId: String(fd.get('employeeUserId') ?? ''),
-                  resignationDate: String(fd.get('resignationDate') ?? '') || undefined,
-                  lastWorkingDay: String(fd.get('lastWorkingDay') ?? '') || undefined,
-                  reason: String(fd.get('reason') ?? '').trim() || undefined,
-                })
-              }}
-            >
-              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div>
-                  <label className="form-label">Employee *</label>
-                  <select className="select-input" name="employeeUserId" required>
-                    {employees.map((e) => (
-                      <option key={e.id} value={e.userId || e.id}>
-                        {e.fullName} ({e.employeeCode || 'EMP'})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div>
-                    <label className="form-label">Resignation Date</label>
-                    <input className="text-input" defaultValue={new Date().toISOString().slice(0, 10)} name="resignationDate" type="date" />
-                  </div>
-                  <div>
-                    <label className="form-label">Last Working Day</label>
-                    <input className="text-input" name="lastWorkingDay" type="date" />
-                  </div>
-                </div>
-                <div>
-                  <label className="form-label">Exit Reason</label>
-                  <textarea className="text-input" name="reason" placeholder="e.g. Higher studies / Relocation / Better opportunity" rows={3} />
-                </div>
-              </div>
-              <div className="modal-footer">
-                <Button onClick={() => setIsInitiateOpen(false)} type="button" variant="secondary">Cancel</Button>
-                <Button disabled={initMutation.isPending} type="submit" variant="primary">Initiate</Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
+      {isInitiateOpen && (
+        <Modal
+          description="Commence exit separation workflow, notice period tracking, and department clearances."
+          footer={
+            <>
+              <Button onClick={() => setIsInitiateOpen(false)} type="button" variant="secondary">Cancel</Button>
+              <Button form="off-form" disabled={initMutation.isPending} type="submit" variant="primary">
+                {initMutation.isPending ? 'Initiating...' : 'Initiate Offboarding'}
+              </Button>
+            </>
+          }
+          isOpen={isInitiateOpen}
+          onClose={() => setIsInitiateOpen(false)}
+          size="md"
+          title="Initiate Employee Offboarding"
+        >
+          <form
+            id="off-form"
+            onSubmit={(e) => {
+              e.preventDefault()
+              const fd = new FormData(e.currentTarget)
+              initMutation.mutate({
+                employeeUserId: String(fd.get('employeeUserId') ?? ''),
+                resignationDate: String(fd.get('resignationDate') ?? '') || undefined,
+                lastWorkingDay: String(fd.get('lastWorkingDay') ?? '') || undefined,
+                reason: String(fd.get('reason') ?? '').trim() || undefined,
+              })
+            }}
+            style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
+          >
+            <FormField label="Employee" required>
+              <SelectInput name="employeeUserId" required>
+                {employees.map((e) => (
+                  <option key={e.id} value={e.userId || e.id}>
+                    {e.fullName} ({e.employeeCode || 'EMP'})
+                  </option>
+                ))}
+              </SelectInput>
+            </FormField>
+            <FormGrid columns={2}>
+              <FormField label="Resignation Date">
+                <TextInput defaultValue={new Date().toISOString().slice(0, 10)} name="resignationDate" type="date" />
+              </FormField>
+              <FormField label="Last Working Day">
+                <TextInput name="lastWorkingDay" type="date" />
+              </FormField>
+            </FormGrid>
+            <FormField label="Exit Reason">
+              <TextAreaInput name="reason" placeholder="e.g. Higher studies / Relocation / Better opportunity" rows={3} />
+            </FormField>
+          </form>
+        </Modal>
+      )}
     </section>
   )
 }

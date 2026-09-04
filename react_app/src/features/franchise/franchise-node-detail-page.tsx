@@ -158,68 +158,61 @@ export function FranchiseNodeDetailPage() {
       </section>
 
       {/* Add Price Override Modal */}
-      {isAddOverrideOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-card">
-            <h3>Add Local Price Override</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Select Catalog Item:</span>
-                <select
-                  className="search-input"
-                  onChange={(e) => {
-                    setSelectedItemId(e.target.value)
-                    const it = items.find((i) => i.id === e.target.value)
-                    if (it) setOverridePrice(String(it.sellingPrice))
-                  }}
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={selectedItemId}
-                >
-                  <option value="">Select Item from Master Catalog</option>
-                  {items.map((it) => (
-                    <option key={it.id} value={it.id}>
-                      {it.sku ? `[${it.sku}] ` : ''}{it.name} (Std: ₹{it.sellingPrice})
-                    </option>
-                  ))}
-                </select>
-              </label>
+      <Modal
+        footer={
+          <>
+            <Button onClick={() => setIsAddOverrideOpen(false)} variant="secondary">Cancel</Button>
+            <Button
+              disabled={saveOverrideMutation.isPending || !selectedItemId || !overridePrice}
+              onClick={() => saveOverrideMutation.mutate()}
+              variant="primary"
+            >
+              {saveOverrideMutation.isPending ? 'Saving...' : 'Save Override'}
+            </Button>
+          </>
+        }
+        isOpen={isAddOverrideOpen}
+        onClose={() => setIsAddOverrideOpen(false)}
+        size="md"
+        title="Add Local Price Override"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <FormField label="Select Catalog Item" required>
+            <SelectInput
+              onChange={(e) => {
+                setSelectedItemId(e.target.value)
+                const it = items.find((i) => i.id === e.target.value)
+                if (it) setOverridePrice(String(it.sellingPrice))
+              }}
+              value={selectedItemId}
+            >
+              <option value="">Select Item from Master Catalog</option>
+              {items.map((it) => (
+                <option key={it.id} value={it.id}>
+                  {it.sku ? `[${it.sku}] ` : ''}{it.name} (Std: ₹{it.sellingPrice})
+                </option>
+              ))}
+            </SelectInput>
+          </FormField>
 
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Custom Store Selling Price (₹):</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setOverridePrice(e.target.value)}
-                  style={{ width: '100%', marginTop: '4px', fontWeight: 600, color: 'var(--color-primary)' }}
-                  type="number"
-                  value={overridePrice}
-                />
-              </label>
+          <FormField label="Custom Store Selling Price (₹)" required>
+            <NumberInput
+              min={0}
+              onChange={(e) => setOverridePrice(e.target.value)}
+              step="0.01"
+              value={overridePrice}
+            />
+          </FormField>
 
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Reason for Override:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setOverrideReason(e.target.value)}
-                  placeholder="e.g. Higher airport rent, local festival promo"
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={overrideReason}
-                />
-              </label>
-            </div>
-
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '16px' }}>
-              <Button onClick={() => setIsAddOverrideOpen(false)} variant="secondary">Cancel</Button>
-              <Button
-                disabled={saveOverrideMutation.isPending || !selectedItemId || !overridePrice}
-                onClick={() => saveOverrideMutation.mutate()}
-                variant="primary"
-              >
-                Save Override
-              </Button>
-            </div>
-          </div>
+          <FormField label="Reason for Override">
+            <TextInput
+              onChange={(e) => setOverrideReason(e.target.value)}
+              placeholder="e.g. Higher airport rent, local festival promo"
+              value={overrideReason}
+            />
+          </FormField>
         </div>
-      )}
+      </Modal>
     </section>
   )
 }

@@ -3,12 +3,19 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Fingerprint,
   Plus,
-  X,
 } from 'lucide-react'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  DataTable,
+  FormField,
+  FormGrid,
+  Modal,
+  NumberInput,
+  PageHeader,
+  SelectInput,
+  StatusChip,
+  TextInput,
+} from '@/design-system'
 import { formatDate } from '@/shared/format/format'
 import {
   listBiometricDevices,
@@ -187,65 +194,62 @@ export function BiometricDevicesPage() {
       </div>
 
       {/* Register Device Modal */}
-      {isRegisterOpen ? (
-        <div className="modal-backdrop" role="presentation">
-          <div aria-labelledby="bio-title" aria-modal="true" className="modal-dialog" role="dialog">
-            <div className="modal-header">
-              <h2 id="bio-title">Register Biometric Attendance Device</h2>
-              <button className="icon-button" onClick={() => setIsRegisterOpen(false)} type="button">
-                <X aria-hidden="true" size={18} />
-              </button>
-            </div>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                const fd = new FormData(e.currentTarget)
-                registerMutation.mutate({
-                  deviceName: String(fd.get('deviceName') ?? '').trim(),
-                  protocol: String(fd.get('protocol') ?? 'ZK_TCP'),
-                  deviceIp: String(fd.get('deviceIp') ?? '').trim() || undefined,
-                  port: Number(fd.get('port') ?? 4370),
-                  serialNumber: String(fd.get('serialNumber') ?? '').trim() || undefined,
-                  location: String(fd.get('location') ?? '').trim() || undefined,
-                  status: 'ONLINE',
-                })
-              }}
-            >
-              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div>
-                  <label className="form-label">Device Name *</label>
-                  <input className="text-input" name="deviceName" placeholder="e.g. Main Gate ZKTeco K40" required type="text" />
-                </div>
-                <div>
-                  <label className="form-label">Protocol</label>
-                  <select className="select-input" defaultValue="ZK_TCP" name="protocol">
-                    <option value="ZK_TCP">ZKTeco TCP/IP (Standard port 4370)</option>
-                    <option value="ADMS_PUSH">ADMS Cloud Push (HTTP Webhook)</option>
-                  </select>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
-                  <div>
-                    <label className="form-label">IP Address</label>
-                    <input className="text-input" name="deviceIp" placeholder="192.168.1.201" type="text" />
-                  </div>
-                  <div>
-                    <label className="form-label">Port</label>
-                    <input className="text-input" defaultValue={4370} name="port" type="number" />
-                  </div>
-                </div>
-                <div>
-                  <label className="form-label">Physical Location</label>
-                  <input className="text-input" name="location" placeholder="e.g. Factory Floor Entry / Main Reception" type="text" />
-                </div>
-              </div>
-              <div className="modal-footer">
-                <Button onClick={() => setIsRegisterOpen(false)} type="button" variant="secondary">Cancel</Button>
-                <Button disabled={registerMutation.isPending} type="submit" variant="primary">Register Device</Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
+      {isRegisterOpen && (
+        <Modal
+          description="Connect an on-premise biometric hardware terminal via ZKTeco TCP or cloud webhook push."
+          footer={
+            <>
+              <Button onClick={() => setIsRegisterOpen(false)} type="button" variant="secondary">Cancel</Button>
+              <Button form="bio-form" disabled={registerMutation.isPending} type="submit" variant="primary">
+                {registerMutation.isPending ? 'Registering...' : 'Register Device'}
+              </Button>
+            </>
+          }
+          isOpen={isRegisterOpen}
+          onClose={() => setIsRegisterOpen(false)}
+          size="lg"
+          title="Register Biometric Attendance Device"
+        >
+          <form
+            id="bio-form"
+            onSubmit={(e) => {
+              e.preventDefault()
+              const fd = new FormData(e.currentTarget)
+              registerMutation.mutate({
+                deviceName: String(fd.get('deviceName') ?? '').trim(),
+                protocol: String(fd.get('protocol') ?? 'ZK_TCP'),
+                deviceIp: String(fd.get('deviceIp') ?? '').trim() || undefined,
+                port: Number(fd.get('port') ?? 4370),
+                serialNumber: String(fd.get('serialNumber') ?? '').trim() || undefined,
+                location: String(fd.get('location') ?? '').trim() || undefined,
+                status: 'ONLINE',
+              })
+            }}
+            style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
+          >
+            <FormField label="Device Name" required>
+              <TextInput name="deviceName" placeholder="e.g. Main Gate ZKTeco K40" required type="text" />
+            </FormField>
+            <FormField label="Protocol">
+              <SelectInput defaultValue="ZK_TCP" name="protocol">
+                <option value="ZK_TCP">ZKTeco TCP/IP (Standard port 4370)</option>
+                <option value="ADMS_PUSH">ADMS Cloud Push (HTTP Webhook)</option>
+              </SelectInput>
+            </FormField>
+            <FormGrid columns={2}>
+              <FormField label="IP Address">
+                <TextInput name="deviceIp" placeholder="192.168.1.201" type="text" />
+              </FormField>
+              <FormField label="Port">
+                <NumberInput defaultValue={4370} name="port" />
+              </FormField>
+            </FormGrid>
+            <FormField label="Physical Location">
+              <TextInput name="location" placeholder="e.g. Factory Floor Entry / Main Reception" type="text" />
+            </FormField>
+          </form>
+        </Modal>
+      )}
     </section>
   )
 }

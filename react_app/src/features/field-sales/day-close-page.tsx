@@ -4,14 +4,20 @@ import {
   Banknote,
   CheckCircle2,
   Plus,
-  X,
   XCircle,
 } from 'lucide-react'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  DataTable,
+  FormField,
+  Modal,
+  Money,
+  NumberInput,
+  PageHeader,
+  StatusChip,
+  TextAreaInput,
+  TextInput,
+} from '@/design-system'
 import {
   approveDayClose,
   initiateDayClose,
@@ -216,58 +222,44 @@ function InitiateDayCloseModal({
   const [openingCash, setOpeningCash] = useState(0)
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal-card" style={{ maxWidth: 440 }}>
-        <div className="modal-header">
-          <h2 className="modal-title">Initiate Day Close</h2>
-          <button aria-label="Close" className="button button--ghost" onClick={onClose} type="button">
-            <X aria-hidden="true" size={18} />
-          </button>
-        </div>
+    <Modal
+      footer={
+        <>
+          <Button onClick={onClose} type="button" variant="secondary">Cancel</Button>
+          <Button
+            disabled={isPending || !routeExecutionId}
+            onClick={() => onSubmit(routeExecutionId, openingCash)}
+            variant="primary"
+          >
+            {isPending ? 'Initiating...' : 'Initiate Close'}
+          </Button>
+        </>
+      }
+      isOpen
+      onClose={onClose}
+      size="md"
+      title="Initiate Day Close"
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <FormField label="Route Execution UUID" required>
+          <TextInput
+            onChange={(e) => setRouteExecutionId(e.target.value)}
+            placeholder="Execution Run UUID"
+            required
+            value={routeExecutionId}
+          />
+        </FormField>
 
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            onSubmit(routeExecutionId, openingCash)
-          }}
-        >
-          <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div>
-              <label className="form-label" htmlFor="init-exec-id">Route Execution UUID *</label>
-              <input
-                className="form-input"
-                id="init-exec-id"
-                onChange={(e) => setRouteExecutionId(e.target.value)}
-                placeholder="Execution Run UUID"
-                required
-                type="text"
-                value={routeExecutionId}
-              />
-            </div>
-
-            <div>
-              <label className="form-label" htmlFor="init-opening-cash">Opening Cash (₹)</label>
-              <input
-                className="form-input"
-                id="init-opening-cash"
-                min="0"
-                onChange={(e) => setOpeningCash(Number(e.target.value))}
-                step="0.01"
-                type="number"
-                value={openingCash}
-              />
-            </div>
-          </div>
-
-          <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
-            <Button onClick={onClose} type="button" variant="secondary">Cancel</Button>
-            <Button disabled={isPending || !routeExecutionId} type="submit" variant="primary">
-              {isPending ? 'Initiating...' : 'Initiate Close'}
-            </Button>
-          </div>
-        </form>
+        <FormField label="Opening Cash (₹)">
+          <NumberInput
+            min={0}
+            onChange={(e) => setOpeningCash(Number(e.target.value))}
+            step="0.01"
+            value={openingCash}
+          />
+        </FormField>
       </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -287,74 +279,59 @@ function SubmitDayCloseModal({
   const [notes, setNotes] = useState('')
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal-card" style={{ maxWidth: 440 }}>
-        <div className="modal-header">
-          <h2 className="modal-title">Submit Day Close Settlement</h2>
-          <button aria-label="Close" className="button button--ghost" onClick={onClose} type="button">
-            <X aria-hidden="true" size={18} />
-          </button>
-        </div>
+    <Modal
+      footer={
+        <>
+          <Button onClick={onClose} type="button" variant="secondary">Cancel</Button>
+          <Button
+            disabled={isPending}
+            onClick={() =>
+              onSubmit(id, {
+                closingCash,
+                cashDeposited,
+                notes: notes || undefined,
+              })
+            }
+            variant="primary"
+          >
+            {isPending ? 'Submitting...' : 'Submit Settlement'}
+          </Button>
+        </>
+      }
+      isOpen
+      onClose={onClose}
+      size="md"
+      title="Submit Day Close Settlement"
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <FormField label="Closing Cash on Hand (₹)">
+          <NumberInput
+            min={0}
+            onChange={(e) => setClosingCash(Number(e.target.value))}
+            step="0.01"
+            value={closingCash}
+          />
+        </FormField>
 
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            onSubmit(id, {
-              closingCash,
-              cashDeposited,
-              notes: notes || undefined,
-            })
-          }}
-        >
-          <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div>
-              <label className="form-label" htmlFor="submit-closing-cash">Closing Cash on Hand (₹)</label>
-              <input
-                className="form-input"
-                id="submit-closing-cash"
-                min="0"
-                onChange={(e) => setClosingCash(Number(e.target.value))}
-                step="0.01"
-                type="number"
-                value={closingCash}
-              />
-            </div>
+        <FormField label="Cash Deposited to Bank/HQ (₹)">
+          <NumberInput
+            min={0}
+            onChange={(e) => setCashDeposited(Number(e.target.value))}
+            step="0.01"
+            value={cashDeposited}
+          />
+        </FormField>
 
-            <div>
-              <label className="form-label" htmlFor="submit-cash-dep">Cash Deposited to Bank/HQ (₹)</label>
-              <input
-                className="form-input"
-                id="submit-cash-dep"
-                min="0"
-                onChange={(e) => setCashDeposited(Number(e.target.value))}
-                step="0.01"
-                type="number"
-                value={cashDeposited}
-              />
-            </div>
-
-            <div>
-              <label className="form-label" htmlFor="submit-notes">Settlement Notes</label>
-              <textarea
-                className="form-input"
-                id="submit-notes"
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Discrepancies, notes on expenses..."
-                rows={3}
-                value={notes}
-              />
-            </div>
-          </div>
-
-          <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
-            <Button onClick={onClose} type="button" variant="secondary">Cancel</Button>
-            <Button disabled={isPending} type="submit" variant="primary">
-              {isPending ? 'Submitting...' : 'Submit Settlement'}
-            </Button>
-          </div>
-        </form>
+        <FormField label="Settlement Notes">
+          <TextAreaInput
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Discrepancies, notes on expenses..."
+            rows={3}
+            value={notes}
+          />
+        </FormField>
       </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -370,44 +347,35 @@ function RejectModal({
   const [reason, setReason] = useState('')
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal-card" style={{ maxWidth: 440 }}>
-        <div className="modal-header">
-          <h2 className="modal-title">Reject Day Close Settlement</h2>
-          <button aria-label="Close" className="button button--ghost" onClick={onClose} type="button">
-            <X aria-hidden="true" size={18} />
-          </button>
-        </div>
-
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            onSubmit(reason)
-          }}
-        >
-          <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div>
-              <label className="form-label" htmlFor="reject-reason">Rejection Reason *</label>
-              <textarea
-                className="form-input"
-                id="reject-reason"
-                onChange={(e) => setReason(e.target.value)}
-                placeholder="State the cash mismatch or reason for rejection..."
-                required
-                rows={3}
-                value={reason}
-              />
-            </div>
-          </div>
-
-          <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
-            <Button onClick={onClose} type="button" variant="secondary">Cancel</Button>
-            <Button disabled={isPending || !reason.trim()} type="submit" variant="destructive">
-              {isPending ? 'Rejecting...' : 'Confirm Rejection'}
-            </Button>
-          </div>
-        </form>
+    <Modal
+      footer={
+        <>
+          <Button onClick={onClose} type="button" variant="secondary">Cancel</Button>
+          <Button
+            disabled={isPending || !reason.trim()}
+            onClick={() => onSubmit(reason)}
+            variant="destructive"
+          >
+            {isPending ? 'Rejecting...' : 'Confirm Rejection'}
+          </Button>
+        </>
+      }
+      isOpen
+      onClose={onClose}
+      size="md"
+      title="Reject Day Close Settlement"
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <FormField label="Rejection Reason" required>
+          <TextAreaInput
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="State the cash mismatch or reason for rejection..."
+            required
+            rows={3}
+            value={reason}
+          />
+        </FormField>
       </div>
-    </div>
+    </Modal>
   )
 }

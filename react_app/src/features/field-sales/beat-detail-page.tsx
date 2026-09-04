@@ -6,12 +6,18 @@ import {
   Plus,
   Trash2,
   Users,
-  X,
 } from 'lucide-react'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  DataTable,
+  FormField,
+  Modal,
+  NumberInput,
+  PageHeader,
+  SelectInput,
+  StatusChip,
+  TextInput,
+} from '@/design-system'
 import {
   addCustomerToBeat,
   getBeat,
@@ -174,88 +180,61 @@ function AddCustomerModal({
   const [visitFrequency, setVisitFrequency] = useState('WEEKLY')
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal-card" style={{ maxWidth: 440 }}>
-        <div className="modal-header">
-          <h2 className="modal-title">Add Customer Stop to Beat</h2>
-          <button aria-label="Close" className="button button--ghost" onClick={onClose} type="button">
-            <X aria-hidden="true" size={18} />
-          </button>
-        </div>
+    <Modal
+      footer={
+        <>
+          <Button onClick={onClose} type="button" variant="secondary">Cancel</Button>
+          <Button
+            disabled={isPending || !contactId}
+            onClick={() =>
+              onSubmit({
+                contactId,
+                visitSequence,
+                visitFrequency,
+              })
+            }
+            variant="primary"
+          >
+            {isPending ? 'Adding...' : 'Add Customer'}
+          </Button>
+        </>
+      }
+      isOpen
+      onClose={onClose}
+      size="md"
+      title="Add Customer Stop to Beat"
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <FormField label="Customer / Contact UUID" required>
+          <TextInput
+            onChange={(e) => setContactId(e.target.value)}
+            placeholder="Contact UUID"
+            required
+            value={contactId}
+          />
+        </FormField>
 
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            onSubmit({
-              contactId,
-              visitSequence,
-              visitFrequency,
-            })
-          }}
-        >
-          <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div>
-              <label className="form-label" htmlFor="cust-contact-id">Customer / Contact UUID *</label>
-              <input
-                className="form-input"
-                id="cust-contact-id"
-                onChange={(e) => setContactId(e.target.value)}
-                placeholder="Contact UUID"
-                required
-                type="text"
-                value={contactId}
-              />
-            </div>
+        <FormField label="Visit Sequence Order">
+          <NumberInput
+            min={1}
+            onChange={(e) => setVisitSequence(Number(e.target.value))}
+            value={visitSequence}
+          />
+        </FormField>
 
-            <div>
-              <label className="form-label" htmlFor="cust-sequence">Visit Sequence Order</label>
-              <input
-                className="form-input"
-                id="cust-sequence"
-                min="1"
-                onChange={(e) => setVisitSequence(Number(e.target.value))}
-                type="number"
-                value={visitSequence}
-              />
-            </div>
-
-            <div>
-              <label className="form-label" htmlFor="cust-freq">Visit Frequency</label>
-              <select
-                className="form-input"
-                id="cust-freq"
-                onChange={(e) => setVisitFrequency(e.target.value)}
-                value={visitFrequency}
-              >
-                <option value="DAILY">Daily</option>
-                <option value="WEEKLY">Weekly</option>
-                <option value="BIWEEKLY">Bi-Weekly</option>
-                <option value="FORTNIGHTLY">Fortnightly</option>
-                <option value="MONTHLY">Monthly</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
-            <Button onClick={onClose} type="button" variant="secondary">Cancel</Button>
-            <Button disabled={isPending || !contactId} type="submit" variant="primary">
-              {isPending ? 'Adding...' : 'Add Customer'}
-            </Button>
-          </div>
-        </form>
+        <FormField label="Visit Frequency">
+          <SelectInput
+            onChange={(e) => setVisitFrequency(e.target.value)}
+            value={visitFrequency}
+          >
+            <option value="DAILY">Daily</option>
+            <option value="WEEKLY">Weekly</option>
+            <option value="BIWEEKLY">Bi-Weekly</option>
+            <option value="FORTNIGHTLY">Fortnightly</option>
+            <option value="MONTHLY">Monthly</option>
+          </SelectInput>
+        </FormField>
       </div>
-    </div>
-  )
-}
-
-function DocumentError({ onBack }: { onBack: () => void }) {
-  return (
-    <section className="workspace-page">
-      <div className="directory-state directory-state--error" role="alert">
-        <Users aria-hidden="true" size={24} />
-        <p>Sales beat could not be found or loaded.</p>
-        <Button onClick={onBack} type="button" variant="secondary">Return to Beats</Button>
-      </div>
-    </section>
+    </Modal>
   )
 }

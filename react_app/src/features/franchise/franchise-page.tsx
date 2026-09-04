@@ -12,11 +12,19 @@ import {
   Tag,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  DataTable,
+  FormField,
+  FormGrid,
+  Modal,
+  Money,
+  NumberInput,
+  PageHeader,
+  SelectInput,
+  StatusChip,
+  TextInput,
+} from '@/design-system'
 import {
   listFranchiseNodes,
   createFranchiseNode,
@@ -409,166 +417,141 @@ export function FranchisePage() {
       )}
 
       {/* Add Franchise Node Modal */}
-      {isCreateOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-card">
-            <h3>Add Franchise Store Branch</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '12px' }}>
-                <label>
-                  <span style={{ fontSize: '13px', fontWeight: 600 }}>Store Code:</span>
-                  <input
-                    className="search-input"
-                    onChange={(e) => setNodeCode(e.target.value)}
-                    placeholder="e.g. FR-MUM-01"
-                    style={{ width: '100%', marginTop: '4px' }}
-                    value={nodeCode}
-                  />
-                </label>
-                <label>
-                  <span style={{ fontSize: '13px', fontWeight: 600 }}>Store Name:</span>
-                  <input
-                    className="search-input"
-                    onChange={(e) => setNodeName(e.target.value)}
-                    placeholder="e.g. Katasticho Express Bandra"
-                    style={{ width: '100%', marginTop: '4px' }}
-                    value={nodeName}
-                  />
-                </label>
-              </div>
+      <Modal
+        footer={
+          <>
+            <Button onClick={() => setIsCreateOpen(false)} variant="secondary">Cancel</Button>
+            <Button
+              disabled={createNodeMutation.isPending || !nodeCode.trim() || !nodeName.trim()}
+              onClick={() => createNodeMutation.mutate()}
+              variant="primary"
+            >
+              {createNodeMutation.isPending ? 'Creating...' : 'Create Store'}
+            </Button>
+          </>
+        }
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        size="lg"
+        title="Add Franchise Store Branch"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <FormGrid columns={2}>
+            <FormField label="Store Code" required>
+              <TextInput
+                onChange={(e) => setNodeCode(e.target.value)}
+                placeholder="e.g. FR-MUM-01"
+                required
+                value={nodeCode}
+              />
+            </FormField>
+            <FormField label="Store Name" required>
+              <TextInput
+                onChange={(e) => setNodeName(e.target.value)}
+                placeholder="e.g. Katasticho Express Bandra"
+                required
+                value={nodeName}
+              />
+            </FormField>
+          </FormGrid>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <label>
-                  <span style={{ fontSize: '13px', fontWeight: 600 }}>Franchise Model:</span>
-                  <select
-                    className="search-input"
-                    onChange={(e) => setNodeType(e.target.value)}
-                    style={{ width: '100%', marginTop: '4px' }}
-                    value={nodeType}
-                  >
-                    <option value="FRANCHISE_FOFO">FOFO (Franchise Owned & Operated)</option>
-                    <option value="FRANCHISE_COCO">COCO (Company Owned & Operated)</option>
-                    <option value="COMPANY_OWNED">Company Owned Branch</option>
-                  </select>
-                </label>
-                <label>
-                  <span style={{ fontSize: '13px', fontWeight: 600 }}>Royalty %:</span>
-                  <input
-                    className="search-input"
-                    onChange={(e) => setRoyaltyPct(e.target.value)}
-                    style={{ width: '100%', marginTop: '4px' }}
-                    type="number"
-                    value={royaltyPct}
-                  />
-                </label>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <label>
-                  <span style={{ fontSize: '13px', fontWeight: 600 }}>Contact Person:</span>
-                  <input
-                    className="search-input"
-                    onChange={(e) => setContactPerson(e.target.value)}
-                    style={{ width: '100%', marginTop: '4px' }}
-                    value={contactPerson}
-                  />
-                </label>
-                <label>
-                  <span style={{ fontSize: '13px', fontWeight: 600 }}>Phone:</span>
-                  <input
-                    className="search-input"
-                    onChange={(e) => setPhone(e.target.value)}
-                    style={{ width: '100%', marginTop: '4px' }}
-                    value={phone}
-                  />
-                </label>
-              </div>
-
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>City / Region:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setCity(e.target.value)}
-                  placeholder="e.g. Mumbai, Maharashtra"
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={city}
-                />
-              </label>
-            </div>
-
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '16px' }}>
-              <Button onClick={() => setIsCreateOpen(false)} variant="secondary">Cancel</Button>
-              <Button
-                disabled={createNodeMutation.isPending || !nodeCode.trim() || !nodeName.trim()}
-                onClick={() => createNodeMutation.mutate()}
-                variant="primary"
+          <FormGrid columns={2}>
+            <FormField label="Franchise Model">
+              <SelectInput
+                onChange={(e) => setNodeType(e.target.value)}
+                value={nodeType}
               >
-                Create Store
-              </Button>
-            </div>
-          </div>
+                <option value="FRANCHISE_FOFO">FOFO (Franchise Owned & Operated)</option>
+                <option value="FRANCHISE_COCO">COCO (Company Owned & Operated)</option>
+                <option value="COMPANY_OWNED">Company Owned Branch</option>
+              </SelectInput>
+            </FormField>
+            <FormField label="Royalty %">
+              <NumberInput
+                min={0}
+                onChange={(e) => setRoyaltyPct(e.target.value)}
+                value={royaltyPct}
+              />
+            </FormField>
+          </FormGrid>
+
+          <FormGrid columns={2}>
+            <FormField label="Contact Person">
+              <TextInput
+                onChange={(e) => setContactPerson(e.target.value)}
+                value={contactPerson}
+              />
+            </FormField>
+            <FormField label="Phone">
+              <TextInput
+                onChange={(e) => setPhone(e.target.value)}
+                value={phone}
+              />
+            </FormField>
+          </FormGrid>
+
+          <FormField label="City / Region">
+            <TextInput
+              onChange={(e) => setCity(e.target.value)}
+              placeholder="e.g. Mumbai, Maharashtra"
+              value={city}
+            />
+          </FormField>
         </div>
-      )}
+      </Modal>
 
       {/* Calculate Royalty Modal */}
-      {isRoyaltyModalOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-card">
-            <h3>Calculate Monthly Royalty Settlement</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Select Store:</span>
-                <select
-                  className="search-input"
-                  onChange={(e) => setSelectedNodeId(e.target.value)}
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={selectedNodeId}
-                >
-                  <option value="">Select Franchise Store</option>
-                  {nodes.map((n) => (
-                    <option key={n.id} value={n.id}>
-                      {n.nodeCode} - {n.name} ({n.royaltyPercentage ?? 5}%)
-                    </option>
-                  ))}
-                </select>
-              </label>
+      <Modal
+        footer={
+          <>
+            <Button onClick={() => setIsRoyaltyModalOpen(false)} variant="secondary">Cancel</Button>
+            <Button
+              disabled={calculateRoyaltyMutation.isPending || !selectedNodeId}
+              onClick={() => calculateRoyaltyMutation.mutate()}
+              variant="primary"
+            >
+              {calculateRoyaltyMutation.isPending ? 'Calculating...' : 'Calculate & Draft'}
+            </Button>
+          </>
+        }
+        isOpen={isRoyaltyModalOpen}
+        onClose={() => setIsRoyaltyModalOpen(false)}
+        size="md"
+        title="Calculate Monthly Royalty Settlement"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <FormField label="Select Store" required>
+            <SelectInput
+              onChange={(e) => setSelectedNodeId(e.target.value)}
+              value={selectedNodeId}
+            >
+              <option value="">Select Franchise Store</option>
+              {nodes.map((n) => (
+                <option key={n.id} value={n.id}>
+                  {n.nodeCode} - {n.name} ({n.royaltyPercentage ?? 5}%)
+                </option>
+              ))}
+            </SelectInput>
+          </FormField>
 
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Settlement Period (YYYY-MM):</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setSettlementPeriod(e.target.value)}
-                  style={{ width: '100%', marginTop: '4px' }}
-                  type="month"
-                  value={settlementPeriod}
-                />
-              </label>
+          <FormField label="Settlement Period (YYYY-MM)">
+            <TextInput
+              onChange={(e) => setSettlementPeriod(e.target.value)}
+              type="month"
+              value={settlementPeriod}
+            />
+          </FormField>
 
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Audited Gross Branch Sales (₹):</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setGrossSales(e.target.value)}
-                  style={{ width: '100%', marginTop: '4px' }}
-                  type="number"
-                  value={grossSales}
-                />
-              </label>
-            </div>
-
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '16px' }}>
-              <Button onClick={() => setIsRoyaltyModalOpen(false)} variant="secondary">Cancel</Button>
-              <Button
-                disabled={calculateRoyaltyMutation.isPending || !selectedNodeId}
-                onClick={() => calculateRoyaltyMutation.mutate()}
-                variant="primary"
-              >
-                Calculate & Draft
-              </Button>
-            </div>
-          </div>
+          <FormField label="Audited Gross Branch Sales (₹)">
+            <NumberInput
+              min={0}
+              onChange={(e) => setGrossSales(e.target.value)}
+              step="0.01"
+              value={grossSales}
+            />
+          </FormField>
         </div>
-      )}
+      </Modal>
     </section>
   )
 }

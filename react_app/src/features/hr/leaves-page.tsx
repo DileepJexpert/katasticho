@@ -6,12 +6,21 @@ import {
   Palmtree,
   Plus,
   Trash2,
-  X,
 } from 'lucide-react'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  CheckboxInput,
+  DataTable,
+  FormField,
+  FormGrid,
+  Modal,
+  NumberInput,
+  PageHeader,
+  SelectInput,
+  StatusChip,
+  TextAreaInput,
+  TextInput,
+} from '@/design-system'
 import { formatDate } from '@/shared/format/format'
 import {
   addHoliday,
@@ -288,174 +297,156 @@ export function LeavesPage() {
       ) : null}
 
       {/* Apply Leave Modal */}
-      {isApplyOpen ? (
-        <div className="modal-backdrop" role="presentation">
-          <div aria-labelledby="apply-title" aria-modal="true" className="modal-dialog" role="dialog">
-            <div className="modal-header">
-              <div>
-                <h2 id="apply-title">Apply for Leave</h2>
-                <p className="cell-muted">Submit time off application for supervisor review.</p>
-              </div>
-              <button className="icon-button" onClick={() => setIsApplyOpen(false)} type="button">
-                <X aria-hidden="true" size={18} />
-              </button>
-            </div>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                const fd = new FormData(e.currentTarget)
-                applyMutation.mutate({
-                  leaveTypeId: String(fd.get('leaveTypeId') ?? ''),
-                  fromDate: String(fd.get('fromDate') ?? ''),
-                  toDate: String(fd.get('toDate') ?? ''),
-                  reason: String(fd.get('reason') ?? '').trim() || undefined,
-                })
-              }}
-            >
-              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div>
-                  <label className="form-label">Leave Policy Type *</label>
-                  <select className="select-input" name="leaveTypeId" required>
-                    {leaveTypes.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name} ({t.paid ? 'Paid' : 'Unpaid'})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div>
-                    <label className="form-label">From Date *</label>
-                    <input className="text-input" defaultValue={new Date().toISOString().slice(0, 10)} name="fromDate" required type="date" />
-                  </div>
-                  <div>
-                    <label className="form-label">To Date *</label>
-                    <input className="text-input" defaultValue={new Date().toISOString().slice(0, 10)} name="toDate" required type="date" />
-                  </div>
-                </div>
-                <div>
-                  <label className="form-label">Reason for Absence</label>
-                  <textarea className="text-input" name="reason" placeholder="Brief reason for time off..." rows={3} />
-                </div>
-              </div>
-              <div className="modal-footer">
-                <Button onClick={() => setIsApplyOpen(false)} type="button" variant="secondary">Cancel</Button>
-                <Button disabled={applyMutation.isPending} type="submit" variant="primary">
-                  {applyMutation.isPending ? 'Submitting...' : 'Submit Application'}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
+      {isApplyOpen && (
+        <Modal
+          description="Submit time off application for supervisor review."
+          footer={
+            <>
+              <Button onClick={() => setIsApplyOpen(false)} type="button" variant="secondary">Cancel</Button>
+              <Button form="apply-leave-form" disabled={applyMutation.isPending} type="submit" variant="primary">
+                {applyMutation.isPending ? 'Submitting...' : 'Submit Application'}
+              </Button>
+            </>
+          }
+          isOpen={isApplyOpen}
+          onClose={() => setIsApplyOpen(false)}
+          size="md"
+          title="Apply for Leave"
+        >
+          <form
+            id="apply-leave-form"
+            onSubmit={(e) => {
+              e.preventDefault()
+              const fd = new FormData(e.currentTarget)
+              applyMutation.mutate({
+                leaveTypeId: String(fd.get('leaveTypeId') ?? ''),
+                fromDate: String(fd.get('fromDate') ?? ''),
+                toDate: String(fd.get('toDate') ?? ''),
+                reason: String(fd.get('reason') ?? '').trim() || undefined,
+              })
+            }}
+            style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
+          >
+            <FormField label="Leave Policy Type" required>
+              <SelectInput name="leaveTypeId" required>
+                {leaveTypes.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name} ({t.paid ? 'Paid' : 'Unpaid'})
+                  </option>
+                ))}
+              </SelectInput>
+            </FormField>
+            <FormGrid columns={2}>
+              <FormField label="From Date" required>
+                <TextInput defaultValue={new Date().toISOString().slice(0, 10)} name="fromDate" required type="date" />
+              </FormField>
+              <FormField label="To Date" required>
+                <TextInput defaultValue={new Date().toISOString().slice(0, 10)} name="toDate" required type="date" />
+              </FormField>
+            </FormGrid>
+            <FormField label="Reason for Absence">
+              <TextAreaInput name="reason" placeholder="Brief reason for time off..." rows={3} />
+            </FormField>
+          </form>
+        </Modal>
+      )}
 
       {/* Add Leave Type Modal */}
-      {isTypeOpen ? (
-        <div className="modal-backdrop" role="presentation">
-          <div aria-labelledby="type-title" aria-modal="true" className="modal-dialog" role="dialog">
-            <div className="modal-header">
-              <h2 id="type-title">Add Leave Policy Type</h2>
-              <button className="icon-button" onClick={() => setIsTypeOpen(false)} type="button">
-                <X aria-hidden="true" size={18} />
-              </button>
-            </div>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                const fd = new FormData(e.currentTarget)
-                upsertTypeMutation.mutate({
-                  code: String(fd.get('code') ?? '').trim().toUpperCase(),
-                  name: String(fd.get('name') ?? '').trim(),
-                  paid: fd.get('paid') === 'on',
-                  annualQuota: Number(fd.get('annualQuota') ?? 12),
-                  carryForwardMax: Number(fd.get('carryForwardMax') ?? 0),
-                  requiresApproval: fd.get('requiresApproval') === 'on',
-                  active: true,
-                })
-              }}
-            >
-              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div>
-                  <label className="form-label">Policy Code *</label>
-                  <input className="text-input" name="code" placeholder="e.g. CL / SL / EL" required style={{ textTransform: 'uppercase' }} type="text" />
-                </div>
-                <div>
-                  <label className="form-label">Policy Name *</label>
-                  <input className="text-input" name="name" placeholder="e.g. Casual Leave" required type="text" />
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div>
-                    <label className="form-label">Annual Quota (Days)</label>
-                    <input className="text-input" defaultValue={12} name="annualQuota" type="number" />
-                  </div>
-                  <div>
-                    <label className="form-label">Carry Forward Max</label>
-                    <input className="text-input" defaultValue={0} name="carryForwardMax" type="number" />
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: 16 }}>
-                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    <input defaultChecked name="paid" type="checkbox" />
-                    <span>Paid Leave</span>
-                  </label>
-                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    <input defaultChecked name="requiresApproval" type="checkbox" />
-                    <span>Requires Supervisor Approval</span>
-                  </label>
-                </div>
-              </div>
-              <div className="modal-footer">
-                <Button onClick={() => setIsTypeOpen(false)} type="button" variant="secondary">Cancel</Button>
-                <Button disabled={upsertTypeMutation.isPending} type="submit" variant="primary">Save Policy</Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
+      {isTypeOpen && (
+        <Modal
+          description="Configure annual leave quotas and carry forward policy."
+          footer={
+            <>
+              <Button onClick={() => setIsTypeOpen(false)} type="button" variant="secondary">Cancel</Button>
+              <Button form="type-form" disabled={upsertTypeMutation.isPending} type="submit" variant="primary">
+                {upsertTypeMutation.isPending ? 'Saving...' : 'Save Policy'}
+              </Button>
+            </>
+          }
+          isOpen={isTypeOpen}
+          onClose={() => setIsTypeOpen(false)}
+          size="md"
+          title="Add Leave Policy Type"
+        >
+          <form
+            id="type-form"
+            onSubmit={(e) => {
+              e.preventDefault()
+              const fd = new FormData(e.currentTarget)
+              upsertTypeMutation.mutate({
+                code: String(fd.get('code') ?? '').trim().toUpperCase(),
+                name: String(fd.get('name') ?? '').trim(),
+                paid: fd.get('paid') === 'on',
+                annualQuota: Number(fd.get('annualQuota') ?? 12),
+                carryForwardMax: Number(fd.get('carryForwardMax') ?? 0),
+                requiresApproval: fd.get('requiresApproval') === 'on',
+                active: true,
+              })
+            }}
+            style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
+          >
+            <FormField label="Policy Code" required>
+              <TextInput name="code" placeholder="e.g. CL / SL / EL" required style={{ textTransform: 'uppercase' }} type="text" />
+            </FormField>
+            <FormField label="Policy Name" required>
+              <TextInput name="name" placeholder="e.g. Casual Leave" required type="text" />
+            </FormField>
+            <FormGrid columns={2}>
+              <FormField label="Annual Quota (Days)">
+                <NumberInput defaultValue={12} name="annualQuota" />
+              </FormField>
+              <FormField label="Carry Forward Max">
+                <NumberInput defaultValue={0} name="carryForwardMax" />
+              </FormField>
+            </FormGrid>
+            <FormGrid columns={2}>
+              <CheckboxInput defaultChecked label="Paid Leave" name="paid" />
+              <CheckboxInput defaultChecked label="Requires Supervisor Approval" name="requiresApproval" />
+            </FormGrid>
+          </form>
+        </Modal>
+      )}
 
       {/* Add Holiday Modal */}
-      {isHolidayOpen ? (
-        <div className="modal-backdrop" role="presentation">
-          <div aria-labelledby="holiday-title" aria-modal="true" className="modal-dialog" role="dialog">
-            <div className="modal-header">
-              <h2 id="holiday-title">Add Public Holiday</h2>
-              <button className="icon-button" onClick={() => setIsHolidayOpen(false)} type="button">
-                <X aria-hidden="true" size={18} />
-              </button>
-            </div>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                const fd = new FormData(e.currentTarget)
-                addHolidayMutation.mutate({
-                  date: String(fd.get('date') ?? ''),
-                  name: String(fd.get('name') ?? '').trim(),
-                  optional: fd.get('optional') === 'on',
-                })
-              }}
-            >
-              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div>
-                  <label className="form-label">Holiday Date *</label>
-                  <input className="text-input" name="date" required type="date" />
-                </div>
-                <div>
-                  <label className="form-label">Holiday Name *</label>
-                  <input className="text-input" name="name" placeholder="e.g. Independence Day / Diwali" required type="text" />
-                </div>
-                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <input name="optional" type="checkbox" />
-                  <span>Optional / Restricted Holiday</span>
-                </label>
-              </div>
-              <div className="modal-footer">
-                <Button onClick={() => setIsHolidayOpen(false)} type="button" variant="secondary">Cancel</Button>
-                <Button disabled={addHolidayMutation.isPending} type="submit" variant="primary">Add Holiday</Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
+      {isHolidayOpen && (
+        <Modal
+          description="Add statutory or optional festival holiday to the annual corporate calendar."
+          footer={
+            <>
+              <Button onClick={() => setIsHolidayOpen(false)} type="button" variant="secondary">Cancel</Button>
+              <Button form="hol-form" disabled={addHolidayMutation.isPending} type="submit" variant="primary">
+                {addHolidayMutation.isPending ? 'Saving...' : 'Save Holiday'}
+              </Button>
+            </>
+          }
+          isOpen={isHolidayOpen}
+          onClose={() => setIsHolidayOpen(false)}
+          size="md"
+          title="Add Public Holiday"
+        >
+          <form
+            id="hol-form"
+            onSubmit={(e) => {
+              e.preventDefault()
+              const fd = new FormData(e.currentTarget)
+              addHolidayMutation.mutate({
+                date: String(fd.get('date') ?? ''),
+                name: String(fd.get('name') ?? '').trim(),
+                optional: fd.get('optional') === 'on',
+              })
+            }}
+            style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
+          >
+            <FormField label="Holiday Date" required>
+              <TextInput name="date" required type="date" />
+            </FormField>
+            <FormField label="Holiday Name" required>
+              <TextInput name="name" placeholder="e.g. Independence Day / Diwali" required type="text" />
+            </FormField>
+            <CheckboxInput label="Optional / Restricted Holiday" name="optional" />
+          </form>
+        </Modal>
+      )}
     </section>
   )
 }

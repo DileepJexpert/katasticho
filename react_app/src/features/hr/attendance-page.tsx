@@ -6,12 +6,18 @@ import {
   Plus,
   ShieldCheck,
   UserCheck,
-  X,
 } from 'lucide-react'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  DataTable,
+  FormField,
+  FormGrid,
+  Modal,
+  PageHeader,
+  StatusChip,
+  TextAreaInput,
+  TextInput,
+} from '@/design-system'
 import { formatDate, formatStatusLabel } from '@/shared/format/format'
 import {
   approveRegularization,
@@ -278,75 +284,66 @@ export function AttendancePage() {
       ) : null}
 
       {/* Request Regularization Modal */}
-      {isRegModalOpen ? (
-        <div className="modal-backdrop" role="presentation">
-          <div aria-labelledby="reg-title" aria-modal="true" className="modal-dialog" role="dialog">
-            <div className="modal-header">
-              <div>
-                <h2 id="reg-title">Request Attendance Regularization</h2>
-                <p className="cell-muted">Submit missed punch or on-duty regularization for supervisor approval.</p>
-              </div>
-              <button className="icon-button" onClick={() => setIsRegModalOpen(false)} type="button">
-                <X aria-hidden="true" size={18} />
-              </button>
-            </div>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                const fd = new FormData(e.currentTarget)
-                const workDate = String(fd.get('workDate') ?? '')
-                const inTime = String(fd.get('punchInTime') ?? '')
-                const outTime = String(fd.get('punchOutTime') ?? '')
-                const reason = String(fd.get('reason') ?? '').trim()
+      {isRegModalOpen && (
+        <Modal
+          description="Submit missed punch or on-duty regularization for supervisor approval."
+          footer={
+            <>
+              <Button onClick={() => setIsRegModalOpen(false)} type="button" variant="secondary">Cancel</Button>
+              <Button form="reg-form" disabled={reqMutation.isPending} type="submit" variant="primary">
+                {reqMutation.isPending ? 'Submitting...' : 'Submit Request'}
+              </Button>
+            </>
+          }
+          isOpen={isRegModalOpen}
+          onClose={() => setIsRegModalOpen(false)}
+          size="md"
+          title="Request Attendance Regularization"
+        >
+          <form
+            id="reg-form"
+            onSubmit={(e) => {
+              e.preventDefault()
+              const fd = new FormData(e.currentTarget)
+              const workDate = String(fd.get('workDate') ?? '')
+              const inTime = String(fd.get('punchInTime') ?? '')
+              const outTime = String(fd.get('punchOutTime') ?? '')
+              const reason = String(fd.get('reason') ?? '').trim()
 
-                const punchIn = inTime ? `${workDate}T${inTime}:00Z` : undefined
-                const punchOut = outTime ? `${workDate}T${outTime}:00Z` : undefined
+              const punchIn = inTime ? `${workDate}T${inTime}:00Z` : undefined
+              const punchOut = outTime ? `${workDate}T${outTime}:00Z` : undefined
 
-                reqMutation.mutate({ workDate, punchIn, punchOut, reason })
-              }}
-            >
-              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div>
-                  <label className="form-label">Work Date *</label>
-                  <input
-                    className="text-input"
-                    defaultValue={new Date().toISOString().slice(0, 10)}
-                    name="workDate"
-                    required
-                    type="date"
-                  />
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div>
-                    <label className="form-label">Punch In Time</label>
-                    <input className="text-input" defaultValue="09:00" name="punchInTime" type="time" />
-                  </div>
-                  <div>
-                    <label className="form-label">Punch Out Time</label>
-                    <input className="text-input" defaultValue="18:00" name="punchOutTime" type="time" />
-                  </div>
-                </div>
-                <div>
-                  <label className="form-label">Reason for Regularization *</label>
-                  <textarea
-                    className="text-input"
-                    name="reason"
-                    placeholder="e.g. Biometric terminal offline / On-duty client visit"
-                    required
-                    rows={3}
-                  />
-                </div>
-              </div>
-              <div className="modal-footer">
-                <Button onClick={() => setIsRegModalOpen(false)} type="button" variant="secondary">Cancel</Button>
-                <Button disabled={reqMutation.isPending} type="submit" variant="primary">
-                  {reqMutation.isPending ? 'Submitting...' : 'Submit Request'}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
+              reqMutation.mutate({ workDate, punchIn, punchOut, reason })
+            }}
+            style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
+          >
+            <FormField label="Work Date" required>
+              <TextInput
+                defaultValue={new Date().toISOString().slice(0, 10)}
+                name="workDate"
+                required
+                type="date"
+              />
+            </FormField>
+            <FormGrid columns={2}>
+              <FormField label="Punch In Time">
+                <TextInput defaultValue="09:00" name="punchInTime" type="time" />
+              </FormField>
+              <FormField label="Punch Out Time">
+                <TextInput defaultValue="18:00" name="punchOutTime" type="time" />
+              </FormField>
+            </FormGrid>
+            <FormField label="Reason for Regularization" required>
+              <TextAreaInput
+                name="reason"
+                placeholder="e.g. Biometric terminal offline / On-duty client visit"
+                required
+                rows={3}
+              />
+            </FormField>
+          </form>
+        </Modal>
+      )}
     </section>
   )
 }

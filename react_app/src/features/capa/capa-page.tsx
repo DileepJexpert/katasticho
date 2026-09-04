@@ -1,10 +1,18 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, ShieldAlert, Search } from 'lucide-react'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  DataTable,
+  FormField,
+  FormGrid,
+  Modal,
+  PageHeader,
+  SelectInput,
+  StatusChip,
+  TextAreaInput,
+  TextInput,
+} from '@/design-system'
 import { formatDate, formatStatusLabel } from '@/shared/format/format'
 import { listCapas, raiseCapa } from '@/features/capa/capa-api'
 
@@ -157,71 +165,74 @@ export function CapaPage() {
         </DataTable>
       )}
 
-      {isRaiseOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-card">
-            <h3>Raise CAPA Action</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>CAPA Type:</span>
-                <select
-                  className="search-input"
-                  onChange={(e) => setNewType(e.target.value)}
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={newType}
-                >
-                  <option value="CORRECTIVE">Corrective Action (NCR Defect)</option>
-                  <option value="PREVENTIVE">Preventive Action (Risk Mitigation)</option>
-                </select>
-              </label>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Title:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  placeholder="e.g. Calibrate filling nozzle after seal defect"
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={newTitle}
-                />
-              </label>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Priority:</span>
-                <select
-                  className="search-input"
-                  onChange={(e) => setNewPriority(e.target.value)}
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={newPriority}
-                >
-                  <option value="NORMAL">Normal</option>
-                  <option value="HIGH">High</option>
-                  <option value="URGENT">Urgent</option>
-                </select>
-              </label>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Proposed Remediation Action:</span>
-                <textarea
-                  className="search-input"
-                  onChange={(e) => setNewAction(e.target.value)}
-                  placeholder="Steps required to eliminate root cause..."
-                  rows={3}
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={newAction}
-                />
-              </label>
-            </div>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '16px' }}>
-              <Button onClick={() => setIsRaiseOpen(false)} variant="secondary">Cancel</Button>
-              <Button
-                disabled={raiseMutation.isPending || !newTitle.trim()}
-                onClick={() => raiseMutation.mutate()}
-                variant="primary"
+      <Modal
+        footer={
+          <>
+            <Button onClick={() => setIsRaiseOpen(false)} variant="secondary">Cancel</Button>
+            <Button
+              disabled={raiseMutation.isPending || !newTitle.trim()}
+              onClick={() => raiseMutation.mutate()}
+              variant="primary"
+            >
+              {raiseMutation.isPending ? 'Raising...' : 'Raise CAPA Action'}
+            </Button>
+          </>
+        }
+        isOpen={isRaiseOpen}
+        onClose={() => setIsRaiseOpen(false)}
+        size="lg"
+        title="Raise CAPA Action"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <FormGrid columns={2}>
+            <FormField label="CAPA Type">
+              <SelectInput
+                onChange={(e) => setNewType(e.target.value)}
+                value={newType}
               >
-                Raise CAPA
-              </Button>
-            </div>
-          </div>
+                <option value="CORRECTIVE">Corrective Action (NCR Defect)</option>
+                <option value="PREVENTIVE">Preventive Action (Risk Mitigation)</option>
+              </SelectInput>
+            </FormField>
+            <FormField label="Priority">
+              <SelectInput
+                onChange={(e) => setNewPriority(e.target.value)}
+                value={newPriority}
+              >
+                <option value="NORMAL">Normal</option>
+                <option value="HIGH">High</option>
+                <option value="URGENT">Urgent</option>
+              </SelectInput>
+            </FormField>
+          </FormGrid>
+
+          <FormField label="Title" required>
+            <TextInput
+              onChange={(e) => setNewTitle(e.target.value)}
+              placeholder="e.g. Calibrate filling nozzle after seal defect"
+              required
+              value={newTitle}
+            />
+          </FormField>
+
+          <FormField label="Target Resolution Date">
+            <TextInput
+              onChange={(e) => setNewDueDate(e.target.value)}
+              type="date"
+              value={newDueDate}
+            />
+          </FormField>
+
+          <FormField label="Proposed Action / Remediation">
+            <TextAreaInput
+              onChange={(e) => setNewAction(e.target.value)}
+              placeholder="Detailed corrective actions required..."
+              rows={3}
+              value={newAction}
+            />
+          </FormField>
         </div>
-      )}
+      </Modal>
     </section>
   )
 }

@@ -2,10 +2,16 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, CheckCircle2, Plus } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  DataTable,
+  FormField,
+  Modal,
+  PageHeader,
+  StatusChip,
+  TextAreaInput,
+  TextInput,
+} from '@/design-system'
 import { formatDate, formatStatusLabel } from '@/shared/format/format'
 import { getNcr, updateNcr, closeNcr } from '@/features/ncrs/ncrs-api'
 import { listCapasByNcr, raiseCapa } from '@/features/capa/capa-api'
@@ -167,88 +173,83 @@ export function NcrDetailPage() {
         )}
       </section>
 
-      {isUpdateOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-card">
-            <h3>Update Root Cause & Corrective Action</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Root Cause Analysis:</span>
-                <textarea
-                  className="search-input"
-                  onChange={(e) => setRootCause(e.target.value)}
-                  placeholder="Why did this defect occur? (e.g. operator temperature setpoint drift)..."
-                  rows={2}
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={rootCause}
-                />
-              </label>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Immediate Corrective Action:</span>
-                <textarea
-                  className="search-input"
-                  onChange={(e) => setCorrectiveAction(e.target.value)}
-                  placeholder="Immediate remedial action taken..."
-                  rows={2}
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={correctiveAction}
-                />
-              </label>
-            </div>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '16px' }}>
-              <Button onClick={() => setIsUpdateOpen(false)} variant="secondary">Cancel</Button>
-              <Button
-                disabled={updateMutation.isPending}
-                onClick={() => updateMutation.mutate()}
-                variant="primary"
-              >
-                Save Investigation
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        footer={
+          <>
+            <Button onClick={() => setIsUpdateOpen(false)} variant="secondary">Cancel</Button>
+            <Button
+              disabled={updateMutation.isPending}
+              onClick={() => updateMutation.mutate()}
+              variant="primary"
+            >
+              {updateMutation.isPending ? 'Saving...' : 'Save Investigation'}
+            </Button>
+          </>
+        }
+        isOpen={isUpdateOpen}
+        onClose={() => setIsUpdateOpen(false)}
+        size="lg"
+        title="Update Root Cause & Corrective Action"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <FormField label="Root Cause Analysis">
+            <TextAreaInput
+              onChange={(e) => setRootCause(e.target.value)}
+              placeholder="Why did this defect occur? (e.g. operator temperature setpoint drift)..."
+              rows={3}
+              value={rootCause}
+            />
+          </FormField>
 
-      {isRaiseCapaOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-card">
-            <h3>Raise CAPA for this NCR</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>CAPA Action Title:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setCapaTitle(e.target.value)}
-                  placeholder="e.g. Install thermal interlock on sealing head"
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={capaTitle}
-                />
-              </label>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Proposed Remediation:</span>
-                <textarea
-                  className="search-input"
-                  onChange={(e) => setCapaAction(e.target.value)}
-                  placeholder="Engineering & process modifications required..."
-                  rows={2}
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={capaAction}
-                />
-              </label>
-            </div>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '16px' }}>
-              <Button onClick={() => setIsRaiseCapaOpen(false)} variant="secondary">Cancel</Button>
-              <Button
-                disabled={raiseCapaMutation.isPending || !capaTitle.trim()}
-                onClick={() => raiseCapaMutation.mutate()}
-                variant="primary"
-              >
-                Raise CAPA
-              </Button>
-            </div>
-          </div>
+          <FormField label="Immediate Corrective Action">
+            <TextAreaInput
+              onChange={(e) => setCorrectiveAction(e.target.value)}
+              placeholder="Immediate remedial action taken..."
+              rows={3}
+              value={correctiveAction}
+            />
+          </FormField>
         </div>
-      )}
+      </Modal>
+
+      <Modal
+        footer={
+          <>
+            <Button onClick={() => setIsRaiseCapaOpen(false)} variant="secondary">Cancel</Button>
+            <Button
+              disabled={raiseCapaMutation.isPending || !capaTitle.trim()}
+              onClick={() => raiseCapaMutation.mutate()}
+              variant="primary"
+            >
+              {raiseCapaMutation.isPending ? 'Raising CAPA...' : 'Raise CAPA'}
+            </Button>
+          </>
+        }
+        isOpen={isRaiseCapaOpen}
+        onClose={() => setIsRaiseCapaOpen(false)}
+        size="lg"
+        title="Raise CAPA for this NCR"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <FormField label="CAPA Action Title" required>
+            <TextInput
+              onChange={(e) => setCapaTitle(e.target.value)}
+              placeholder="e.g. Install thermal interlock on sealing head"
+              required
+              value={capaTitle}
+            />
+          </FormField>
+
+          <FormField label="Proposed Remediation">
+            <TextAreaInput
+              onChange={(e) => setCapaAction(e.target.value)}
+              placeholder="Engineering & process modifications required..."
+              rows={3}
+              value={capaAction}
+            />
+          </FormField>
+        </div>
+      </Modal>
     </section>
   )
 }

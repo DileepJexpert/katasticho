@@ -182,36 +182,34 @@ export function MrpPage() {
         </section>
       </div>
 
-      {isRunModalOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-card">
-            <h3>Execute MRP Planning Run</h3>
-            <p className="cell-muted" style={{ margin: '12px 0' }}>
-              Explodes open Sales Orders, minimum reorder thresholds, and active BOMs to calculate net procurement and production requirements.
-            </p>
-            <label style={{ display: 'block', marginBottom: '16px' }}>
-              <span style={{ fontSize: '13px', fontWeight: 600 }}>Planning Horizon (Days):</span>
-              <input
-                className="search-input"
-                onChange={(e) => setHorizonDays(Number(e.target.value))}
-                style={{ width: '100%', marginTop: '4px' }}
-                type="number"
-                value={horizonDays}
-              />
-            </label>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-              <Button onClick={() => setIsRunModalOpen(false)} variant="secondary">Cancel</Button>
-              <Button
-                disabled={runMutation.isPending}
-                onClick={() => runMutation.mutate()}
-                variant="primary"
-              >
-                Run MRP Calculation
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        description="Explodes open Sales Orders, minimum reorder thresholds, and active BOMs to calculate net procurement and production requirements."
+        footer={
+          <>
+            <Button onClick={() => setIsRunModalOpen(false)} variant="secondary">Cancel</Button>
+            <Button
+              disabled={runMutation.isPending}
+              onClick={() => runMutation.mutate()}
+              variant="primary"
+            >
+              {runMutation.isPending ? 'Calculating...' : 'Run MRP Calculation'}
+            </Button>
+          </>
+        }
+        isOpen={isRunModalOpen}
+        onClose={() => setIsRunModalOpen(false)}
+        size="md"
+        title="Execute MRP Planning Run"
+      >
+        <FormField label="Planning Horizon (Days)" required>
+          <NumberInput
+            min={1}
+            onChange={(e) => setHorizonDays(Number(e.target.value))}
+            required
+            value={horizonDays}
+          />
+        </FormField>
+      </Modal>
     </section>
   )
 }

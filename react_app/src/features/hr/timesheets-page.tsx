@@ -6,12 +6,19 @@ import {
   Plus,
   Send,
   Trash2,
-  X,
 } from 'lucide-react'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  CheckboxInput,
+  DataTable,
+  FormField,
+  FormGrid,
+  Modal,
+  NumberInput,
+  PageHeader,
+  StatusChip,
+  TextInput,
+} from '@/design-system'
 import { formatDate, formatStatusLabel } from '@/shared/format/format'
 import {
   approveTimesheet,
@@ -240,59 +247,58 @@ export function TimesheetsPage() {
       ) : null}
 
       {/* Log Time Modal */}
-      {isLogOpen ? (
-        <div className="modal-backdrop" role="presentation">
-          <div aria-labelledby="log-title" aria-modal="true" className="modal-dialog" role="dialog">
-            <div className="modal-header">
-              <h2 id="log-title">Log Timesheet Activity</h2>
-              <button className="icon-button" onClick={() => setIsLogOpen(false)} type="button">
-                <X aria-hidden="true" size={18} />
-              </button>
-            </div>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                const fd = new FormData(e.currentTarget)
-                logMutation.mutate({
-                  workDate: String(fd.get('workDate') ?? ''),
-                  project: String(fd.get('project') ?? '').trim() || undefined,
-                  task: String(fd.get('task') ?? '').trim() || undefined,
-                  hours: Number(fd.get('hours') ?? 8),
-                  billable: fd.get('billable') === 'on',
-                  notes: String(fd.get('notes') ?? '').trim() || undefined,
-                })
-              }}
-            >
-              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div>
-                  <label className="form-label">Work Date *</label>
-                  <input className="text-input" defaultValue={new Date().toISOString().slice(0, 10)} name="workDate" required type="date" />
-                </div>
-                <div>
-                  <label className="form-label">Project Name</label>
-                  <input className="text-input" name="project" placeholder="e.g. ERP Implementation / Client Audit" type="text" />
-                </div>
-                <div>
-                  <label className="form-label">Task / Description</label>
-                  <input className="text-input" name="task" placeholder="e.g. Data migration and report validation" type="text" />
-                </div>
-                <div>
-                  <label className="form-label">Hours Logged *</label>
-                  <input className="text-input" defaultValue={8} min={0.5} name="hours" required step={0.5} type="number" />
-                </div>
-                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <input defaultChecked name="billable" type="checkbox" />
-                  <span>Billable to Client</span>
-                </label>
+      {isLogOpen && (
+        <Modal
+          description="Record hours spent on client projects, production tasks, or operations."
+          footer={
+            <>
+              <Button onClick={() => setIsLogOpen(false)} type="button" variant="secondary">Cancel</Button>
+              <Button form="ts-form" disabled={logMutation.isPending} type="submit" variant="primary">
+                {logMutation.isPending ? 'Saving...' : 'Save Entry'}
+              </Button>
+            </>
+          }
+          isOpen={isLogOpen}
+          onClose={() => setIsLogOpen(false)}
+          size="md"
+          title="Log Timesheet Activity"
+        >
+          <form
+            id="ts-form"
+            onSubmit={(e) => {
+              e.preventDefault()
+              const fd = new FormData(e.currentTarget)
+              logMutation.mutate({
+                workDate: String(fd.get('workDate') ?? ''),
+                project: String(fd.get('project') ?? '').trim() || undefined,
+                task: String(fd.get('task') ?? '').trim() || undefined,
+                hours: Number(fd.get('hours') ?? 8),
+                billable: fd.get('billable') === 'on',
+                notes: String(fd.get('notes') ?? '').trim() || undefined,
+              })
+            }}
+            style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
+          >
+            <FormField label="Work Date" required>
+              <TextInput defaultValue={new Date().toISOString().slice(0, 10)} name="workDate" required type="date" />
+            </FormField>
+            <FormField label="Project Name">
+              <TextInput name="project" placeholder="e.g. ERP Implementation / Client Audit" type="text" />
+            </FormField>
+            <FormField label="Task / Description">
+              <TextInput name="task" placeholder="e.g. Data migration and report validation" type="text" />
+            </FormField>
+            <FormGrid columns={2}>
+              <FormField label="Hours Logged" required>
+                <NumberInput defaultValue={8} min={0.5} name="hours" required step={0.5} />
+              </FormField>
+              <div style={{ display: 'flex', alignItems: 'center', paddingTop: '1.5rem' }}>
+                <CheckboxInput defaultChecked label="Billable to Client" name="billable" />
               </div>
-              <div className="modal-footer">
-                <Button onClick={() => setIsLogOpen(false)} type="button" variant="secondary">Cancel</Button>
-                <Button disabled={logMutation.isPending} type="submit" variant="primary">Save Entry</Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
+            </FormGrid>
+          </form>
+        </Modal>
+      )}
     </section>
   )
 }

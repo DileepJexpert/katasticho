@@ -6,12 +6,18 @@ import {
   Plus,
   Search,
   Trash2,
-  X,
 } from 'lucide-react'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  DataTable,
+  FormField,
+  FormGrid,
+  Modal,
+  PageHeader,
+  StatusChip,
+  TextAreaInput,
+  TextInput,
+} from '@/design-system'
 import {
   createBeat,
   deleteBeat,
@@ -171,114 +177,86 @@ function AddBeatModal({
   const [description, setDescription] = useState('')
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal-card" style={{ maxWidth: 480 }}>
-        <div className="modal-header">
-          <h2 className="modal-title">Create Sales Beat</h2>
-          <button aria-label="Close" className="button button--ghost" onClick={onClose} type="button">
-            <X aria-hidden="true" size={18} />
-          </button>
-        </div>
+    <Modal
+      footer={
+        <>
+          <Button onClick={onClose} type="button" variant="secondary">Cancel</Button>
+          <Button
+            disabled={isPending || !code || !name}
+            onClick={() =>
+              onSubmit({
+                code,
+                name,
+                area: area || undefined,
+                city: city || undefined,
+                state: state || undefined,
+                description: description || undefined,
+              })
+            }
+            variant="primary"
+          >
+            {isPending ? 'Saving...' : 'Create Beat'}
+          </Button>
+        </>
+      }
+      isOpen
+      onClose={onClose}
+      size="md"
+      title="Create Sales Beat"
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <FormField label="Beat Code" required>
+          <TextInput
+            onChange={(e) => setCode(e.target.value)}
+            placeholder="e.g. BT-NORTH-01"
+            required
+            value={code}
+          />
+        </FormField>
 
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            onSubmit({
-              code,
-              name,
-              area: area || undefined,
-              city: city || undefined,
-              state: state || undefined,
-              description: description || undefined,
-            })
-          }}
-        >
-          <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div>
-              <label className="form-label" htmlFor="beat-code">Beat Code *</label>
-              <input
-                className="form-input"
-                id="beat-code"
-                onChange={(e) => setCode(e.target.value)}
-                placeholder="e.g. BT-NORTH-01"
-                required
-                type="text"
-                value={code}
-              />
-            </div>
+        <FormField label="Beat Name" required>
+          <TextInput
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. MG Road Chemist Hub"
+            required
+            value={name}
+          />
+        </FormField>
 
-            <div>
-              <label className="form-label" htmlFor="beat-name">Beat Name *</label>
-              <input
-                className="form-input"
-                id="beat-name"
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. MG Road Chemist Hub"
-                required
-                type="text"
-                value={name}
-              />
-            </div>
+        <FormGrid columns={2}>
+          <FormField label="Area / Territory">
+            <TextInput
+              onChange={(e) => setArea(e.target.value)}
+              placeholder="e.g. Central Market"
+              value={area}
+            />
+          </FormField>
+          <FormField label="City">
+            <TextInput
+              onChange={(e) => setCity(e.target.value)}
+              placeholder="e.g. Mumbai"
+              value={city}
+            />
+          </FormField>
+        </FormGrid>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div>
-                <label className="form-label" htmlFor="beat-area">Area / Territory</label>
-                <input
-                  className="form-input"
-                  id="beat-area"
-                  onChange={(e) => setArea(e.target.value)}
-                  placeholder="e.g. Central Market"
-                  type="text"
-                  value={area}
-                />
-              </div>
+        <FormField label="State">
+          <TextInput
+            onChange={(e) => setState(e.target.value)}
+            placeholder="e.g. Maharashtra"
+            value={state}
+          />
+        </FormField>
 
-              <div>
-                <label className="form-label" htmlFor="beat-city">City</label>
-                <input
-                  className="form-input"
-                  id="beat-city"
-                  onChange={(e) => setCity(e.target.value)}
-                  placeholder="e.g. Mumbai"
-                  type="text"
-                  value={city}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="form-label" htmlFor="beat-state">State</label>
-              <input
-                className="form-input"
-                id="beat-state"
-                onChange={(e) => setState(e.target.value)}
-                placeholder="e.g. Maharashtra"
-                type="text"
-                value={state}
-              />
-            </div>
-
-            <div>
-              <label className="form-label" htmlFor="beat-desc">Description (Optional)</label>
-              <textarea
-                className="form-input"
-                id="beat-desc"
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Notes on schedule, major landmarks..."
-                rows={2}
-                value={description}
-              />
-            </div>
-          </div>
-
-          <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
-            <Button onClick={onClose} type="button" variant="secondary">Cancel</Button>
-            <Button disabled={isPending || !code || !name} type="submit" variant="primary">
-              {isPending ? 'Saving...' : 'Create Beat'}
-            </Button>
-          </div>
-        </form>
+        <FormField label="Description (Optional)">
+          <TextAreaInput
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Notes on schedule, major landmarks..."
+            rows={2}
+            value={description}
+          />
+        </FormField>
       </div>
-    </div>
+    </Modal>
   )
 }

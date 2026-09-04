@@ -9,9 +9,14 @@ import {
   XCircle,
 } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
-import { Button } from '@/design-system/button'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  FormField,
+  Modal,
+  PageHeader,
+  StatusChip,
+  TextAreaInput,
+} from '@/design-system'
 import { formatDate, formatStatusLabel } from '@/shared/format/format'
 import {
   cancelCapa,
@@ -328,121 +333,91 @@ export function CapaDetailPage() {
       </div>
 
       {/* Complete Modal */}
-      {isCompleteModalOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-card">
-            <h3>Complete CAPA Remediation</h3>
-            <p className="cell-muted" style={{ fontSize: '0.85rem' }}>
-              Document the corrective or preventive actions implemented on the production floor / warehouse.
-            </p>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                completeMutation.mutate()
-              }}
-              style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}
-            >
-              <div className="form-field">
-                <label htmlFor="completionNotes">Implementation Notes *</label>
-                <textarea
-                  id="completionNotes"
-                  required
-                  rows={3}
-                  value={completionNotes}
-                  onChange={(e) => setCompletionNotes(e.target.value)}
-                  placeholder="Details of SOP revision, machine recalibration, or operator retraining..."
-                />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-sm)' }}>
-                <Button onClick={() => setIsCompleteModalOpen(false)} type="button" variant="secondary">
-                  Cancel
-                </Button>
-                <Button disabled={completeMutation.isPending} type="submit" variant="primary">
-                  {completeMutation.isPending ? 'Saving...' : 'Confirm Completion'}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <Modal
+        description="Document the corrective or preventive actions implemented on the production floor / warehouse."
+        footer={
+          <>
+            <Button onClick={() => setIsCompleteModalOpen(false)} type="button" variant="secondary">
+              Cancel
+            </Button>
+            <Button disabled={completeMutation.isPending || !completionNotes.trim()} onClick={() => completeMutation.mutate()} variant="primary">
+              {completeMutation.isPending ? 'Saving...' : 'Confirm Completion'}
+            </Button>
+          </>
+        }
+        isOpen={isCompleteModalOpen}
+        onClose={() => setIsCompleteModalOpen(false)}
+        size="md"
+        title="Complete CAPA Remediation"
+      >
+        <FormField label="Implementation Notes" required>
+          <TextAreaInput
+            onChange={(e) => setCompletionNotes(e.target.value)}
+            placeholder="Details of SOP revision, machine recalibration, or operator retraining..."
+            required
+            rows={3}
+            value={completionNotes}
+          />
+        </FormField>
+      </Modal>
 
       {/* Verify Modal */}
-      {isVerifyModalOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-card">
-            <h3>Verify CAPA Effectiveness</h3>
-            <p className="cell-muted" style={{ fontSize: '0.85rem' }}>
-              Confirm that the root-cause has been eliminated and no repeat defects occurred in subsequent batches.
-            </p>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                verifyMutation.mutate()
-              }}
-              style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}
-            >
-              <div className="form-field">
-                <label htmlFor="effectivenessNotes">QA Effectiveness Evaluation *</label>
-                <textarea
-                  id="effectivenessNotes"
-                  required
-                  rows={3}
-                  value={effectivenessNotes}
-                  onChange={(e) => setEffectivenessNotes(e.target.value)}
-                  placeholder="Audit evidence confirming zero defect recurrence across 3 trial production runs..."
-                />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-sm)' }}>
-                <Button onClick={() => setIsVerifyModalOpen(false)} type="button" variant="secondary">
-                  Cancel
-                </Button>
-                <Button disabled={verifyMutation.isPending} type="submit" variant="primary">
-                  {verifyMutation.isPending ? 'Verifying...' : 'Sign Off Verification'}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <Modal
+        description="Confirm that the root-cause has been eliminated and no repeat defects occurred in subsequent batches."
+        footer={
+          <>
+            <Button onClick={() => setIsVerifyModalOpen(false)} type="button" variant="secondary">
+              Cancel
+            </Button>
+            <Button disabled={verifyMutation.isPending || !effectivenessNotes.trim()} onClick={() => verifyMutation.mutate()} variant="primary">
+              {verifyMutation.isPending ? 'Verifying...' : 'Sign Off Verification'}
+            </Button>
+          </>
+        }
+        isOpen={isVerifyModalOpen}
+        onClose={() => setIsVerifyModalOpen(false)}
+        size="md"
+        title="Verify CAPA Effectiveness"
+      >
+        <FormField label="QA Effectiveness Evaluation" required>
+          <TextAreaInput
+            onChange={(e) => setEffectivenessNotes(e.target.value)}
+            placeholder="Audit evidence confirming zero defect recurrence across 3 trial production runs..."
+            required
+            rows={3}
+            value={effectivenessNotes}
+          />
+        </FormField>
+      </Modal>
 
       {/* Cancel Modal */}
-      {isCancelModalOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-card">
-            <h3>Cancel CAPA Action</h3>
-            <p className="cell-muted" style={{ fontSize: '0.85rem' }}>
-              State the justification for voiding or cancelling this remediation item.
-            </p>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                cancelMutation.mutate()
-              }}
-              style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}
-            >
-              <div className="form-field">
-                <label htmlFor="cancelReason">Cancellation Justification *</label>
-                <textarea
-                  id="cancelReason"
-                  required
-                  rows={3}
-                  value={cancelReason}
-                  onChange={(e) => setCancelReason(e.target.value)}
-                  placeholder="e.g. Duplicate action / obsolete process replaced..."
-                />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-sm)' }}>
-                <Button onClick={() => setIsCancelModalOpen(false)} type="button" variant="secondary">
-                  Cancel
-                </Button>
-                <Button disabled={cancelMutation.isPending} type="submit" variant="destructive">
-                  {cancelMutation.isPending ? 'Cancelling...' : 'Confirm Cancellation'}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <Modal
+        description="State the justification for voiding or cancelling this remediation item."
+        footer={
+          <>
+            <Button onClick={() => setIsCancelModalOpen(false)} type="button" variant="secondary">
+              Cancel
+            </Button>
+            <Button disabled={cancelMutation.isPending || !cancelReason.trim()} onClick={() => cancelMutation.mutate()} variant="destructive">
+              {cancelMutation.isPending ? 'Cancelling...' : 'Void CAPA'}
+            </Button>
+          </>
+        }
+        isOpen={isCancelModalOpen}
+        onClose={() => setIsCancelModalOpen(false)}
+        size="md"
+        title="Cancel CAPA Action"
+      >
+        <FormField label="Cancellation Justification" required>
+          <TextAreaInput
+            onChange={(e) => setCancelReason(e.target.value)}
+            placeholder="e.g. Obsolete equipment line or duplicate ticket..."
+            required
+            rows={3}
+            value={cancelReason}
+          />
+        </FormField>
+      </Modal>
     </section>
   )
 }

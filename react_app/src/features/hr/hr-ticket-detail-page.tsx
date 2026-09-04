@@ -1,18 +1,26 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft,
   CheckCircle2,
-  FileText,
   MessageSquare,
   Send,
-  X,
 } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { Button } from '@/design-system/button'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  DocumentCard,
+  DocumentError,
+  Fact,
+  FactList,
+  FormField,
+  Modal,
+  PageHeader,
+  SelectInput,
+  StatusChip,
+  TextAreaInput,
+} from '@/design-system'
 import { formatDate, formatStatusLabel } from '@/shared/format/format'
 import {
   addTicketComment,
@@ -26,11 +34,11 @@ export function HrTicketDetailPage() {
   const queryClient = useQueryClient()
 
   const [commentText, setCommentText] = useState('')
-  const [statusVal, setStatusVal] = useState('RESOLVED')
-  const [resolutionText, setResolutionText] = useState('')
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false)
+  const [statusVal, setStatusVal] = useState('IN_PROGRESS')
+  const [resolutionText, setResolutionText] = useState('')
 
-  const query = useQuery({
+  const ticketQuery = useQuery({
     queryKey: ['hr-ticket', ticketId],
     queryFn: () => getTicket(ticketId!),
     enabled: Boolean(ticketId),
@@ -39,73 +47,70 @@ export function HrTicketDetailPage() {
   const commentMutation = useMutation({
     mutationFn: (body: string) => addTicketComment(ticketId!, body),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['hr-ticket', ticketId] })
       setCommentText('')
+      queryClient.invalidateQueries({ queryKey: ['hr-ticket', ticketId] })
     },
   })
 
   const statusMutation = useMutation({
-    mutationFn: ({ status, resolution }: { status: string; resolution?: string }) =>
-      updateTicketStatus(ticketId!, status, resolution),
+    mutationFn: (payload: { status: string; resolution?: string }) =>
+      updateTicketStatus(ticketId!, payload.status, payload.resolution),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['hr-ticket', ticketId] })
       setIsStatusModalOpen(false)
+      queryClient.invalidateQueries({ queryKey: ['hr-ticket', ticketId] })
     },
   })
 
   if (!ticketId) return <DocumentError onBack={() => navigate(appRoutes.hrTickets)} />
-  if (query.isLoading) {
+  if (ticketQuery.isLoading) {
     return (
       <section className="workspace-page">
-        <div aria-live="polite" className="directory-state">Loading ticket thread...</div>
+        <div aria-live="polite" className="directory-state">Loading ticket details...</div>
       </section>
     )
   }
-  if (query.isError || !query.data) {
+  if (ticketQuery.isError || !ticketQuery.data) {
     return <DocumentError onBack={() => navigate(appRoutes.hrTickets)} />
   }
 
-  const { ticket, comments = [] } = query.data
+  const ticket = ticketQuery.data.ticket
+  const comments = ticketQuery.data.comments ?? []
 
   return (
     <section className="workspace-page">
       <PageHeader
-        eyebrow="Core HR / Help Desk"
-        title={ticket.subject}
-        description={`Category: ${ticket.category} · Priority: ${ticket.priority} · Raised: ${ticket.createdAt ? formatDate(ticket.createdAt) : 'â€”'}`}
         actions={
           <div className="table-actions">
-            <StatusChip status={formatStatusLabel(ticket.status)} />
+            <Button onClick={() => navigate(appRoutes.hrTickets)} variant="secondary">
+              <ArrowLeft aria-hidden="true" size={16} />
+              Back to Tickets
+            </Button>
+            <Button onClick={() => setIsStatusModalOpen(true)} variant="primary">
+              <CheckCircle2 aria-hidden="true" size={16} />
+              Update Status & Resolution
+            </Button>
           </div>
         }
+        description={`Ticket #${ticket.ticketNumber || ticket.id.slice(0, 8)} · Submitted by ${ticket.requesterName || 'Employee'}`}
+        eyebrow="Human Resources / Support Desk"
+        title={ticket.subject}
       />
 
-      <div className="document-actions">
-        <Button onClick={() => navigate(appRoutes.hrTickets)} variant="secondary">
-          <ArrowLeft aria-hidden="true" size={16} />
-          Back to Tickets
-        </Button>
-        <Button onClick={() => setIsStatusModalOpen(true)} variant="primary">
-          <CheckCircle2 aria-hidden="true" size={16} />
-          Update Status & Resolution
-        </Button>
-      </div>
-
       <div className="document-layout">
-        <section className="document-card">
-          <h2>Ticket description & details</h2>
-          <dl className="document-facts">
+        <DocumentCard title="Ticket description & details">
+          <FactList>
+            <Fact label="Status" value={<StatusChip status={ticket.status}>{formatStatusLabel(ticket.status)}</StatusChip>} />
             <Fact label="Category" value={ticket.category} />
             <Fact label="Priority" value={ticket.priority} />
             <Fact label="Requester" value={ticket.requesterName || 'Staff Member'} />
             <Fact label="Assigned HR Specialist" value={ticket.assigneeName || 'Unassigned'} />
-            <Fact label="Created Date" value={ticket.createdAt ? formatDate(ticket.createdAt) : 'â€”'} />
+            <Fact label="Created Date" value={ticket.createdAt ? formatDate(ticket.createdAt) : '—'} />
             <Fact label="Resolution Note" value={ticket.resolution || 'Pending resolution'} />
-          </dl>
+          </FactList>
           <div style={{ marginTop: 14, padding: 12, background: 'var(--k-color-surface-sunken)', borderRadius: 6 }}>
             <p style={{ margin: 0, fontSize: '0.95rem' }}>{ticket.description || 'No additional details provided.'}</p>
           </div>
-        </section>
+        </DocumentCard>
 
         <section className="document-card">
           <h2>
@@ -143,8 +148,7 @@ export function HrTicketDetailPage() {
               }}
               style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}
             >
-              <textarea
-                className="text-input"
+              <TextAreaInput
                 onChange={(e) => setCommentText(e.target.value)}
                 placeholder="Write a reply to the ticket..."
                 rows={3}
@@ -162,78 +166,45 @@ export function HrTicketDetailPage() {
       </div>
 
       {/* Update Status Modal */}
-      {isStatusModalOpen ? (
-        <div className="modal-backdrop" role="presentation">
-          <div aria-labelledby="status-modal-title" aria-modal="true" className="modal-dialog" role="dialog">
-            <div className="modal-header">
-              <h2 id="status-modal-title">Update Ticket Status & Resolution</h2>
-              <button className="icon-button" onClick={() => setIsStatusModalOpen(false)} type="button">
-                <X aria-hidden="true" size={18} />
-              </button>
-            </div>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                statusMutation.mutate({ status: statusVal, resolution: resolutionText })
-              }}
-            >
-              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div>
-                  <label className="form-label">Status</label>
-                  <select
-                    className="select-input"
-                    onChange={(e) => setStatusVal(e.target.value)}
-                    value={statusVal}
-                  >
-                    <option value="IN_PROGRESS">In Progress</option>
-                    <option value="RESOLVED">Resolved</option>
-                    <option value="CLOSED">Closed</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="form-label">Resolution Details</label>
-                  <textarea
-                    className="text-input"
-                    onChange={(e) => setResolutionText(e.target.value)}
-                    placeholder="Explanation of resolution provided..."
-                    rows={4}
-                    value={resolutionText}
-                  />
-                </div>
-              </div>
-              <div className="modal-footer">
-                <Button onClick={() => setIsStatusModalOpen(false)} type="button" variant="secondary">Cancel</Button>
-                <Button disabled={statusMutation.isPending} type="submit" variant="primary">Apply Status</Button>
-              </div>
-            </form>
+      {isStatusModalOpen && (
+        <Modal
+          description="Change lifecycle status and document resolution provided to employee."
+          footer={
+            <>
+              <Button onClick={() => setIsStatusModalOpen(false)} type="button" variant="secondary">Cancel</Button>
+              <Button disabled={statusMutation.isPending} onClick={() => statusMutation.mutate({ status: statusVal, resolution: resolutionText })} variant="primary">
+                {statusMutation.isPending ? 'Applying...' : 'Apply Status'}
+              </Button>
+            </>
+          }
+          isOpen={isStatusModalOpen}
+          onClose={() => setIsStatusModalOpen(false)}
+          size="md"
+          title="Update Ticket Status & Resolution"
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <FormField label="Status">
+              <SelectInput
+                onChange={(e) => setStatusVal(e.target.value)}
+                value={statusVal}
+              >
+                <option value="IN_PROGRESS">In Progress</option>
+                <option value="RESOLVED">Resolved</option>
+                <option value="CLOSED">Closed</option>
+              </SelectInput>
+            </FormField>
+            <FormField label="Resolution Details">
+              <TextAreaInput
+                onChange={(e) => setResolutionText(e.target.value)}
+                placeholder="Explanation of resolution provided..."
+                rows={4}
+                value={resolutionText}
+              />
+            </FormField>
           </div>
-        </div>
-      ) : null}
+        </Modal>
+      )}
     </section>
   )
 }
 
-function Fact({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div>
-      <dt className="document-fact-label">{label}</dt>
-      <dd className="document-fact-value">{value}</dd>
-    </div>
-  )
-}
-
-function DocumentError({ onBack }: { onBack: () => void }) {
-  return (
-    <section className="workspace-page">
-      <div className="directory-state directory-state--error" role="alert">
-        <FileText aria-hidden="true" size={24} />
-        <strong>Unable to load ticket details.</strong>
-        <p>The record was not found or your session cannot access this workspace.</p>
-        <Button onClick={onBack} variant="secondary">
-          <ArrowLeft aria-hidden="true" size={16} />
-          Back to Tickets
-        </Button>
-      </div>
-    </section>
-  )
-}

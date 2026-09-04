@@ -4,14 +4,21 @@ import {
   HelpCircle,
   Plus,
   Search,
-  X,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  DataTable,
+  FormField,
+  FormGrid,
+  Modal,
+  PageHeader,
+  SelectInput,
+  StatusChip,
+  TextAreaInput,
+  TextInput,
+} from '@/design-system'
 import { formatDate, formatStatusLabel } from '@/shared/format/format'
 import {
   listTickets,
@@ -175,68 +182,64 @@ export function HrTicketsPage() {
       )}
 
       {/* Raise Ticket Modal */}
-      {isRaiseOpen ? (
-        <div className="modal-backdrop" role="presentation">
-          <div aria-labelledby="raise-title" aria-modal="true" className="modal-dialog" role="dialog">
-            <div className="modal-header">
-              <h2 id="raise-title">Raise HR Support Ticket</h2>
-              <button className="icon-button" onClick={() => setIsRaiseOpen(false)} type="button">
-                <X aria-hidden="true" size={18} />
-              </button>
-            </div>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                const fd = new FormData(e.currentTarget)
-                raiseMutation.mutate({
-                  category: String(fd.get('category') ?? 'PAYROLL'),
-                  subject: String(fd.get('subject') ?? '').trim(),
-                  description: String(fd.get('description') ?? '').trim(),
-                  priority: String(fd.get('priority') ?? 'MEDIUM'),
-                })
-              }}
-            >
-              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div>
-                    <label className="form-label">Category</label>
-                    <select className="select-input" defaultValue="PAYROLL" name="category">
-                      <option value="PAYROLL">Payroll & Payslip Query</option>
-                      <option value="TAX">Income Tax / Form 16</option>
-                      <option value="LEAVE">Leave & Attendance Discrepancy</option>
-                      <option value="BENEFITS">Insurance / PF / ESI</option>
-                      <option value="POLICY">Policy Clarification</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="form-label">Priority</label>
-                    <select className="select-input" defaultValue="MEDIUM" name="priority">
-                      <option value="LOW">Low</option>
-                      <option value="MEDIUM">Medium</option>
-                      <option value="HIGH">High</option>
-                      <option value="URGENT">Urgent</option>
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <label className="form-label">Subject *</label>
-                  <input className="text-input" name="subject" placeholder="Brief summary of inquiry..." required type="text" />
-                </div>
-                <div>
-                  <label className="form-label">Description *</label>
-                  <textarea className="text-input" name="description" placeholder="Provide detailed explanation..." required rows={4} />
-                </div>
-              </div>
-              <div className="modal-footer">
-                <Button onClick={() => setIsRaiseOpen(false)} type="button" variant="secondary">Cancel</Button>
-                <Button disabled={raiseMutation.isPending} type="submit" variant="primary">
-                  {raiseMutation.isPending ? 'Submitting...' : 'Submit Ticket'}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
+      {isRaiseOpen && (
+        <Modal
+          description="Submit an inquiry or grievance to the HR and payroll operations team."
+          footer={
+            <>
+              <Button onClick={() => setIsRaiseOpen(false)} type="button" variant="secondary">Cancel</Button>
+              <Button form="tkt-form" disabled={raiseMutation.isPending} type="submit" variant="primary">
+                {raiseMutation.isPending ? 'Submitting...' : 'Submit Ticket'}
+              </Button>
+            </>
+          }
+          isOpen={isRaiseOpen}
+          onClose={() => setIsRaiseOpen(false)}
+          size="md"
+          title="Raise HR Support Ticket"
+        >
+          <form
+            id="tkt-form"
+            onSubmit={(e) => {
+              e.preventDefault()
+              const fd = new FormData(e.currentTarget)
+              raiseMutation.mutate({
+                category: String(fd.get('category') ?? 'PAYROLL'),
+                subject: String(fd.get('subject') ?? '').trim(),
+                description: String(fd.get('description') ?? '').trim(),
+                priority: String(fd.get('priority') ?? 'MEDIUM'),
+              })
+            }}
+            style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
+          >
+            <FormGrid columns={2}>
+              <FormField label="Category">
+                <SelectInput defaultValue="PAYROLL" name="category">
+                  <option value="PAYROLL">Payroll & Payslip Query</option>
+                  <option value="TAX">Income Tax / Form 16</option>
+                  <option value="LEAVE">Leave & Attendance Discrepancy</option>
+                  <option value="BENEFITS">Insurance / PF / ESI</option>
+                  <option value="POLICY">Policy Clarification</option>
+                </SelectInput>
+              </FormField>
+              <FormField label="Priority">
+                <SelectInput defaultValue="MEDIUM" name="priority">
+                  <option value="LOW">Low</option>
+                  <option value="MEDIUM">Medium</option>
+                  <option value="HIGH">High</option>
+                  <option value="URGENT">Urgent</option>
+                </SelectInput>
+              </FormField>
+            </FormGrid>
+            <FormField label="Subject" required>
+              <TextInput name="subject" placeholder="Brief summary of inquiry..." required type="text" />
+            </FormField>
+            <FormField label="Description" required>
+              <TextAreaInput name="description" placeholder="Provide detailed explanation..." required rows={4} />
+            </FormField>
+          </form>
+        </Modal>
+      )}
     </section>
   )
 }

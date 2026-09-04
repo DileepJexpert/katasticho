@@ -3,12 +3,17 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Clock,
   Plus,
-  X,
 } from 'lucide-react'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  DataTable,
+  FormField,
+  FormGrid,
+  Modal,
+  PageHeader,
+  StatusChip,
+  TextInput,
+} from '@/design-system'
 import {
   listShifts,
   upsertShift,
@@ -104,61 +109,58 @@ export function ShiftsPage() {
       )}
 
       {/* Create Shift Modal */}
-      {isShiftModalOpen ? (
-        <div className="modal-backdrop" role="presentation">
-          <div aria-labelledby="shift-title" aria-modal="true" className="modal-dialog" role="dialog">
-            <div className="modal-header">
-              <h2 id="shift-title">Create Shift Timing</h2>
-              <button className="icon-button" onClick={() => setIsShiftModalOpen(false)} type="button">
-                <X aria-hidden="true" size={18} />
-              </button>
-            </div>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                const fd = new FormData(e.currentTarget)
-                upsertMutation.mutate({
-                  code: String(fd.get('code') ?? '').trim().toUpperCase(),
-                  name: String(fd.get('name') ?? '').trim(),
-                  startTime: String(fd.get('startTime') ?? '09:00'),
-                  endTime: String(fd.get('endTime') ?? '18:00'),
-                  weeklyOffs: String(fd.get('weeklyOffs') ?? 'Sunday'),
-                  active: true,
-                })
-              }}
-            >
-              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div>
-                  <label className="form-label">Shift Code *</label>
-                  <input className="text-input" name="code" placeholder="e.g. GS / MS / NS" required style={{ textTransform: 'uppercase' }} type="text" />
-                </div>
-                <div>
-                  <label className="form-label">Shift Name *</label>
-                  <input className="text-input" name="name" placeholder="e.g. General Shift (Day)" required type="text" />
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div>
-                    <label className="form-label">Start Time</label>
-                    <input className="text-input" defaultValue="09:00" name="startTime" required type="time" />
-                  </div>
-                  <div>
-                    <label className="form-label">End Time</label>
-                    <input className="text-input" defaultValue="18:00" name="endTime" required type="time" />
-                  </div>
-                </div>
-                <div>
-                  <label className="form-label">Weekly Off Days</label>
-                  <input className="text-input" defaultValue="Sunday" name="weeklyOffs" placeholder="e.g. Saturday, Sunday" type="text" />
-                </div>
-              </div>
-              <div className="modal-footer">
-                <Button onClick={() => setIsShiftModalOpen(false)} type="button" variant="secondary">Cancel</Button>
-                <Button disabled={upsertMutation.isPending} type="submit" variant="primary">Save Shift</Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
+      {isShiftModalOpen && (
+        <Modal
+          description="Define shift working hours, grace periods, and weekly off schedules."
+          footer={
+            <>
+              <Button onClick={() => setIsShiftModalOpen(false)} type="button" variant="secondary">Cancel</Button>
+              <Button form="shift-form" disabled={upsertMutation.isPending} type="submit" variant="primary">
+                {upsertMutation.isPending ? 'Saving...' : 'Save Shift'}
+              </Button>
+            </>
+          }
+          isOpen={isShiftModalOpen}
+          onClose={() => setIsShiftModalOpen(false)}
+          size="md"
+          title="Create Shift Timing"
+        >
+          <form
+            id="shift-form"
+            onSubmit={(e) => {
+              e.preventDefault()
+              const fd = new FormData(e.currentTarget)
+              upsertMutation.mutate({
+                code: String(fd.get('code') ?? '').trim().toUpperCase(),
+                name: String(fd.get('name') ?? '').trim(),
+                startTime: String(fd.get('startTime') ?? '09:00'),
+                endTime: String(fd.get('endTime') ?? '18:00'),
+                weeklyOffs: String(fd.get('weeklyOffs') ?? 'Sunday'),
+                active: true,
+              })
+            }}
+            style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
+          >
+            <FormField label="Shift Code" required>
+              <TextInput name="code" placeholder="e.g. GS / MS / NS" required style={{ textTransform: 'uppercase' }} type="text" />
+            </FormField>
+            <FormField label="Shift Name" required>
+              <TextInput name="name" placeholder="e.g. General Shift (Day)" required type="text" />
+            </FormField>
+            <FormGrid columns={2}>
+              <FormField label="Start Time" required>
+                <TextInput defaultValue="09:00" name="startTime" required type="time" />
+              </FormField>
+              <FormField label="End Time" required>
+                <TextInput defaultValue="18:00" name="endTime" required type="time" />
+              </FormField>
+            </FormGrid>
+            <FormField label="Weekly Off Days">
+              <TextInput defaultValue="Sunday" name="weeklyOffs" placeholder="e.g. Saturday, Sunday" type="text" />
+            </FormField>
+          </form>
+        </Modal>
+      )}
     </section>
   )
 }

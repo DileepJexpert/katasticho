@@ -3,10 +3,18 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ShieldAlert, Plus, Search, Layers } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  DataTable,
+  FormField,
+  FormGrid,
+  Modal,
+  PageHeader,
+  SelectInput,
+  StatusChip,
+  TextAreaInput,
+  TextInput,
+} from '@/design-system'
 import { formatDate, formatStatusLabel } from '@/shared/format/format'
 import { listNcrs, createNcr } from '@/features/ncrs/ncrs-api'
 
@@ -153,69 +161,64 @@ export function NcrsPage() {
         </DataTable>
       )}
 
-      {isCreateOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-card">
-            <h3>Raise Non-Conformance Report</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Defective Item ID:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setItemId(e.target.value)}
-                  placeholder="Item UUID"
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={itemId}
-                />
-              </label>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Defect Severity:</span>
-                <select
-                  className="search-input"
-                  onChange={(e) => setSeverity(e.target.value)}
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={severity}
-                >
-                  <option value="MINOR">Minor</option>
-                  <option value="MAJOR">Major</option>
-                  <option value="CRITICAL">Critical</option>
-                </select>
-              </label>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Defect Reason:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setReason(e.target.value)}
-                  placeholder="e.g. Seal failure during blister packing"
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={reason}
-                />
-              </label>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Description & Root Cause Observation:</span>
-                <textarea
-                  className="search-input"
-                  onChange={(e) => setDesc(e.target.value)}
-                  placeholder="Detailed inspection findings..."
-                  rows={2}
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={desc}
-                />
-              </label>
-            </div>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '16px' }}>
-              <Button onClick={() => setIsCreateOpen(false)} variant="secondary">Cancel</Button>
-              <Button
-                disabled={createMutation.isPending || !itemId.trim()}
-                onClick={() => createMutation.mutate()}
-                variant="primary"
+      <Modal
+        footer={
+          <>
+            <Button onClick={() => setIsCreateOpen(false)} variant="secondary">Cancel</Button>
+            <Button
+              disabled={createMutation.isPending || !itemId.trim()}
+              onClick={() => createMutation.mutate()}
+              variant="primary"
+            >
+              {createMutation.isPending ? 'Raising...' : 'Raise NCR'}
+            </Button>
+          </>
+        }
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        size="lg"
+        title="Raise Non-Conformance Report"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <FormGrid columns={2}>
+            <FormField label="Defective Item ID" required>
+              <TextInput
+                onChange={(e) => setItemId(e.target.value)}
+                placeholder="Item UUID"
+                required
+                value={itemId}
+              />
+            </FormField>
+            <FormField label="Defect Severity">
+              <SelectInput
+                onChange={(e) => setSeverity(e.target.value)}
+                value={severity}
               >
-                Raise NCR
-              </Button>
-            </div>
-          </div>
+                <option value="MINOR">Minor</option>
+                <option value="MAJOR">Major</option>
+                <option value="CRITICAL">Critical</option>
+              </SelectInput>
+            </FormField>
+          </FormGrid>
+
+          <FormField label="Defect Reason">
+            <TextInput
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="e.g. Seal failure during blister packing"
+              value={reason}
+            />
+          </FormField>
+
+          <FormField label="Description & Root Cause Observation">
+            <TextAreaInput
+              onChange={(e) => setDesc(e.target.value)}
+              placeholder="Detailed inspection findings..."
+              rows={2}
+              value={desc}
+            />
+          </FormField>
         </div>
-      )}
+      </Modal>
     </section>
   )
 }

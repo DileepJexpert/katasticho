@@ -5,16 +5,20 @@ import {
   Banknote,
   CheckCircle2,
   FileCheck,
-  FileText,
-  X,
 } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  DataTable,
+  DocumentError,
+  FormField,
+  Modal,
+  Money,
+  NumberInput,
+  PageHeader,
+  StatusChip,
+} from '@/design-system'
 import { formatDate, formatStatusLabel } from '@/shared/format/format'
 import {
   completeOffboarding,
@@ -192,60 +196,39 @@ export function OffboardingDetailPage() {
       </div>
 
       {/* Settle FnF Modal */}
-      {isFnfModalOpen ? (
-        <div className="modal-backdrop" role="presentation">
-          <div aria-labelledby="fnf-modal-title" aria-modal="true" className="modal-dialog" role="dialog">
-            <div className="modal-header">
-              <h2 id="fnf-modal-title">Full & Final (FnF) Settlement</h2>
-              <button className="icon-button" onClick={() => setIsFnfModalOpen(false)} type="button">
-                <X aria-hidden="true" size={18} />
-              </button>
-            </div>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                fnfMutation.mutate(fnfAmount)
-              }}
-            >
-              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div>
-                  <label className="form-label">Computed Net FnF Settlement Amount (₹) *</label>
-                  <input
-                    className="text-input"
-                    onChange={(e) => setFnfAmount(Number(e.target.value) || 0)}
-                    required
-                    type="number"
-                    value={fnfAmount}
-                  />
-                  <p className="cell-muted" style={{ fontSize: '0.8rem', marginTop: 4 }}>
-                    Includes prorated salary, leave encashment balance, notice pay recovery/payout, and gratuity.
-                  </p>
-                </div>
-              </div>
-              <div className="modal-footer">
-                <Button onClick={() => setIsFnfModalOpen(false)} type="button" variant="secondary">Cancel</Button>
-                <Button disabled={fnfMutation.isPending} type="submit" variant="primary">Confirm FnF Settlement</Button>
-              </div>
-            </form>
+      {isFnfModalOpen && (
+        <Modal
+          description="Final settlement calculation including unpaid salary, encashed leaves, and gratuity."
+          footer={
+            <>
+              <Button onClick={() => setIsFnfModalOpen(false)} type="button" variant="secondary">Cancel</Button>
+              <Button disabled={fnfMutation.isPending} onClick={() => fnfMutation.mutate(fnfAmount)} variant="primary">
+                {fnfMutation.isPending ? 'Confirming...' : 'Confirm FnF Settlement'}
+              </Button>
+            </>
+          }
+          isOpen={isFnfModalOpen}
+          onClose={() => setIsFnfModalOpen(false)}
+          size="md"
+          title="Full & Final (FnF) Settlement"
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <FormField label="Computed Net FnF Settlement Amount (₹)" required>
+              <NumberInput
+                min={0}
+                onChange={(e) => setFnfAmount(Number(e.target.value) || 0)}
+                required
+                step="0.01"
+                value={fnfAmount}
+              />
+            </FormField>
+            <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+              Includes prorated salary, leave encashment balance, notice pay recovery/payout, and gratuity.
+            </p>
           </div>
-        </div>
-      ) : null}
+        </Modal>
+      )}
     </section>
   )
 }
 
-function DocumentError({ onBack }: { onBack: () => void }) {
-  return (
-    <section className="workspace-page">
-      <div className="directory-state directory-state--error" role="alert">
-        <FileText aria-hidden="true" size={24} />
-        <strong>Unable to load offboarding record.</strong>
-        <p>The record was not found or your session cannot access this workspace.</p>
-        <Button onClick={onBack} variant="secondary">
-          <ArrowLeft aria-hidden="true" size={16} />
-          Back to Offboarding
-        </Button>
-      </div>
-    </section>
-  )
-}
