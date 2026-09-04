@@ -10,11 +10,22 @@ export function formatMoney(amount: number | string | null | undefined, currency
 
 export function formatDate(date: string | null | undefined) {
   if (!date) return '--'
+  const dateOnly = date.includes('T') ? date.split('T')[0] : date
+  const parsed = new Date(`${dateOnly}T00:00:00`)
+  if (Number.isNaN(parsed.getTime())) {
+    const fallback = new Date(date)
+    if (Number.isNaN(fallback.getTime())) return '--'
+    return new Intl.DateTimeFormat('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    }).format(fallback)
+  }
   return new Intl.DateTimeFormat('en-IN', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
-  }).format(new Date(`${date}T00:00:00`))
+  }).format(parsed)
 }
 
 export function formatDateTime(dateTime: string | null | undefined) {

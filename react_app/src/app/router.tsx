@@ -48,6 +48,7 @@ import { ContactStatementPage } from '@/features/contacts/contact-statement-page
 import { CreditNoteDetailPage } from '@/features/credit-notes/credit-note-detail-page'
 import { CreditNoteCreatePage } from '@/features/credit-notes/credit-note-create-page'
 import { CreditNotesPage } from '@/features/credit-notes/credit-notes-page'
+import { AccountingDashboardPage } from '@/features/dashboard/accounting-dashboard-page'
 import { DashboardPage } from '@/features/dashboard/dashboard-page'
 import { DebitNoteDetailPage } from '@/features/debit-notes/debit-note-detail-page'
 import { DebitNoteCreatePage } from '@/features/debit-notes/debit-note-create-page'
@@ -86,6 +87,7 @@ import { PdfTemplateCustomizerPage } from '@/features/settings/pdf-template-cust
 import { ItemDetailPage } from '@/features/items/item-detail-page'
 import { ItemFormPage } from '@/features/items/item-form-page'
 import { ItemsPage } from '@/features/items/items-page'
+import { StockSummaryPage } from '@/features/inventory/stock-summary-page'
 import { BatchTracePage } from '@/features/inventory/batch-trace-page'
 import { ShortbookPage } from '@/features/inventory/shortbook-page'
 import { ConsignmentsPage } from '@/features/inventory/consignments-page'
@@ -93,6 +95,7 @@ import { BarcodeLabelsPage } from '@/features/inventory/barcode-labels-page'
 import { JobWorkDetailPage } from '@/features/job-work/job-work-detail-page'
 import { JobWorkPage } from '@/features/job-work/job-work-page'
 import { JournalDetailPage } from '@/features/journals/journal-detail-page'
+import { JournalCreatePage } from '@/features/journals/journal-create-page'
 import { JournalsPage } from '@/features/journals/journals-page'
 import { LoginPage } from '@/features/auth/login-page'
 import { MaintenanceSchedulesPage } from '@/features/maintenance/maintenance-schedules-page'
@@ -151,13 +154,16 @@ import { StockCountsPage } from '@/features/stock-counts/stock-counts-page'
 import { StockReceiptDetailPage } from '@/features/stock-receipts/stock-receipt-detail-page'
 import { StockReceiptCreatePage } from '@/features/stock-receipts/stock-receipt-create-page'
 import { StockReceiptsPage } from '@/features/stock-receipts/stock-receipts-page'
-import { TransferOrderDetailPage } from '@/features/transfer-orders/transfer-order-detail-page'
-import { TransferOrdersPage } from '@/features/transfer-orders/transfer-orders-page'
+import { TransferOrderDetailPage } from '@/features/inventory/transfer-order-detail-page'
+import { TransferOrdersPage } from '@/features/inventory/transfer-orders-page'
+import { TransferOrderCreatePage } from '@/features/inventory/transfer-order-create-page'
+import { BatchesPage } from '@/features/inventory/batches-page'
 import { VanDetailPage } from '@/features/field-sales/van-detail-page'
 import { VansPage } from '@/features/field-sales/vans-page'
 import { VendorCreditDetailPage } from '@/features/vendor-credits/vendor-credit-detail-page'
 import { VendorCreditsPage } from '@/features/vendor-credits/vendor-credits-page'
 import { VendorPaymentDetailPage } from '@/features/vendor-payments/vendor-payment-detail-page'
+import { VendorPaymentCreatePage } from '@/features/vendor-payments/vendor-payment-create-page'
 import { VendorPaymentsPage } from '@/features/vendor-payments/vendor-payments-page'
 import { WarehouseDetailPage } from '@/features/warehouses/warehouse-detail-page'
 import { WarehousesPage } from '@/features/warehouses/warehouses-page'
@@ -255,6 +261,10 @@ export const router = createBrowserRouter([
             element: <ItemDetailPage />,
           },
           {
+            path: 'inventory/stock-summary',
+            element: <StockSummaryPage />,
+          },
+          {
             path: 'batch-trace',
             element: <BatchTracePage />,
           },
@@ -283,7 +293,23 @@ export const router = createBrowserRouter([
             element: <TransferOrdersPage />,
           },
           {
+            path: 'transfer-orders/new',
+            element: <TransferOrderCreatePage />,
+          },
+          {
             path: 'transfer-orders/:transferOrderId',
+            element: <TransferOrderDetailPage />,
+          },
+          {
+            path: 'inventory/transfers',
+            element: <TransferOrdersPage />,
+          },
+          {
+            path: 'inventory/transfers/new',
+            element: <TransferOrderCreatePage />,
+          },
+          {
+            path: 'inventory/transfers/:transferOrderId',
             element: <TransferOrderDetailPage />,
           },
           {
@@ -293,6 +319,18 @@ export const router = createBrowserRouter([
           {
             path: 'stock-counts/:countId',
             element: <StockCountDetailPage />,
+          },
+          {
+            path: 'inventory/stock-count',
+            element: <StockCountsPage />,
+          },
+          {
+            path: 'inventory/stock-count/:countId',
+            element: <StockCountDetailPage />,
+          },
+          {
+            path: 'inventory/batches',
+            element: <BatchesPage />,
           },
           {
             path: 'warehouses',
@@ -515,6 +553,10 @@ export const router = createBrowserRouter([
             element: <VendorPaymentsPage />,
           },
           {
+            path: 'vendor-payments/new',
+            element: <VendorPaymentCreatePage />,
+          },
+          {
             path: 'vendor-payments/:paymentId',
             element: <VendorPaymentDetailPage />,
           },
@@ -695,6 +737,10 @@ export const router = createBrowserRouter([
             element: <MrApprovalsPage />,
           },
           {
+            path: 'accounting/dashboard',
+            element: <AccountingDashboardPage />,
+          },
+          {
             path: 'budgets',
             element: <BudgetsPage />,
           },
@@ -713,6 +759,10 @@ export const router = createBrowserRouter([
           {
             path: 'journals',
             element: <JournalsPage />,
+          },
+          {
+            path: 'journals/new',
+            element: <JournalCreatePage />,
           },
           {
             path: 'journals/:journalId',
