@@ -57,6 +57,12 @@ import { PayrollSettingsPage } from '@/features/payroll/payroll-settings-page'
 import { FixedAssetDetailPage } from '@/features/fixed-assets/fixed-asset-detail-page'
 import { FixedAssetsPage } from '@/features/fixed-assets/fixed-assets-page'
 import { GstCompliancePage } from '@/features/gst/gst-compliance-page'
+import { TdsCompliancePage } from '@/features/tax/tds-compliance-page'
+import { TcsCompliancePage } from '@/features/tax/tcs-compliance-page'
+import { TaxAccountMappingsPage } from '@/features/tax/tax-account-mappings-page'
+import { FranchisePage } from '@/features/franchise/franchise-page'
+import { FranchiseNodeDetailPage } from '@/features/franchise/franchise-node-detail-page'
+import { KenyaCompliancePage } from '@/features/kenya/kenya-compliance-page'
 import { ItemDetailPage } from '@/features/items/item-detail-page'
 import { ItemsPage } from '@/features/items/items-page'
 import { BatchTracePage } from '@/features/inventory/batch-trace-page'
@@ -721,6 +727,30 @@ export const router = createBrowserRouter([
           {
             path: 'gst',
             element: <GstCompliancePage />,
+          },
+          {
+            path: 'compliance/tds',
+            element: <TdsCompliancePage />,
+          },
+          {
+            path: 'compliance/tcs',
+            element: <TcsCompliancePage />,
+          },
+          {
+            path: 'settings/tax-accounts',
+            element: <TaxAccountMappingsPage />,
+          },
+          {
+            path: 'franchise',
+            element: <FranchisePage />,
+          },
+          {
+            path: 'franchise/:nodeId',
+            element: <FranchiseNodeDetailPage />,
+          },
+          {
+            path: 'compliance/kenya',
+            element: <KenyaCompliancePage />,
           },
           {
             path: 'pharmacy-masters',

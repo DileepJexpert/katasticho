@@ -1,4 +1,6 @@
 import {
+  Globe,
+  Store,
   AlertOctagon,
   ArrowLeftRight,
   ArrowUpRight,
@@ -192,6 +194,12 @@ export const appRoutes = {
   lorryReceiptDetail: (id: string) => `/transport/lorry-receipts/${id}`,
   freightRateCards: '/transport/rate-cards',
   vehicleLogs: '/transport/vehicle-logs',
+  tds: '/compliance/tds',
+  tcs: '/compliance/tcs',
+  taxAccountMappings: '/settings/tax-accounts',
+  franchise: '/franchise',
+  franchiseDetail: (nodeId: string) => `/franchise/${nodeId}`,
+  kenyaCompliance: '/compliance/kenya',
 } as const
 
 export type NavigationContext = {
@@ -782,6 +790,44 @@ const navigationItems: readonly NavigationItem[] = [
     icon: ShieldCheck,
     to: appRoutes.gst,
     countries: ['IN'],
+  },
+  {
+    id: 'compliance.tds',
+    label: 'TDS Compliance (26Q/24Q)',
+    description: 'Vendor & salary TDS registers & Form 16',
+    icon: FileText,
+    to: appRoutes.tds,
+    countries: ['IN'],
+  },
+  {
+    id: 'compliance.tcs',
+    label: 'TCS Section 206C(1H)',
+    description: '₹50L turnover tracker & Form 27EQ',
+    icon: Layers,
+    to: appRoutes.tcs,
+    countries: ['IN'],
+  },
+  {
+    id: 'compliance.kenya',
+    label: 'Kenya eTIMS & M-Pesa',
+    description: 'KRA electronic tax invoices & Daraja mobile money',
+    icon: Globe,
+    to: appRoutes.kenyaCompliance,
+    countries: ['KE'],
+  },
+  {
+    id: 'franchise.stores',
+    label: 'Franchise Network',
+    description: 'FOFO/COCO branches, catalog push & royalties',
+    icon: Store,
+    to: appRoutes.franchise,
+  },
+  {
+    id: 'settings.tax_accounts',
+    label: 'Tax Account Mappings',
+    description: 'GST/VAT input/output GL account bindings',
+    icon: Building2,
+    to: appRoutes.taxAccountMappings,
   },
   {
     id: 'pharmacy.masters',

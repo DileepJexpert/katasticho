@@ -90,6 +90,8 @@ describe('getVisibleNavigation', () => {
       'payroll.settings',
       'reporting.hub',
       'reporting.saved',
+      'franchise.stores',
+      'settings.tax_accounts',
       'pharmacy.masters',
       'pharmacy.near_expiry',
       'transport.courier_shipments',
