@@ -3,10 +3,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, ListChecks, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  DataTable,
+  FormField,
+  Modal,
+  PageHeader,
+  StatusChip,
+  TextInput,
+} from '@/design-system'
 import { formatDateTime, formatStatusLabel } from '@/shared/format/format'
 import {
   createPicklist,
@@ -152,33 +157,31 @@ function CreatePicklistModal({ onClose, onSuccess }: { onClose: () => void; onSu
   })
 
   return (
-    <div className="modal-backdrop" role="dialog">
-      <div className="modal-dialog">
-        <header className="modal-header">
-          <h3>Create Warehouse Picklist</h3>
-          <Button onClick={onClose} variant="ghost">✕</Button>
-        </header>
-        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <label className="field-group">
-            <span>Sales Order ID / Number *</span>
-            <input onChange={(e) => setSalesOrderId(e.target.value)} placeholder="e.g. SO-2026-001" value={salesOrderId} />
-          </label>
-          <label className="field-group">
-            <span>Fulfillment Warehouse ID *</span>
-            <input onChange={(e) => setWarehouseId(e.target.value)} value={warehouseId} />
-          </label>
-          <label className="field-group">
-            <span>Picklist Notes</span>
-            <input onChange={(e) => setNotes(e.target.value)} placeholder="e.g. Priority dispatch, fragile packaging" value={notes} />
-          </label>
-        </div>
-        <footer className="modal-footer">
+    <Modal
+      footer={
+        <>
           <Button onClick={onClose} variant="secondary">Cancel</Button>
           <Button disabled={!salesOrderId || mutation.isPending} onClick={() => mutation.mutate()} variant="primary">
             {mutation.isPending ? 'Generating...' : 'Generate Picklist'}
           </Button>
-        </footer>
+        </>
+      }
+      isOpen
+      onClose={onClose}
+      size="md"
+      title="Create Warehouse Picklist"
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <FormField label="Sales Order ID / Number" required>
+          <TextInput onChange={(e) => setSalesOrderId(e.target.value)} placeholder="e.g. SO-2026-001" value={salesOrderId} />
+        </FormField>
+        <FormField label="Fulfillment Warehouse ID" required>
+          <TextInput onChange={(e) => setWarehouseId(e.target.value)} value={warehouseId} />
+        </FormField>
+        <FormField label="Picklist Notes">
+          <TextInput onChange={(e) => setNotes(e.target.value)} placeholder="e.g. Priority dispatch, fragile packaging" value={notes} />
+        </FormField>
       </div>
-    </div>
+    </Modal>
   )
 }

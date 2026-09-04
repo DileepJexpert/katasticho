@@ -428,39 +428,40 @@ export function BomManagerPage() {
         </section>
       )}
 
-      {isCreateVersionOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-card">
-            <h3>Create New BOM Version</h3>
-            <p className="cell-muted" style={{ marginBottom: '16px' }}>
-              Creating version {latestVer + 1} for item {parentItemId}.
-            </p>
-            <label style={{ display: 'block', marginBottom: '16px' }}>
-              <span style={{ fontSize: '13px', fontWeight: 600 }}>Change Notes / Engineering ECO:</span>
-              <textarea
-                className="search-input"
-                onChange={(e) => setChangeNotes(e.target.value)}
-                placeholder="Reason for revision (e.g. replaced supplier packaging, adjusted mix ratio)..."
-                rows={3}
-                style={{ width: '100%', marginTop: '4px' }}
-                value={changeNotes}
-              />
-            </label>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-              <Button onClick={() => setIsCreateVersionOpen(false)} variant="secondary">
-                Cancel
-              </Button>
-              <Button
-                disabled={createVersionMutation.isPending}
-                onClick={() => createVersionMutation.mutate()}
-                variant="primary"
-              >
-                Create Version {latestVer + 1}
-              </Button>
-            </div>
-          </div>
+      <Modal
+        footer={
+          <>
+            <Button onClick={() => setIsCreateVersionOpen(false)} variant="secondary">
+              Cancel
+            </Button>
+            <Button
+              disabled={createVersionMutation.isPending}
+              onClick={() => createVersionMutation.mutate()}
+              variant="primary"
+            >
+              {createVersionMutation.isPending ? 'Creating...' : `Create Version ${latestVer + 1}`}
+            </Button>
+          </>
+        }
+        isOpen={isCreateVersionOpen}
+        onClose={() => setIsCreateVersionOpen(false)}
+        size="md"
+        title="Create New BOM Version"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
+            Creating version {latestVer + 1} for item {parentItemId}.
+          </p>
+          <FormField label="Change Notes / Engineering ECO">
+            <TextAreaInput
+              onChange={(e) => setChangeNotes(e.target.value)}
+              placeholder="Reason for revision (e.g. replaced supplier packaging, adjusted mix ratio)..."
+              rows={3}
+              value={changeNotes}
+            />
+          </FormField>
         </div>
-      )}
+      </Modal>
     </section>
   )
 }

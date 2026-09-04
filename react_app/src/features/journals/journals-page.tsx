@@ -9,11 +9,19 @@ import {
 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  DataTable,
+  FormField,
+  FormGrid,
+  Modal,
+  Money,
+  NumberInput,
+  PageHeader,
+  SelectInput,
+  StatusChip,
+  TextInput,
+} from '@/design-system'
 import { formatDate } from '@/shared/format/format'
 import {
   createJournal,
@@ -273,104 +281,9 @@ function CreateJournalModal({
   }
 
   return (
-    <div className="modal-backdrop" role="dialog">
-      <div className="modal-dialog" style={{ maxWidth: '750px' }}>
-        <header className="modal-header">
-          <h3>Create Double-Entry Journal Voucher</h3>
-          <Button onClick={onClose} variant="ghost">✕</Button>
-        </header>
-        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <label className="field-group">
-              <span>Effective Date *</span>
-              <input onChange={(e) => setEffectiveDate(e.target.value)} required type="date" value={effectiveDate} />
-            </label>
-            <label className="field-group">
-              <span>Reference Number</span>
-              <input onChange={(e) => setReference(e.target.value)} placeholder="e.g. JV-2026-001" value={reference} />
-            </label>
-          </div>
-
-          <label className="field-group">
-            <span>Narration / Notes *</span>
-            <input
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="e.g. Adjustment for prepaid rent / monthly accrual"
-              required
-              value={description}
-            />
-          </label>
-
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-              <h4>Journal Lines ({lines.length})</h4>
-              <Button onClick={addLine} variant="secondary">
-                <Plus className="icon" /> Add Line
-              </Button>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {lines.map((line, idx) => (
-                <div key={idx} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1.5fr auto', gap: '0.5rem', alignItems: 'center' }}>
-                  <select onChange={(e) => updateLine(idx, { accountId: e.target.value })} value={line.accountId}>
-                    <option value="">-- Choose Account --</option>
-                    {accounts.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.code} - {a.name} ({a.type})
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    min={0}
-                    onChange={(e) => updateLine(idx, { debit: Number(e.target.value), credit: 0 })}
-                    placeholder="Debit"
-                    type="number"
-                    value={line.debit === 0 ? '' : line.debit}
-                  />
-                  <input
-                    min={0}
-                    onChange={(e) => updateLine(idx, { credit: Number(e.target.value), debit: 0 })}
-                    placeholder="Credit"
-                    type="number"
-                    value={line.credit === 0 ? '' : line.credit}
-                  />
-                  <input
-                    onChange={(e) => updateLine(idx, { description: e.target.value })}
-                    placeholder="Line memo"
-                    value={line.description ?? ''}
-                  />
-                  <Button disabled={lines.length <= 2} onClick={() => removeLine(idx)} variant="ghost">✕</Button>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div
-            style={{
-              padding: '0.75rem',
-              borderRadius: '6px',
-              backgroundColor: isBalanced ? 'rgba(15, 133, 118, 0.08)' : 'rgba(190, 58, 52, 0.08)',
-              border: `1px solid ${isBalanced ? 'var(--color-primary)' : 'var(--color-danger, #BE3A34)'}`,
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}
-          >
-            <div>
-              <strong>Total Debits:</strong> <Money amount={totalDebit} /> | <strong>Total Credits:</strong> <Money amount={totalCredit} />
-            </div>
-            <div>
-              {isBalanced ? (
-                <span style={{ color: 'var(--color-primary)', fontWeight: 'bold' }}>✓ Balanced</span>
-              ) : (
-                <span style={{ color: 'var(--color-danger, #BE3A34)', fontWeight: 'bold' }}>
-                  Difference: <Money amount={Math.abs(totalDebit - totalCredit)} />
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-        <footer className="modal-footer">
+    <Modal
+      footer={
+        <>
           <Button onClick={onClose} variant="secondary">Cancel</Button>
           <Button
             disabled={!description || !isBalanced || lines.some((l) => !l.accountId) || mutation.isPending}
@@ -379,8 +292,101 @@ function CreateJournalModal({
           >
             {mutation.isPending ? 'Posting...' : 'Post Journal Voucher'}
           </Button>
-        </footer>
+        </>
+      }
+      isOpen
+      onClose={onClose}
+      size="xl"
+      title="Create Double-Entry Journal Voucher"
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <FormGrid columns={2}>
+          <FormField label="Effective Date" required>
+            <TextInput onChange={(e) => setEffectiveDate(e.target.value)} required type="date" value={effectiveDate} />
+          </FormField>
+          <FormField label="Reference Number">
+            <TextInput onChange={(e) => setReference(e.target.value)} placeholder="e.g. JV-2026-001" value={reference} />
+          </FormField>
+        </FormGrid>
+
+        <FormField label="Narration / Notes" required>
+          <TextInput
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="e.g. Adjustment for prepaid rent / monthly accrual"
+            required
+            value={description}
+          />
+        </FormField>
+
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+            <h4 style={{ margin: 0, fontSize: '0.9375rem', fontWeight: 600 }}>Journal Lines ({lines.length})</h4>
+            <Button onClick={addLine} variant="secondary">
+              <Plus className="icon" /> Add Line
+            </Button>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {lines.map((line, idx) => (
+              <div key={idx} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1.5fr auto', gap: '0.5rem', alignItems: 'center' }}>
+                <SelectInput onChange={(e) => updateLine(idx, { accountId: e.target.value })} value={line.accountId}>
+                  <option value="">-- Choose Account --</option>
+                  {accounts.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.code} - {a.name} ({a.type})
+                    </option>
+                  ))}
+                </SelectInput>
+                <NumberInput
+                  min={0}
+                  onChange={(e) => updateLine(idx, { debit: Number(e.target.value), credit: 0 })}
+                  placeholder="Debit (₹)"
+                  step="0.01"
+                  value={line.debit === 0 ? '' : line.debit}
+                />
+                <NumberInput
+                  min={0}
+                  onChange={(e) => updateLine(idx, { credit: Number(e.target.value), debit: 0 })}
+                  placeholder="Credit (₹)"
+                  step="0.01"
+                  value={line.credit === 0 ? '' : line.credit}
+                />
+                <TextInput
+                  onChange={(e) => updateLine(idx, { description: e.target.value })}
+                  placeholder="Line memo"
+                  value={line.description ?? ''}
+                />
+                <Button disabled={lines.length <= 2} onClick={() => removeLine(idx)} variant="ghost">✕</Button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div
+          style={{
+            padding: '0.75rem',
+            borderRadius: '6px',
+            backgroundColor: isBalanced ? 'rgba(15, 133, 118, 0.08)' : 'rgba(190, 58, 52, 0.08)',
+            border: `1px solid ${isBalanced ? 'var(--color-primary)' : 'var(--color-danger, #BE3A34)'}`,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
+          <div>
+            <strong>Total Debits:</strong> <Money amount={totalDebit} /> | <strong>Total Credits:</strong> <Money amount={totalCredit} />
+          </div>
+          <div>
+            {isBalanced ? (
+              <span style={{ color: 'var(--color-primary)', fontWeight: 'bold' }}>✓ Balanced</span>
+            ) : (
+              <span style={{ color: 'var(--color-danger, #BE3A34)', fontWeight: 'bold' }}>
+                Difference: <Money amount={Math.abs(totalDebit - totalCredit)} />
+              </span>
+            )}
+          </div>
+        </div>
       </div>
-    </div>
+    </Modal>
   )
 }

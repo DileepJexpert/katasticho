@@ -6,11 +6,18 @@ import {
   RotateCcw,
   ShoppingCart,
 } from 'lucide-react'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  DataTable,
+  FormField,
+  FormGrid,
+  Modal,
+  Money,
+  NumberInput,
+  PageHeader,
+  StatusChip,
+  TextInput,
+} from '@/design-system'
 import { formatDate } from '@/shared/format/format'
 import {
   getConsignmentStock,
@@ -145,8 +152,8 @@ function ReceiveConsignmentModal({ onClose, onSuccess }: { onClose: () => void; 
   const [itemId, setItemId] = useState('')
   const [supplierId, setSupplierId] = useState('')
   const [warehouseId, setWarehouseId] = useState('WH-MAIN')
-  const [quantity, setQuantity] = useState(100)
-  const [unitCost, setUnitCost] = useState(50)
+  const [quantity, setQuantity] = useState(10)
+  const [unitCost, setUnitCost] = useState(100)
   const [agreementRef, setAgreementRef] = useState('')
 
   const mutation = useMutation({
@@ -163,48 +170,43 @@ function ReceiveConsignmentModal({ onClose, onSuccess }: { onClose: () => void; 
   })
 
   return (
-    <div className="modal-backdrop" role="dialog">
-      <div className="modal-dialog">
-        <header className="modal-header">
-          <h3>Receive Consignment Stock</h3>
-          <Button onClick={onClose} variant="ghost">✕</Button>
-        </header>
-        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <label className="field-group">
-            <span>Item ID / SKU</span>
-            <input onChange={(e) => setItemId(e.target.value)} placeholder="e.g. ITEM-001" value={itemId} />
-          </label>
-          <label className="field-group">
-            <span>Supplier ID</span>
-            <input onChange={(e) => setSupplierId(e.target.value)} placeholder="e.g. SUPP-001" value={supplierId} />
-          </label>
-          <label className="field-group">
-            <span>Destination Warehouse</span>
-            <input onChange={(e) => setWarehouseId(e.target.value)} value={warehouseId} />
-          </label>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <label className="field-group">
-              <span>Quantity</span>
-              <input onChange={(e) => setQuantity(Number(e.target.value))} type="number" value={quantity} />
-            </label>
-            <label className="field-group">
-              <span>Agreed Unit Cost (₹)</span>
-              <input onChange={(e) => setUnitCost(Number(e.target.value))} type="number" value={unitCost} />
-            </label>
-          </div>
-          <label className="field-group">
-            <span>Agreement Reference</span>
-            <input onChange={(e) => setAgreementRef(e.target.value)} placeholder="e.g. VMI-AGR-2026" value={agreementRef} />
-          </label>
-        </div>
-        <footer className="modal-footer">
+    <Modal
+      footer={
+        <>
           <Button onClick={onClose} variant="secondary">Cancel</Button>
           <Button disabled={!itemId || !supplierId || quantity <= 0 || mutation.isPending} onClick={() => mutation.mutate()} variant="primary">
             {mutation.isPending ? 'Receiving...' : 'Receive Stock'}
           </Button>
-        </footer>
+        </>
+      }
+      isOpen
+      onClose={onClose}
+      size="lg"
+      title="Receive Consignment Stock"
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <FormField label="Item ID / SKU" required>
+          <TextInput onChange={(e) => setItemId(e.target.value)} placeholder="e.g. ITEM-001" value={itemId} />
+        </FormField>
+        <FormField label="Supplier ID" required>
+          <TextInput onChange={(e) => setSupplierId(e.target.value)} placeholder="e.g. SUPP-001" value={supplierId} />
+        </FormField>
+        <FormField label="Destination Warehouse">
+          <TextInput onChange={(e) => setWarehouseId(e.target.value)} value={warehouseId} />
+        </FormField>
+        <FormGrid columns={2}>
+          <FormField label="Quantity" required>
+            <NumberInput min={1} onChange={(e) => setQuantity(Number(e.target.value))} value={quantity} />
+          </FormField>
+          <FormField label="Agreed Unit Cost (₹)" required>
+            <NumberInput min={0} onChange={(e) => setUnitCost(Number(e.target.value))} step="0.01" value={unitCost} />
+          </FormField>
+        </FormGrid>
+        <FormField label="Agreement Reference">
+          <TextInput onChange={(e) => setAgreementRef(e.target.value)} placeholder="e.g. VMI-AGR-2026" value={agreementRef} />
+        </FormField>
       </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -229,37 +231,36 @@ function RecordSaleModal({
   })
 
   return (
-    <div className="modal-backdrop" role="dialog">
-      <div className="modal-dialog">
-        <header className="modal-header">
-          <h3>Record Consignment Sale / Consumption</h3>
-          <Button onClick={onClose} variant="ghost">✕</Button>
-        </header>
-        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <p>
-            Recording sale for <strong>{stock.itemName}</strong> (Available remaining: {stock.remainingQuantity}).
-          </p>
-          <label className="field-group">
-            <span>Quantity Sold / Consumed</span>
-            <input
-              max={Number(stock.remainingQuantity)}
-              min={1}
-              onChange={(e) => setQuantitySold(Number(e.target.value))}
-              type="number"
-              value={quantitySold}
-            />
-          </label>
-          <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>
-            This will reduce available consignment stock and accrue a payable bill to supplier {stock.supplierName ?? stock.supplierId}.
-          </p>
-        </div>
-        <footer className="modal-footer">
+    <Modal
+      footer={
+        <>
           <Button onClick={onClose} variant="secondary">Cancel</Button>
           <Button disabled={quantitySold <= 0 || quantitySold > Number(stock.remainingQuantity) || mutation.isPending} onClick={() => mutation.mutate()} variant="primary">
             {mutation.isPending ? 'Recording...' : 'Confirm Sale'}
           </Button>
-        </footer>
+        </>
+      }
+      isOpen
+      onClose={onClose}
+      size="md"
+      title="Record Consignment Sale / Consumption"
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <p style={{ margin: 0 }}>
+          Recording sale for <strong>{stock.itemName}</strong> (Available remaining: {stock.remainingQuantity}).
+        </p>
+        <FormField label="Quantity Sold / Consumed" required>
+          <NumberInput
+            max={Number(stock.remainingQuantity)}
+            min={1}
+            onChange={(e) => setQuantitySold(Number(e.target.value))}
+            value={quantitySold}
+          />
+        </FormField>
+        <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
+          This will reduce available consignment stock and accrue a payable bill to supplier {stock.supplierName ?? stock.supplierId}.
+        </p>
       </div>
-    </div>
+    </Modal>
   )
 }

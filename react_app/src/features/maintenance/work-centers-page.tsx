@@ -3,11 +3,18 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Cpu, Plus, Search, CalendarClock, Wrench } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  DataTable,
+  FormField,
+  FormGrid,
+  Modal,
+  Money,
+  NumberInput,
+  PageHeader,
+  StatusChip,
+  TextInput,
+} from '@/design-system'
 import { listWorkstations, createWorkstation } from '@/features/maintenance/maintenance-api'
 
 export function WorkCentersPage() {
@@ -130,77 +137,69 @@ export function WorkCentersPage() {
         </DataTable>
       )}
 
-      {isCreateOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-card">
-            <h3>Add Plant Work Center / Machine</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Station Code:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setCode(e.target.value)}
-                  placeholder="e.g. WC-CNC-01"
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={code}
-                />
-              </label>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Station Name:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. 5-Axis CNC Milling Center"
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={name}
-                />
-              </label>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Description:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setDesc(e.target.value)}
-                  placeholder="Optional description / location"
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={desc}
-                />
-              </label>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <label style={{ flex: 1 }}>
-                  <span style={{ fontSize: '13px', fontWeight: 600 }}>Daily Capacity (Hours):</span>
-                  <input
-                    className="search-input"
-                    onChange={(e) => setCapacity(e.target.value)}
-                    style={{ width: '100%', marginTop: '4px' }}
-                    type="number"
-                    value={capacity}
-                  />
-                </label>
-                <label style={{ flex: 1 }}>
-                  <span style={{ fontSize: '13px', fontWeight: 600 }}>Standard Hourly Rate:</span>
-                  <input
-                    className="search-input"
-                    onChange={(e) => setRate(e.target.value)}
-                    style={{ width: '100%', marginTop: '4px' }}
-                    type="number"
-                    value={rate}
-                  />
-                </label>
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '16px' }}>
-              <Button onClick={() => setIsCreateOpen(false)} variant="secondary">Cancel</Button>
-              <Button
-                disabled={createMutation.isPending || !code.trim() || !name.trim()}
-                onClick={() => createMutation.mutate()}
-                variant="primary"
-              >
-                Save Work Center
-              </Button>
-            </div>
-          </div>
+      <Modal
+        footer={
+          <>
+            <Button onClick={() => setIsCreateOpen(false)} variant="secondary">Cancel</Button>
+            <Button
+              disabled={createMutation.isPending || !code.trim() || !name.trim()}
+              onClick={() => createMutation.mutate()}
+              variant="primary"
+            >
+              {createMutation.isPending ? 'Saving...' : 'Save Work Center'}
+            </Button>
+          </>
+        }
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        size="lg"
+        title="Add Work Center"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <FormGrid columns={2}>
+            <FormField label="Work Center Code" required>
+              <TextInput
+                onChange={(e) => setCode(e.target.value)}
+                placeholder="e.g. WC-CNC-01"
+                required
+                value={code}
+              />
+            </FormField>
+            <FormField label="Work Center Name" required>
+              <TextInput
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. 5-Axis CNC Milling Center"
+                required
+                value={name}
+              />
+            </FormField>
+          </FormGrid>
+          <FormField label="Description">
+            <TextInput
+              onChange={(e) => setDesc(e.target.value)}
+              placeholder="Optional description / location"
+              value={desc}
+            />
+          </FormField>
+          <FormGrid columns={2}>
+            <FormField label="Daily Capacity (Hours)" required>
+              <NumberInput
+                min={1}
+                onChange={(e) => setCapacity(e.target.value)}
+                value={capacity}
+              />
+            </FormField>
+            <FormField label="Standard Hourly Rate (₹)" required>
+              <NumberInput
+                min={0}
+                onChange={(e) => setRate(e.target.value)}
+                step="0.01"
+                value={rate}
+              />
+            </FormField>
+          </FormGrid>
         </div>
-      )}
+      </Modal>
     </section>
   )
 }

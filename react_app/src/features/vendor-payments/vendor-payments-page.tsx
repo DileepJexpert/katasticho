@@ -3,12 +3,18 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowUpRight, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
-import { TextField } from '@/design-system/text-field'
+import {
+  Button,
+  DataTable,
+  FormField,
+  Modal,
+  Money,
+  NumberInput,
+  PageHeader,
+  SelectInput,
+  StatusChip,
+  TextInput,
+} from '@/design-system'
 import { formatDate, formatStatusLabel } from '@/shared/format/format'
 import {
   listVendorPayments,
@@ -132,67 +138,76 @@ export function VendorPaymentsPage() {
         )}
       </section>
 
-      {disburseModalOpen ? (
-        <div className="modal-backdrop" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-          <div className="modal-dialog" style={{ background: '#fff', borderRadius: '8px', padding: '24px', maxWidth: '480px', width: '100%' }}>
-            <h3>Record Vendor Payment</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
-              <TextField
-                label="Vendor Contact ID"
-                onChange={(e) => setForm((f) => ({ ...f, contactId: e.target.value }))}
-                placeholder="UUID of supplier"
-                value={form.contactId}
-              />
-              <TextField
-                label="Payment Date"
-                onChange={(e) => setForm((f) => ({ ...f, paymentDate: e.target.value }))}
-                type="date"
-                value={form.paymentDate}
-              />
-              <TextField
-                label="Amount (₹)"
-                onChange={(e) => setForm((f) => ({ ...f, amount: Number(e.target.value) }))}
-                type="number"
-                value={String(form.amount)}
-              />
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', marginBottom: '4px' }}>Payment Mode</label>
-                <select
-                  onChange={(e) => setForm((f) => ({ ...f, paymentMode: e.target.value }))}
-                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ccc' }}
-                  value={form.paymentMode}
-                >
-                  <option value="BANK_TRANSFER">Bank Transfer (NEFT/RTGS/IMPS)</option>
-                  <option value="CHEQUE">Cheque</option>
-                  <option value="UPI">UPI</option>
-                  <option value="CASH">Cash</option>
-                </select>
-              </div>
-              <TextField
-                label="Reference / Cheque #"
-                onChange={(e) => setForm((f) => ({ ...f, referenceNumber: e.target.value }))}
-                placeholder="e.g. UTR9988112"
-                value={form.referenceNumber}
-              />
-              <TextField
-                label="Notes"
-                onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-                value={form.notes}
-              />
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
-                <Button onClick={() => setDisburseModalOpen(false)} variant="secondary">Cancel</Button>
-                <Button
-                  disabled={!form.contactId || form.amount <= 0 || disburseMutation.isPending}
-                  onClick={() => disburseMutation.mutate()}
-                  variant="primary"
-                >
-                  {disburseMutation.isPending ? 'Recording...' : 'Disburse Payment'}
-                </Button>
-              </div>
-            </div>
-          </div>
+      <Modal
+        footer={
+          <>
+            <Button onClick={() => setDisburseModalOpen(false)} variant="secondary">Cancel</Button>
+            <Button
+              disabled={!form.contactId || form.amount <= 0 || disburseMutation.isPending}
+              onClick={() => disburseMutation.mutate()}
+              variant="primary"
+            >
+              {disburseMutation.isPending ? 'Recording...' : 'Disburse Payment'}
+            </Button>
+          </>
+        }
+        isOpen={disburseModalOpen}
+        onClose={() => setDisburseModalOpen(false)}
+        size="md"
+        title="Record Vendor Payment"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <FormField label="Vendor Contact ID" required>
+            <TextInput
+              onChange={(e) => setForm((f) => ({ ...f, contactId: e.target.value }))}
+              placeholder="UUID of supplier"
+              required
+              value={form.contactId}
+            />
+          </FormField>
+          <FormField label="Payment Date" required>
+            <TextInput
+              onChange={(e) => setForm((f) => ({ ...f, paymentDate: e.target.value }))}
+              required
+              type="date"
+              value={form.paymentDate}
+            />
+          </FormField>
+          <FormField label="Amount (₹)" required>
+            <NumberInput
+              min={0}
+              onChange={(e) => setForm((f) => ({ ...f, amount: Number(e.target.value) }))}
+              required
+              step="0.01"
+              value={form.amount || ''}
+            />
+          </FormField>
+          <FormField label="Payment Mode">
+            <SelectInput
+              onChange={(e) => setForm((f) => ({ ...f, paymentMode: e.target.value }))}
+              value={form.paymentMode}
+            >
+              <option value="BANK_TRANSFER">Bank Transfer (NEFT/RTGS/IMPS)</option>
+              <option value="CHEQUE">Cheque</option>
+              <option value="UPI">UPI</option>
+              <option value="CASH">Cash</option>
+            </SelectInput>
+          </FormField>
+          <FormField label="Reference / Cheque #">
+            <TextInput
+              onChange={(e) => setForm((f) => ({ ...f, referenceNumber: e.target.value }))}
+              placeholder="e.g. UTR9988112"
+              value={form.referenceNumber}
+            />
+          </FormField>
+          <FormField label="Notes">
+            <TextInput
+              onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+              value={form.notes}
+            />
+          </FormField>
         </div>
-      ) : null}
+      </Modal>
     </section>
   )
 }

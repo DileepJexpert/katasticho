@@ -12,11 +12,21 @@ import {
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  CheckboxInput,
+  DataTable,
+  FormField,
+  FormGrid,
+  Modal,
+  Money,
+  NumberInput,
+  PageHeader,
+  SelectInput,
+  StatusChip,
+  TextAreaInput,
+  TextInput,
+} from '@/design-system'
 import { formatStatusLabel } from '@/shared/format/format'
 import {
   createAccount,
@@ -328,76 +338,93 @@ function CreateAccountModal({
   })
 
   return (
-    <div className="modal-backdrop" role="dialog">
-      <div className="modal-dialog">
-        <header className="modal-header">
-          <h3>Create Ledger Account</h3>
-          <Button onClick={onClose} variant="ghost">✕</Button>
-        </header>
-        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1rem' }}>
-            <label className="field-group">
-              <span>Account Code *</span>
-              <input onChange={(e) => setCode(e.target.value)} placeholder="e.g. 1050" required value={code} />
-            </label>
-            <label className="field-group">
-              <span>Account Name *</span>
-              <input onChange={(e) => setName(e.target.value)} placeholder="e.g. Petty Cash Bangalore" required value={name} />
-            </label>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <label className="field-group">
-              <span>Account Type *</span>
-              <select onChange={(e) => setType(e.target.value as AccountType)} value={type}>
-                <option value="ASSET">Asset</option>
-                <option value="LIABILITY">Liability</option>
-                <option value="EQUITY">Equity</option>
-                <option value="REVENUE">Revenue</option>
-                <option value="EXPENSE">Expense</option>
-              </select>
-            </label>
-            <label className="field-group">
-              <span>Sub-Type / Category</span>
-              <input onChange={(e) => setSubType(e.target.value)} placeholder="e.g. Current Asset, Bank Account" value={subType} />
-            </label>
-          </div>
-
-          <label className="field-group">
-            <span>Parent Account (Optional)</span>
-            <select onChange={(e) => setParentId(e.target.value)} value={parentId}>
-              <option value="">-- No Parent (Root Account) --</option>
-              {accounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.code} - {a.name} ({a.type})
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="field-group">
-            <span>Opening Balance (INR)</span>
-            <input
-              onChange={(e) => setOpeningBalance(e.target.value === '' ? '' : Number(e.target.value))}
-              placeholder="0.00"
-              type="number"
-              value={openingBalance}
-            />
-          </label>
-
-          <label className="field-group">
-            <span>Description / Narration</span>
-            <textarea onChange={(e) => setDescription(e.target.value)} placeholder="Account usage notes..." rows={2} value={description} />
-          </label>
-        </div>
-        <footer className="modal-footer">
+    <Modal
+      footer={
+        <>
           <Button onClick={onClose} variant="secondary">Cancel</Button>
           <Button disabled={!code || !name || mutation.isPending} onClick={() => mutation.mutate()} variant="primary">
             {mutation.isPending ? 'Creating...' : 'Create Account'}
           </Button>
-        </footer>
+        </>
+      }
+      isOpen
+      onClose={onClose}
+      size="lg"
+      title="Create Ledger Account"
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <FormGrid columns={2}>
+          <FormField label="Account Code" required>
+            <TextInput
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="e.g. 1050"
+              required
+              value={code}
+            />
+          </FormField>
+          <FormField label="Account Name" required>
+            <TextInput
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Petty Cash Bangalore"
+              required
+              value={name}
+            />
+          </FormField>
+        </FormGrid>
+
+        <FormGrid columns={2}>
+          <FormField label="Account Type" required>
+            <SelectInput
+              onChange={(e) => setType(e.target.value as AccountType)}
+              value={type}
+            >
+              <option value="ASSET">Asset</option>
+              <option value="LIABILITY">Liability</option>
+              <option value="EQUITY">Equity</option>
+              <option value="REVENUE">Revenue</option>
+              <option value="EXPENSE">Expense</option>
+            </SelectInput>
+          </FormField>
+          <FormField label="Sub-Type / Category">
+            <TextInput
+              onChange={(e) => setSubType(e.target.value)}
+              placeholder="e.g. Current Asset, Bank Account"
+              value={subType}
+            />
+          </FormField>
+        </FormGrid>
+
+        <FormField label="Parent Account (Optional)">
+          <SelectInput onChange={(e) => setParentId(e.target.value)} value={parentId}>
+            <option value="">-- No Parent (Root Account) --</option>
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.code} - {a.name} ({a.type})
+              </option>
+            ))}
+          </SelectInput>
+        </FormField>
+
+        <FormField label="Opening Balance (₹)">
+          <NumberInput
+            min={0}
+            onChange={(e) => setOpeningBalance(e.target.value === '' ? '' : Number(e.target.value))}
+            placeholder="0.00"
+            step="0.01"
+            value={openingBalance}
+          />
+        </FormField>
+
+        <FormField label="Description / Narration">
+          <TextAreaInput
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Account usage notes..."
+            rows={2}
+            value={description}
+          />
+        </FormField>
       </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -427,41 +454,40 @@ function EditAccountModal({
   })
 
   return (
-    <div className="modal-backdrop" role="dialog">
-      <div className="modal-dialog">
-        <header className="modal-header">
-          <h3>Edit Account ({account.code})</h3>
-          <Button onClick={onClose} variant="ghost">✕</Button>
-        </header>
-        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <label className="field-group">
-            <span>Account Name *</span>
-            <input onChange={(e) => setName(e.target.value)} required value={name} />
-          </label>
-
-          <label className="field-group">
-            <span>Sub-Type / Category</span>
-            <input onChange={(e) => setSubType(e.target.value)} value={subType} />
-          </label>
-
-          <label className="field-group">
-            <span>Description</span>
-            <textarea onChange={(e) => setDescription(e.target.value)} rows={2} value={description} />
-          </label>
-
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-            <input checked={isActive} onChange={(e) => setIsActive(e.target.checked)} type="checkbox" />
-            <span>Account is Active</span>
-          </label>
-        </div>
-        <footer className="modal-footer">
+    <Modal
+      footer={
+        <>
           <Button onClick={onClose} variant="secondary">Cancel</Button>
           <Button disabled={!name || mutation.isPending} onClick={() => mutation.mutate()} variant="primary">
             {mutation.isPending ? 'Saving...' : 'Save Changes'}
           </Button>
-        </footer>
+        </>
+      }
+      isOpen
+      onClose={onClose}
+      size="md"
+      title={`Edit Account (${account.code})`}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <FormField label="Account Name" required>
+          <TextInput onChange={(e) => setName(e.target.value)} required value={name} />
+        </FormField>
+
+        <FormField label="Sub-Type / Category">
+          <TextInput onChange={(e) => setSubType(e.target.value)} value={subType} />
+        </FormField>
+
+        <FormField label="Description">
+          <TextAreaInput onChange={(e) => setDescription(e.target.value)} rows={2} value={description} />
+        </FormField>
+
+        <CheckboxInput
+          checked={isActive}
+          label="Account is Active"
+          onChange={(e) => setIsActive(e.target.checked)}
+        />
       </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -480,33 +506,33 @@ function SeedTemplateModal({
   })
 
   return (
-    <div className="modal-backdrop" role="dialog">
-      <div className="modal-dialog">
-        <header className="modal-header">
-          <h3>Seed Standard Chart of Accounts</h3>
-          <Button onClick={onClose} variant="ghost">✕</Button>
-        </header>
-        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
-            Automatically populate Indian standard statutory and operational Chart of Accounts tailored to your industry. Existing accounts will not be overwritten.
-          </p>
-          <label className="field-group">
-            <span>Select Industry Template</span>
-            <select onChange={(e) => setIndustry(e.target.value)} value={industry}>
-              <option value="TRADING">General Trading / Wholesale & Retail</option>
-              <option value="PHARMA">Pharmaceutical Distributor / Pharmacy</option>
-              <option value="MANUFACTURING">Manufacturing & Assembly</option>
-              <option value="SERVICES">Services & Professional Practice</option>
-            </select>
-          </label>
-        </div>
-        <footer className="modal-footer">
+    <Modal
+      footer={
+        <>
           <Button onClick={onClose} variant="secondary">Cancel</Button>
           <Button disabled={mutation.isPending} onClick={() => mutation.mutate()} variant="primary">
             <Sparkles className="icon" /> {mutation.isPending ? 'Seeding...' : 'Seed Accounts'}
           </Button>
-        </footer>
+        </>
+      }
+      isOpen
+      onClose={onClose}
+      size="md"
+      title="Seed Standard Chart of Accounts"
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
+          Automatically populate Indian standard statutory and operational Chart of Accounts tailored to your industry. Existing accounts will not be overwritten.
+        </p>
+        <FormField label="Select Industry Template">
+          <SelectInput onChange={(e) => setIndustry(e.target.value)} value={industry}>
+            <option value="TRADING">General Trading / Wholesale & Retail</option>
+            <option value="PHARMA">Pharmaceutical Distributor / Pharmacy</option>
+            <option value="MANUFACTURING">Manufacturing & Assembly</option>
+            <option value="SERVICES">Services & Professional Practice</option>
+          </SelectInput>
+        </FormField>
       </div>
-    </div>
+    </Modal>
   )
 }

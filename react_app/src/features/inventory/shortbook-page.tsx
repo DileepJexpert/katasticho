@@ -7,11 +7,17 @@ import {
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
-import { Quantity } from '@/design-system/quantity'
+import {
+  Button,
+  DataTable,
+  FormField,
+  FormGrid,
+  Modal,
+  Money,
+  PageHeader,
+  Quantity,
+  TextInput,
+} from '@/design-system'
 import { getShortbook, type ShortbookItem } from '@/features/items/items-api'
 import { createPurchaseOrder } from '@/features/purchase-orders/purchase-orders-api'
 
@@ -244,42 +250,42 @@ function CreatePoFromShortbookModal({
   })
 
   return (
-    <div className="modal-backdrop" role="dialog">
-      <div className="modal-dialog" style={{ maxWidth: '600px' }}>
-        <header className="modal-header">
-          <h3>Create Purchase Order from Shortbook</h3>
-          <Button onClick={onClose} variant="ghost">✕</Button>
-        </header>
-        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <label className="field-group">
-              <span>Vendor / Supplier ID</span>
-              <input onChange={(e) => setSupplierId(e.target.value)} placeholder="e.g. VEND-001" value={supplierId} />
-            </label>
-            <label className="field-group">
-              <span>Destination Warehouse</span>
-              <input onChange={(e) => setWarehouseId(e.target.value)} value={warehouseId} />
-            </label>
-          </div>
-
-          <div>
-            <h4>Included Items ({items.length})</h4>
-            <ul style={{ maxHeight: '160px', overflowY: 'auto', fontSize: '0.875rem', paddingLeft: '1.25rem' }}>
-              {items.map((i) => (
-                <li key={i.itemId}>
-                  {i.itemName}: Deficit {i.deficitQuantity} {i.unitOfMeasure} @ <Money amount={Number(i.purchasePrice || 0)} />
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-        <footer className="modal-footer">
+    <Modal
+      footer={
+        <>
           <Button onClick={onClose} variant="secondary">Cancel</Button>
           <Button disabled={mutation.isPending} onClick={() => mutation.mutate()} variant="primary">
             <FileCheck2 className="icon" /> {mutation.isPending ? 'Generating PO...' : 'Create Draft PO'}
           </Button>
-        </footer>
+        </>
+      }
+      isOpen
+      onClose={onClose}
+      size="lg"
+      title="Create Purchase Order from Shortbook"
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <FormGrid columns={2}>
+          <FormField label="Vendor / Supplier ID">
+            <TextInput onChange={(e) => setSupplierId(e.target.value)} placeholder="e.g. VEND-001" value={supplierId} />
+          </FormField>
+          <FormField label="Destination Warehouse">
+            <TextInput onChange={(e) => setWarehouseId(e.target.value)} value={warehouseId} />
+          </FormField>
+        </FormGrid>
+
+        <div>
+          <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.9375rem', fontWeight: 600 }}>Included Items ({items.length})</h4>
+          <ul style={{ maxHeight: '160px', overflowY: 'auto', fontSize: '0.875rem', paddingLeft: '1.25rem', margin: 0 }}>
+            {items.map((i) => (
+              <li key={i.itemId}>
+                {i.itemName}: Deficit {i.deficitQuantity} {i.unitOfMeasure} @ <Money amount={Number(i.purchasePrice || 0)} />
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
-    </div>
+    </Modal>
   )
 }
+

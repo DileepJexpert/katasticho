@@ -3,10 +3,18 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Tag } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  CheckboxInput,
+  DataTable,
+  FormField,
+  FormGrid,
+  Modal,
+  PageHeader,
+  SelectInput,
+  StatusChip,
+  TextInput,
+} from '@/design-system'
 import {
   createPriceList,
   listPriceLists,
@@ -142,53 +150,50 @@ function CreatePriceListModal({ onClose, onSuccess }: { onClose: () => void; onS
   })
 
   return (
-    <div className="modal-backdrop" role="dialog">
-      <div className="modal-dialog">
-        <header className="modal-header">
-          <h3>Create Price List</h3>
-          <Button onClick={onClose} variant="ghost">✕</Button>
-        </header>
-        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1rem' }}>
-            <label className="field-group">
-              <span>Code *</span>
-              <input onChange={(e) => setCode(e.target.value)} placeholder="e.g. PL-WHOLESALE" value={code} />
-            </label>
-            <label className="field-group">
-              <span>Name *</span>
-              <input onChange={(e) => setName(e.target.value)} placeholder="e.g. Wholesale Tier A" value={name} />
-            </label>
-          </div>
-          <label className="field-group">
-            <span>Description</span>
-            <input onChange={(e) => setDescription(e.target.value)} placeholder="15% off standard prices for tier A distributors" value={description} />
-          </label>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <label className="field-group">
-              <span>Pricing Scheme</span>
-              <select onChange={(e) => setSchemeType(e.target.value)} value={schemeType}>
-                <option value="PERCENTAGE_DISCOUNT">Percentage Discount</option>
-                <option value="FIXED_PRICE">Fixed Item Prices</option>
-                <option value="MARKUP">Cost Markup</option>
-              </select>
-            </label>
-            <label className="field-group">
-              <span>Currency</span>
-              <input onChange={(e) => setCurrency(e.target.value)} value={currency} />
-            </label>
-          </div>
-          <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <input checked={isDefault} onChange={(e) => setIsDefault(e.target.checked)} type="checkbox" />
-            <span>Set as Default Price List</span>
-          </label>
-        </div>
-        <footer className="modal-footer">
+    <Modal
+      footer={
+        <>
           <Button onClick={onClose} variant="secondary">Cancel</Button>
           <Button disabled={!code || !name || mutation.isPending} onClick={() => mutation.mutate()} variant="primary">
             {mutation.isPending ? 'Creating...' : 'Create Price List'}
           </Button>
-        </footer>
+        </>
+      }
+      isOpen
+      onClose={onClose}
+      size="lg"
+      title="Create Price List"
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <FormGrid columns={2}>
+          <FormField label="Code" required>
+            <TextInput onChange={(e) => setCode(e.target.value)} placeholder="e.g. PL-WHOLESALE" value={code} />
+          </FormField>
+          <FormField label="Name" required>
+            <TextInput onChange={(e) => setName(e.target.value)} placeholder="e.g. Wholesale Tier A" value={name} />
+          </FormField>
+        </FormGrid>
+        <FormField label="Description">
+          <TextInput onChange={(e) => setDescription(e.target.value)} placeholder="15% off standard prices for tier A distributors" value={description} />
+        </FormField>
+        <FormGrid columns={2}>
+          <FormField label="Pricing Scheme">
+            <SelectInput onChange={(e) => setSchemeType(e.target.value)} value={schemeType}>
+              <option value="PERCENTAGE_DISCOUNT">Percentage Discount</option>
+              <option value="FIXED_PRICE">Fixed Item Prices</option>
+              <option value="MARKUP">Cost Markup</option>
+            </SelectInput>
+          </FormField>
+          <FormField label="Currency">
+            <TextInput onChange={(e) => setCurrency(e.target.value)} value={currency} />
+          </FormField>
+        </FormGrid>
+        <CheckboxInput
+          checked={isDefault}
+          label="Set as Default Price List"
+          onChange={(e) => setIsDefault(e.target.checked)}
+        />
       </div>
-    </div>
+    </Modal>
   )
 }

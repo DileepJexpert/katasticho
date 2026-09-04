@@ -3,10 +3,18 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Building2, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  CheckboxInput,
+  DataTable,
+  FormField,
+  FormGrid,
+  Modal,
+  PageHeader,
+  SelectInput,
+  StatusChip,
+  TextInput,
+} from '@/design-system'
 import {
   createWarehouse,
   listWarehouses,
@@ -153,72 +161,66 @@ function CreateWarehouseModal({ onClose, onSuccess }: { onClose: () => void; onS
   })
 
   return (
-    <div className="modal-backdrop" role="dialog">
-      <div className="modal-dialog" style={{ maxWidth: '600px' }}>
-        <header className="modal-header">
-          <h3>Create Warehouse Facility</h3>
-          <Button onClick={onClose} variant="ghost">✕</Button>
-        </header>
-        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1rem' }}>
-            <label className="field-group">
-              <span>Warehouse Code *</span>
-              <input onChange={(e) => setCode(e.target.value)} placeholder="e.g. WH-BOM" value={code} />
-            </label>
-            <label className="field-group">
-              <span>Facility Name *</span>
-              <input onChange={(e) => setName(e.target.value)} placeholder="e.g. Mumbai Central Depot" value={name} />
-            </label>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <label className="field-group">
-              <span>Facility Type</span>
-              <select onChange={(e) => setWarehouseType(e.target.value)} value={warehouseType}>
-                <option value="CENTRAL">Central Distribution Center</option>
-                <option value="REGIONAL">Regional Depot</option>
-                <option value="RETAIL">Retail Store Stockroom</option>
-                <option value="TRANSIT">Transit Hub</option>
-              </select>
-            </label>
-            <label className="field-group">
-              <span>State GSTIN</span>
-              <input onChange={(e) => setGstin(e.target.value)} placeholder="e.g. 27AAAAA0000A1Z5" value={gstin} />
-            </label>
-          </div>
-
-          <label className="field-group">
-            <span>Address</span>
-            <input onChange={(e) => setAddressLine1(e.target.value)} placeholder="Building, Street, Industrial Area" value={addressLine1} />
-          </label>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
-            <label className="field-group">
-              <span>City</span>
-              <input onChange={(e) => setCity(e.target.value)} placeholder="e.g. Mumbai" value={city} />
-            </label>
-            <label className="field-group">
-              <span>State</span>
-              <input onChange={(e) => setState(e.target.value)} placeholder="e.g. Maharashtra" value={state} />
-            </label>
-            <label className="field-group">
-              <span>Pincode</span>
-              <input onChange={(e) => setPincode(e.target.value)} placeholder="400001" value={pincode} />
-            </label>
-          </div>
-
-          <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <input checked={isDefault} onChange={(e) => setIsDefault(e.target.checked)} type="checkbox" />
-            <span>Set as Default Primary Warehouse</span>
-          </label>
-        </div>
-        <footer className="modal-footer">
+    <Modal
+      footer={
+        <>
           <Button onClick={onClose} variant="secondary">Cancel</Button>
           <Button disabled={!code || !name || mutation.isPending} onClick={() => mutation.mutate()} variant="primary">
             {mutation.isPending ? 'Creating...' : 'Create Facility'}
           </Button>
-        </footer>
+        </>
+      }
+      isOpen
+      onClose={onClose}
+      size="lg"
+      title="Create Warehouse Facility"
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <FormGrid columns={2}>
+          <FormField label="Warehouse Code" required>
+            <TextInput onChange={(e) => setCode(e.target.value)} placeholder="e.g. WH-BOM" value={code} />
+          </FormField>
+          <FormField label="Facility Name" required>
+            <TextInput onChange={(e) => setName(e.target.value)} placeholder="e.g. Mumbai Central Depot" value={name} />
+          </FormField>
+        </FormGrid>
+
+        <FormGrid columns={2}>
+          <FormField label="Facility Type">
+            <SelectInput onChange={(e) => setWarehouseType(e.target.value)} value={warehouseType}>
+              <option value="CENTRAL">Central Distribution Center</option>
+              <option value="REGIONAL">Regional Depot</option>
+              <option value="RETAIL">Retail Store Stockroom</option>
+              <option value="TRANSIT">Transit Hub</option>
+            </SelectInput>
+          </FormField>
+          <FormField label="State GSTIN">
+            <TextInput onChange={(e) => setGstin(e.target.value)} placeholder="e.g. 27AAAAA0000A1Z5" value={gstin} />
+          </FormField>
+        </FormGrid>
+
+        <FormField label="Address">
+          <TextInput onChange={(e) => setAddressLine1(e.target.value)} placeholder="Building, Street, Industrial Area" value={addressLine1} />
+        </FormField>
+
+        <FormGrid columns={3}>
+          <FormField label="City">
+            <TextInput onChange={(e) => setCity(e.target.value)} placeholder="e.g. Mumbai" value={city} />
+          </FormField>
+          <FormField label="State">
+            <TextInput onChange={(e) => setState(e.target.value)} placeholder="e.g. Maharashtra" value={state} />
+          </FormField>
+          <FormField label="Pincode">
+            <TextInput onChange={(e) => setPincode(e.target.value)} placeholder="400001" value={pincode} />
+          </FormField>
+        </FormGrid>
+
+        <CheckboxInput
+          checked={isDefault}
+          label="Set as Default Primary Warehouse"
+          onChange={(e) => setIsDefault(e.target.checked)}
+        />
       </div>
-    </div>
+    </Modal>
   )
 }

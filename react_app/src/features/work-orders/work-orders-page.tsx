@@ -229,89 +229,75 @@ export function WorkOrdersPage() {
         </DataTable>
       )}
 
-      {isCreateOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-card">
-            <h3>Create Manufacturing Work Order</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Finished Good Item ID:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setFgId(e.target.value)}
-                  placeholder="UUID of manufactured product (composite item)"
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={fgId}
-                />
-              </label>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Production Facility / Warehouse ID:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setWarehouseId(e.target.value)}
-                  placeholder="Target Warehouse UUID (optional)"
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={warehouseId}
-                />
-              </label>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <label style={{ flex: 1 }}>
-                  <span style={{ fontSize: '13px', fontWeight: 600 }}>Quantity to Produce:</span>
-                  <input
-                    className="search-input"
-                    onChange={(e) => setQty(e.target.value)}
-                    style={{ width: '100%', marginTop: '4px' }}
-                    type="number"
-                    value={qty}
-                  />
-                </label>
-                <label style={{ flex: 1 }}>
-                  <span style={{ fontSize: '13px', fontWeight: 600 }}>Priority:</span>
-                  <select
-                    className="search-input"
-                    onChange={(e) => setPriority(e.target.value)}
-                    style={{ width: '100%', marginTop: '4px' }}
-                    value={priority}
-                  >
-                    <option value="NORMAL">Normal</option>
-                    <option value="HIGH">High</option>
-                    <option value="URGENT">Urgent</option>
-                  </select>
-                </label>
-              </div>
-              <label style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '4px' }}>
-                <input
-                  checked={backflush}
-                  onChange={(e) => setBackflush(e.target.checked)}
-                  type="checkbox"
-                />
-                <span style={{ fontSize: '13px' }}>Enable Backflush Mode (Auto-deduct BOM components on FG receipt)</span>
-              </label>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Production Notes:</span>
-                <textarea
-                  className="search-input"
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Special assembly instructions, batch tags..."
-                  rows={2}
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={notes}
-                />
-              </label>
-            </div>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '16px' }}>
-              <Button onClick={() => setIsCreateOpen(false)} variant="secondary">Cancel</Button>
-              <Button
-                disabled={createMutation.isPending || !fgId.trim()}
-                onClick={() => createMutation.mutate()}
-                variant="primary"
+      <Modal
+        footer={
+          <>
+            <Button onClick={() => setIsCreateOpen(false)} variant="secondary">Cancel</Button>
+            <Button
+              disabled={createMutation.isPending || !fgId.trim()}
+              onClick={() => createMutation.mutate()}
+              variant="primary"
+            >
+              {createMutation.isPending ? 'Creating...' : 'Create Work Order'}
+            </Button>
+          </>
+        }
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        size="lg"
+        title="Create Manufacturing Work Order"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <FormField label="Finished Good Item ID" required>
+            <TextInput
+              onChange={(e) => setFgId(e.target.value)}
+              placeholder="UUID of manufactured product (composite item)"
+              required
+              value={fgId}
+            />
+          </FormField>
+          <FormField label="Production Facility / Warehouse ID">
+            <TextInput
+              onChange={(e) => setWarehouseId(e.target.value)}
+              placeholder="Target Warehouse UUID (optional)"
+              value={warehouseId}
+            />
+          </FormField>
+          <FormGrid columns={2}>
+            <FormField label="Quantity to Produce" required>
+              <NumberInput
+                min={1}
+                onChange={(e) => setQty(e.target.value)}
+                required
+                value={qty}
+              />
+            </FormField>
+            <FormField label="Priority">
+              <SelectInput
+                onChange={(e) => setPriority(e.target.value)}
+                value={priority}
               >
-                Create Work Order
-              </Button>
-            </div>
-          </div>
+                <option value="NORMAL">Normal</option>
+                <option value="HIGH">High</option>
+                <option value="URGENT">Urgent</option>
+              </SelectInput>
+            </FormField>
+          </FormGrid>
+          <CheckboxInput
+            checked={backflush}
+            label="Enable Backflush Mode (Auto-deduct BOM components on FG receipt)"
+            onChange={(e) => setBackflush(e.target.checked)}
+          />
+          <FormField label="Production Notes">
+            <TextAreaInput
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Special assembly instructions, batch tags..."
+              rows={2}
+              value={notes}
+            />
+          </FormField>
         </div>
-      )}
+      </Modal>
     </section>
   )
 }

@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import type { ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft,
@@ -10,10 +9,19 @@ import {
 } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  CheckboxInput,
+  DataTable,
+  FormField,
+  FormGrid,
+  Modal,
+  NumberInput,
+  PageHeader,
+  SelectInput,
+  StatusChip,
+  TextInput,
+} from '@/design-system'
 import {
   confirmPutawayLine,
   createWarehouseZone,
@@ -283,57 +291,54 @@ function AddZoneModal({
   })
 
   return (
-    <div className="modal-backdrop" role="dialog">
-      <div className="modal-dialog">
-        <header className="modal-header">
-          <h3>Add Storage Zone</h3>
-          <Button onClick={onClose} variant="ghost">✕</Button>
-        </header>
-        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1rem' }}>
-            <label className="field-group">
-              <span>Zone Code *</span>
-              <input onChange={(e) => setCode(e.target.value)} placeholder="e.g. ZONE-A" value={code} />
-            </label>
-            <label className="field-group">
-              <span>Zone Name *</span>
-              <input onChange={(e) => setName(e.target.value)} placeholder="e.g. High-Bay Pallet Racks" value={name} />
-            </label>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <label className="field-group">
-              <span>Zone Type</span>
-              <select onChange={(e) => setZoneType(e.target.value)} value={zoneType}>
-                <option value="STORAGE">Bulk Storage</option>
-                <option value="PICK_FACE">Pick Face</option>
-                <option value="RECEIVING">Inbound Receiving</option>
-                <option value="SHIPPING">Outbound Shipping</option>
-                <option value="COLD_STORAGE">Cold Storage</option>
-                <option value="QUARANTINE">Quarantine</option>
-              </select>
-            </label>
-            <label className="field-group">
-              <span>Capacity (Pallets/Units)</span>
-              <input onChange={(e) => setCapacity(e.target.value)} placeholder="e.g. 500" type="number" value={capacity} />
-            </label>
-          </div>
-          <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <input checked={temperatureControlled} onChange={(e) => setTemperatureControlled(e.target.checked)} type="checkbox" />
-            <span>Temperature Controlled (Cold Storage)</span>
-          </label>
-          <label className="field-group">
-            <span>Notes</span>
-            <input onChange={(e) => setNotes(e.target.value)} placeholder="Aisle 1 through 6" value={notes} />
-          </label>
-        </div>
-        <footer className="modal-footer">
+    <Modal
+      footer={
+        <>
           <Button onClick={onClose} variant="secondary">Cancel</Button>
           <Button disabled={!code || !name || mutation.isPending} onClick={() => mutation.mutate()} variant="primary">
             {mutation.isPending ? 'Saving...' : 'Add Zone'}
           </Button>
-        </footer>
+        </>
+      }
+      isOpen
+      onClose={onClose}
+      size="lg"
+      title="Add Storage Zone"
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <FormGrid columns={2}>
+          <FormField label="Zone Code" required>
+            <TextInput onChange={(e) => setCode(e.target.value)} placeholder="e.g. ZONE-A" value={code} />
+          </FormField>
+          <FormField label="Zone Name" required>
+            <TextInput onChange={(e) => setName(e.target.value)} placeholder="e.g. High-Bay Pallet Racks" value={name} />
+          </FormField>
+        </FormGrid>
+        <FormGrid columns={2}>
+          <FormField label="Zone Type">
+            <SelectInput onChange={(e) => setZoneType(e.target.value)} value={zoneType}>
+              <option value="STORAGE">Bulk Storage</option>
+              <option value="PICK_FACE">Pick Face</option>
+              <option value="RECEIVING">Inbound Receiving</option>
+              <option value="SHIPPING">Outbound Shipping</option>
+              <option value="COLD_STORAGE">Cold Storage</option>
+              <option value="QUARANTINE">Quarantine</option>
+            </SelectInput>
+          </FormField>
+          <FormField label="Capacity (Pallets/Units)">
+            <NumberInput onChange={(e) => setCapacity(e.target.value)} placeholder="e.g. 500" value={capacity} />
+          </FormField>
+        </FormGrid>
+        <CheckboxInput
+          checked={temperatureControlled}
+          label="Temperature Controlled (Cold Storage)"
+          onChange={(e) => setTemperatureControlled(e.target.checked)}
+        />
+        <FormField label="Notes">
+          <TextInput onChange={(e) => setNotes(e.target.value)} placeholder="Aisle 1 through 6" value={notes} />
+        </FormField>
       </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -360,49 +365,28 @@ function ConfirmPutawayModal({
   })
 
   return (
-    <div className="modal-backdrop" role="dialog">
-      <div className="modal-dialog">
-        <header className="modal-header">
-          <h3>Confirm Bin / Rack Putaway</h3>
-          <Button onClick={onClose} variant="ghost">✕</Button>
-        </header>
-        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <p>
-            Item: <strong>{line.itemName}</strong> (Qty: {line.quantity})
-          </p>
-          <label className="field-group">
-            <span>Allocated Rack / Bin Location *</span>
-            <input onChange={(e) => setConfirmedRack(e.target.value)} placeholder="e.g. RACK-A-04-BIN-2" value={confirmedRack} />
-          </label>
-        </div>
-        <footer className="modal-footer">
+    <Modal
+      footer={
+        <>
           <Button onClick={onClose} variant="secondary">Cancel</Button>
           <Button disabled={!confirmedRack || mutation.isPending} onClick={() => mutation.mutate()} variant="primary">
             {mutation.isPending ? 'Confirming...' : 'Confirm Putaway'}
           </Button>
-        </footer>
+        </>
+      }
+      isOpen
+      onClose={onClose}
+      size="md"
+      title="Confirm Bin / Rack Putaway"
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <p style={{ margin: 0, fontSize: '0.875rem' }}>
+          Item: <strong>{line.itemName}</strong> (Qty: {line.quantity})
+        </p>
+        <FormField label="Allocated Rack / Bin Location" required>
+          <TextInput onChange={(e) => setConfirmedRack(e.target.value)} placeholder="e.g. RACK-A-04-BIN-2" value={confirmedRack} />
+        </FormField>
       </div>
-    </div>
-  )
-}
-
-function Fact({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div className="document-fact">
-      <dt>{label}</dt>
-      <dd>{value}</dd>
-    </div>
-  )
-}
-
-function DocumentError({ onBack }: { onBack: () => void }) {
-  return (
-    <section className="workspace-page">
-      <div className="directory-state directory-state--error" role="alert">
-        <strong>Warehouse not found.</strong>
-        <p>The requested warehouse could not be loaded.</p>
-        <Button onClick={onBack} variant="secondary">Back to warehouses</Button>
-      </div>
-    </section>
+    </Modal>
   )
 }

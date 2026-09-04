@@ -2,12 +2,18 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
-import { TextField } from '@/design-system/text-field'
+import {
+  Button,
+  DataTable,
+  FormField,
+  FormGrid,
+  Modal,
+  Money,
+  NumberInput,
+  PageHeader,
+  StatusChip,
+  TextInput,
+} from '@/design-system'
 import { formatDate, formatStatusLabel } from '@/shared/format/format'
 import { createVendorCredit, listVendorCredits } from './vendor-credits-api'
 
@@ -130,59 +136,72 @@ export function VendorCreditsPage() {
         )}
       </section>
 
-      {createModalOpen ? (
-        <div className="modal-backdrop" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-          <div className="modal-dialog" style={{ background: '#fff', borderRadius: '8px', padding: '24px', maxWidth: '480px', width: '100%' }}>
-            <h3>Create Vendor Credit</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
-              <TextField
-                label="Vendor Contact ID"
-                onChange={(e) => setForm((f) => ({ ...f, contactId: e.target.value }))}
-                placeholder="UUID of vendor contact"
-                value={form.contactId}
-              />
-              <TextField
-                label="Credit Date"
-                onChange={(e) => setForm((f) => ({ ...f, creditDate: e.target.value }))}
-                type="date"
-                value={form.creditDate}
-              />
-              <TextField
-                label="Description"
-                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                value={form.description}
-              />
-              <TextField
-                label="Quantity"
+      <Modal
+        footer={
+          <>
+            <Button onClick={() => setCreateModalOpen(false)} variant="secondary">Cancel</Button>
+            <Button
+              disabled={!form.contactId || createMutation.isPending}
+              onClick={() => createMutation.mutate()}
+              variant="primary"
+            >
+              {createMutation.isPending ? 'Creating...' : 'Create Draft'}
+            </Button>
+          </>
+        }
+        isOpen={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        size="md"
+        title="Create Vendor Credit"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <FormField label="Vendor Contact ID" required>
+            <TextInput
+              onChange={(e) => setForm((f) => ({ ...f, contactId: e.target.value }))}
+              placeholder="UUID of vendor contact"
+              required
+              value={form.contactId}
+            />
+          </FormField>
+          <FormField label="Credit Date" required>
+            <TextInput
+              onChange={(e) => setForm((f) => ({ ...f, creditDate: e.target.value }))}
+              required
+              type="date"
+              value={form.creditDate}
+            />
+          </FormField>
+          <FormField label="Description">
+            <TextInput
+              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+              value={form.description}
+            />
+          </FormField>
+          <FormGrid columns={2}>
+            <FormField label="Quantity">
+              <NumberInput
+                min={1}
                 onChange={(e) => setForm((f) => ({ ...f, quantity: Number(e.target.value) }))}
-                type="number"
-                value={String(form.quantity)}
+                value={form.quantity || ''}
               />
-              <TextField
-                label="Unit Price (₹)"
+            </FormField>
+            <FormField label="Unit Price (₹)">
+              <NumberInput
+                min={0}
                 onChange={(e) => setForm((f) => ({ ...f, unitPrice: Number(e.target.value) }))}
-                type="number"
-                value={String(form.unitPrice)}
+                step="0.01"
+                value={form.unitPrice || ''}
               />
-              <TextField
-                label="Notes"
-                onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-                value={form.notes}
-              />
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
-                <Button onClick={() => setCreateModalOpen(false)} variant="secondary">Cancel</Button>
-                <Button
-                  disabled={!form.contactId || createMutation.isPending}
-                  onClick={() => createMutation.mutate()}
-                  variant="primary"
-                >
-                  {createMutation.isPending ? 'Creating...' : 'Create Draft'}
-                </Button>
-              </div>
-            </div>
-          </div>
+            </FormField>
+          </FormGrid>
+          <FormField label="Notes">
+            <TextInput
+              onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+              value={form.notes}
+            />
+          </FormField>
         </div>
-      ) : null}
+      </Modal>
     </section>
   )
 }

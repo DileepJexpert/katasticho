@@ -1,14 +1,24 @@
 import { useState } from 'react'
-import type { ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, BookOpen, Edit2 } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  CheckboxInput,
+  DataTable,
+  DocumentCard,
+  DocumentError,
+  Fact,
+  FactList,
+  FormField,
+  Modal,
+  Money,
+  PageHeader,
+  StatusChip,
+  TextAreaInput,
+  TextInput,
+} from '@/design-system'
 import { formatDate, formatStatusLabel } from '@/shared/format/format'
 import {
   getAccount,
@@ -105,10 +115,9 @@ export function AccountDetailPage() {
       </div>
 
       <div className="document-layout" style={{ marginBottom: '1.5rem' }}>
-        <section className="document-card">
-          <h2>Account Specification</h2>
-          <dl className="document-facts">
-            <Fact label="Account Code" value={document.code} />
+        <DocumentCard title="Account Specification">
+          <FactList>
+            <Fact label="Account Code" mono value={document.code} />
             <Fact label="Account Name" value={document.name} />
             <Fact label="Classification" value={<StatusChip status={document.type} />} />
             <Fact label="Category" value={document.subType ? formatStatusLabel(document.subType) : 'Uncategorized'} />
@@ -116,19 +125,21 @@ export function AccountDetailPage() {
             <Fact label="System Status" value={document.isSystem ? 'Standard System Account' : 'User-defined Account'} />
             <Fact label="Postings Allowed" value={document.hasChildren ? 'Parent Header (No Direct Postings)' : 'Transactional Leaf'} />
             <Fact label="Status" value={<StatusChip status={document.isActive ? 'Active' : 'Inactive'} />} />
-          </dl>
-        </section>
+          </FactList>
+        </DocumentCard>
       </div>
 
-      <section className="document-card document-card--lines">
+      <DocumentCard className="document-card--lines" title="Ledger Transaction History">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-          <h2>Ledger Transaction History ({txList.length})</h2>
+          <span style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
+            Total entries: {txList.length}
+          </span>
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <label style={{ fontSize: '0.875rem' }}>
-              From: <input onChange={(e) => setStartDate(e.target.value)} type="date" value={startDate} />
+            <label style={{ fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              From: <TextInput onChange={(e) => setStartDate(e.target.value)} type="date" value={startDate} />
             </label>
-            <label style={{ fontSize: '0.875rem' }}>
-              To: <input onChange={(e) => setEndDate(e.target.value)} type="date" value={endDate} />
+            <label style={{ fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              To: <TextInput onChange={(e) => setEndDate(e.target.value)} type="date" value={endDate} />
             </label>
             {(startDate || endDate) && (
               <Button onClick={() => { setStartDate(''); setEndDate('') }} variant="ghost">Clear</Button>
@@ -138,40 +149,38 @@ export function AccountDetailPage() {
 
         {transactions.isLoading ? (
           <div aria-live="polite" className="directory-state">Loading transaction history...</div>
+        ) : transactions.isError ? (
+          <div className="directory-state directory-state--error" role="alert">
+            <strong>Transactions could not be loaded.</strong>
+          </div>
         ) : txList.length ? (
-          <DataTable caption="Account transactions">
+          <DataTable caption="Account general ledger transactions">
             <thead>
               <tr>
                 <th scope="col">Date</th>
-                <th scope="col">Entry #</th>
+                <th scope="col">Entry Number</th>
+                <th scope="col">Narration / Memo</th>
                 <th scope="col">Module</th>
-                <th scope="col">Description</th>
                 <th className="numeric-cell" scope="col">Debit</th>
                 <th className="numeric-cell" scope="col">Credit</th>
               </tr>
             </thead>
             <tbody>
               {txList.map((tx) => (
-                <tr key={tx.lineId}>
+                <tr key={tx.id}>
                   <td>{formatDate(tx.effectiveDate)}</td>
                   <td>
                     <Link to={`${appRoutes.journals}/${tx.journalEntryId}`}>
-                      <code>{tx.entryNumber}</code>
+                      <strong>{tx.entryNumber}</strong>
                     </Link>
                   </td>
-                  <td>
-                    <StatusChip status={tx.sourceModule ?? 'MANUAL'} />
-                  </td>
-                  <td>{tx.lineDescription || tx.entryDescription || '—'}</td>
+                  <td>{tx.description || '—'}</td>
+                  <td>{formatStatusLabel(tx.sourceModule)}</td>
                   <td className="numeric-cell">
-                    {tx.debit != null && Number(tx.debit) > 0 ? (
-                      <Money amount={tx.debit} currency={tx.currency ?? 'INR'} />
-                    ) : '—'}
+                    {tx.debit > 0 ? <Money amount={tx.debit} currency={document.currency ?? 'INR'} /> : '—'}
                   </td>
                   <td className="numeric-cell">
-                    {tx.credit != null && Number(tx.credit) > 0 ? (
-                      <Money amount={tx.credit} currency={tx.currency ?? 'INR'} />
-                    ) : '—'}
+                    {tx.credit > 0 ? <Money amount={tx.credit} currency={document.currency ?? 'INR'} /> : '—'}
                   </td>
                 </tr>
               ))}
@@ -180,11 +189,10 @@ export function AccountDetailPage() {
         ) : (
           <div className="directory-state">
             <BookOpen aria-hidden="true" size={24} />
-            <strong>No ledger transactions recorded.</strong>
-            <p>Transactions will appear here when journals, bills, or invoices post to this account.</p>
+            <strong>No transactions recorded in this period.</strong>
           </div>
         )}
-      </section>
+      </DocumentCard>
 
       {showEditModal && (
         <EditAccountModal
@@ -226,62 +234,39 @@ function EditAccountModal({
   })
 
   return (
-    <div className="modal-backdrop" role="dialog">
-      <div className="modal-dialog">
-        <header className="modal-header">
-          <h3>Edit Account ({account.code})</h3>
-          <Button onClick={onClose} variant="ghost">✕</Button>
-        </header>
-        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <label className="field-group">
-            <span>Account Name *</span>
-            <input onChange={(e) => setName(e.target.value)} required value={name} />
-          </label>
-
-          <label className="field-group">
-            <span>Sub-Type / Category</span>
-            <input onChange={(e) => setSubType(e.target.value)} value={subType} />
-          </label>
-
-          <label className="field-group">
-            <span>Description</span>
-            <textarea onChange={(e) => setDescription(e.target.value)} rows={2} value={description} />
-          </label>
-
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-            <input checked={isActive} onChange={(e) => setIsActive(e.target.checked)} type="checkbox" />
-            <span>Account is Active</span>
-          </label>
-        </div>
-        <footer className="modal-footer">
+    <Modal
+      footer={
+        <>
           <Button onClick={onClose} variant="secondary">Cancel</Button>
           <Button disabled={!name || mutation.isPending} onClick={() => mutation.mutate()} variant="primary">
             {mutation.isPending ? 'Saving...' : 'Save Changes'}
           </Button>
-        </footer>
-      </div>
-    </div>
-  )
-}
+        </>
+      }
+      isOpen
+      onClose={onClose}
+      size="md"
+      title={`Edit Account (${account.code})`}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <FormField label="Account Name" required>
+          <TextInput onChange={(e) => setName(e.target.value)} required value={name} />
+        </FormField>
 
-function Fact({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div className="document-fact">
-      <dt>{label}</dt>
-      <dd>{value}</dd>
-    </div>
-  )
-}
+        <FormField label="Sub-Type / Category">
+          <TextInput onChange={(e) => setSubType(e.target.value)} value={subType} />
+        </FormField>
 
-function DocumentError({ onBack }: { onBack: () => void }) {
-  return (
-    <section className="workspace-page">
-      <div className="directory-state">
-        <p>Account not found or failed to load.</p>
-        <Button onClick={onBack} variant="secondary">
-          <ArrowLeft className="icon" /> Back to Accounts
-        </Button>
+        <FormField label="Description">
+          <TextAreaInput onChange={(e) => setDescription(e.target.value)} rows={2} value={description} />
+        </FormField>
+
+        <CheckboxInput
+          checked={isActive}
+          label="Account is Active"
+          onChange={(e) => setIsActive(e.target.checked)}
+        />
       </div>
-    </section>
+    </Modal>
   )
 }

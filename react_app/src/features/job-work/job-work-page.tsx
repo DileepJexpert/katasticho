@@ -3,11 +3,18 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Briefcase, Plus, AlertOctagon, Search } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  DataTable,
+  FormField,
+  FormGrid,
+  Modal,
+  Money,
+  NumberInput,
+  PageHeader,
+  StatusChip,
+  TextInput,
+} from '@/design-system'
 import { formatDate, formatStatusLabel } from '@/shared/format/format'
 import { listJobWorkOrders, getJobWorkGstAlerts, createJobWorkOrder } from '@/features/job-work/job-work-api'
 
@@ -141,99 +148,92 @@ export function JobWorkPage() {
         </DataTable>
       )}
 
-      {isCreateOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-card">
-            <h3>Create Subcontracting Job Work Order</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Job Worker (Vendor ID):</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setVendorId(e.target.value)}
-                  placeholder="Vendor Contact UUID"
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={vendorId}
-                />
-              </label>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Dispatch Warehouse ID:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setWarehouseId(e.target.value)}
-                  placeholder="Warehouse UUID (optional)"
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={warehouseId}
-                />
-              </label>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <label style={{ flex: 1 }}>
-                  <span style={{ fontSize: '13px', fontWeight: 600 }}>Raw Material Item ID:</span>
-                  <input
-                    className="search-input"
-                    onChange={(e) => setMaterialItemId(e.target.value)}
-                    placeholder="Input Item UUID"
-                    style={{ width: '100%', marginTop: '4px' }}
-                    value={materialItemId}
-                  />
-                </label>
-                <label style={{ width: '100px' }}>
-                  <span style={{ fontSize: '13px', fontWeight: 600 }}>Sent Qty:</span>
-                  <input
-                    className="search-input"
-                    onChange={(e) => setMaterialQty(e.target.value)}
-                    style={{ width: '100%', marginTop: '4px' }}
-                    type="number"
-                    value={materialQty}
-                  />
-                </label>
-              </div>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <label style={{ flex: 1 }}>
-                  <span style={{ fontSize: '13px', fontWeight: 600 }}>Expected Output Item ID:</span>
-                  <input
-                    className="search-input"
-                    onChange={(e) => setOutputItemId(e.target.value)}
-                    placeholder="Output Finished/Processed Item UUID"
-                    style={{ width: '100%', marginTop: '4px' }}
-                    value={outputItemId}
-                  />
-                </label>
-                <label style={{ width: '100px' }}>
-                  <span style={{ fontSize: '13px', fontWeight: 600 }}>Output Qty:</span>
-                  <input
-                    className="search-input"
-                    onChange={(e) => setOutputQty(e.target.value)}
-                    style={{ width: '100%', marginTop: '4px' }}
-                    type="number"
-                    value={outputQty}
-                  />
-                </label>
-              </div>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Agreed Processing Charges:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setCharges(e.target.value)}
-                  style={{ width: '100%', marginTop: '4px' }}
-                  type="number"
-                  value={charges}
-                />
-              </label>
-            </div>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '16px' }}>
-              <Button onClick={() => setIsCreateOpen(false)} variant="secondary">Cancel</Button>
-              <Button
-                disabled={createMutation.isPending || !vendorId.trim() || !materialItemId.trim()}
-                onClick={() => createMutation.mutate()}
-                variant="primary"
-              >
-                Create Job Work Order
-              </Button>
-            </div>
-          </div>
+      <Modal
+        footer={
+          <>
+            <Button onClick={() => setIsCreateOpen(false)} variant="secondary">Cancel</Button>
+            <Button
+              disabled={createMutation.isPending || !vendorId.trim() || !materialItemId.trim()}
+              onClick={() => createMutation.mutate()}
+              variant="primary"
+            >
+              {createMutation.isPending ? 'Creating...' : 'Create Job Work Order'}
+            </Button>
+          </>
+        }
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        size="lg"
+        title="Create Job Work Order (Challan 45)"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <FormGrid columns={2}>
+            <FormField label="Job Worker / Vendor ID" required>
+              <TextInput
+                onChange={(e) => setVendorId(e.target.value)}
+                placeholder="Supplier / Subcontractor UUID"
+                required
+                value={vendorId}
+              />
+            </FormField>
+            <FormField label="Dispatch Warehouse ID">
+              <TextInput
+                onChange={(e) => setWarehouseId(e.target.value)}
+                placeholder="Warehouse UUID (optional)"
+                value={warehouseId}
+              />
+            </FormField>
+          </FormGrid>
+
+          <FormGrid columns={2}>
+            <FormField label="Raw Material Item ID" required>
+              <TextInput
+                onChange={(e) => setMaterialItemId(e.target.value)}
+                placeholder="Input Item UUID"
+                required
+                value={materialItemId}
+              />
+            </FormField>
+            <FormField label="Sent Quantity" required>
+              <NumberInput
+                min={1}
+                onChange={(e) => setMaterialQty(e.target.value)}
+                required
+                value={materialQty}
+              />
+            </FormField>
+          </FormGrid>
+
+          <FormGrid columns={2}>
+            <FormField label="Expected Output Item ID" required>
+              <TextInput
+                onChange={(e) => setOutputItemId(e.target.value)}
+                placeholder="Output Processed Item UUID"
+                required
+                value={outputItemId}
+              />
+            </FormField>
+            <FormField label="Expected Output Quantity" required>
+              <NumberInput
+                min={1}
+                onChange={(e) => setOutputQty(e.target.value)}
+                required
+                value={outputQty}
+              />
+            </FormField>
+          </FormGrid>
+
+          <FormField label="Agreed Processing Charges (₹)" required>
+            <NumberInput
+              min={0}
+              onChange={(e) => setCharges(e.target.value)}
+              required
+              step="0.01"
+              value={charges}
+            />
+          </FormField>
         </div>
-      )}
+      </Modal>
     </section>
   )
 }
