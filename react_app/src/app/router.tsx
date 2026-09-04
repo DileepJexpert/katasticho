@@ -1,3 +1,9 @@
+import { AiCommandCenterPage } from '@/features/ai/ai-command-center-page'
+import { AiSettingsPage } from '@/features/ai/ai-settings-page'
+import { CaDashboardPage } from '@/features/ca/ca-dashboard-page'
+import { CaCompliancePage } from '@/features/ca/ca-compliance-page'
+import { CaAlertsPage } from '@/features/ca/ca-alerts-page'
+import { CaDispatchPage } from '@/features/ca/ca-dispatch-page'
 import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
 import { AppShell } from '@/app/shell/app-shell'
@@ -815,6 +821,30 @@ export const router = createBrowserRouter([
           {
             path: 'transport/vehicle-logs',
             element: <VehicleLogsPage />,
+          },
+          {
+            path: 'ai',
+            element: <AiCommandCenterPage />,
+          },
+          {
+            path: 'settings/ai',
+            element: <AiSettingsPage />,
+          },
+          {
+            path: 'ca',
+            element: <CaDashboardPage />,
+          },
+          {
+            path: 'ca/compliance',
+            element: <CaCompliancePage />,
+          },
+          {
+            path: 'ca/alerts',
+            element: <CaAlertsPage />,
+          },
+          {
+            path: 'ca/dispatch',
+            element: <CaDispatchPage />,
           },
         ],
       },

@@ -1,4 +1,5 @@
 import {
+  Sparkles,
   TrendingUp,
   Palette,
   Globe,
@@ -206,6 +207,12 @@ export const appRoutes = {
   fluxCommentary: '/reports/flux-commentary',
   users: '/settings/users',
   pdfTemplates: '/settings/pdf-templates',
+  aiCommandCenter: '/ai',
+  aiSettings: '/settings/ai',
+  caDashboard: '/ca',
+  caCompliance: '/ca/compliance',
+  caAlerts: '/ca/alerts',
+  caDispatch: '/ca/dispatch',
 } as const
 
 export type NavigationContext = {
@@ -918,6 +925,48 @@ const navigationItems: readonly NavigationItem[] = [
     description: 'BlueDart, Delhivery, DTDC & Shiprocket credentials',
     icon: Settings,
     to: appRoutes.courierSettings,
+  },
+  {
+    id: 'ai.command_center',
+    label: 'AI Command Center',
+    description: 'Autonomous ledger intelligence & Copilot',
+    icon: Sparkles,
+    to: appRoutes.aiCommandCenter,
+  },
+  {
+    id: 'settings.ai',
+    label: 'AI Model Configuration',
+    description: 'Cloud LLMs & local Ollama configuration',
+    icon: Cpu,
+    to: appRoutes.aiSettings,
+  },
+  {
+    id: 'ca.dashboard',
+    label: 'CA Practice Console',
+    description: 'Multi-client audit & delegated access',
+    icon: Briefcase,
+    to: appRoutes.caDashboard,
+  },
+  {
+    id: 'ca.compliance',
+    label: 'CA Compliance Calendar',
+    description: 'Cross-client statutory return tracking',
+    icon: CalendarClock,
+    to: appRoutes.caCompliance,
+  },
+  {
+    id: 'ca.alerts',
+    label: 'CA Audit Risk Alerts',
+    description: 'Cross-client AI anomaly & risk inbox',
+    icon: ShieldAlert,
+    to: appRoutes.caAlerts,
+  },
+  {
+    id: 'ca.dispatch',
+    label: 'Batch Report Dispatch',
+    description: 'Mass client financial statements dispatch',
+    icon: FileText,
+    to: appRoutes.caDispatch,
   },
 ]
 

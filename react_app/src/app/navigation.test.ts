@@ -104,6 +104,12 @@ describe('getVisibleNavigation', () => {
       'transport.rate_cards',
       'transport.vehicle_logs',
       'transport.courier_settings',
+      'ai.command_center',
+      'settings.ai',
+      'ca.dashboard',
+      'ca.compliance',
+      'ca.alerts',
+      'ca.dispatch',
     ])
   })
 })
