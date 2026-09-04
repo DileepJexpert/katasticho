@@ -14,15 +14,21 @@ import {
   ShoppingBag,
   Trash2,
   Unlock,
-  User,
+  UserRound,
+  WalletCards,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
+import { EntityPicker } from '@/design-system/entity-picker'
+import { FormField } from '@/design-system/form-field'
+import { Modal } from '@/design-system/modal'
 import { Money } from '@/design-system/money'
+import { NumberInput } from '@/design-system/number-input'
 import { PageHeader } from '@/design-system/page-header'
 import { StatusChip } from '@/design-system/status-chip'
-import { listContacts } from '@/features/contacts/contacts-api'
+import { TextAreaInput } from '@/design-system/textarea-input'
+import { TextInput } from '@/design-system/text-input'
+import { listContacts, type Contact } from '@/features/contacts/contacts-api'
 import {
   addRegisterExpense,
   closeRegister,
@@ -50,20 +56,35 @@ type CartItem = {
   rackLocationCode: string | null
 }
 
+async function searchCustomers(query: string): Promise<Contact[]> {
+  const page = await listContacts({
+    filter: 'CUSTOMER',
+    page: 0,
+    search: query,
+    size: 20,
+  })
+  return page.content
+}
+
+function describeCustomer(contact: Contact): string | undefined {
+  const details = [contact.companyName, contact.phone || contact.mobile, contact.gstin].filter(Boolean)
+  return details.length > 0 ? details.join(' | ') : undefined
+}
+
+function getErrorMessage(error: unknown): string | null {
+  return error instanceof Error ? error.message : null
+}
+
 export function PosCheckoutPage() {
   const queryClient = useQueryClient()
-
-  // State
   const [itemQuery, setItemQuery] = useState('')
   const [cart, setCart] = useState<CartItem[]>([])
-  const [selectedContactId, setSelectedContactId] = useState<string>('')
+  const [selectedContactId, setSelectedContactId] = useState('')
   const [paymentMode, setPaymentMode] = useState<'CASH' | 'UPI' | 'CARD' | 'CREDIT'>('CASH')
-  const [tenderedAmount, setTenderedAmount] = useState<string>('')
-  const [upiRef, setUpiRef] = useState<string>('')
-  const [receiptNotes, setReceiptNotes] = useState<string>('')
+  const [tenderedAmount, setTenderedAmount] = useState('')
+  const [upiRef, setUpiRef] = useState('')
+  const [receiptNotes, setReceiptNotes] = useState('')
   const [lastReceipt, setLastReceipt] = useState<SalesReceipt | null>(null)
-
-  // Modals
   const [isOpenRegisterOpen, setIsOpenRegisterOpen] = useState(false)
   const [openingCashInput, setOpeningCashInput] = useState('1000')
   const [isCloseRegisterOpen, setIsCloseRegisterOpen] = useState(false)
@@ -72,28 +93,16 @@ export function PosCheckoutPage() {
   const [expenseAmount, setExpenseAmount] = useState('')
   const [expenseReason, setExpenseReason] = useState('')
 
-  // Queries
   const registerQuery = useQuery({
     queryKey: ['pos-today-register'],
-    queryFn: () => getTodayRegister(),
+    queryFn: getTodayRegister,
   })
-
-  const contactsQuery = useQuery({
-    queryKey: ['contacts-pos-list'],
-    queryFn: () => listContacts({ filter: 'CUSTOMER', page: 0, search: '' }),
-  })
-
   const itemSearchQuery = useQuery({
     queryKey: ['pos-search-items', itemQuery],
     queryFn: () => searchPosItems(itemQuery, 12),
     enabled: itemQuery.trim().length >= 1,
   })
 
-  const register = registerQuery.data
-  const contacts = contactsQuery.data?.content ?? []
-  const searchResults = itemSearchQuery.data ?? []
-
-  // Mutations
   const openRegisterMutation = useMutation({
     mutationFn: ({ amount, notes }: { amount: number; notes?: string }) => openRegister(amount, notes),
     onSuccess: () => {
@@ -101,7 +110,6 @@ export function PosCheckoutPage() {
       setIsOpenRegisterOpen(false)
     },
   })
-
   const closeRegisterMutation = useMutation({
     mutationFn: ({ actual, notes }: { actual: number; notes?: string }) => closeRegister(actual, notes),
     onSuccess: () => {
@@ -109,7 +117,6 @@ export function PosCheckoutPage() {
       setIsCloseRegisterOpen(false)
     },
   })
-
   const addExpenseMutation = useMutation({
     mutationFn: ({ amount, description }: { amount: number; description: string }) =>
       addRegisterExpense(amount, description),
@@ -120,9 +127,8 @@ export function PosCheckoutPage() {
       setExpenseReason('')
     },
   })
-
   const saleCheckoutMutation = useMutation({
-    mutationFn: (req: CreateSalesReceiptRequest) => createSalesReceipt(req),
+    mutationFn: (request: CreateSalesReceiptRequest) => createSalesReceipt(request),
     onSuccess: (receipt) => {
       setLastReceipt(receipt)
       setCart([])
@@ -133,87 +139,66 @@ export function PosCheckoutPage() {
     },
   })
 
-  // Cart Calculations
-  const subtotal = useMemo(() => {
-    return cart.reduce((sum, item) => sum + item.rate * item.quantity, 0)
-  }, [cart])
+  const register = registerQuery.data
+  const searchResults = itemSearchQuery.data ?? []
+  const cartValue = useMemo(
+    () => cart.reduce((sum, item) => sum + item.rate * item.quantity, 0),
+    [cart]
+  )
+  const lineCount = useMemo(
+    () => cart.reduce((sum, item) => sum + item.quantity, 0),
+    [cart]
+  )
+  const changeDue = useMemo(() => Math.max(0, Number(tenderedAmount || 0) - cartValue), [cartValue, tenderedAmount])
+  const isRegisterOpen = register?.status === 'OPEN'
 
-  // Approx GST 5% inclusive for pharma/kirana items unless mapped
-  const taxAmount = useMemo(() => {
-    return Math.round(subtotal * 0.05 * 100) / 100
-  }, [subtotal])
-
-  const grandTotal = useMemo(() => {
-    return subtotal
-  }, [subtotal])
-
-  const changeDue = useMemo(() => {
-    const tendered = Number(tenderedAmount || 0)
-    return Math.max(0, tendered - grandTotal)
-  }, [tenderedAmount, grandTotal])
-
-  // Default tendered amount to grand total if cash
   useEffect(() => {
-    if (paymentMode === 'CASH' && grandTotal > 0 && !tenderedAmount) {
-      setTenderedAmount(String(Math.ceil(grandTotal)))
+    if (paymentMode === 'CASH' && cartValue > 0 && !tenderedAmount) {
+      setTenderedAmount(String(Math.ceil(cartValue)))
     }
-  }, [grandTotal, paymentMode, tenderedAmount])
+  }, [cartValue, paymentMode, tenderedAmount])
 
   const addToCart = (product: PosSearchResult) => {
-    setCart((prev) => {
-      const existing = prev.find((i) => i.itemId === product.id)
-      if (existing) {
-        return prev.map((i) =>
-          i.itemId === product.id ? { ...i, quantity: i.quantity + 1 } : i
+    setCart((currentCart) => {
+      const existingItem = currentCart.find((item) => item.itemId === product.id)
+      if (existingItem) {
+        return currentCart.map((item) =>
+          item.itemId === product.id ? { ...item, quantity: item.quantity + 1 } : item
         )
       }
-      return [
-        ...prev,
-        {
-          id: `${product.id}-${Date.now()}`,
-          itemId: product.id,
-          name: product.name,
-          sku: product.sku,
-          rate: product.rate,
-          mrp: product.mrp,
-          quantity: 1,
-          unit: product.unit || 'pcs',
-          hsnCode: product.hsnCode,
-          batchId: product.batchId,
-          batchNumber: product.batchNumber,
-          rackLocationCode: product.rackLocationCode,
-        },
-      ]
+
+      return [...currentCart, {
+        id: `${product.id}-${Date.now()}`,
+        itemId: product.id,
+        name: product.name,
+        sku: product.sku,
+        rate: product.rate,
+        mrp: product.mrp,
+        quantity: 1,
+        unit: product.unit || 'pcs',
+        hsnCode: product.hsnCode,
+        batchId: product.batchId,
+        batchNumber: product.batchNumber,
+        rackLocationCode: product.rackLocationCode,
+      }]
     })
     setItemQuery('')
   }
 
   const updateQuantity = (id: string, delta: number) => {
-    setCart((prev) =>
-      prev
-        .map((item) => {
-          if (item.id === id) {
-            const nextQty = Math.max(1, item.quantity + delta)
-            return { ...item, quantity: nextQty }
-          }
-          return item
-        })
-        .filter((item) => item.quantity > 0)
-    )
-  }
-
-  const removeFromCart = (id: string) => {
-    setCart((prev) => prev.filter((i) => i.id !== id))
+    setCart((currentCart) => currentCart.map((item) =>
+      item.id === id ? { ...item, quantity: Math.max(1, item.quantity + delta) } : item
+    ))
   }
 
   const handleCheckout = () => {
     if (cart.length === 0) return
-    const todayStr = new Date().toISOString().split('T')[0] || ''
-    const req: CreateSalesReceiptRequest = {
+    const receiptDate = new Date().toISOString().split('T')[0] || ''
+    saleCheckoutMutation.mutate({
       contactId: selectedContactId || undefined,
-      receiptDate: todayStr,
+      receiptDate,
       paymentMode,
-      amountReceived: paymentMode === 'CASH' ? Number(tenderedAmount || grandTotal) : grandTotal,
+      amountReceived: paymentMode === 'CASH' ? Number(tenderedAmount || cartValue) : cartValue,
       upiReference: upiRef.trim() || undefined,
       notes: receiptNotes.trim() || undefined,
       gstInvoice: true,
@@ -225,757 +210,273 @@ export function PosCheckoutPage() {
         hsnCode: item.hsnCode || undefined,
         batchId: item.batchId || undefined,
       })),
-    }
-    saleCheckoutMutation.mutate(req)
+    })
   }
 
-  const isRegisterOpen = register?.status === 'OPEN'
-
   return (
-    <section className="workspace-page">
+    <section className="workspace-page pos-counter">
       <PageHeader
-        eyebrow="Retail POS / Fast Checkout"
-        title="POS Counter & Cash Register"
-        description="High-speed barcode scanning, cash drawer management, and instant thermal receipt printing."
+        eyebrow="Retail POS"
+        title="Counter checkout"
+        description="Scan products, settle payment, and keep the day's drawer in balance."
         actions={
-          <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
-            <Link className="btn btn--secondary" to="/sales-receipts">
-              <Receipt aria-hidden="true" size={14} style={{ marginRight: 6 }} />
-              Receipts History
-            </Link>
-          </div>
+          <Link className="button button--secondary" to="/sales-receipts">
+            <Receipt aria-hidden="true" size={16} />
+            Receipts
+          </Link>
         }
       />
 
-      {/* Cash Register Shift Header */}
-      <div className="summary-strip">
-        <div className="summary-card">
-          <span className="summary-card__label">Register Status</span>
-          <strong className="summary-card__value">
-            <StatusChip status={isRegisterOpen ? 'Register Open' : 'Register Closed'} />
-          </strong>
-          <span className="summary-card__hint">
-            {isRegisterOpen ? 'Accepting counter sales' : 'Open register to begin'}
-          </span>
-        </div>
-
-        <div className="summary-card">
-          <span className="summary-card__label">Cash in Drawer</span>
-          <strong className="summary-card__value">
-            <Money amount={register?.expectedClosing || register?.openingBalance || 0} />
-          </strong>
-          <span className="summary-card__hint">
-            Opening: <Money amount={register?.openingBalance || 0} />
-          </span>
-        </div>
-
-        <div className="summary-card">
-          <span className="summary-card__label">Today's Sales Total</span>
-          <strong className="summary-card__value">
-            <Money amount={register?.totalSales || 0} />
-          </strong>
-          <span className="summary-card__hint">
-            {register?.transactionCount || 0} transactions (Cash + UPI + Card)
-          </span>
-        </div>
-
-        <div className="summary-card summary-card--accent">
-          <span className="summary-card__label">Register Actions</span>
-          <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
-            {!isRegisterOpen ? (
-              <Button onClick={() => setIsOpenRegisterOpen(true)} variant="primary">
-                <Unlock aria-hidden="true" size={12} style={{ marginRight: 4 }} />
-                Open Shift
-              </Button>
-            ) : (
-              <>
-                <Button onClick={() => setIsExpenseOpen(true)} variant="secondary">
-                  <Minus aria-hidden="true" size={12} style={{ marginRight: 4 }} />
-                  Cash Payout
-                </Button>
-                <Button onClick={() => setIsCloseRegisterOpen(true)} variant="secondary">
-                  <Lock aria-hidden="true" size={12} style={{ marginRight: 4 }} />
-                  Close Shift
-                </Button>
-              </>
-            )}
+      <section aria-label="Today's cash register" className="pos-register-strip">
+        <div className="pos-register-strip__identity">
+          <span className="pos-register-strip__icon" aria-hidden="true"><WalletCards size={18} /></span>
+          <div>
+            <div className="pos-register-strip__title-row">
+              <strong>Today&apos;s register</strong>
+              <StatusChip status={isRegisterOpen ? 'Register Open' : 'Register Closed'} />
+            </div>
+            <span>{isRegisterOpen ? 'Counter is ready to take sales' : 'Open a shift before billing begins'}</span>
           </div>
         </div>
-      </div>
-
-      {/* Main Two-Column POS Layout */}
-      <div className="pos-checkout-grid">
-        {/* LEFT: Item Search & Cart Lines */}
-        <div className="panel-card" style={{ padding: 'var(--space-md)' }}>
-          <div style={{ position: 'relative', marginBottom: 'var(--space-md)' }}>
-            <div className="search-field" style={{ width: '100%' }}>
-              <Search aria-hidden="true" size={18} />
-              <input
-                aria-label="Scan barcode or type item name"
-                autoFocus
-                onChange={(e) => setItemQuery(e.target.value)}
-                placeholder="Scan barcode or type medicine / product name..."
-                type="search"
-                value={itemQuery}
-              />
-            </div>
-
-            {/* Live Search Suggestions Dropdown */}
-            {itemQuery.trim().length >= 1 && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '100%',
-                  left: 0,
-                  right: 0,
-                  zIndex: 20,
-                  marginTop: 4,
-                  maxHeight: 280,
-                  overflowY: 'auto',
-                  backgroundColor: 'var(--color-surface)',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: 'var(--radius-md)',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
-                }}
-              >
-                {itemSearchQuery.isLoading ? (
-                  <p className="cell-muted" style={{ padding: 12 }}>
-                    Searching items...
-                  </p>
-                ) : searchResults.length === 0 ? (
-                  <p className="cell-muted" style={{ padding: 12 }}>
-                    No items match "{itemQuery}"
-                  </p>
-                ) : (
-                  searchResults.map((prod) => (
-                    <div
-                      key={prod.id}
-                      onClick={() => addToCart(prod)}
-                      style={{
-                        padding: '10px 14px',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        cursor: 'pointer',
-                        borderBottom: '1px solid var(--color-border)',
-                      }}
-                    >
-                      <div>
-                        <strong>{prod.name}</strong>
-                        <div style={{ display: 'flex', gap: 8, fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>
-                          {prod.rackLocationCode && (
-                            <span className="table-code">ðŸ“ {prod.rackLocationCode}</span>
-                          )}
-                          {prod.batchNumber && <span>Batch: {prod.batchNumber}</span>}
-                          <span>Stock: {prod.currentStock || 0} {prod.unit || 'pcs'}</span>
-                        </div>
-                      </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <strong style={{ color: 'var(--color-primary)' }}>
-                          <Money amount={prod.rate} />
-                        </strong>
-                        {prod.mrp ? (
-                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', textDecoration: 'line-through' }}>
-                            <Money amount={prod.mrp} />
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
+        <div className="pos-register-strip__metrics">
+          <div className="pos-register-metric">
+            <span>Expected drawer</span>
+            <strong><Money amount={register?.expectedClosing || register?.openingBalance || 0} /></strong>
           </div>
-
-          {/* Cart Table */}
-          {cart.length === 0 ? (
-            <div className="directory-state" style={{ minHeight: 240 }}>
-              <ShoppingBag aria-hidden="true" size={32} />
-              <strong>POS cart is empty.</strong>
-              <p>Scan an item barcode or search above to ring up items.</p>
-            </div>
+          <div className="pos-register-metric">
+            <span>Sales today</span>
+            <strong><Money amount={register?.totalSales || 0} /></strong>
+            <small>{register?.transactionCount || 0} transactions</small>
+          </div>
+        </div>
+        <div className="pos-register-strip__actions">
+          {!isRegisterOpen ? (
+            <Button onClick={() => setIsOpenRegisterOpen(true)}><Unlock aria-hidden="true" size={16} />Open shift</Button>
           ) : (
-            <DataTable caption="Current customer cart items">
-              <thead>
-                <tr>
-                  <th scope="col">Item & Location</th>
-                  <th className="numeric-cell" scope="col">Rate</th>
-                  <th className="numeric-cell" scope="col" style={{ width: 120 }}>
-                    Qty
-                  </th>
-                  <th className="numeric-cell" scope="col">Total</th>
-                  <th scope="col" style={{ width: 40 }} />
-                </tr>
-              </thead>
-              <tbody>
-                {cart.map((item) => (
-                  <tr key={item.id}>
-                    <td>
-                      <div className="cell-stack">
-                        <strong>{item.name}</strong>
-                        <div style={{ display: 'flex', gap: 6, fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
-                          {item.rackLocationCode && <span>Rack: {item.rackLocationCode}</span>}
-                          {item.batchNumber && <span>Batch: {item.batchNumber}</span>}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="numeric-cell">
-                      <Money amount={item.rate} />
-                    </td>
-                    <td className="numeric-cell">
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
-                        <button
-                          className="icon-button"
-                          onClick={() => updateQuantity(item.id, -1)}
-                          style={{ padding: 4 }}
-                          type="button"
-                        >
-                          <Minus aria-hidden="true" size={12} />
-                        </button>
-                        <span style={{ fontWeight: 600, minWidth: 24, textAlign: 'center' }}>
-                          {item.quantity}
-                        </span>
-                        <button
-                          className="icon-button"
-                          onClick={() => updateQuantity(item.id, 1)}
-                          style={{ padding: 4 }}
-                          type="button"
-                        >
-                          <Plus aria-hidden="true" size={12} />
-                        </button>
-                      </div>
-                    </td>
-                    <td className="numeric-cell">
-                      <strong>
-                        <Money amount={item.rate * item.quantity} />
-                      </strong>
-                    </td>
-                    <td>
-                      <button
-                        aria-label="Remove item from cart"
-                        className="icon-button"
-                        onClick={() => removeFromCart(item.id)}
-                        style={{ color: 'var(--color-error)', padding: 4 }}
-                        type="button"
-                      >
-                        <Trash2 aria-hidden="true" size={14} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </DataTable>
+            <>
+              <Button onClick={() => setIsExpenseOpen(true)} variant="secondary"><Minus aria-hidden="true" size={16} />Cash payout</Button>
+              <Button onClick={() => setIsCloseRegisterOpen(true)} variant="secondary"><Lock aria-hidden="true" size={16} />Close shift</Button>
+            </>
           )}
+        </div>
+      </section>
 
-          {cart.length > 0 && (
-            <div style={{ marginTop: 'var(--space-sm)', textAlign: 'right' }}>
-              <Button onClick={() => setCart([])} variant="secondary">
-                <RotateCcw aria-hidden="true" size={12} style={{ marginRight: 4 }} />
-                Clear Cart
+      <div className="pos-workspace">
+        <section aria-labelledby="pos-catalog-title" className="panel-card pos-catalog">
+          <header className="pos-panel-header">
+            <div>
+              <h2 id="pos-catalog-title">Products</h2>
+              <p>Search by product, SKU, or barcode and add to the current sale.</p>
+            </div>
+            {cart.length > 0 && (
+              <Button className="pos-clear-cart" onClick={() => setCart([])} variant="ghost">
+                <RotateCcw aria-hidden="true" size={15} />Clear sale
               </Button>
-            </div>
-          )}
-        </div>
+            )}
+          </header>
 
-        {/* RIGHT: Customer, Payment, Tender, and Complete Checkout */}
-        <div className="panel-card" style={{ padding: 'var(--space-md)' }}>
-          <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: 'var(--space-sm)' }}>
-            Checkout & Tender
-          </h3>
-
-          {/* Customer selection */}
-          <div style={{ marginBottom: 'var(--space-md)' }}>
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-              Customer / Account
-            </label>
-            <select
-              className="select-field"
-              onChange={(e) => setSelectedContactId(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--color-border)',
-                background: 'var(--color-surface)',
-                color: 'var(--color-text-primary)',
-              }}
-              value={selectedContactId}
-            >
-              <option value="">Walk-in Cash Customer</option>
-              {contacts.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.displayName} {c.phone ? `(${c.phone})` : ''}
-                </option>
-              ))}
-            </select>
+          <div className="pos-product-search">
+            <Search aria-hidden="true" size={19} />
+            <input
+              aria-label="Search or scan a product"
+              autoFocus
+              onChange={(event) => setItemQuery(event.target.value)}
+              placeholder="Scan barcode or search products"
+              type="search"
+              value={itemQuery}
+            />
+            <kbd>F2</kbd>
           </div>
 
-          {/* Payment Mode Selection */}
-          <div style={{ marginBottom: 'var(--space-md)' }}>
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 6 }}>
-              Payment Mode
-            </label>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-              <button
-                className={`filter-chip ${paymentMode === 'CASH' ? 'filter-chip--active' : ''}`}
-                onClick={() => setPaymentMode('CASH')}
-                style={{ justifyContent: 'center', padding: '8px 12px' }}
-                type="button"
-              >
-                <Banknote aria-hidden="true" size={14} style={{ marginRight: 6 }} />
-                Cash
-              </button>
-              <button
-                className={`filter-chip ${paymentMode === 'UPI' ? 'filter-chip--active' : ''}`}
-                onClick={() => setPaymentMode('UPI')}
-                style={{ justifyContent: 'center', padding: '8px 12px' }}
-                type="button"
-              >
-                <QrCode aria-hidden="true" size={14} style={{ marginRight: 6 }} />
-                UPI / QR
-              </button>
-              <button
-                className={`filter-chip ${paymentMode === 'CARD' ? 'filter-chip--active' : ''}`}
-                onClick={() => setPaymentMode('CARD')}
-                style={{ justifyContent: 'center', padding: '8px 12px' }}
-                type="button"
-              >
-                <CreditCard aria-hidden="true" size={14} style={{ marginRight: 6 }} />
-                Card POS
-              </button>
-              <button
-                className={`filter-chip ${paymentMode === 'CREDIT' ? 'filter-chip--active' : ''}`}
-                onClick={() => setPaymentMode('CREDIT')}
-                style={{ justifyContent: 'center', padding: '8px 12px' }}
-                type="button"
-              >
-                <User aria-hidden="true" size={14} style={{ marginRight: 6 }} />
-                Customer Ledger
-              </button>
-            </div>
-          </div>
-
-          {/* Tendered Amount & Change (for Cash) */}
-          {paymentMode === 'CASH' && (
-            <div style={{ marginBottom: 'var(--space-md)', padding: 12, background: 'var(--color-bg-subtle)', borderRadius: 'var(--radius-md)' }}>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                Cash Tendered (₹)
-              </label>
-              <input
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--color-border)',
-                  fontSize: '1.1rem',
-                  fontWeight: 600,
-                  marginBottom: 8,
-                }}
-                onChange={(e) => setTenderedAmount(e.target.value)}
-                placeholder="Amount given by customer"
-                type="number"
-                value={tenderedAmount}
-              />
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
-                {[100, 200, 500, 2000].map((denom) => (
-                  <button
-                    key={denom}
-                    className="filter-chip"
-                    onClick={() => setTenderedAmount(String(denom))}
-                    style={{ fontSize: '0.8rem', padding: '4px 8px' }}
-                    type="button"
-                  >
-                    ₹{denom}
-                  </button>
-                ))}
-                <button
-                  className="filter-chip"
-                  onClick={() => setTenderedAmount(String(Math.ceil(grandTotal)))}
-                  style={{ fontSize: '0.8rem', padding: '4px 8px' }}
-                  type="button"
-                >
-                  Exact (₹{Math.ceil(grandTotal)})
+          {itemQuery.trim().length >= 1 && (
+            <div aria-live="polite" className="pos-product-results">
+              {itemSearchQuery.isLoading ? (
+                <p className="pos-product-results__state">Searching products...</p>
+              ) : itemSearchQuery.isError ? (
+                <p className="pos-product-results__state pos-product-results__state--error">
+                  {getErrorMessage(itemSearchQuery.error) || 'Products could not be loaded.'}
+                </p>
+              ) : searchResults.length === 0 ? (
+                <p className="pos-product-results__state">No products match &quot;{itemQuery}&quot;.</p>
+              ) : searchResults.map((product) => (
+                <button className="pos-product-result" key={product.id} onClick={() => addToCart(product)} type="button">
+                  <span className="pos-product-result__copy">
+                    <strong>{product.name}</strong>
+                    <span>{[product.sku, product.rackLocationCode && `Rack ${product.rackLocationCode}`, product.batchNumber && `Batch ${product.batchNumber}`].filter(Boolean).join(' / ')}</span>
+                  </span>
+                  <span className="pos-product-result__pricing">
+                    <strong><Money amount={product.rate} /></strong>
+                    <span>Stock {product.currentStock || 0} {product.unit || 'PCS'}</span>
+                  </span>
+                  <span className="pos-product-result__add">Add</span>
                 </button>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.9rem', color: 'var(--color-text-secondary)' }}>Change Return:</span>
-                <strong style={{ fontSize: '1.1rem', color: changeDue > 0 ? 'var(--color-primary)' : 'var(--color-text-primary)' }}>
-                  <Money amount={changeDue} />
-                </strong>
-              </div>
+              ))}
             </div>
           )}
 
-          {/* UPI Reference (for UPI) */}
+          <section aria-labelledby="pos-cart-title" className="pos-cart">
+            <header className="pos-cart__header">
+              <div>
+                <h2 id="pos-cart-title">Current sale</h2>
+                <span>{lineCount} {lineCount === 1 ? 'item' : 'items'}</span>
+              </div>
+              {cart.length > 0 && <Money amount={cartValue} />}
+            </header>
+            {cart.length === 0 ? (
+              <div className="pos-cart-empty">
+                <span className="pos-cart-empty__icon" aria-hidden="true"><ShoppingBag size={24} /></span>
+                <strong>Your sale is empty</strong>
+                <p>Start with a barcode scan or product search.</p>
+              </div>
+            ) : (
+              <div aria-label="Current cart items" className="pos-cart-list" role="list">
+                {cart.map((item) => (
+                  <article className="pos-cart-row" key={item.id} role="listitem">
+                    <div className="pos-cart-row__copy">
+                      <strong>{item.name}</strong>
+                      <span>{[item.sku, item.rackLocationCode && `Rack ${item.rackLocationCode}`, item.batchNumber && `Batch ${item.batchNumber}`].filter(Boolean).join(' / ')}</span>
+                    </div>
+                    <div className="pos-cart-row__unit-price"><span>Rate</span><Money amount={item.rate} /></div>
+                    <div aria-label={`${item.name} quantity`} className="pos-quantity-stepper">
+                      <button aria-label={`Decrease ${item.name} quantity`} onClick={() => updateQuantity(item.id, -1)} type="button"><Minus aria-hidden="true" size={14} /></button>
+                      <span>{item.quantity}</span>
+                      <button aria-label={`Increase ${item.name} quantity`} onClick={() => updateQuantity(item.id, 1)} type="button"><Plus aria-hidden="true" size={14} /></button>
+                    </div>
+                    <strong className="pos-cart-row__total"><Money amount={item.rate * item.quantity} /></strong>
+                    <button
+                      aria-label={`Remove ${item.name} from sale`}
+                      className="pos-cart-row__remove"
+                      onClick={() => setCart((currentCart) => currentCart.filter((entry) => entry.id !== item.id))}
+                      type="button"
+                    ><Trash2 aria-hidden="true" size={15} /></button>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        </section>
+
+        <aside aria-labelledby="pos-checkout-title" className="panel-card pos-checkout">
+          <header className="pos-panel-header">
+            <div>
+              <h2 id="pos-checkout-title">Checkout</h2>
+              <p>Assign a customer and settle this sale.</p>
+            </div>
+          </header>
+          <FormField label="Customer" hint="Leave unselected for a walk-in cash customer.">
+            <EntityPicker<Contact>
+              ariaLabel="Search customers"
+              getOptionDescription={describeCustomer}
+              getOptionId={(customer) => customer.id}
+              getOptionLabel={(customer) => customer.displayName}
+              onChange={(id) => setSelectedContactId(id || '')}
+              onSearch={searchCustomers}
+              placeholder="Search customer or account"
+              value={selectedContactId || null}
+            />
+          </FormField>
+
+          <section aria-label="Payment method" className="pos-payment-methods">
+            <span className="pos-section-label">Payment method</span>
+            <div className="pos-payment-methods__grid">
+              <button aria-pressed={paymentMode === 'CASH'} className={paymentMode === 'CASH' ? 'pos-payment-method pos-payment-method--active' : 'pos-payment-method'} onClick={() => setPaymentMode('CASH')} type="button"><Banknote aria-hidden="true" size={18} />Cash</button>
+              <button aria-pressed={paymentMode === 'UPI'} className={paymentMode === 'UPI' ? 'pos-payment-method pos-payment-method--active' : 'pos-payment-method'} onClick={() => setPaymentMode('UPI')} type="button"><QrCode aria-hidden="true" size={18} />UPI / QR</button>
+              <button aria-pressed={paymentMode === 'CARD'} className={paymentMode === 'CARD' ? 'pos-payment-method pos-payment-method--active' : 'pos-payment-method'} onClick={() => setPaymentMode('CARD')} type="button"><CreditCard aria-hidden="true" size={18} />Card</button>
+              <button aria-pressed={paymentMode === 'CREDIT'} className={paymentMode === 'CREDIT' ? 'pos-payment-method pos-payment-method--active' : 'pos-payment-method'} onClick={() => setPaymentMode('CREDIT')} type="button"><UserRound aria-hidden="true" size={18} />Customer ledger</button>
+            </div>
+          </section>
+
+          {paymentMode === 'CASH' && (
+            <section className="pos-tender-card">
+              <FormField label="Cash tendered" htmlFor="pos-cash-tendered">
+                <NumberInput currencyPrefix id="pos-cash-tendered" min="0" onChange={(event) => setTenderedAmount(event.target.value)} placeholder="0.00" step="0.01" value={tenderedAmount} />
+              </FormField>
+              <div aria-label="Quick cash amounts" className="pos-quick-amounts">
+                {[100, 200, 500, 2000].map((amount) => <button key={amount} onClick={() => setTenderedAmount(String(amount))} type="button">₹{amount}</button>)}
+                <button onClick={() => setTenderedAmount(String(Math.ceil(cartValue)))} type="button">Exact</button>
+              </div>
+              <div className="pos-tender-card__change"><span>Change due</span><strong><Money amount={changeDue} /></strong></div>
+            </section>
+          )}
           {paymentMode === 'UPI' && (
-            <div style={{ marginBottom: 'var(--space-md)' }}>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                UPI Reference / UTR Number
-              </label>
-              <input
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--color-border)',
-                }}
-                onChange={(e) => setUpiRef(e.target.value)}
-                placeholder="e.g. 423985729103"
-                type="text"
-                value={upiRef}
-              />
-            </div>
+            <FormField label="UPI reference" optional hint="Record the UTR when it is available.">
+              <TextInput onChange={(event) => setUpiRef(event.target.value)} placeholder="e.g. 423985729103" value={upiRef} />
+            </FormField>
           )}
-
-          {/* Order Summary breakdown */}
-          <div
-            style={{
-              padding: '12px 14px',
-              borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--color-border)',
-              marginBottom: 'var(--space-md)',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-              <span className="cell-muted">Items Subtotal</span>
-              <strong>
-                <Money amount={subtotal} />
-              </strong>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-              <span className="cell-muted">Tax Split (CGST + SGST)</span>
-              <span>
-                <Money amount={taxAmount} />
-              </span>
-            </div>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                paddingTop: 8,
-                borderTop: '1px solid var(--color-border)',
-                fontSize: '1.2rem',
-                fontWeight: 700,
-              }}
-            >
-              <span>Grand Total</span>
-              <span style={{ color: 'var(--color-primary)' }}>
-                <Money amount={grandTotal} />
-              </span>
-            </div>
-          </div>
-
-          <Button
-            disabled={cart.length === 0 || saleCheckoutMutation.isPending}
-            onClick={handleCheckout}
-            style={{ width: '100%', padding: '12px', fontSize: '1.05rem' }}
-            variant="primary"
-          >
-            <CheckCircle2 aria-hidden="true" size={18} style={{ marginRight: 8 }} />
-            {saleCheckoutMutation.isPending ? 'Processing Sale...' : `Complete Sale (₹${grandTotal.toFixed(2)})`}
+          <FormField label="Sale note" optional>
+            <TextAreaInput onChange={(event) => setReceiptNotes(event.target.value)} placeholder="Optional note for this receipt" rows={2} value={receiptNotes} />
+          </FormField>
+          <section aria-label="Checkout summary" className="pos-summary">
+            <div className="pos-summary__row"><span>Cart value</span><strong><Money amount={cartValue} /></strong></div>
+            <p>Applicable tax is calculated and confirmed by the tax engine when the receipt is posted.</p>
+            <div className="pos-summary__total"><span>Amount to collect</span><strong><Money amount={cartValue} /></strong></div>
+          </section>
+          {saleCheckoutMutation.isError && (
+            <p className="pos-checkout-error" role="alert">{getErrorMessage(saleCheckoutMutation.error) || 'The sale could not be completed. Please try again.'}</p>
+          )}
+          <Button className="pos-complete-sale" disabled={cart.length === 0} loading={saleCheckoutMutation.isPending} onClick={handleCheckout}>
+            <CheckCircle2 aria-hidden="true" size={18} />Complete sale
           </Button>
-        </div>
+        </aside>
       </div>
 
-      {/* MODAL: LAST SALE SUCCESS RECEIPT */}
-      {lastReceipt && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="receipt-success-title"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: 'var(--space-md)',
-          }}
-        >
-          <div
-            className="panel-card"
-            style={{
-              width: '100%',
-              maxWidth: 480,
-              backgroundColor: 'var(--color-surface)',
-              borderRadius: 'var(--radius-lg)',
-              padding: 'var(--space-lg)',
-              border: '1px solid var(--color-border)',
-              textAlign: 'center',
-            }}
-          >
-            <CheckCircle2 aria-hidden="true" size={48} color="var(--color-success)" style={{ margin: '0 auto 12px' }} />
-            <h3 id="receipt-success-title" style={{ fontSize: '1.3rem', fontWeight: 700, margin: '0 0 4px' }}>
-              Sale Completed!
-            </h3>
-            <p className="table-code" style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--color-primary)' }}>
-              Receipt #{lastReceipt.receiptNumber}
-            </p>
-
-            <div style={{ padding: '12px 16px', background: 'var(--color-bg-subtle)', borderRadius: 'var(--radius-md)', margin: '16px 0', textAlign: 'left' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                <span className="cell-muted">Payment Mode:</span>
-                <strong>{lastReceipt.paymentMode}</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                <span className="cell-muted">Total Amount:</span>
-                <strong><Money amount={lastReceipt.total} /></strong>
-              </div>
-              {lastReceipt.changeReturned > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-success)', fontWeight: 600 }}>
-                  <span>Change Returned:</span>
-                  <span><Money amount={lastReceipt.changeReturned} /></span>
-                </div>
-              )}
-            </div>
-
-            <div style={{ display: 'flex', gap: 'var(--space-sm)', justifyContent: 'center' }}>
-              <Button onClick={() => setLastReceipt(null)} variant="primary">
-                New Sale
-              </Button>
-              <Link className="btn btn--secondary" to={`/sales-receipts/${lastReceipt.id}`}>
-                View Receipt
-              </Link>
+      <Modal
+        footer={<><Button onClick={() => setLastReceipt(null)}>New sale</Button>{lastReceipt && <Link className="button button--secondary" to={`/sales-receipts/${lastReceipt.id}`}>View receipt</Link>}</>}
+        isOpen={Boolean(lastReceipt)}
+        onClose={() => setLastReceipt(null)}
+        size="sm"
+        title="Sale completed"
+      >
+        {lastReceipt && (
+          <div className="pos-receipt-success">
+            <span className="pos-receipt-success__icon" aria-hidden="true"><CheckCircle2 size={28} /></span>
+            <div><strong>{lastReceipt.receiptNumber}</strong><span>{lastReceipt.paymentMode} payment</span></div>
+            <div className="pos-receipt-success__facts">
+              <div><span>Subtotal</span><Money amount={lastReceipt.subtotal} /></div>
+              <div><span>Tax</span><Money amount={lastReceipt.taxAmount} /></div>
+              <div className="pos-receipt-success__total"><span>Receipt total</span><Money amount={lastReceipt.total} /></div>
+              {lastReceipt.changeReturned > 0 && <div className="pos-receipt-success__change"><span>Change returned</span><Money amount={lastReceipt.changeReturned} /></div>}
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
 
-      {/* MODAL: OPEN REGISTER */}
-      {isOpenRegisterOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="open-reg-title"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: 'var(--space-md)',
-          }}
-        >
-          <div
-            className="panel-card"
-            style={{
-              width: '100%',
-              maxWidth: 420,
-              backgroundColor: 'var(--color-surface)',
-              borderRadius: 'var(--radius-lg)',
-              padding: 'var(--space-lg)',
-              border: '1px solid var(--color-border)',
-            }}
-          >
-            <h3 id="open-reg-title" style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: 'var(--space-sm)' }}>
-              Open Today's Cash Register
-            </h3>
-            <p className="cell-muted" style={{ fontSize: '0.85rem', marginBottom: 'var(--space-md)' }}>
-              Count and enter initial float cash in drawer to start today's counter billing.
-            </p>
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-              Opening Cash Balance (₹)
-            </label>
-            <input
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--color-border)',
-                fontSize: '1.1rem',
-                fontWeight: 600,
-                marginBottom: 'var(--space-md)',
-              }}
-              onChange={(e) => setOpeningCashInput(e.target.value)}
-              type="number"
-              value={openingCashInput}
-            />
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-sm)' }}>
-              <Button onClick={() => setIsOpenRegisterOpen(false)} variant="secondary">
-                Cancel
-              </Button>
-              <Button
-                disabled={openRegisterMutation.isPending}
-                onClick={() =>
-                  openRegisterMutation.mutate({
-                    amount: Number(openingCashInput || 0),
-                  })
-                }
-                variant="primary"
-              >
-                {openRegisterMutation.isPending ? 'Opening...' : 'Open Register'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        error={getErrorMessage(openRegisterMutation.error)}
+        footer={<><Button onClick={() => setIsOpenRegisterOpen(false)} variant="secondary">Cancel</Button><Button loading={openRegisterMutation.isPending} onClick={() => openRegisterMutation.mutate({ amount: Number(openingCashInput || 0) })}>Open shift</Button></>}
+        isOpen={isOpenRegisterOpen}
+        onClose={() => setIsOpenRegisterOpen(false)}
+        size="sm"
+        title="Open today's register"
+        description="Count the float in the drawer before you begin counter billing."
+      >
+        <FormField label="Opening cash balance"><NumberInput currencyPrefix min="0" onChange={(event) => setOpeningCashInput(event.target.value)} step="0.01" value={openingCashInput} /></FormField>
+      </Modal>
 
-      {/* MODAL: CASH EXPENSE / PAYOUT */}
-      {isExpenseOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="payout-title"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: 'var(--space-md)',
-          }}
-        >
-          <div
-            className="panel-card"
-            style={{
-              width: '100%',
-              maxWidth: 420,
-              backgroundColor: 'var(--color-surface)',
-              borderRadius: 'var(--radius-lg)',
-              padding: 'var(--space-lg)',
-              border: '1px solid var(--color-border)',
-            }}
-          >
-            <h3 id="payout-title" style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: 'var(--space-sm)' }}>
-              Record Cash Payout
-            </h3>
-            <p className="cell-muted" style={{ fontSize: '0.85rem', marginBottom: 'var(--space-md)' }}>
-              Deduct petty cash expense directly from drawer (e.g. courier, tea, supplies).
-            </p>
-            <div style={{ marginBottom: 'var(--space-sm)' }}>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                Payout Amount (₹)
-              </label>
-              <input
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--color-border)',
-                  fontWeight: 600,
-                }}
-                onChange={(e) => setExpenseAmount(e.target.value)}
-                placeholder="50.00"
-                type="number"
-                value={expenseAmount}
-              />
-            </div>
-            <div style={{ marginBottom: 'var(--space-md)' }}>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                Reason / Description
-              </label>
-              <input
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--color-border)',
-                }}
-                onChange={(e) => setExpenseReason(e.target.value)}
-                placeholder="e.g. Courier dispatch fee"
-                type="text"
-                value={expenseReason}
-              />
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-sm)' }}>
-              <Button onClick={() => setIsExpenseOpen(false)} variant="secondary">
-                Cancel
-              </Button>
-              <Button
-                disabled={!expenseAmount || !expenseReason || addExpenseMutation.isPending}
-                onClick={() =>
-                  addExpenseMutation.mutate({
-                    amount: Number(expenseAmount),
-                    description: expenseReason,
-                  })
-                }
-                variant="primary"
-              >
-                {addExpenseMutation.isPending ? 'Recording...' : 'Record Payout'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        error={getErrorMessage(addExpenseMutation.error)}
+        footer={<><Button onClick={() => setIsExpenseOpen(false)} variant="secondary">Cancel</Button><Button disabled={!expenseAmount || !expenseReason} loading={addExpenseMutation.isPending} onClick={() => addExpenseMutation.mutate({ amount: Number(expenseAmount), description: expenseReason })}>Record payout</Button></>}
+        isOpen={isExpenseOpen}
+        onClose={() => setIsExpenseOpen(false)}
+        size="sm"
+        title="Record cash payout"
+        description="Deduct a counter expense such as a courier charge, tea, or supplies from the drawer."
+      >
+        <FormField label="Payout amount"><NumberInput currencyPrefix min="0" onChange={(event) => setExpenseAmount(event.target.value)} placeholder="0.00" step="0.01" value={expenseAmount} /></FormField>
+        <FormField label="Reason"><TextInput onChange={(event) => setExpenseReason(event.target.value)} placeholder="e.g. Courier dispatch fee" value={expenseReason} /></FormField>
+      </Modal>
 
-      {/* MODAL: CLOSE REGISTER */}
-      {isCloseRegisterOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="close-reg-title"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: 'var(--space-md)',
-          }}
-        >
-          <div
-            className="panel-card"
-            style={{
-              width: '100%',
-              maxWidth: 440,
-              backgroundColor: 'var(--color-surface)',
-              borderRadius: 'var(--radius-lg)',
-              padding: 'var(--space-lg)',
-              border: '1px solid var(--color-border)',
-            }}
-          >
-            <h3 id="close-reg-title" style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: 'var(--space-sm)' }}>
-              Close Day Cash Register
-            </h3>
-            <p className="cell-muted" style={{ fontSize: '0.85rem', marginBottom: 'var(--space-sm)' }}>
-              Expected drawer cash balance is{' '}
-              <strong><Money amount={register?.expectedClosing || 0} /></strong>.
-            </p>
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-              Actual Cash Counted (₹)
-            </label>
-            <input
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--color-border)',
-                fontSize: '1.1rem',
-                fontWeight: 600,
-                marginBottom: 'var(--space-md)',
-              }}
-              onChange={(e) => setClosingCashInput(e.target.value)}
-              placeholder="Counted cash"
-              type="number"
-              value={closingCashInput}
-            />
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-sm)' }}>
-              <Button onClick={() => setIsCloseRegisterOpen(false)} variant="secondary">
-                Cancel
-              </Button>
-              <Button
-                disabled={!closingCashInput || closeRegisterMutation.isPending}
-                onClick={() =>
-                  closeRegisterMutation.mutate({
-                    actual: Number(closingCashInput),
-                  })
-                }
-                variant="primary"
-              >
-                {closeRegisterMutation.isPending ? 'Closing...' : 'Confirm Day Close'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        error={getErrorMessage(closeRegisterMutation.error)}
+        footer={<><Button onClick={() => setIsCloseRegisterOpen(false)} variant="secondary">Cancel</Button><Button disabled={!closingCashInput} loading={closeRegisterMutation.isPending} onClick={() => closeRegisterMutation.mutate({ actual: Number(closingCashInput) })}>Confirm close</Button></>}
+        isOpen={isCloseRegisterOpen}
+        onClose={() => setIsCloseRegisterOpen(false)}
+        size="sm"
+        title="Close today's register"
+        description={`Expected drawer balance: ${register?.expectedClosing || 0}.`}
+      >
+        <FormField label="Actual cash counted"><NumberInput currencyPrefix min="0" onChange={(event) => setClosingCashInput(event.target.value)} placeholder="0.00" step="0.01" value={closingCashInput} /></FormField>
+      </Modal>
     </section>
   )
 }
