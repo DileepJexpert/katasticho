@@ -957,3 +957,231 @@ export async function submitStockistStatement(id: string) {
     method: 'POST',
   })
 }
+
+// ==========================================
+// Field Sales KPI Dashboard
+// ==========================================
+
+export interface SecondaryDashboardData {
+  totalSalespersons: number
+  totalRoutes: number
+  totalVisitsPlanned: number
+  totalVisitsCompleted: number
+  totalOrdersValue: number
+  totalCollections: number
+  averageOrderValue: number
+  productiveVisitPct: number
+}
+
+export async function getSecondaryDashboard(from: string, to: string) {
+  return apiFetch<SecondaryDashboardData>(`/api/v1/field-sales/dashboard?from=${from}&to=${to}`)
+}
+
+// ==========================================
+// Live GPS Locations & Location Trails
+// ==========================================
+
+export interface LiveLocationUser {
+  userId: string
+  fullName?: string
+  salespersonName?: string
+  latitude: number
+  longitude: number
+  accuracy?: number
+  batteryLevel?: number
+  updatedAt: string
+  executionId?: string
+  routeName?: string
+}
+
+export interface LocationTrailPoint {
+  latitude: number
+  longitude: number
+  timestamp: string
+  visitId?: string
+  activity?: string
+}
+
+export interface LocationTrail {
+  executionId: string
+  salespersonId: string
+  salespersonName?: string
+  executionDate: string
+  trail: LocationTrailPoint[]
+}
+
+export async function getLiveLocations() {
+  return apiFetch<LiveLocationUser[]>('/api/v1/field-sales/locations/live')
+}
+
+export async function getLocationTrail(executionId: string) {
+  return apiFetch<LocationTrail>(`/api/v1/field-sales/locations/trail/${executionId}`)
+}
+
+// ==========================================
+// Field Attendance & Leave Management
+// ==========================================
+
+export interface AttendancePunch {
+  id: string
+  userId: string
+  userName?: string
+  date: string
+  punchInTime?: string
+  punchInLatitude?: number
+  punchInLongitude?: number
+  punchOutTime?: string
+  punchOutLatitude?: number
+  punchOutLongitude?: number
+  status: 'PRESENT' | 'HALF_DAY' | 'ON_LEAVE' | 'PUNCHED_OUT' | string
+  notes?: string
+}
+
+export interface LeaveRequest {
+  id: string
+  userId: string
+  userName?: string
+  leaveType: string
+  startDate: string
+  endDate: string
+  reason: string
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | string
+  appliedAt: string
+}
+
+export async function punchIn(latitude?: number, longitude?: number, notes?: string) {
+  return apiFetch<AttendancePunch>('/api/v1/attendance/punch-in', {
+    method: 'POST',
+    body: JSON.stringify({ latitude, longitude, notes }),
+  })
+}
+
+export async function punchOut(latitude?: number, longitude?: number) {
+  return apiFetch<AttendancePunch>('/api/v1/attendance/punch-out', {
+    method: 'POST',
+    body: JSON.stringify({ latitude, longitude }),
+  })
+}
+
+export async function getTodayAttendance() {
+  return apiFetch<AttendancePunch | null>('/api/v1/attendance/today')
+}
+
+export async function getMyMonthAttendance(month?: string) {
+  const q = month ? `?month=${month}` : ''
+  return apiFetch<AttendancePunch[]>(`/api/v1/attendance/me${q}`)
+}
+
+export async function getTeamAttendance(date?: string) {
+  const q = date ? `?date=${date}` : ''
+  return apiFetch<AttendancePunch[]>(`/api/v1/attendance/team${q}`)
+}
+
+export async function getPendingLeaves() {
+  return apiFetch<LeaveRequest[]>('/api/v1/attendance/leave/pending')
+}
+
+export async function approveLeave(id: string) {
+  return apiFetch<void>(`/api/v1/attendance/leave/${id}/approve`, {
+    method: 'POST',
+  })
+}
+
+export async function rejectLeave(id: string, reason: string) {
+  return apiFetch<void>(`/api/v1/attendance/leave/${id}/reject`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  })
+}
+
+// ==========================================
+// Field Reporting Hierarchy (Org Chart)
+// ==========================================
+
+export interface OrgChartNode {
+  userId: string
+  fullName: string
+  role: string
+  reportsToUserId?: string | null
+  reportsToName?: string | null
+  teamCount?: number
+  children?: OrgChartNode[]
+}
+
+export interface MyTeamSummary {
+  directReports: Array<{
+    userId: string
+    fullName: string
+    role: string
+  }>
+  downlineCount: number
+}
+
+export async function getFieldOrgChart() {
+  return apiFetch<OrgChartNode[]>('/api/v1/field-sales/hierarchy/org-chart')
+}
+
+export async function getMyFieldTeam() {
+  return apiFetch<MyTeamSummary>('/api/v1/field-sales/hierarchy/my-team')
+}
+
+export async function assignReportingManager(userId: string, managerId: string | null) {
+  return apiFetch<{ userId: string; reportsToUserId: string | null }>(
+    `/api/v1/field-sales/hierarchy/users/${userId}/manager`,
+    {
+      method: 'PUT',
+      body: JSON.stringify({ managerId }),
+    }
+  )
+}
+
+// ==========================================
+// Field Coverage & Deviation Analytics
+// ==========================================
+
+export interface FrequencyComplianceReport {
+  month: string
+  salespersonId?: string
+  salespersonName?: string
+  totalPlannedVisits: number
+  totalActualVisits: number
+  compliancePercentage: number
+  categoryBreakdown?: Array<{
+    category: string
+    planned: number
+    completed: number
+    compliance: number
+  }>
+}
+
+export interface DeviationReport {
+  month: string
+  salespersonId: string
+  salespersonName?: string
+  unplannedVisits: number
+  missedVisits: number
+  jointVisits: number
+}
+
+export interface TeamCoverageSummary {
+  salespersonId: string
+  salespersonName: string
+  plannedCalls: number
+  actualCalls: number
+  productiveCalls: number
+  strikeRate: number
+  orderValue: number
+}
+
+export async function getFrequencyCompliance(month: string, salespersonId?: string) {
+  const spParam = salespersonId ? `&salespersonId=${salespersonId}` : ''
+  return apiFetch<FrequencyComplianceReport>(`/api/v1/mr/reports/frequency-compliance?month=${month}${spParam}`)
+}
+
+export async function getDeviationReport(month: string, salespersonId: string) {
+  return apiFetch<DeviationReport>(`/api/v1/mr/reports/deviation?month=${month}&salespersonId=${salespersonId}`)
+}
+
+export async function getTeamCoverageDashboard(from: string, to: string) {
+  return apiFetch<TeamCoverageSummary[]>(`/api/v1/mr/reports/team-dashboard?from=${from}&to=${to}`)
+}

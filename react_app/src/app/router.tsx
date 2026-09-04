@@ -23,6 +23,12 @@ import { RouteExecutionDetailPage } from '@/features/field-sales/route-execution
 import { DayClosePage } from '@/features/field-sales/day-close-page'
 import { SalesmanTargetsPage } from '@/features/field-sales/salesman-targets-page'
 import { StoreMerchandisingPage } from '@/features/field-sales/store-merchandising-page'
+import { SalesmanDashboardPage } from '@/features/field-sales/salesman-dashboard-page'
+import { LiveTrackingPage } from '@/features/field-sales/live-tracking-page'
+import { FieldCoveragePage } from '@/features/field-sales/field-coverage-page'
+import { FieldAttendancePage } from '@/features/field-sales/field-attendance-page'
+import { FieldOrgChartPage } from '@/features/field-sales/field-org-chart-page'
+import { TeamAssignmentsPage } from '@/features/field-sales/team-assignments-page'
 import { DcrPage } from '@/features/mr/dcr-page'
 import { DcrDetailPage } from '@/features/mr/dcr-detail-page'
 import { TourPlansPage } from '@/features/mr/tour-plans-page'
@@ -657,6 +663,114 @@ export const router = createBrowserRouter([
             element: <ManufacturingReportsPage />,
           },
           {
+            path: 'field-sales/dashboard',
+            element: <SalesmanDashboardPage />,
+          },
+          {
+            path: 'field-sales/live-tracking',
+            element: <LiveTrackingPage />,
+          },
+          {
+            path: 'field-sales/merchandising',
+            element: <StoreMerchandisingPage />,
+          },
+          {
+            path: 'field-sales/tour-plans',
+            element: <TourPlansPage />,
+          },
+          {
+            path: 'field-sales/tour-plans/:planId',
+            element: <TourPlanDetailPage />,
+          },
+          {
+            path: 'field-sales/dcr',
+            element: <DcrPage />,
+          },
+          {
+            path: 'field-sales/dcr/:dcrId',
+            element: <DcrDetailPage />,
+          },
+          {
+            path: 'field-sales/mr-approvals',
+            element: <MrApprovalsPage />,
+          },
+          {
+            path: 'field-sales/approvals',
+            element: <MrApprovalsPage />,
+          },
+          {
+            path: 'field-sales/samples',
+            element: <FieldSamplesPage />,
+          },
+          {
+            path: 'field-sales/coverage',
+            element: <FieldCoveragePage />,
+          },
+          {
+            path: 'field-sales/targets',
+            element: <SalesmanTargetsPage />,
+          },
+          {
+            path: 'field-sales/attendance',
+            element: <FieldAttendancePage />,
+          },
+          {
+            path: 'field-sales/detail-aids',
+            element: <DetailAidsPage />,
+          },
+          {
+            path: 'field-sales/secondary-sales',
+            element: <SecondarySalesPage />,
+          },
+          {
+            path: 'field-sales/rcpa',
+            element: <RcpaPage />,
+          },
+          {
+            path: 'field-sales/org-chart',
+            element: <FieldOrgChartPage />,
+          },
+          {
+            path: 'field-sales/beats',
+            element: <BeatsPage />,
+          },
+          {
+            path: 'field-sales/beats/:beatId',
+            element: <BeatDetailPage />,
+          },
+          {
+            path: 'field-sales/routes',
+            element: <RoutesPage />,
+          },
+          {
+            path: 'field-sales/routes/:routeId',
+            element: <RouteDetailPage />,
+          },
+          {
+            path: 'field-sales/assignments',
+            element: <TeamAssignmentsPage />,
+          },
+          {
+            path: 'field-sales/vans',
+            element: <VansPage />,
+          },
+          {
+            path: 'field-sales/vans/:vanId',
+            element: <VanDetailPage />,
+          },
+          {
+            path: 'field-sales/executions',
+            element: <RouteExecutionsPage />,
+          },
+          {
+            path: 'field-sales/executions/:executionId',
+            element: <RouteExecutionDetailPage />,
+          },
+          {
+            path: 'field-sales/day-close',
+            element: <DayClosePage />,
+          },
+          {
             path: 'beats',
             element: <BeatsPage />,
           },
@@ -679,26 +793,6 @@ export const router = createBrowserRouter([
           {
             path: 'vans/:vanId',
             element: <VanDetailPage />,
-          },
-          {
-            path: 'field-sales/executions',
-            element: <RouteExecutionsPage />,
-          },
-          {
-            path: 'field-sales/executions/:executionId',
-            element: <RouteExecutionDetailPage />,
-          },
-          {
-            path: 'field-sales/day-close',
-            element: <DayClosePage />,
-          },
-          {
-            path: 'field-sales/targets',
-            element: <SalesmanTargetsPage />,
-          },
-          {
-            path: 'field-sales/merchandising',
-            element: <StoreMerchandisingPage />,
           },
           {
             path: 'mr/dcr',

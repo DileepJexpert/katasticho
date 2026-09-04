@@ -173,6 +173,33 @@ export const appRoutes = {
   rcpa: '/mr/rcpa',
   secondarySales: '/mr/secondary-sales',
   mrApprovals: '/mr/approvals',
+  fieldSalesDashboard: '/field-sales/dashboard',
+  fieldSalesLiveTracking: '/field-sales/live-tracking',
+  fieldSalesMerchandising: '/field-sales/merchandising',
+  fieldSalesTourPlans: '/field-sales/tour-plans',
+  fieldSalesTourPlanDetail: (id: string) => `/field-sales/tour-plans/${id}`,
+  fieldSalesDcr: '/field-sales/dcr',
+  fieldSalesDcrDetail: (id: string) => `/field-sales/dcr/${id}`,
+  fieldSalesMrApprovals: '/field-sales/mr-approvals',
+  fieldSalesApprovals: '/field-sales/approvals',
+  fieldSalesSamples: '/field-sales/samples',
+  fieldSalesCoverage: '/field-sales/coverage',
+  fieldSalesTargets: '/field-sales/targets',
+  fieldSalesAttendance: '/field-sales/attendance',
+  fieldSalesDetailAids: '/field-sales/detail-aids',
+  fieldSalesSecondarySales: '/field-sales/secondary-sales',
+  fieldSalesRcpa: '/field-sales/rcpa',
+  fieldSalesOrgChart: '/field-sales/org-chart',
+  fieldSalesBeats: '/field-sales/beats',
+  fieldSalesBeatDetail: (id: string) => `/field-sales/beats/${id}`,
+  fieldSalesRoutes: '/field-sales/routes',
+  fieldSalesRouteDetail: (id: string) => `/field-sales/routes/${id}`,
+  fieldSalesAssignments: '/field-sales/assignments',
+  fieldSalesVans: '/field-sales/vans',
+  fieldSalesVanDetail: (id: string) => `/field-sales/vans/${id}`,
+  fieldSalesExecutions: '/field-sales/executions',
+  fieldSalesExecutionDetail: (id: string) => `/field-sales/executions/${id}`,
+  fieldSalesDayClose: '/field-sales/day-close',
   employees: '/employees',
   employeeDetail: (id: string) => `/employees/${id}`,
   payrollRuns: '/payroll-runs',
@@ -259,6 +286,16 @@ export type NavigationItem = {
   industries?: readonly string[]
   countries?: readonly string[]
   capability?: string
+  labelResolver?: (industry: string | null | undefined) => string
+}
+
+export function isPharmaIndustry(industryCode: string | null | undefined): boolean {
+  const code = (industryCode ?? '').trim().toUpperCase()
+  return code === 'PHARMACY' || code.includes('PHARMA')
+}
+
+export function fieldSalesApprovalLabel(industryCode: string | null | undefined): string {
+  return isPharmaIndustry(industryCode) ? 'MR Approvals' : 'Field Approvals'
 }
 
 export type NavGroup = {
@@ -678,107 +715,151 @@ export const navGroups: readonly NavGroup[] = [
   },
   {
     id: 'field_sales',
-    label: 'Field Sales & MR',
-    description: 'Beats, routes, vans, DCR & tour plans',
+    label: 'Field Sales',
+    description: 'Beats, routes, vans, DCR & field team execution',
     icon: Navigation,
     items: [
       {
-        id: 'fieldsales.beats',
-        label: 'Sales Beats',
-        description: 'Territory stops & visit sequences',
-        icon: MapPin,
-        to: appRoutes.beats,
-      },
-      {
-        id: 'fieldsales.routes',
-        label: 'Sales Routes',
-        description: 'Scheduled multi-beat route lines',
-        icon: Navigation,
-        to: appRoutes.routes,
-      },
-      {
-        id: 'fieldsales.vans',
-        label: 'Mobile Vans',
-        description: 'Van fleet & on-board stock',
-        icon: Truck,
-        to: appRoutes.vans,
-      },
-      {
-        id: 'fieldsales.executions',
-        label: 'Route Executions',
-        description: 'Daily field visits & order booking',
-        icon: Navigation,
-        to: appRoutes.routeExecutions,
-      },
-      {
-        id: 'fieldsales.day_close',
-        label: 'Day Close & Settlement',
-        description: 'Cash reconciliation & manager signoff',
-        icon: Banknote,
-        to: appRoutes.dayClose,
-      },
-      {
-        id: 'fieldsales.targets',
-        label: 'Sales Targets',
-        description: 'Salesperson quotas & achievements',
-        icon: Target,
-        to: appRoutes.salesmanTargets,
-      },
-      {
-        id: 'fieldsales.merchandising',
-        label: 'Store Merchandising',
-        description: 'Shelf audits & planogram compliance',
-        icon: ShoppingBag,
-        to: appRoutes.storeMerchandising,
-      },
-      {
-        id: 'mr.dcr',
-        label: 'Daily Call Reports (DCR)',
-        description: 'Doctor calls & order booking',
-        icon: Stethoscope,
-        to: appRoutes.dcr,
-      },
-      {
-        id: 'mr.tour_plans',
-        label: 'Monthly Tour Plans',
-        description: 'MR monthly travel itineraries (MTP)',
-        icon: Compass,
-        to: appRoutes.tourPlans,
-      },
-      {
-        id: 'mr.detail_aids',
-        label: 'Visual Detailing Aids',
-        description: 'Digital brochures & presentations',
-        icon: BookOpen,
-        to: appRoutes.detailAids,
-      },
-      {
-        id: 'mr.samples',
-        label: 'Physician Samples',
-        description: 'Sample batches & promotional inputs',
-        icon: Gift,
-        to: appRoutes.fieldSamples,
-      },
-      {
-        id: 'mr.rcpa',
-        label: 'Prescription Audit (RCPA)',
-        description: 'Retail chemist audit & brand share',
+        id: 'field_sales.dashboard',
+        label: 'Dashboard',
+        description: 'Territory KPIs & route execution progress',
         icon: BarChart3,
-        to: appRoutes.rcpa,
+        to: appRoutes.fieldSalesDashboard,
       },
       {
-        id: 'mr.secondary_sales',
-        label: 'Secondary Sales',
-        description: 'Wholesale sales statements & off-take',
+        id: 'field_sales.live_tracking',
+        label: 'Live Tracking',
+        description: 'Real-time field rep GPS telemetry',
+        icon: MapPin,
+        to: appRoutes.fieldSalesLiveTracking,
+      },
+      {
+        id: 'field_sales.merchandising',
+        label: 'Shelf Merchandising',
+        description: 'Store shelf audits & planogram compliance',
+        icon: ShoppingBag,
+        to: appRoutes.fieldSalesMerchandising,
+      },
+      {
+        id: 'field_sales.tour_plans',
+        label: 'Tour Plans (MTP)',
+        description: 'Monthly travel itineraries & route plans',
+        icon: Compass,
+        to: appRoutes.fieldSalesTourPlans,
+      },
+      {
+        id: 'field_sales.dcr',
+        label: 'Daily Call Report (DCR)',
+        description: 'Doctor & chemist call logs with order booking',
         icon: FileSpreadsheet,
-        to: appRoutes.secondarySales,
+        to: appRoutes.fieldSalesDcr,
       },
       {
-        id: 'mr.approvals',
-        label: 'MR Approvals Hub',
+        id: 'field_sales.mr_approvals',
+        label: 'Field Approvals',
         description: 'Manager sign-offs for MTP & DCR',
         icon: ClipboardCheck,
-        to: appRoutes.mrApprovals,
+        to: appRoutes.fieldSalesMrApprovals,
+        labelResolver: (ind) => (isPharmaIndustry(ind) ? 'MR Approvals' : 'Field Approvals'),
+      },
+      {
+        id: 'field_sales.samples',
+        label: 'Samples & TA/DA',
+        description: 'Physician samples & travel claims',
+        icon: Gift,
+        to: appRoutes.fieldSalesSamples,
+      },
+      {
+        id: 'field_sales.coverage',
+        label: 'Coverage',
+        description: 'Call frequency compliance & strike rates',
+        icon: TrendingUp,
+        to: appRoutes.fieldSalesCoverage,
+      },
+      {
+        id: 'field_sales.targets',
+        label: 'Targets',
+        description: 'Sales quotas & periodic achievements',
+        icon: Target,
+        to: appRoutes.fieldSalesTargets,
+      },
+      {
+        id: 'field_sales.attendance',
+        label: 'Attendance',
+        description: 'Field check-in, check-out & leave approvals',
+        icon: Clock,
+        to: appRoutes.fieldSalesAttendance,
+      },
+      {
+        id: 'field_sales.detail_aids',
+        label: 'Detail Aids',
+        description: 'Digital visual aids & product brochures',
+        icon: BookOpen,
+        to: appRoutes.fieldSalesDetailAids,
+      },
+      {
+        id: 'field_sales.secondary_sales',
+        label: 'Secondary Sales',
+        description: 'Stockist-to-retailer sales statements',
+        icon: Layers,
+        to: appRoutes.fieldSalesSecondarySales,
+      },
+      {
+        id: 'field_sales.rcpa',
+        label: 'RCPA',
+        description: 'Retail chemist prescription audit & brand share',
+        icon: Stethoscope,
+        to: appRoutes.fieldSalesRcpa,
+      },
+      {
+        id: 'field_sales.org_chart',
+        label: 'Org Chart',
+        description: 'Sales hierarchy & manager reporting lines',
+        icon: UsersRound,
+        to: appRoutes.fieldSalesOrgChart,
+      },
+      {
+        id: 'field_sales.beats',
+        label: 'Beats',
+        description: 'Territory stops & customer sequences',
+        icon: MapPin,
+        to: appRoutes.fieldSalesBeats,
+      },
+      {
+        id: 'field_sales.routes',
+        label: 'Routes',
+        description: 'Scheduled multi-beat route lines',
+        icon: Navigation,
+        to: appRoutes.fieldSalesRoutes,
+      },
+      {
+        id: 'field_sales.assignments',
+        label: 'Team Assignments',
+        description: 'Territory & vehicle allocations',
+        icon: ListChecks,
+        to: appRoutes.fieldSalesAssignments,
+        roles: ['OWNER', 'ADMIN'],
+      },
+      {
+        id: 'field_sales.vans',
+        label: 'Vans',
+        description: 'Van fleet & mobile stock balances',
+        icon: Truck,
+        to: appRoutes.fieldSalesVans,
+      },
+      {
+        id: 'field_sales.executions',
+        label: "Today's Routes",
+        description: 'Daily visit execution & live stops',
+        icon: Navigation,
+        to: appRoutes.fieldSalesExecutions,
+      },
+      {
+        id: 'field_sales.day_close',
+        label: 'Day Close',
+        description: 'Daily cash reconciliation & supervisor settlement',
+        icon: Banknote,
+        to: appRoutes.fieldSalesDayClose,
       },
     ],
   },
@@ -1178,11 +1259,23 @@ function isItemAllowed(item: NavigationItem, context: NavigationContext, disable
   return true
 }
 
+function resolveNavigationItem(item: NavigationItem, context: NavigationContext): NavigationItem {
+  if (item.labelResolver) {
+    return {
+      ...item,
+      label: item.labelResolver(context.industry),
+    }
+  }
+  return item
+}
+
 export function getVisibleNavigation(context: NavigationContext): NavigationItem[] {
   const disabledIds = new Set(context.disabledIds ?? [])
   const capabilities = new Set(context.capabilities ?? [])
 
-  return navigationItems.filter((item) => isItemAllowed(item, context, disabledIds, capabilities))
+  return navigationItems
+    .filter((item) => isItemAllowed(item, context, disabledIds, capabilities))
+    .map((item) => resolveNavigationItem(item, context))
 }
 
 export type VisibleNavStructure = {
@@ -1197,8 +1290,14 @@ export function getVisibleNavStructure(context: NavigationContext): VisibleNavSt
   const isPlatformAdmin = context.role?.toUpperCase() === 'PLATFORM_ADMIN'
   const isCaUser = context.role === 'CA_PARTNER' || context.role === 'CA_STAFF'
 
-  const topItems = topLevelNavItems.filter((item) => isItemAllowed(item, context, disabledIds, capabilities))
-  const bottomItems = bottomLevelNavItems.filter((item) => isItemAllowed(item, context, disabledIds, capabilities))
+  const resolveItem = (item: NavigationItem): NavigationItem => resolveNavigationItem(item, context)
+
+  const topItems = topLevelNavItems
+    .filter((item) => isItemAllowed(item, context, disabledIds, capabilities))
+    .map(resolveItem)
+  const bottomItems = bottomLevelNavItems
+    .filter((item) => isItemAllowed(item, context, disabledIds, capabilities))
+    .map(resolveItem)
 
   const groups = navGroups
     .map((group) => {
@@ -1211,7 +1310,9 @@ export function getVisibleNavStructure(context: NavigationContext): VisibleNavSt
       }
 
       // Filter children
-      const visibleItems = group.items.filter((item) => isItemAllowed(item, context, disabledIds, capabilities))
+      const visibleItems = group.items
+        .filter((item) => isItemAllowed(item, context, disabledIds, capabilities))
+        .map(resolveItem)
       if (visibleItems.length === 0) return null
 
       // CA user prioritization

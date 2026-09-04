@@ -62,20 +62,26 @@ describe('navigation', () => {
       'manufacturing.maintenance_schedules',
       'manufacturing.maintenance_orders',
       'manufacturing.reports',
-      'fieldsales.beats',
-      'fieldsales.routes',
-      'fieldsales.vans',
-      'fieldsales.executions',
-      'fieldsales.day_close',
-      'fieldsales.targets',
-      'fieldsales.merchandising',
-      'mr.dcr',
-      'mr.tour_plans',
-      'mr.detail_aids',
-      'mr.samples',
-      'mr.rcpa',
-      'mr.secondary_sales',
-      'mr.approvals',
+      'field_sales.dashboard',
+      'field_sales.live_tracking',
+      'field_sales.merchandising',
+      'field_sales.tour_plans',
+      'field_sales.dcr',
+      'field_sales.mr_approvals',
+      'field_sales.samples',
+      'field_sales.coverage',
+      'field_sales.targets',
+      'field_sales.attendance',
+      'field_sales.detail_aids',
+      'field_sales.secondary_sales',
+      'field_sales.rcpa',
+      'field_sales.org_chart',
+      'field_sales.beats',
+      'field_sales.routes',
+      'field_sales.assignments',
+      'field_sales.vans',
+      'field_sales.executions',
+      'field_sales.day_close',
       'accounting.dashboard',
       'accounting.accounts',
       'accounting.journals',
@@ -166,5 +172,46 @@ describe('navigation', () => {
     const groupIds = caStructure.groups.map((g) => g.id)
     expect(groupIds).toContain('ca_practice')
     expect(groupIds).not.toContain('manufacturing_operations')
+  })
+
+  it('resolves field_sales.mr_approvals label dynamically based on industry', () => {
+    const pharmaNav = getVisibleNavigation({
+      role: 'ADMIN',
+      industry: 'PHARMACY',
+      country: null,
+    })
+    const pharmaApprovalItem = pharmaNav.find((i) => i.id === 'field_sales.mr_approvals')
+    expect(pharmaApprovalItem?.label).toBe('MR Approvals')
+
+    const generalNav = getVisibleNavigation({
+      role: 'ADMIN',
+      industry: 'FMCG',
+      country: null,
+    })
+    const generalApprovalItem = generalNav.find((i) => i.id === 'field_sales.mr_approvals')
+    expect(generalApprovalItem?.label).toBe('Field Approvals')
+  })
+
+  it('enforces role restrictions on field_sales.assignments', () => {
+    const operatorNav = getVisibleNavigation({
+      role: 'OPERATOR',
+      industry: null,
+      country: null,
+    })
+    expect(operatorNav.some((i) => i.id === 'field_sales.assignments')).toBe(false)
+
+    const adminNav = getVisibleNavigation({
+      role: 'ADMIN',
+      industry: null,
+      country: null,
+    })
+    expect(adminNav.some((i) => i.id === 'field_sales.assignments')).toBe(true)
+
+    const ownerNav = getVisibleNavigation({
+      role: 'OWNER',
+      industry: null,
+      country: null,
+    })
+    expect(ownerNav.some((i) => i.id === 'field_sales.assignments')).toBe(true)
   })
 })
