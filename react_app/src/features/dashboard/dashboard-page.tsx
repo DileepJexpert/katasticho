@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react'
-import { Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AlertTriangle,
@@ -12,9 +11,7 @@ import {
   Clock,
   Coins,
   CreditCard,
-  FileText,
   Package,
-  Plus,
   Receipt,
   RefreshCw,
   ShieldCheck,
@@ -226,7 +223,7 @@ export function DashboardPage() {
   const recentBills = recentBillsQuery.data ?? []
   const recentJournals = recentJournalsQuery.data ?? []
 
-  // Aaj Ka Hisaab net earning metric
+  // Daily performance net margin metric
   const earning = dailySummary?.today.earning ?? (Number(todaySales?.totalSales ?? 0) - Number(profit?.cogs ?? 0))
   const earningPositive = Number(earning) >= 0
 
@@ -271,10 +268,13 @@ export function DashboardPage() {
       />
 
       <div className="dashboard-workspace">
-        {/* ── Global Filter Bar & Quick Action Launcher ── */}
-        <section aria-label="Dashboard filters" className="dashboard-filter-bar">
+        {/* ── Executive Control Toolbar (Period Filter & Multi-Branch Selector) ── */}
+        <section aria-label="Dashboard controls" className="dashboard-control-bar">
           <div className="dashboard-filter-group">
-            <span className="text-secondary text-sm font-medium">Period:</span>
+            <span className="dashboard-filter-label">
+              <Calendar size={14} aria-hidden="true" />
+              <span>Period:</span>
+            </span>
             <FilterTabs
               activeValue={datePreset}
               ariaLabel="Dashboard period filter"
@@ -289,8 +289,8 @@ export function DashboardPage() {
           </div>
 
           <div className="dashboard-filter-group">
-            <label htmlFor="dashboard-branch-select" className="text-secondary text-sm font-medium flex items-center gap-1.5">
-              <Building2 size={16} aria-hidden="true" />
+            <label htmlFor="dashboard-branch-select" className="dashboard-filter-label">
+              <Building2 size={14} aria-hidden="true" />
               <span>Branch:</span>
             </label>
             <select
@@ -309,33 +309,6 @@ export function DashboardPage() {
             </select>
           </div>
         </section>
-
-        {/* ── Quick Action Dock (DualEntry / Campfire Style) ── */}
-        <nav aria-label="Quick Action Launcher" className="dashboard-quick-actions">
-          <span className="text-secondary text-xs font-semibold uppercase tracking-wider mr-2 flex items-center gap-1">
-            <Plus size={13} /> Quick create:
-          </span>
-          <Link to="/invoices/create" className="dashboard-quick-btn">
-            <Receipt size={14} />
-            <span>+ New Invoice</span>
-          </Link>
-          <Link to="/payments/create" className="dashboard-quick-btn">
-            <WalletCards size={14} />
-            <span>+ Record Payment</span>
-          </Link>
-          <Link to="/bills/create" className="dashboard-quick-btn">
-            <FileText size={14} />
-            <span>+ New Bill</span>
-          </Link>
-          <Link to="/pos" className="dashboard-quick-btn">
-            <CreditCard size={14} />
-            <span>+ Point of Sale</span>
-          </Link>
-          <Link to="/items/create" className="dashboard-quick-btn">
-            <Package size={14} />
-            <span>+ New Item</span>
-          </Link>
-        </nav>
 
         {/* ── Top Metric Cards Row (4 Core KPIs) ── */}
         <section aria-label="Key performance indicators" className="metric-grid">
@@ -388,17 +361,17 @@ export function DashboardPage() {
           />
         </section>
 
-        {/* ── Aaj Ka Hisaab Card (Cashier & Owner Daily Snapshot) ── */}
-        <DocumentCard title="Aaj Ka Hisaab — Daily Performance Snapshot">
+        {/* ── Daily Performance Snapshot Card (Margins & Settlements) ── */}
+        <DocumentCard title="Daily Performance Snapshot — Margins & Settlements">
           <div className="p-4 flex flex-col gap-4">
-            <div className="aaj-ka-hisaab-hero">
+            <div className="daily-performance-hero">
               <div className="flex items-center gap-3">
-                <div className={`p-3 rounded-md ${earningPositive ? 'bg-pos text-pos' : 'bg-neg text-neg'}`}>
-                  {earningPositive ? <TrendingUp size={24} /> : <TrendingDown size={24} />}
+                <div className={`p-2.5 rounded-md ${earningPositive ? 'bg-pos text-pos' : 'bg-neg text-neg'}`}>
+                  {earningPositive ? <TrendingUp size={22} /> : <TrendingDown size={22} />}
                 </div>
                 <div>
-                  <span className="text-secondary text-xs uppercase tracking-wide">Today's Net Earning / Margin</span>
-                  <div className="text-xl font-bold">
+                  <span className="text-secondary text-xs uppercase tracking-wide font-medium">Today's Net Earning / Margin</span>
+                  <div className="text-xl font-bold font-mono">
                     <Money amount={earning} currency={todaySales?.currency ?? 'INR'} />
                   </div>
                   {dailySummary?.thisWeek && (
@@ -413,10 +386,10 @@ export function DashboardPage() {
               </div>
             </div>
 
-            <dl className="aaj-ka-hisaab-stats">
-              <div className="aaj-ka-hisaab-stat">
-                <dt className="flex items-center gap-1.5">
-                  <Receipt size={14} />
+            <dl className="daily-performance-stats">
+              <div className="daily-performance-stat">
+                <dt>
+                  <Receipt size={14} aria-hidden="true" />
                   <span>Total Sales</span>
                 </dt>
                 <dd>
@@ -424,9 +397,9 @@ export function DashboardPage() {
                 </dd>
                 <span className="text-xs text-muted">POS: {todaySales?.posTransactionCount ?? 0} • B2B: {todaySales?.invoiceTransactionCount ?? 0}</span>
               </div>
-              <div className="aaj-ka-hisaab-stat">
-                <dt className="flex items-center gap-1.5">
-                  <Coins size={14} />
+              <div className="daily-performance-stat">
+                <dt>
+                  <Coins size={14} aria-hidden="true" />
                   <span>Total Cost (COGS)</span>
                 </dt>
                 <dd>
@@ -434,9 +407,9 @@ export function DashboardPage() {
                 </dd>
                 <span className="text-xs text-muted">Stock valuation basis</span>
               </div>
-              <div className="aaj-ka-hisaab-stat">
-                <dt className="flex items-center gap-1.5">
-                  <WalletCards size={14} />
+              <div className="daily-performance-stat">
+                <dt>
+                  <WalletCards size={14} aria-hidden="true" />
                   <span>Cash / UPI Received</span>
                 </dt>
                 <dd className="text-pos">
@@ -444,9 +417,9 @@ export function DashboardPage() {
                 </dd>
                 <span className="text-xs text-muted">Instant settlement</span>
               </div>
-              <div className="aaj-ka-hisaab-stat">
-                <dt className="flex items-center gap-1.5">
-                  <CreditCard size={14} />
+              <div className="daily-performance-stat">
+                <dt>
+                  <CreditCard size={14} aria-hidden="true" />
                   <span>Credit Sales</span>
                 </dt>
                 <dd className="text-neg">

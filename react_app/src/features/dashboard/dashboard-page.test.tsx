@@ -310,18 +310,11 @@ describe('DashboardPage', () => {
     vi.mocked(dashboardApi.getRecentJournals).mockResolvedValue(mockRecentJournals)
   })
 
-  it('renders executive greeting, quick action dock, and the four core KPI metric cards', async () => {
+  it('renders executive greeting and the four core KPI metric cards', async () => {
     renderDashboard(queryClient)
 
     expect(await screen.findByText(/Good (morning|afternoon|evening), Vikram/i)).toBeInTheDocument()
     expect(screen.getByText('Executive Overview • Apex Distributors')).toBeInTheDocument()
-
-    // Quick action dock
-    expect(screen.getByText('+ New Invoice')).toBeInTheDocument()
-    expect(screen.getByText('+ Record Payment')).toBeInTheDocument()
-    expect(screen.getByText('+ New Bill')).toBeInTheDocument()
-    expect(screen.getByText('+ Point of Sale')).toBeInTheDocument()
-    expect(screen.getByText('+ New Item')).toBeInTheDocument()
 
     // 4 KPI Cards
     expect(screen.getByText('Today’s sales')).toBeInTheDocument()
@@ -350,10 +343,10 @@ describe('DashboardPage', () => {
     })
   })
 
-  it('renders Aaj Ka Hisaab performance card with net margin and sales breakdown', async () => {
+  it('renders Daily Performance Snapshot card with net margin and sales breakdown', async () => {
     renderDashboard(queryClient)
 
-    expect(await screen.findByText('Aaj Ka Hisaab — Daily Performance Snapshot')).toBeInTheDocument()
+    expect(await screen.findByText('Daily Performance Snapshot — Margins & Settlements')).toBeInTheDocument()
     expect(await screen.findByText("Today's Net Earning / Margin")).toBeInTheDocument()
     expect(screen.getByText(/vs last week:/i)).toBeInTheDocument()
     expect(screen.getByText('18.2%')).toBeInTheDocument()
