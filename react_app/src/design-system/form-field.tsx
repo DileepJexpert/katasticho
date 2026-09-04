@@ -1,4 +1,12 @@
-import { forwardRef, type HTMLAttributes, type ReactNode } from 'react'
+import {
+  cloneElement,
+  forwardRef,
+  isValidElement,
+  useId,
+  type HTMLAttributes,
+  type ReactElement,
+  type ReactNode,
+} from 'react'
 import clsx from 'clsx'
 
 export interface FormFieldProps extends HTMLAttributes<HTMLDivElement> {
@@ -17,6 +25,16 @@ export const FormField = forwardRef<HTMLDivElement, FormFieldProps>(function For
   { label, htmlFor, required, optional, error, hint, tooltip, span, children, className, ...props },
   ref
 ) {
+  const autoId = useId()
+  const inputId = htmlFor || autoId
+
+  const renderedChild =
+    isValidElement(children) &&
+    typeof children.type !== 'string' &&
+    !('id' in (children.props as object) && Boolean((children.props as { id?: string }).id))
+      ? cloneElement(children as ReactElement<{ id?: string }>, { id: inputId })
+      : children
+
   return (
     <div
       ref={ref}
@@ -30,7 +48,7 @@ export const FormField = forwardRef<HTMLDivElement, FormFieldProps>(function For
       {...props}
     >
       <div className="field-label-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <label htmlFor={htmlFor} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: htmlFor ? 'pointer' : 'default' }}>
+        <label htmlFor={inputId} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
           <span>{label}</span>
           {required && <span style={{ color: 'var(--neg-text)', fontWeight: 'var(--fw-semibold)' }}>*</span>}
           {optional && <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>(optional)</span>}
@@ -41,7 +59,7 @@ export const FormField = forwardRef<HTMLDivElement, FormFieldProps>(function For
           </span>
         )}
       </div>
-      {children}
+      {renderedChild}
       {error ? (
         <small className="field-error" role="alert" style={{ color: 'var(--neg-text)', fontSize: 'var(--text-xs)' }}>
           {error}
@@ -54,3 +72,4 @@ export const FormField = forwardRef<HTMLDivElement, FormFieldProps>(function For
     </div>
   )
 })
+
