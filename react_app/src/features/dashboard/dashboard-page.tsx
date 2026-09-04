@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AlertTriangle,
@@ -7,14 +8,16 @@ import {
   BookOpen,
   Building2,
   Calendar,
+  CheckCircle2,
   Clock,
   Coins,
   CreditCard,
   FileText,
   Package,
+  Plus,
   Receipt,
   RefreshCw,
-  ShieldAlert,
+  ShieldCheck,
   TrendingDown,
   TrendingUp,
   Truck,
@@ -24,7 +27,6 @@ import {
   Button,
   DataTable,
   DocumentCard,
-  EmptyState,
   FilterTabs,
   Money,
   PageHeader,
@@ -75,7 +77,7 @@ export function DashboardPage() {
   const queryClient = useQueryClient()
   const user = useSessionStore((state) => state.user)
 
-  // ── Global Filter State (Date Range + Branch) ──
+  // ── Global Filter State (Date Range & Branch Selection) ──
   const [datePreset, setDatePreset] = useState<DatePreset>('today')
   const [selectedBranchId, setSelectedBranchId] = useState<string>('')
   const [revenueDays, setRevenueDays] = useState<number>(30)
@@ -224,9 +226,28 @@ export function DashboardPage() {
   const recentBills = recentBillsQuery.data ?? []
   const recentJournals = recentJournalsQuery.data ?? []
 
-  // Aaj Ka Hisaab earning metrics
+  // Aaj Ka Hisaab net earning metric
   const earning = dailySummary?.today.earning ?? (Number(todaySales?.totalSales ?? 0) - Number(profit?.cogs ?? 0))
   const earningPositive = Number(earning) >= 0
+
+  // ── Aging Calculations for Segmented Risk Bar ──
+  const activeAging = agingTab === 'ar' ? arAging : apAging
+  const agingTotal = Number(activeAging?.totalOutstanding ?? 0)
+  const currentVal = Number(activeAging?.current ?? 0)
+  const d1to30Val = Number(activeAging?.days1to30 ?? 0)
+  const d31to60Val = Number(activeAging?.days31to60 ?? 0)
+  const d61to90Val = Number(activeAging?.days61to90 ?? 0)
+  const d90plusVal = Number(activeAging?.days90plus ?? 0)
+
+  const currentPct = agingTotal > 0 ? Math.round((currentVal / agingTotal) * 100) : 100
+  const d1to30Pct = agingTotal > 0 ? Math.round((d1to30Val / agingTotal) * 100) : 0
+  const d31to60Pct = agingTotal > 0 ? Math.round((d31to60Val / agingTotal) * 100) : 0
+  const d61to90Pct = agingTotal > 0 ? Math.round((d61to90Val / agingTotal) * 100) : 0
+  const d90plusPct = agingTotal > 0 ? Math.max(0, 100 - (currentPct + d1to30Pct + d31to60Pct + d61to90Pct)) : 0
+
+  // ── Revenue SVG Sparkline Chart Calculations ──
+  const trendPoints = revenueTrend?.trend ?? []
+  const maxRevenue = Math.max(...trendPoints.map((p) => Number(p.revenue)), 1000)
 
   return (
     <section className="workspace-page">
@@ -250,7 +271,7 @@ export function DashboardPage() {
       />
 
       <div className="dashboard-workspace">
-        {/* ── Global Filter Bar (Date Range & Branch Selection) ── */}
+        {/* ── Global Filter Bar & Quick Action Launcher ── */}
         <section aria-label="Dashboard filters" className="dashboard-filter-bar">
           <div className="dashboard-filter-group">
             <span className="text-secondary text-sm font-medium">Period:</span>
@@ -288,6 +309,33 @@ export function DashboardPage() {
             </select>
           </div>
         </section>
+
+        {/* ── Quick Action Dock (DualEntry / Campfire Style) ── */}
+        <nav aria-label="Quick Action Launcher" className="dashboard-quick-actions">
+          <span className="text-secondary text-xs font-semibold uppercase tracking-wider mr-2 flex items-center gap-1">
+            <Plus size={13} /> Quick create:
+          </span>
+          <Link to="/invoices/create" className="dashboard-quick-btn">
+            <Receipt size={14} />
+            <span>+ New Invoice</span>
+          </Link>
+          <Link to="/payments/create" className="dashboard-quick-btn">
+            <WalletCards size={14} />
+            <span>+ Record Payment</span>
+          </Link>
+          <Link to="/bills/create" className="dashboard-quick-btn">
+            <FileText size={14} />
+            <span>+ New Bill</span>
+          </Link>
+          <Link to="/pos" className="dashboard-quick-btn">
+            <CreditCard size={14} />
+            <span>+ Point of Sale</span>
+          </Link>
+          <Link to="/items/create" className="dashboard-quick-btn">
+            <Package size={14} />
+            <span>+ New Item</span>
+          </Link>
+        </nav>
 
         {/* ── Top Metric Cards Row (4 Core KPIs) ── */}
         <section aria-label="Key performance indicators" className="metric-grid">
@@ -450,7 +498,7 @@ export function DashboardPage() {
                 </div>
               </div>
 
-              {soAlerts.recentOrders && soAlerts.recentOrders.length > 0 && (
+              {soAlerts.recentOrders && soAlerts.recentOrders.length > 0 ? (
                 <div>
                   <h3 className="text-sm font-semibold mb-2">Recent Pending Orders</h3>
                   <DataTable caption="Recent orders awaiting dispatch">
@@ -492,12 +540,17 @@ export function DashboardPage() {
                     </tbody>
                   </DataTable>
                 </div>
+              ) : (
+                <div className="compact-zero-state">
+                  <CheckCircle2 size={16} className="text-pos flex-none" />
+                  <span>Fulfillment optimal • All confirmed sales orders dispatched on schedule</span>
+                </div>
               )}
             </div>
           </DocumentCard>
         )}
 
-        {/* ── AR & AP Aging Buckets with Expandable Breakdown ── */}
+        {/* ── AR & AP Aging Risk Distribution Bar (DualEntry / Zoho Style) ── */}
         <DocumentCard
           headerAction={
             <FilterTabs
@@ -513,113 +566,124 @@ export function DashboardPage() {
           title={agingTab === 'ar' ? 'Accounts Receivable Aging' : 'Accounts Payable Aging'}
         >
           <div className="p-4 flex flex-col gap-4">
-            {agingTab === 'ar' ? (
-              <>
-                <dl className="aging-buckets-grid">
-                  <div className="aging-bucket-card aging-bucket-card--current">
-                    <dt>Current (Not Due)</dt>
-                    <dd>
-                      <Money amount={arAging?.current ?? 0} />
-                    </dd>
-                  </div>
-                  <div className="aging-bucket-card aging-bucket-card--1-30">
-                    <dt>1–30 Days</dt>
-                    <dd>
-                      <Money amount={arAging?.days1to30 ?? 0} />
-                    </dd>
-                  </div>
-                  <div className="aging-bucket-card aging-bucket-card--31-60">
-                    <dt>31–60 Days</dt>
-                    <dd className="text-warn">
-                      <Money amount={arAging?.days31to60 ?? 0} />
-                    </dd>
-                  </div>
-                  <div className="aging-bucket-card aging-bucket-card--61-90">
-                    <dt>61–90 Days</dt>
-                    <dd className="text-warn font-bold">
-                      <Money amount={arAging?.days61to90 ?? 0} />
-                    </dd>
-                  </div>
-                  <div className="aging-bucket-card aging-bucket-card--90plus">
-                    <dt>90+ Days (Critical)</dt>
-                    <dd className="text-neg font-bold">
-                      <Money amount={arAging?.days90plus ?? 0} />
-                    </dd>
-                  </div>
-                </dl>
+            {/* Visual Risk Distribution Segmented Bar */}
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between text-xs text-secondary">
+                <span>Aging Distribution Exposure:</span>
+                <span>Total: <strong><Money amount={agingTotal} /></strong></span>
+              </div>
+              <div className="aging-segmented-bar" aria-label="Aging distribution bar">
+                <div
+                  className="aging-bar-segment aging-bar-segment--current"
+                  style={{ width: `${currentPct}%` }}
+                  title={`Current: ${currentPct}%`}
+                />
+                <div
+                  className="aging-bar-segment aging-bar-segment--1-30"
+                  style={{ width: `${d1to30Pct}%` }}
+                  title={`1-30d: ${d1to30Pct}%`}
+                />
+                <div
+                  className="aging-bar-segment aging-bar-segment--31-60"
+                  style={{ width: `${d31to60Pct}%` }}
+                  title={`31-60d: ${d31to60Pct}%`}
+                />
+                <div
+                  className="aging-bar-segment aging-bar-segment--61-90"
+                  style={{ width: `${d61to90Pct}%` }}
+                  title={`61-90d: ${d61to90Pct}%`}
+                />
+                <div
+                  className="aging-bar-segment aging-bar-segment--90plus"
+                  style={{ width: `${d90plusPct}%` }}
+                  title={`90+d: ${d90plusPct}%`}
+                />
+              </div>
+            </div>
 
-                {outstandingRec?.topCustomers && outstandingRec.topCustomers.length > 0 && (
-                  <div className="mt-2">
-                    <h3 className="text-sm font-semibold mb-2">Top Debtors Outstanding</h3>
-                    <DataTable caption="Top customers with outstanding balances">
-                      <thead>
-                        <tr>
-                          <th scope="col">Customer Name</th>
-                          <th scope="col">Pending Invoices</th>
-                          <th className="numeric-cell" scope="col">Total Balance</th>
+            {/* Dense Aging Buckets Stat Cards */}
+            <dl className="aging-buckets-grid">
+              <div className="aging-bucket-card aging-bucket-card--current">
+                <dt>Current (Not Due)</dt>
+                <dd>
+                  <Money amount={currentVal} />
+                </dd>
+                <span className="text-xs text-muted">{currentPct}% of total</span>
+              </div>
+              <div className="aging-bucket-card aging-bucket-card--1-30">
+                <dt>1–30 Days</dt>
+                <dd>
+                  <Money amount={d1to30Val} />
+                </dd>
+                <span className="text-xs text-muted">{d1to30Pct}% of total</span>
+              </div>
+              <div className="aging-bucket-card aging-bucket-card--31-60">
+                <dt>31–60 Days</dt>
+                <dd className="text-warn">
+                  <Money amount={d31to60Val} />
+                </dd>
+                <span className="text-xs text-muted">{d31to60Pct}% of total</span>
+              </div>
+              <div className="aging-bucket-card aging-bucket-card--61-90">
+                <dt>61–90 Days</dt>
+                <dd className="text-warn font-bold">
+                  <Money amount={d61to90Val} />
+                </dd>
+                <span className="text-xs text-muted">{d61to90Pct}% of total</span>
+              </div>
+              <div className="aging-bucket-card aging-bucket-card--90plus">
+                <dt>90+ Days (Critical)</dt>
+                <dd className="text-neg font-bold">
+                  <Money amount={d90plusVal} />
+                </dd>
+                <span className="text-xs text-muted">{d90plusPct}% of total</span>
+              </div>
+            </dl>
+
+            {agingTab === 'ar' && (
+              <div>
+                <h3 className="text-sm font-semibold mb-2">Top Debtors Outstanding</h3>
+                {outstandingRec?.topCustomers && outstandingRec.topCustomers.length > 0 ? (
+                  <DataTable caption="Top customers with outstanding balances">
+                    <thead>
+                      <tr>
+                        <th scope="col">Customer Name</th>
+                        <th scope="col">Pending Invoices</th>
+                        <th className="numeric-cell" scope="col">Total Balance</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {outstandingRec.topCustomers.map((cust) => (
+                        <tr key={cust.contactId}>
+                          <td>
+                            <strong>{cust.name}</strong>
+                          </td>
+                          <td>
+                            <span className="font-mono">{cust.invoiceCount} invoices</span>
+                          </td>
+                          <td className="numeric-cell">
+                            <Money amount={cust.outstanding} currency={outstandingRec.currency ?? 'INR'} />
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {outstandingRec.topCustomers.map((cust) => (
-                          <tr key={cust.contactId}>
-                            <td>
-                              <strong>{cust.name}</strong>
-                            </td>
-                            <td>
-                              <span className="font-mono">{cust.invoiceCount} invoices</span>
-                            </td>
-                            <td className="numeric-cell">
-                              <Money amount={cust.outstanding} currency={outstandingRec.currency ?? 'INR'} />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </DataTable>
+                      ))}
+                    </tbody>
+                  </DataTable>
+                ) : (
+                  <div className="compact-zero-state">
+                    <CheckCircle2 size={16} className="text-pos flex-none" />
+                    <span>All customer ledgers in order • Zero overdue receivables</span>
                   </div>
                 )}
-              </>
-            ) : (
-              <dl className="aging-buckets-grid">
-                <div className="aging-bucket-card aging-bucket-card--current">
-                  <dt>Current (Not Due)</dt>
-                  <dd>
-                    <Money amount={apAging?.current ?? 0} />
-                  </dd>
-                </div>
-                <div className="aging-bucket-card aging-bucket-card--1-30">
-                  <dt>1–30 Days</dt>
-                  <dd>
-                    <Money amount={apAging?.days1to30 ?? 0} />
-                  </dd>
-                </div>
-                <div className="aging-bucket-card aging-bucket-card--31-60">
-                  <dt>31–60 Days</dt>
-                  <dd className="text-warn">
-                    <Money amount={apAging?.days31to60 ?? 0} />
-                  </dd>
-                </div>
-                <div className="aging-bucket-card aging-bucket-card--61-90">
-                  <dt>61–90 Days</dt>
-                  <dd className="text-warn font-bold">
-                    <Money amount={apAging?.days61to90 ?? 0} />
-                  </dd>
-                </div>
-                <div className="aging-bucket-card aging-bucket-card--90plus">
-                  <dt>90+ Days (Critical)</dt>
-                  <dd className="text-neg font-bold">
-                    <Money amount={apAging?.days90plus ?? 0} />
-                  </dd>
-                </div>
-              </dl>
+              </div>
             )}
           </div>
         </DocumentCard>
 
         {/* ── Two-Column Operational & Analytical Workspace ── */}
         <div className="dashboard-columns">
-          {/* ── Left Column: Revenue Trend, Top Products, Branch Breakdown, Activity ── */}
+          {/* ── Left Column: Interactive Revenue Chart, Top Products, Branch Breakdown, Activity ── */}
           <div className="dashboard-column dashboard-column--main">
-            {/* Revenue Trend Card */}
+            {/* Interactive SVG Revenue Trend Chart Card */}
             <DocumentCard
               headerAction={
                 <FilterTabs
@@ -633,44 +697,87 @@ export function DashboardPage() {
                   onChange={(val) => setRevenueDays(Number(val))}
                 />
               }
-              title="Revenue trend"
+              title="Revenue trend & sales velocity"
             >
-              <div className="p-4 flex flex-col gap-3">
-                <div className="flex items-baseline justify-between border-b border-subtle pb-3">
+              <div className="p-4 flex flex-col gap-4 revenue-chart-card">
+                <div className="revenue-chart-header">
                   <div>
-                    <span className="text-secondary text-sm">Period revenue ({revenueDays} days): </span>
-                    <strong>
+                    <span className="text-secondary text-xs uppercase tracking-wide">Period Total Revenue ({revenueDays} days)</span>
+                    <div className="text-lg font-bold">
                       <Money amount={revenueTrend?.totalRevenue ?? 0} currency={revenueTrend?.currency ?? 'INR'} />
-                    </strong>
+                    </div>
                   </div>
-                  <span className="text-muted text-xs">Updated live</span>
+                  <span className="text-xs text-muted">Daily breakdown</span>
                 </div>
 
-                {revenueTrend?.trend && revenueTrend.trend.length > 0 ? (
-                  <div className="max-h-56 overflow-y-auto">
-                    <DataTable caption="Daily revenue trend breakdown">
-                      <thead>
-                        <tr>
-                          <th scope="col">Date</th>
-                          <th className="numeric-cell" scope="col">Daily revenue</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {revenueTrend.trend.slice(-7).reverse().map((pt) => (
-                          <tr key={pt.date}>
-                            <td>
-                              <span className="font-mono text-sm">{pt.date}</span>
-                            </td>
-                            <td className="numeric-cell">
-                              <Money amount={pt.revenue} currency={revenueTrend.currency ?? 'INR'} />
-                            </td>
+                {trendPoints.length > 0 ? (
+                  <div className="flex flex-col gap-2">
+                    {/* SVG Bar Visualization */}
+                    <div className="bg-subtle p-3 rounded border border-subtle">
+                      <svg className="revenue-chart-svg" viewBox="0 0 500 100" preserveAspectRatio="none" role="img" aria-label="Daily revenue trend chart">
+                        {/* Grid lines */}
+                        <line x1="0" y1="25" x2="500" y2="25" stroke="var(--border)" strokeDasharray="3 3" />
+                        <line x1="0" y1="55" x2="500" y2="55" stroke="var(--border)" strokeDasharray="3 3" />
+                        <line x1="0" y1="85" x2="500" y2="85" stroke="var(--border)" />
+
+                        {/* Trend Bars */}
+                        {trendPoints.slice(-14).map((pt, i, arr) => {
+                          const w = Math.min(22, Math.max(8, (480 / arr.length) * 0.65))
+                          const x = 10 + i * (480 / arr.length)
+                          const h = Math.max(4, (Number(pt.revenue) / maxRevenue) * 75)
+                          const y = 85 - h
+                          return (
+                            <g key={pt.date}>
+                              <rect
+                                x={x}
+                                y={y}
+                                width={w}
+                                height={h}
+                                rx="3"
+                                fill="var(--brand-600)"
+                                opacity="0.85"
+                              >
+                                <title>{`${pt.date}: ₹${Number(pt.revenue).toLocaleString('en-IN')}`}</title>
+                              </rect>
+                            </g>
+                          )
+                        })}
+                      </svg>
+                      <div className="flex justify-between text-xs text-muted font-mono mt-1 px-2">
+                        <span>{trendPoints[0]?.date ?? ''}</span>
+                        <span>Latest: {trendPoints[trendPoints.length - 1]?.date ?? ''}</span>
+                      </div>
+                    </div>
+
+                    {/* Compact tabular preview */}
+                    <div className="max-h-40 overflow-y-auto">
+                      <DataTable caption="Daily revenue trend breakdown">
+                        <thead>
+                          <tr>
+                            <th scope="col">Date</th>
+                            <th className="numeric-cell" scope="col">Daily revenue</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </DataTable>
+                        </thead>
+                        <tbody>
+                          {trendPoints.slice(-7).reverse().map((pt) => (
+                            <tr key={pt.date}>
+                              <td>
+                                <span className="font-mono text-xs">{pt.date}</span>
+                              </td>
+                              <td className="numeric-cell">
+                                <Money amount={pt.revenue} currency={revenueTrend?.currency ?? 'INR'} />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </DataTable>
+                    </div>
                   </div>
                 ) : (
-                  <p className="text-secondary text-sm">No revenue data recorded for this interval.</p>
+                  <div className="compact-zero-state">
+                    <Calendar size={16} className="text-muted flex-none" />
+                    <span>No sales revenue recorded for this interval</span>
+                  </div>
                 )}
               </div>
             </DocumentCard>
@@ -711,11 +818,10 @@ export function DashboardPage() {
                 </DataTable>
               ) : (
                 <div className="p-4">
-                  <EmptyState
-                    description="No top product sales recorded for this period."
-                    icon={Package}
-                    title="No top selling items"
-                  />
+                  <div className="compact-zero-state">
+                    <Package size={16} className="text-muted flex-none" />
+                    <span>No top product sales recorded for this period</span>
+                  </div>
                 </div>
               )}
             </DocumentCard>
@@ -787,11 +893,10 @@ export function DashboardPage() {
                 </DataTable>
               ) : (
                 <div className="p-4">
-                  <EmptyState
-                    description="No transactions posted today."
-                    icon={Calendar}
-                    title="No recent transactions"
-                  />
+                  <div className="compact-zero-state">
+                    <Calendar size={16} className="text-muted flex-none" />
+                    <span>No transactions posted today • Create your first sale or invoice via Quick create</span>
+                  </div>
                 </div>
               )}
             </DocumentCard>
@@ -857,11 +962,10 @@ export function DashboardPage() {
                 </DataTable>
               ) : (
                 <div className="p-4">
-                  <EmptyState
-                    description="No outstanding vendor bills requiring payment."
-                    icon={FileText}
-                    title="No pending bills"
-                  />
+                  <div className="compact-zero-state">
+                    <CheckCircle2 size={16} className="text-pos flex-none" />
+                    <span>No pending bills • All vendor obligations up to date</span>
+                  </div>
                 </div>
               )}
             </DocumentCard>
@@ -898,11 +1002,10 @@ export function DashboardPage() {
                 </DataTable>
               ) : (
                 <div className="p-4">
-                  <EmptyState
-                    description="No journal entries recorded."
-                    icon={BookOpen}
-                    title="No recent journals"
-                  />
+                  <div className="compact-zero-state">
+                    <BookOpen size={16} className="text-muted flex-none" />
+                    <span>No journal entries recorded • Ready for manual or system postings</span>
+                  </div>
                 </div>
               )}
             </DocumentCard>
@@ -939,11 +1042,10 @@ export function DashboardPage() {
                 </DataTable>
               ) : (
                 <div className="p-4">
-                  <EmptyState
-                    description="All tracked inventory batches are within safe shelf life parameters."
-                    icon={ShieldAlert}
-                    title="No batches expiring soon"
-                  />
+                  <div className="compact-zero-state">
+                    <ShieldCheck size={16} className="text-pos flex-none" />
+                    <span>No batches expiring soon • 100% stock shelf life compliant</span>
+                  </div>
                 </div>
               )}
             </DocumentCard>

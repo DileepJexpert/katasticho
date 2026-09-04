@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { DashboardPage } from './dashboard-page'
@@ -251,6 +252,16 @@ const mockRecentJournals: dashboardApi.RecentJournalResponse[] = [
   },
 ]
 
+function renderDashboard(queryClient: QueryClient) {
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>
+    </QueryClientProvider>
+  )
+}
+
 describe('DashboardPage', () => {
   let queryClient: QueryClient
 
@@ -299,15 +310,18 @@ describe('DashboardPage', () => {
     vi.mocked(dashboardApi.getRecentJournals).mockResolvedValue(mockRecentJournals)
   })
 
-  it('renders executive greeting and the four core KPI metric cards', async () => {
-    render(
-      <QueryClientProvider client={queryClient}>
-        <DashboardPage />
-      </QueryClientProvider>
-    )
+  it('renders executive greeting, quick action dock, and the four core KPI metric cards', async () => {
+    renderDashboard(queryClient)
 
     expect(await screen.findByText(/Good (morning|afternoon|evening), Vikram/i)).toBeInTheDocument()
     expect(screen.getByText('Executive Overview • Apex Distributors')).toBeInTheDocument()
+
+    // Quick action dock
+    expect(screen.getByText('+ New Invoice')).toBeInTheDocument()
+    expect(screen.getByText('+ Record Payment')).toBeInTheDocument()
+    expect(screen.getByText('+ New Bill')).toBeInTheDocument()
+    expect(screen.getByText('+ Point of Sale')).toBeInTheDocument()
+    expect(screen.getByText('+ New Item')).toBeInTheDocument()
 
     // 4 KPI Cards
     expect(screen.getByText('Today’s sales')).toBeInTheDocument()
@@ -322,11 +336,7 @@ describe('DashboardPage', () => {
   })
 
   it('renders Global Filter bar with period presets and branch dropdown', async () => {
-    render(
-      <QueryClientProvider client={queryClient}>
-        <DashboardPage />
-      </QueryClientProvider>
-    )
+    renderDashboard(queryClient)
 
     expect(await screen.findByLabelText('Filter by branch')).toBeInTheDocument()
     expect(await screen.findByText('Main Warehouse (MB01) [Primary]')).toBeInTheDocument()
@@ -341,11 +351,7 @@ describe('DashboardPage', () => {
   })
 
   it('renders Aaj Ka Hisaab performance card with net margin and sales breakdown', async () => {
-    render(
-      <QueryClientProvider client={queryClient}>
-        <DashboardPage />
-      </QueryClientProvider>
-    )
+    renderDashboard(queryClient)
 
     expect(await screen.findByText('Aaj Ka Hisaab — Daily Performance Snapshot')).toBeInTheDocument()
     expect(await screen.findByText("Today's Net Earning / Margin")).toBeInTheDocument()
@@ -358,11 +364,7 @@ describe('DashboardPage', () => {
   })
 
   it('renders SO alerts banner and recent pending orders table', async () => {
-    render(
-      <QueryClientProvider client={queryClient}>
-        <DashboardPage />
-      </QueryClientProvider>
-    )
+    renderDashboard(queryClient)
 
     expect(await screen.findByText('Distribution & Fulfillment Telemetry')).toBeInTheDocument()
     expect(screen.getByText('14')).toBeInTheDocument()
@@ -378,14 +380,11 @@ describe('DashboardPage', () => {
     expect(screen.getByText('3d')).toBeInTheDocument()
   })
 
-  it('renders AR & AP Aging buckets and supports tab switching', async () => {
-    render(
-      <QueryClientProvider client={queryClient}>
-        <DashboardPage />
-      </QueryClientProvider>
-    )
+  it('renders AR & AP Aging segmented risk bar and supports tab switching', async () => {
+    renderDashboard(queryClient)
 
     expect(await screen.findByText('Accounts Receivable Aging')).toBeInTheDocument()
+    expect(screen.getByLabelText('Aging distribution bar')).toBeInTheDocument()
     expect(screen.getByText('Current (Not Due)')).toBeInTheDocument()
     expect(screen.getByText('1–30 Days')).toBeInTheDocument()
     expect(screen.getByText('31–60 Days')).toBeInTheDocument()
@@ -404,12 +403,12 @@ describe('DashboardPage', () => {
     expect(await screen.findByText('Accounts Payable Aging')).toBeInTheDocument()
   })
 
-  it('renders branch sales rollup and top selling products', async () => {
-    render(
-      <QueryClientProvider client={queryClient}>
-        <DashboardPage />
-      </QueryClientProvider>
-    )
+  it('renders interactive SVG revenue trend chart and top selling products', async () => {
+    renderDashboard(queryClient)
+
+    // SVG Chart
+    expect(await screen.findByLabelText('Daily revenue trend chart')).toBeInTheDocument()
+    expect(screen.getByText(/Period Total Revenue/i)).toBeInTheDocument()
 
     // Branch sales rollup
     expect(await screen.findByText('Branch Sales Rollup')).toBeInTheDocument()
@@ -423,11 +422,7 @@ describe('DashboardPage', () => {
   })
 
   it('renders bills to pay, general ledger activity, cash flow, and expiring soon', async () => {
-    render(
-      <QueryClientProvider client={queryClient}>
-        <DashboardPage />
-      </QueryClientProvider>
-    )
+    renderDashboard(queryClient)
 
     // Bills to pay
     expect(await screen.findByText('BILL-2026-0412')).toBeInTheDocument()
@@ -451,11 +446,7 @@ describe('DashboardPage', () => {
   it('triggers query invalidation when clicking the Refresh button', async () => {
     const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
 
-    render(
-      <QueryClientProvider client={queryClient}>
-        <DashboardPage />
-      </QueryClientProvider>
-    )
+    renderDashboard(queryClient)
 
     const refreshBtn = await screen.findByRole('button', { name: /refresh dashboard data/i })
     fireEvent.click(refreshBtn)
@@ -464,21 +455,17 @@ describe('DashboardPage', () => {
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['branches'] })
   })
 
-  it('handles optional endpoint failure gracefully without breaking dashboard', async () => {
+  it('handles optional endpoint failure gracefully with dense zero-state fallback', async () => {
     vi.mocked(dashboardApi.getExpiringSoon).mockRejectedValue(new Error('BATCH_EXPIRY module disabled'))
     vi.mocked(dashboardApi.getRecentJournals).mockRejectedValue(new Error('Forbidden'))
     vi.mocked(dashboardApi.getRecentBills).mockRejectedValue(new Error('Network error'))
 
-    render(
-      <QueryClientProvider client={queryClient}>
-        <DashboardPage />
-      </QueryClientProvider>
-    )
+    renderDashboard(queryClient)
 
     expect(await screen.findByText('Today’s sales')).toBeInTheDocument()
     expect(screen.getByText('Receivables')).toBeInTheDocument()
-    expect(screen.getByText('No batches expiring soon')).toBeInTheDocument()
-    expect(screen.getByText('No pending bills')).toBeInTheDocument()
-    expect(screen.getByText('No journal entries recorded.')).toBeInTheDocument()
+    expect(screen.getByText(/100% stock shelf life compliant/i)).toBeInTheDocument()
+    expect(screen.getByText(/All vendor obligations up to date/i)).toBeInTheDocument()
+    expect(screen.getByText(/Ready for manual or system postings/i)).toBeInTheDocument()
   })
 })
