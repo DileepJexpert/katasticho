@@ -690,7 +690,7 @@
 .list-toolbar--stacked { align-items: flex-start; flex-direction: column; }
 .list-toolbar-note { color: var(--text-muted); font-size: var(--text-xs); max-width: 680px; }
 .role-tabs { display: flex; flex-wrap: wrap; gap: var(--space-1); }
-.role-tab { background: transparent; border: 0; border-radius: var(--radius); color: var(--text-secondary); display: inline-flex; font-size: var(--text-sm); font-weight: var(--fw-medium); gap: var(--space-1); height: var(--control-h); padding: 0 var(--space-2); }
+.role-tab { align-items: center; background: transparent; border: 0; border-radius: var(--radius); color: var(--text-secondary); display: inline-flex; font-size: var(--text-sm); font-weight: var(--fw-medium); gap: var(--space-1); height: var(--control-h); justify-content: center; padding: 0 var(--space-2); }
 .role-tab:hover { background: var(--bg-subtle); color: var(--text-primary); }
 .role-tab--active { background: var(--brand-50); color: var(--brand-900); }
 .role-tab span { color: var(--text-muted); font-variant-numeric: tabular-nums; }

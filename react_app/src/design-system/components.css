@@ -855,6 +855,26 @@
   margin-top: var(--space-2);
 }
 
+/* Financial statements stay compact while preserving server-owned totals. */
+.financial-report__back { align-items: center; display: flex; flex-wrap: wrap; gap: var(--space-3); margin-bottom: var(--space-3); }
+.financial-report-toolbar { align-items: end; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius); display: flex; flex-wrap: wrap; gap: var(--space-3); justify-content: space-between; margin-bottom: var(--space-3); padding: var(--space-3); }
+.financial-report-toolbar__fields { display: grid; flex: 1 1 420px; gap: var(--space-3); grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.financial-report-toolbar__actions { align-items: end; display: flex; gap: var(--space-2); }
+.financial-statement-summary { margin-bottom: var(--space-3); }
+.financial-statement-section { margin-bottom: var(--space-3); }
+.financial-statement-section__header { align-items: center; display: flex; gap: var(--space-3); justify-content: space-between; margin-bottom: var(--space-3); }
+.financial-statement-section__header h2 { font-size: var(--text-base); font-weight: var(--fw-semibold); margin: 0; }
+.financial-statement-section__total { font-variant-numeric: tabular-nums lining-nums; }
+.financial-statement-section__footer { border-top: 1px solid var(--border); margin-top: var(--space-3); padding-top: var(--space-3); }
+.financial-statement-section__server-amount { align-items: center; display: flex; font-size: var(--text-sm); justify-content: space-between; }
+.financial-statement-empty { color: var(--text-secondary); font-size: var(--text-sm); margin: 0; }
+.financial-ledger-overview { margin-bottom: var(--space-3); }
+
+@media (max-width: 640px) {
+  .financial-report-toolbar { align-items: stretch; }
+  .financial-report-toolbar__actions { justify-content: flex-end; }
+}
+
 /* POS counter composition: scan, basket, and settlement in one dense workspace. */
 .pos-counter { display: flex; flex-direction: column; gap: var(--space-3); }
 .pos-counter .page-header { margin-bottom: 0; }
@@ -1198,7 +1218,7 @@
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2-5);
+  gap: var(--space-3);
 }
 
 .dashboard-filter-label {
@@ -1207,7 +1227,62 @@
   display: inline-flex;
   font-size: var(--text-xs);
   font-weight: var(--fw-medium);
-  gap: var(--space-1-5);
+  gap: var(--space-2);
+  height: 34px;
+  line-height: 1;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.dashboard-filter-label svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  margin-right: 2px;
+}
+
+.dashboard-control-bar .role-tabs {
+  align-items: center;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: inline-flex;
+  gap: var(--space-1);
+  height: 34px;
+  padding: 3px;
+}
+
+.dashboard-control-bar .role-tab {
+  align-items: center;
+  border: 0;
+  border-radius: calc(var(--radius) - 2px);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-medium);
+  height: 26px;
+  justify-content: center;
+  line-height: 1;
+  padding: 0 var(--space-3);
+  transition: all 0.15s ease;
+}
+
+.dashboard-control-bar .role-tab:hover:not(.role-tab--active) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.dashboard-control-bar .role-tab--active {
+  background: var(--bg-surface);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  color: var(--brand-700, var(--brand-900));
+  font-weight: var(--fw-semibold);
+}
+
+.dashboard-control-bar .role-tab span {
+  align-items: center;
+  color: inherit;
+  display: inline-flex;
   line-height: 1;
   white-space: nowrap;
 }
@@ -1215,11 +1290,11 @@
 .dashboard-branch-select {
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   color: var(--text-primary);
   font-size: var(--text-xs);
   font-weight: var(--fw-medium);
-  height: 32px;
+  height: 34px;
   padding: 0 var(--space-3);
   transition: border-color 0.15s ease;
 }
