@@ -11,12 +11,15 @@
   --text-secondary: #5F5F59;
   --text-muted: #94948D;
   --text-on-brand: #FFFFFF;
+
+  /* Default brand: Katixo Teal */
   --brand-50: #E6F4F1;
   --brand-100: #C2E5DE;
   --brand-500: #14A08C;
   --brand-600: #0F8576;
   --brand-700: #0B6B5E;
   --brand-900: #0A4B43;
+
   --pos-text: #15803D;
   --pos-bg: #E9F6EC;
   --pos-border: #BFE6C8;
@@ -58,12 +61,100 @@
   --radius-full: 9999px;
   --shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.04);
   --shadow-md: 0 4px 12px rgba(16, 24, 40, 0.08);
-  --row-h: 40px;
-  --row-h-compact: 36px;
-  --control-h: 36px;
+  --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  --row-h: 36px;
+  --row-h-compact: 32px;
+  --control-h: 34px;
   --ease: cubic-bezier(0.2, 0, 0, 1);
   --dur-fast: 120ms;
   --dur-base: 180ms;
+}
+
+/* Dark Mode */
+[data-theme="dark"] {
+  --bg-app: #121312;
+  --bg-surface: #1C1D1C;
+  --bg-subtle: #252725;
+  --bg-hover: #2E302E;
+  --border: #323532;
+  --border-strong: #464A46;
+  --text-primary: #F5F5F3;
+  --text-secondary: #A8A8A1;
+  --text-muted: #787871;
+  --text-on-brand: #FFFFFF;
+}
+
+/* Brand Palette Themes */
+[data-palette="teal"], :root:not([data-palette]) {
+  --brand-50: #E6F4F1;
+  --brand-100: #C2E5DE;
+  --brand-500: #14A08C;
+  --brand-600: #0F8576;
+  --brand-700: #0B6B5E;
+  --brand-900: #0A4B43;
+}
+
+[data-palette="blue"] {
+  --brand-50: #EFF6FF;
+  --brand-100: #DBEAFE;
+  --brand-500: #3B82F6;
+  --brand-600: #2563EB;
+  --brand-700: #1D4ED8;
+  --brand-900: #1E3A8A;
+}
+
+[data-palette="amber"] {
+  --brand-50: #FFFBEB;
+  --brand-100: #FEF3C7;
+  --brand-500: #F59E0B;
+  --brand-600: #B45309;
+  --brand-700: #92400E;
+  --brand-900: #78350F;
+}
+
+[data-palette="indigo"] {
+  --brand-50: #EEF2FF;
+  --brand-100: #E0E7FF;
+  --brand-500: #6366F1;
+  --brand-600: #4F46E5;
+  --brand-700: #4338CA;
+  --brand-900: #312E81;
+}
+
+[data-palette="emerald"] {
+  --brand-50: #ECFDF5;
+  --brand-100: #D1FAE5;
+  --brand-500: #10B981;
+  --brand-600: #059669;
+  --brand-700: #047857;
+  --brand-900: #064E3B;
+}
+
+/* Dark mode adjustments for brand subtle containers */
+[data-theme="dark"] [data-palette="teal"],
+[data-theme="dark"]:not([data-palette]) {
+  --brand-50: #132E2B;
+  --brand-100: #1A443F;
+}
+
+[data-theme="dark"] [data-palette="blue"] {
+  --brand-50: #172554;
+  --brand-100: #1E3A8A;
+}
+
+[data-theme="dark"] [data-palette="amber"] {
+  --brand-50: #451A03;
+  --brand-100: #78350F;
+}
+
+[data-theme="dark"] [data-palette="indigo"] {
+  --brand-50: #1E1B4B;
+  --brand-100: #312E81;
+}
+
+[data-theme="dark"] [data-palette="emerald"] {
+  --brand-50: #062C1E;
+  --brand-100: #064E3B;
 }
 
 @media (prefers-reduced-motion: reduce) {

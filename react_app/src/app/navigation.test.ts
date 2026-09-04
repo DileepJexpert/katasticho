@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { getVisibleNavigation } from '@/app/navigation'
+import { getVisibleNavigation, getVisibleNavStructure } from '@/app/navigation'
 
-describe('getVisibleNavigation', () => {
+describe('navigation', () => {
   it('removes a disabled stable navigation id without removing other live routes', () => {
     const visible = getVisibleNavigation({
       role: 'ADMIN',
@@ -12,6 +12,28 @@ describe('getVisibleNavigation', () => {
 
     expect(visible.map((item) => item.id)).toEqual([
       'dashboard',
+      'ai.command_center',
+      'pos.checkout',
+      'sales.orders',
+      'sales.challans',
+      'sales.invoices',
+      'sales.estimates',
+      'sales.payments',
+      'sales.credit_notes',
+      'sales.recurring_invoices',
+      'sales.receipts',
+      'crm.loyalty',
+      'pos.cash_registers',
+      'pos.offline_sync',
+      'pos.receipt_settings',
+      'purchases.orders',
+      'purchases.receipts',
+      'purchases.bills',
+      'purchases.three_way_match',
+      'purchases.vendor_credits',
+      'purchases.payments',
+      'purchases.debit_notes',
+      'purchases.recurring_bills',
       'inventory.items',
       'inventory.picklists',
       'inventory.transfers',
@@ -22,27 +44,8 @@ describe('getVisibleNavigation', () => {
       'inventory.shortbook',
       'inventory.consignments',
       'inventory.barcode_labels',
-      'sales.orders',
-      'sales.challans',
-      'sales.invoices',
-      'sales.payments',
-      'sales.credit_notes',
-      'sales.estimates',
-      'sales.recurring_invoices',
-      'pos.checkout',
-      'pos.cash_registers',
-    'pos.offline_sync',
-    'pos.receipt_settings',
-    'sales.receipts',
-      'crm.loyalty',
-      'purchases.orders',
-      'purchases.receipts',
-      'purchases.bills',
-      'purchases.three_way_match',
-      'purchases.vendor_credits',
-      'purchases.payments',
-      'purchases.debit_notes',
-      'purchases.recurring_bills',
+      'pharmacy.masters',
+      'pharmacy.near_expiry',
       'manufacturing.work_orders',
       'manufacturing.bom',
       'manufacturing.routings',
@@ -77,7 +80,9 @@ describe('getVisibleNavigation', () => {
       'accounting.fixed_assets',
       'accounting.amortization',
       'accounting.recurring_journals',
+      'franchise.stores',
       'banking.accounts',
+      'settings.tax_accounts',
       'payroll.employees',
       'payroll.runs',
       'hr.attendance',
@@ -88,29 +93,47 @@ describe('getVisibleNavigation', () => {
       'hr.offboarding',
       'hr.biometrics',
       'payroll.settings',
-      'reporting.hub',
-      'reporting.saved',
-      'reporting.cash_runway',
-      'reporting.flux_commentary',
-      'settings.users',
-      'settings.pdf_templates',
-      'franchise.stores',
-      'settings.tax_accounts',
-      'pharmacy.masters',
-      'pharmacy.near_expiry',
       'transport.courier_shipments',
       'transport.cod_remittances',
       'transport.lorry_receipts',
       'transport.rate_cards',
       'transport.vehicle_logs',
       'transport.courier_settings',
-      'ai.command_center',
-      'settings.ai',
+      'reporting.hub',
+      'reporting.saved',
+      'reporting.cash_runway',
+      'reporting.flux_commentary',
       'ca.dashboard',
       'ca.compliance',
       'ca.alerts',
       'ca.dispatch',
+      'settings.users',
+      'settings.pdf_templates',
+      'settings.ai',
     ])
   })
-})
 
+  it('provides structured nav groups with country gating', () => {
+    const structureIndia = getVisibleNavStructure({
+      role: 'ADMIN',
+      industry: null,
+      country: 'IN',
+    })
+
+    const taxGroupIndia = structureIndia.groups.find((g) => g.id === 'tax_compliance')
+    expect(taxGroupIndia).toBeDefined()
+    expect(taxGroupIndia?.items.map((i) => i.id)).toContain('compliance.gst')
+    expect(taxGroupIndia?.items.map((i) => i.id)).not.toContain('compliance.kenya')
+
+    const structureKenya = getVisibleNavStructure({
+      role: 'ADMIN',
+      industry: null,
+      country: 'KE',
+    })
+
+    const taxGroupKenya = structureKenya.groups.find((g) => g.id === 'tax_compliance')
+    expect(taxGroupKenya).toBeDefined()
+    expect(taxGroupKenya?.items.map((i) => i.id)).toContain('compliance.kenya')
+    expect(taxGroupKenya?.items.map((i) => i.id)).not.toContain('compliance.gst')
+  })
+})
