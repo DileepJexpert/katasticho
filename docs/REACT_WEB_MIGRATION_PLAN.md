@@ -1,6 +1,6 @@
 # Katasticho React Web Migration Plan
 
-**Status:** Active implementation - Wave 1 foundation and a read-only Contacts pilot are built
+**Status:** Active implementation - Wave 2 master-data writes and purchase-to-pay source wiring are built; manual acceptance remains pending
 **Purpose:** The single planning and tracking document for replacing the Flutter
 web/admin client with a production-quality React web ERP while keeping the
 Spring Boot backend, database, accounting rules, and business workflows safe.
@@ -324,12 +324,20 @@ the ERP.
 
 #### Purchase-to-pay golden chain
 
-- [ ] Supplier/customer selection uses the approved procurement eligibility
-  rules, not name-only filtering.
-- [ ] Purchase order -> GRN -> receive stock -> vendor bill -> three-way match
-  -> vendor payment.
+- [x] React source uses the approved supplier projection for PO/GRN selection,
+  not contact-name filtering; AP bills and payments use the correct vendor
+  contact projection.
+- [x] React source wiring: purchase order -> PO-linked GRN draft -> receive
+  stock -> vendor bill -> three-way match -> vendor payment. The chain uses
+  server-owned stock, AP, GST, match, journal, and tenant rules; no React
+  mutation bypasses those services.
+- [x] Vendor payment accepts a searchable cash/bank ledger account, server
+  payable bills, and one atomic allocation payload. Allocations remain intact
+  across paginated bill results and are summed to currency precision before
+  submission.
 - [ ] Verify stock increases once, input GST is correct, AP is correct, and
-  all journals balance.
+  all journals balance through the executable purchase QA cases. This is a
+  manual acceptance gate; it has not been claimed from source inspection.
 
 #### Order-to-cash golden chain
 
@@ -362,9 +370,12 @@ operator.
   receipts/advances, vendor payments/credits, dunning, and document PDF/share.
 - [ ] Pricing and trade controls: price lists, customer pricing, schemes, rate
   contracts, credit warnings, and approval workflow states.
-- [ ] Reports: dashboards, trial balance, P&L, balance sheet, ledgers, ageing,
-  operational reports, saved reports, exports, and cash/runway only where the
-  backend represents real facts.
+- [ ] Reports & Dashboards: the Executive ERP Overview Dashboard is fully migrated
+  and connected to 10 live backend telemetry endpoints (today's sales with POS/Invoice
+  split, receivables, payables, monthly gross profit, SO distribution alerts, top selling
+  products, revenue trend intervals 7d/30d/90d, cash flow, near-expiry batch watch, and
+  recent activity) with resilient query isolation and component tests. Financial statements
+  (trial balance, P&L, balance sheet, ledgers, ageing) and report exports remain pending.
 - [ ] GST, TDS/TCS, e-invoice/e-way bill, GSTR flows, and country-specific VAT
   screens according to capability/country gates.
 
@@ -444,7 +455,7 @@ checklists only after the wave starts. Status values are `NOT_STARTED`,
 | R-01 | Browser auth, tenant, roles, capabilities, shell | 1 | BUILDING | React consumes the existing web-session endpoint, keeps the access token in memory, and sends the tenant header. Navigation registry and command palette are in progress; no backend change is permitted in this stream. |
 | R-02 | Design system and shared ERP primitives | 1 | BUILDING | Token CSS plus initial Button, TextField, StatusChip, Money, PageHeader, and DataTable primitives pass lint, tests, and production build. |
 | R-03 | Contacts, supplier roles, item and shared masters | 2 | BUILDING | Contacts provide search, paging, role counts, detail, statement, and create flows. Items provide typed create/edit for commercial, GST/HSN, unit, batch-control, preferred-vendor, and opening-stock fields; imports and stock-execution mutations remain pending. |
-| R-04 | Purchase -> GRN -> bill -> vendor payment | 2 | NOT_STARTED | Stock/AP/GST/journal golden path passes. |
+| R-04 | Purchase -> GRN -> bill -> vendor payment | 2 | BUILDING | Source wiring is complete for eligible-supplier PO/GRN creation, PO-linked GRN/bill hand-offs, stock receipt, bill post/delete/void, 3-way match/override, and atomic allocated vendor payment. React runtime, QA, and accounting acceptance are pending. |
 | R-05 | Sales -> challan -> invoice -> receipt | 2 | NOT_STARTED | Stock/AR/GST/journal golden path passes, including partial payment. |
 | R-06 | Inventory and pricing operations | 3 | NOT_STARTED | Counts, transfers, batches, FEFO, valuation, and prices pass QA. |
 | R-07 | Accounting, banking, reports, audit | 3 | NOT_STARTED | Statements reconcile to source documents and journals. |
