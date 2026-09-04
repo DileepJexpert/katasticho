@@ -268,9 +268,8 @@ page-specific components.
 - [x] Implement token CSS variables from `docs/design-system.md`.
 - [x] Build the first reviewed primitives: Button, TextField, StatusChip,
   Money, PageHeader, and DataTable.
-- [x] Connect browser-only login, restore, refresh, logout, tenant headers, and
-  server-error handling to the already available web-session contract. Organisation
-  switching and capability guards remain pending.
+- [x] Connect browser-only login, restore, refresh, logout, tenant headers,
+  organisation switching, and server-error handling to the web-session contract.
 - [ ] Build the nav registry from stable IDs, roles, industries, countries,
   capability gates, and `nav.disabled` settings.
 - [ ] Add URL-driven global search, command palette skeleton, dark mode, locale
@@ -289,10 +288,10 @@ the ERP.
 
 #### Master data
 
-- [ ] Contacts: Customer/Vendor/Both/Supplier roles, filtering, role counts,
-  search, detail, edit, statement, import, and duplicate-name disambiguation.
-- [x] Contacts pilot: server-paginated role tabs, counts, search, and
+- [x] Contacts: Customer/Vendor/Both/Supplier roles, filtering, role counts,
+  search, detail view, statement with date range filter, ledger entries, and
   same-name disambiguation through company, phone, GSTIN, and role badges.
+  Contact create/edit/import remain pending.
 - [x] Items pilot: server-paginated read-only directory with search, item code,
   unit, GST, prices, on-hand, and negative-stock exception filtering. Item
   create/edit/import/detail remain pending.

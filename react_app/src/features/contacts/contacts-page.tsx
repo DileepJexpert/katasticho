@@ -1,7 +1,7 @@
 import { useDeferredValue, useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Plus, UsersRound } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
 import {
   Button,
@@ -149,7 +149,10 @@ function ContactRow({ contact }: { contact: Contact }) {
   return (
     <tr>
       <td>
-        <div className="contact-primary"><span className="contact-avatar" aria-hidden="true">{contact.displayName.slice(0, 1).toUpperCase()}</span><strong>{contact.displayName}</strong></div>
+        <div className="contact-primary">
+          <span className="contact-avatar" aria-hidden="true">{contact.displayName.slice(0, 1).toUpperCase()}</span>
+          <Link className="table-row-link" to={appRoutes.contactDetail(contact.id)}>{contact.displayName}</Link>
+        </div>
       </td>
       <td><ContactRoles contact={contact} /></td>
       <td><div className="cell-stack"><span>{company}</span><code>{identifier}</code></div></td>

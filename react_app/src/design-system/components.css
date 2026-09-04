@@ -37,6 +37,8 @@
 .data-table td { border-bottom: 1px solid var(--border); height: var(--row-h); padding: var(--space-2) var(--space-4); vertical-align: middle; }
 .data-table tbody tr:hover { background: var(--bg-subtle); }
 .data-table .numeric-cell { text-align: right; }
+.table-row-link { color: var(--brand-700); font-weight: var(--fw-semibold); text-decoration: none; }
+.table-row-link:hover, .table-row-link:focus-visible { text-decoration: underline; }
 
 /* ==========================================================================
    Centralized Form & Alignment Architecture

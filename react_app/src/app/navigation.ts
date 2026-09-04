@@ -59,6 +59,8 @@ export const appRoutes = {
   overview: '/',
   contacts: '/contacts',
   contactCreate: '/contacts/new',
+  contactDetail: (id: string) => `/contacts/${id}`,
+  contactStatement: (id: string) => `/contacts/${id}/statement`,
   items: '/items',
   itemCreate: '/items/new',
   itemDetail: (id: string) => `/items/${id}`,

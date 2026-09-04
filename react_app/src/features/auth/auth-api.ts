@@ -27,3 +27,21 @@ export function logoutBrowserSession() {
     retryUnauthorized: false,
   })
 }
+
+export type OrgSummary = {
+  orgId: string
+  orgName: string
+  userId: string
+  role: string
+}
+
+export function listMyOrganisations() {
+  return apiFetch<OrgSummary[]>('/api/v1/users/me/organisations')
+}
+
+export function switchOrganisation(targetOrgId: string) {
+  return apiFetch<WebAuthResponse>('/api/v1/users/me/switch-org', {
+    method: 'POST',
+    body: { targetOrgId },
+  })
+}

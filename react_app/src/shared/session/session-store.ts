@@ -1,6 +1,6 @@
 import { registerTokenRefresher } from '@/api/client/api-client'
 import { clearSessionToken, setSessionToken } from '@/api/client/session-token'
-import { loginBrowser, logoutBrowserSession, refreshBrowserSession, type LoginInput } from '@/features/auth/auth-api'
+import { loginBrowser, logoutBrowserSession, refreshBrowserSession, switchOrganisation, type LoginInput } from '@/features/auth/auth-api'
 import type { UserInfo, WebAuthResponse } from '@/features/auth/auth-types'
 import { create } from 'zustand'
 
@@ -12,6 +12,7 @@ type SessionState = {
   restore: () => Promise<void>
   login: (input: LoginInput) => Promise<void>
   logout: () => Promise<void>
+  switchOrg: (targetOrgId: string) => Promise<void>
 }
 
 function applySession(response: WebAuthResponse) {
@@ -40,6 +41,10 @@ export const useSessionStore = create<SessionState>((set) => ({
       clearSessionToken()
       set({ status: 'anonymous', user: null })
     }
+  },
+  switchOrg: async (targetOrgId: string) => {
+    const response = await switchOrganisation(targetOrgId)
+    set(applySession(response))
   },
 }))
 

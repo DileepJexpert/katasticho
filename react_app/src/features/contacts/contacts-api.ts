@@ -7,18 +7,93 @@ export type Contact = {
   contactType: 'CUSTOMER' | 'VENDOR' | 'BOTH'
   displayName: string
   name?: string
-  businessName?: string
-  legalName?: string
-  city?: string | null
   companyName: string | null
+  firstName?: string | null
+  lastName?: string | null
   email: string | null
   phone: string | null
   mobile: string | null
+  website?: string | null
   gstin: string | null
+  pan?: string | null
+  gstTreatment?: string | null
+  placeOfSupply?: string | null
+  billingAddressLine1?: string | null
+  billingAddressLine2?: string | null
+  billingCity?: string | null
+  billingState?: string | null
+  billingStateCode?: string | null
+  billingPostalCode?: string | null
+  billingCountry?: string | null
+  shippingAddressLine1?: string | null
+  shippingAddressLine2?: string | null
+  shippingCity?: string | null
+  shippingState?: string | null
+  shippingStateCode?: string | null
+  shippingPostalCode?: string | null
+  shippingCountry?: string | null
+  currency?: string | null
+  paymentTermsDays?: number | null
+  creditLimit?: number | string | null
+  openingBalance?: number | string | null
   outstandingAr: number | string | null
   outstandingAp: number | string | null
+  salesHold?: boolean
+  salesHoldReason?: string | null
+  salesHoldUntil?: string | null
+  tdsApplicable?: boolean
+  tdsSection?: string | null
+  tdsRate?: number | string | null
+  bankName?: string | null
+  bankAccountNo?: string | null
+  bankIfsc?: string | null
+  upiId?: string | null
+  notes?: string | null
+  createdAt?: string | null
+  medicalCategory?: string | null
+  specialty?: string | null
+  mrClass?: string | null
+  visitsPerMonth?: number | null
+  msmeRegistered?: boolean
+  msmeRegistrationNo?: string | null
+  persons?: ContactPerson[]
   active: boolean
   supplierEnabled: boolean
+}
+
+export type ContactPerson = {
+  id: string
+  salutation: string | null
+  firstName: string | null
+  lastName: string | null
+  designation: string | null
+  department: string | null
+  email: string | null
+  phone: string | null
+  mobile: string | null
+  primary: boolean
+}
+
+export type ContactLedgerEntry = {
+  date: string
+  type: string
+  number: string | null
+  referenceId: string
+  description: string | null
+  debit: number | string | null
+  credit: number | string | null
+  runningBalance: number | string | null
+}
+
+export type ContactLedger = {
+  contactId: string
+  contactName: string
+  contactType: string
+  openingBalance: number | string | null
+  closingBalance: number | string | null
+  totalInvoiced: number | string | null
+  totalPaid: number | string | null
+  entries: ContactLedgerEntry[]
 }
 
 export type ContactRoleFilter = ContactFilter
@@ -61,6 +136,11 @@ export function getContact(id: string) {
   return apiFetch<Contact>(`/api/v1/contacts/${id}`)
 }
 
+export function getContactLedger(id: string, startDate: string, endDate: string) {
+  const params = new URLSearchParams({ startDate, endDate })
+  return apiFetch<ContactLedger>(`/api/v1/contacts/${id}/ledger?${params.toString()}`)
+}
+
 export type CreateContactRequest = {
   contactType: 'CUSTOMER' | 'VENDOR' | 'BOTH'
   displayName: string
@@ -94,4 +174,3 @@ export function createContact(req: CreateContactRequest) {
     body: req,
   })
 }
-

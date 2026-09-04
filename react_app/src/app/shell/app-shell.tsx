@@ -24,6 +24,7 @@ import {
 import { Button } from '@/design-system/button'
 import { CommandPalette } from '@/design-system/command-palette'
 import { QuickCreateMenu } from '@/app/shell/quick-create-menu'
+import { OrgSwitcherModal } from '@/features/auth/org-switcher-modal'
 import { useSessionStore } from '@/shared/session/session-store'
 import {
   brandPaletteOptions,
@@ -35,6 +36,7 @@ export function AppShell() {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
   const [paletteDropdownOpen, setPaletteDropdownOpen] = useState(false)
+  const [orgSwitcherOpen, setOrgSwitcherOpen] = useState(false)
   const [activeFlyoutGroup, setActiveFlyoutGroup] = useState<NavGroup | null>(null)
   const [flyoutPosition, setFlyoutPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
   const [expandedMobileGroups, setExpandedMobileGroups] = useState<Record<string, boolean>>({})
@@ -471,6 +473,18 @@ export function AppShell() {
                       className="profile-menu-item"
                       onClick={() => {
                         setProfileDropdownOpen(false)
+                        setOrgSwitcherOpen(true)
+                      }}
+                      type="button"
+                    >
+                      <Building2 size={15} aria-hidden="true" />
+                      <span>Switch Organisation</span>
+                    </button>
+
+                    <button
+                      className="profile-menu-item"
+                      onClick={() => {
+                        setProfileDropdownOpen(false)
                         navigate(appRoutes.users)
                       }}
                       type="button"
@@ -512,6 +526,12 @@ export function AppShell() {
         onSignOut={() => {
           void handleLogout()
         }}
+      />
+
+      {/* Organisation Switcher Modal */}
+      <OrgSwitcherModal
+        isOpen={orgSwitcherOpen}
+        onClose={() => setOrgSwitcherOpen(false)}
       />
     </div>
   )

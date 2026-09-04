@@ -43,6 +43,8 @@ import { CapaDetailPage } from '@/features/capa/capa-detail-page'
 import { CapaPage } from '@/features/capa/capa-page'
 import { ContactsPage } from '@/features/contacts/contacts-page'
 import { ContactCreatePage } from '@/features/contacts/contact-create-page'
+import { ContactDetailPage } from '@/features/contacts/contact-detail-page'
+import { ContactStatementPage } from '@/features/contacts/contact-statement-page'
 import { CreditNoteDetailPage } from '@/features/credit-notes/credit-note-detail-page'
 import { CreditNoteCreatePage } from '@/features/credit-notes/credit-note-create-page'
 import { CreditNotesPage } from '@/features/credit-notes/credit-notes-page'
@@ -224,6 +226,14 @@ export const router = createBrowserRouter([
           {
             path: 'contacts/new',
             element: <ContactCreatePage />,
+          },
+          {
+            path: 'contacts/:contactId',
+            element: <ContactDetailPage />,
+          },
+          {
+            path: 'contacts/:contactId/statement',
+            element: <ContactStatementPage />,
           },
           {
             path: 'items',
