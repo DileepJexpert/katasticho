@@ -1,14 +1,21 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, FileSpreadsheet, FileText, PackageCheck, Send, XCircle } from 'lucide-react'
+import { ArrowLeft, FileSpreadsheet, PackageCheck, Send, XCircle } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
-import { Quantity } from '@/design-system/quantity'
-import { StatusChip } from '@/design-system/status-chip'
-import { formatDate, formatStatusLabel } from '@/shared/format/format'
+import { appRoutes } from '@/app/navigation'
+import {
+  Button,
+  DataTable,
+  DocumentCard,
+  DocumentError,
+  Fact,
+  FactList,
+  Money,
+  PageHeader,
+  Quantity,
+  StatusChip,
+  SummaryRow,
+} from '@/design-system'
 import {
   cancelPurchaseOrder,
   createBillFromPo,
@@ -16,6 +23,7 @@ import {
   getPurchaseOrder,
   sendPurchaseOrder,
 } from './purchase-orders-api'
+import { formatDate, formatStatusLabel } from '@/shared/format/format'
 
 export function PurchaseOrderDetailPage() {
   const { orderId } = useParams()
@@ -51,7 +59,7 @@ export function PurchaseOrderDetailPage() {
     mutationFn: () => createGrnFromPo(orderId!),
     onSuccess: () => {
       setFeedback('Draft Goods Receipt Note (GRN) generated from this PO.')
-      navigate('/stock-receipts')
+      navigate(appRoutes.stockReceipts)
     },
     onError: (err: Error) => setFeedback(`GRN creation failed: ${err.message}`),
   })
@@ -60,65 +68,72 @@ export function PurchaseOrderDetailPage() {
     mutationFn: () => createBillFromPo(orderId!),
     onSuccess: () => {
       setFeedback('Draft Vendor Bill created from this PO.')
-      navigate('/bills')
+      navigate(appRoutes.bills)
     },
     onError: (err: Error) => setFeedback(`Bill creation failed: ${err.message}`),
   })
 
-  if (!orderId) return <DocumentError onBack={() => navigate('/purchase-orders')} />
-  if (order.isLoading) return <section className="workspace-page"><div aria-live="polite" className="directory-state">Loading purchase order...</div></section>
-  if (order.isError || !order.data) return <DocumentError onBack={() => navigate('/purchase-orders')} />
+  if (!orderId) return <DocumentError onBack={() => navigate(appRoutes.purchaseOrders)} />
+  if (order.isLoading) {
+    return (
+      <section className="workspace-page">
+        <div aria-live="polite" className="directory-state">
+          Loading purchase order...
+        </div>
+      </section>
+    )
+  }
+  if (order.isError || !order.data) {
+    return <DocumentError onBack={() => navigate(appRoutes.purchaseOrders)} />
+  }
 
   const document = order.data
 
   return (
     <section className="workspace-page">
       <PageHeader
-        eyebrow="Purchases / Procurement / Purchase order"
-        title={document.poNumber}
-        description={`${document.supplierName} · Ordered ${formatDate(document.orderDate)}`}
         actions={
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
             <StatusChip status={formatStatusLabel(document.status)} />
-            <Button onClick={() => navigate('/purchase-orders')} variant="secondary">
+            <Button onClick={() => navigate(appRoutes.purchaseOrders)} variant="secondary">
               <ArrowLeft aria-hidden="true" size={16} />
               Back to POs
             </Button>
           </div>
         }
+        description={`${document.supplierName} · Ordered ${formatDate(document.orderDate)}`}
+        eyebrow="Purchases / Procurement / Purchase order"
+        title={document.poNumber}
       />
 
-      {feedback ? (
-        <div className="alert-banner" style={{ background: '#0F857615', border: '1px solid #0F8576', padding: '12px 16px', borderRadius: '6px', color: '#0F8576', marginBottom: '16px' }}>
-          {feedback}
+      {feedback && (
+        <div
+          className="banner banner--success"
+          role="status"
+          style={{ marginBottom: 'var(--space-4)' }}
+        >
+          <span>{feedback}</span>
+          <button className="banner-dismiss" onClick={() => setFeedback(null)} type="button">✕</button>
         </div>
-      ) : null}
+      )}
 
       <div className="document-layout">
-        <section className="document-card">
-          <h2>Purchase order facts</h2>
-          <dl className="document-facts">
+        <DocumentCard title="Purchase Order Facts">
+          <FactList columns={2}>
             <Fact label="Supplier" value={document.supplierName} />
-            <Fact label="Order date" value={formatDate(document.orderDate)} />
-            <Fact label="Expected delivery" value={document.expectedDeliveryDate ? formatDate(document.expectedDeliveryDate) : 'Not specified'} />
-            <Fact label="Total lines" value={`${document.lines?.length ?? 0} items`} />
+            <Fact label="Order Date" value={formatDate(document.orderDate)} />
+            <Fact label="Expected Delivery" value={document.expectedDeliveryDate ? formatDate(document.expectedDeliveryDate) : 'Not specified'} />
+            <Fact label="Total Lines" value={`${document.lines?.length ?? 0} items`} />
             <Fact label="Status" value={formatStatusLabel(document.status)} />
-          </dl>
-        </section>
+          </FactList>
+        </DocumentCard>
 
-        <aside className="document-card document-card--summary">
-          <h2>Order Actions</h2>
-          <div className="progress-row">
-            <span>Fulfilment status</span>
-            <StatusChip status={formatStatusLabel(document.status)} />
-          </div>
-          <div className="summary-row summary-row--total">
-            <span>Total order amount</span>
-            <Money amount={document.totalAmount} />
-          </div>
+        <DocumentCard title="Order Actions" variant="summary">
+          <SummaryRow label="Fulfilment Status" value={<StatusChip status={formatStatusLabel(document.status)} />} />
+          <SummaryRow isTotal label="Total Order Amount" value={<Money amount={document.totalAmount} />} />
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '16px' }}>
-            {document.status === 'DRAFT' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
+            {document.status === 'DRAFT' && (
               <Button
                 disabled={sendMutation.isPending}
                 onClick={() => sendMutation.mutate()}
@@ -127,9 +142,9 @@ export function PurchaseOrderDetailPage() {
                 <Send size={16} />
                 {sendMutation.isPending ? 'Sending...' : 'Send to Supplier'}
               </Button>
-            ) : null}
+            )}
 
-            {document.status === 'SENT' || document.status === 'PARTIALLY_RECEIVED' ? (
+            {document.status === 'ISSUED' && (
               <>
                 <Button
                   disabled={grnMutation.isPending}
@@ -137,7 +152,7 @@ export function PurchaseOrderDetailPage() {
                   variant="primary"
                 >
                   <PackageCheck size={16} />
-                  {grnMutation.isPending ? 'Generating...' : 'Receive Stock (Create GRN)'}
+                  {grnMutation.isPending ? 'Creating GRN...' : 'Receive Stock (GRN)'}
                 </Button>
                 <Button
                   disabled={billMutation.isPending}
@@ -145,12 +160,12 @@ export function PurchaseOrderDetailPage() {
                   variant="secondary"
                 >
                   <FileSpreadsheet size={16} />
-                  {billMutation.isPending ? 'Generating...' : 'Create Vendor Bill'}
+                  {billMutation.isPending ? 'Creating Bill...' : 'Create Vendor Bill'}
                 </Button>
               </>
-            ) : null}
+            )}
 
-            {document.status !== 'CANCELLED' && document.status !== 'RECEIVED' ? (
+            {document.status !== 'CANCELLED' && document.status !== 'FULFILLED' && (
               <Button
                 disabled={cancelMutation.isPending}
                 onClick={() => cancelMutation.mutate()}
@@ -159,83 +174,65 @@ export function PurchaseOrderDetailPage() {
                 <XCircle size={16} />
                 Cancel Order
               </Button>
-            ) : null}
+            )}
           </div>
-        </aside>
+        </DocumentCard>
       </div>
 
-      <section className="document-card document-card--lines">
-        <h2>Ordered items & fulfilment</h2>
+      <DocumentCard title="Ordered Items" variant="lines">
         {document.lines?.length ? (
           <DataTable caption="Purchase order lines">
             <thead>
               <tr>
-                <th scope="col">Item / Description</th>
-                <th className="numeric-cell" scope="col">Ordered qty</th>
-                <th className="numeric-cell" scope="col">Received qty</th>
-                <th className="numeric-cell" scope="col">Unit price</th>
-                <th className="numeric-cell" scope="col">Line total</th>
+                <th scope="col">#</th>
+                <th scope="col">Item Description</th>
+                <th className="numeric-cell" scope="col">Quantity</th>
+                <th className="numeric-cell" scope="col">Unit Cost</th>
+                <th className="numeric-cell" scope="col">Line Total</th>
               </tr>
             </thead>
             <tbody>
               {document.lines.map((line) => (
                 <tr key={line.id}>
+                  <td>{line.lineNumber}</td>
                   <td>
                     <div className="cell-stack">
-                      <strong>{line.itemName ?? '--'}</strong>
-                      {line.description ? <span className="cell-muted">{line.description}</span> : null}
+                      <strong>{line.itemName || line.description}</strong>
+                      {line.description && line.itemName ? (
+                        <span className="cell-muted">{line.description}</span>
+                      ) : null}
                     </div>
                   </td>
                   <td className="numeric-cell">
                     <Quantity value={line.quantity} />
                   </td>
                   <td className="numeric-cell">
-                    <Quantity value={line.receivedQuantity ?? 0} />
-                  </td>
-                  <td className="numeric-cell">
                     <Money amount={line.unitPrice} />
                   </td>
                   <td className="numeric-cell">
-                    <Money amount={line.lineTotal} />
+                    <strong>
+                      <Money amount={line.lineTotal} />
+                    </strong>
                   </td>
                 </tr>
               ))}
             </tbody>
           </DataTable>
         ) : (
-          <p className="document-loading">No line items recorded for this purchase order.</p>
+          <div className="directory-state" style={{ minHeight: 120 }}>
+            No line items recorded for this purchase order.
+          </div>
         )}
-      </section>
+      </DocumentCard>
 
-      <section className="document-card document-card--notes">
-        <h2>Order instructions</h2>
-        <div className="document-notes">
-          <span>Notes</span>
-          <p>{document.notes ?? 'No remarks recorded.'}</p>
-        </div>
-      </section>
-    </section>
-  )
-}
-
-function Fact({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt>{label}</dt>
-      <dd>{value}</dd>
-    </div>
-  )
-}
-
-function DocumentError({ onBack }: { onBack: () => void }) {
-  return (
-    <section className="workspace-page">
-      <div className="directory-state directory-state--error" role="alert">
-        <FileText aria-hidden="true" size={24} />
-        <strong>Purchase order details could not be loaded.</strong>
-        <p>The purchase order record may no longer be available, or you may not have permission to view it.</p>
-        <Button onClick={onBack} variant="secondary">Back to purchase orders</Button>
-      </div>
+      {document.notes && (
+        <DocumentCard title="Delivery Notes & Remarks" variant="notes">
+          <div className="document-notes">
+            <span>Special instructions</span>
+            <p>{document.notes}</p>
+          </div>
+        </DocumentCard>
+      )}
     </section>
   )
 }

@@ -13,3 +13,8 @@ export * from './checkbox-input'
 export * from './form-card'
 export * from './form-grid'
 export * from './modal'
+
+export * from './fact-list'
+export * from './document-card'
+export * from './document-error'
+export * from './summary-row'

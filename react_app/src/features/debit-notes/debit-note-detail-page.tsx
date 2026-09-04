@@ -1,15 +1,23 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, FileBadge, FileText, Send, Trash2 } from 'lucide-react'
+import { ArrowLeft, FileBadge, Send, Trash2 } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
-import { Quantity } from '@/design-system/quantity'
-import { StatusChip } from '@/design-system/status-chip'
-import { formatDate, formatStatusLabel } from '@/shared/format/format'
+import { appRoutes } from '@/app/navigation'
+import {
+  Button,
+  DataTable,
+  DocumentCard,
+  DocumentError,
+  Fact,
+  FactList,
+  Money,
+  PageHeader,
+  Quantity,
+  StatusChip,
+  SummaryRow,
+} from '@/design-system'
 import { deleteDebitNote, getDebitNote, submitDebitNote } from './debit-notes-api'
+import { formatDate, formatStatusLabel } from '@/shared/format/format'
 
 export function DebitNoteDetailPage() {
   const { noteId } = useParams()
@@ -35,67 +43,71 @@ export function DebitNoteDetailPage() {
   const deleteMutation = useMutation({
     mutationFn: () => deleteDebitNote(noteId!),
     onSuccess: () => {
-      navigate('/debit-notes')
+      navigate(appRoutes.debitNotes)
     },
   })
 
-  if (!noteId) return <DocumentError onBack={() => navigate('/debit-notes')} />
-  if (note.isLoading) return <section className="workspace-page"><div aria-live="polite" className="directory-state">Loading debit note...</div></section>
-  if (note.isError || !note.data) return <DocumentError onBack={() => navigate('/debit-notes')} />
+  if (!noteId) return <DocumentError onBack={() => navigate(appRoutes.debitNotes)} />
+  if (note.isLoading) {
+    return (
+      <section className="workspace-page">
+        <div aria-live="polite" className="directory-state">
+          Loading debit note...
+        </div>
+      </section>
+    )
+  }
+  if (note.isError || !note.data) {
+    return <DocumentError onBack={() => navigate(appRoutes.debitNotes)} />
+  }
 
   const document = note.data
 
   return (
     <section className="workspace-page">
       <PageHeader
-        eyebrow="Purchases / Payables / Debit note"
-        title={document.debitNoteNumber}
-        description={`${document.supplierName} · Issued ${formatDate(document.noteDate)}`}
         actions={
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
             <StatusChip status={formatStatusLabel(document.status)} />
-            <Button onClick={() => navigate('/debit-notes')} variant="secondary">
+            <Button onClick={() => navigate(appRoutes.debitNotes)} variant="secondary">
               <ArrowLeft aria-hidden="true" size={16} />
               Back to debit notes
             </Button>
           </div>
         }
+        description={`${document.supplierName} · Issued ${formatDate(document.noteDate)}`}
+        eyebrow="Purchases / Payables / Debit note"
+        title={document.debitNoteNumber}
       />
 
-      {feedback ? (
-        <div className="alert-banner" style={{ background: '#0F857615', border: '1px solid #0F8576', padding: '12px 16px', borderRadius: '6px', color: '#0F8576', marginBottom: '16px' }}>
-          {feedback}
+      {feedback && (
+        <div
+          className="banner banner--success"
+          role="status"
+          style={{ marginBottom: 'var(--space-4)' }}
+        >
+          <span>{feedback}</span>
+          <button className="banner-dismiss" onClick={() => setFeedback(null)} type="button">✕</button>
         </div>
-      ) : null}
+      )}
 
       <div className="document-layout">
-        <section className="document-card">
-          <h2>Debit note facts</h2>
-          <dl className="document-facts">
+        <DocumentCard title="Debit Note Facts">
+          <FactList columns={2}>
             <Fact label="Supplier" value={document.supplierName} />
-            <Fact label="Date" value={formatDate(document.noteDate)} />
-            <Fact label="Return reason" value={document.returnReason ?? 'Purchase return'} />
-            <Fact label="Reference Bill" value={document.referenceBillId ?? 'Not specified'} />
+            <Fact label="Note Date" value={formatDate(document.noteDate)} />
+            <Fact label="Return Reason" value={document.returnReason ?? 'Purchase return'} />
+            <Fact label="Reference Bill" mono value={document.referenceBillId ?? 'Not specified'} />
             <Fact label="Status" value={formatStatusLabel(document.status)} />
-          </dl>
-        </section>
+          </FactList>
+        </DocumentCard>
 
-        <aside className="document-card document-card--summary">
-          <h2>Financial summary</h2>
-          <div className="progress-row">
-            <span>Material subtotal</span>
-            <Money amount={document.subtotal} />
-          </div>
-          <div className="progress-row">
-            <span>Tax return</span>
-            <Money amount={document.taxAmount} />
-          </div>
-          <div className="summary-row summary-row--total">
-            <span>Total debit amount</span>
-            <Money amount={document.totalAmount} />
-          </div>
+        <DocumentCard title="Financial Summary" variant="summary">
+          <SummaryRow label="Material Subtotal" value={<Money amount={document.subtotal} />} />
+          <SummaryRow label="Tax Return" value={<Money amount={document.taxAmount} />} />
+          <SummaryRow isTotal label="Total Debit Amount" value={<Money amount={document.totalAmount} />} />
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '16px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
             {document.status === 'DRAFT' ? (
               <Button
                 disabled={submitMutation.isPending}
@@ -107,7 +119,7 @@ export function DebitNoteDetailPage() {
               </Button>
             ) : (
               <Button
-                onClick={() => navigate('/vendor-credits')}
+                onClick={() => navigate(appRoutes.vendorCredits)}
                 variant="secondary"
               >
                 <FileBadge size={16} />
@@ -115,7 +127,7 @@ export function DebitNoteDetailPage() {
               </Button>
             )}
 
-            {document.status === 'DRAFT' ? (
+            {document.status === 'DRAFT' && (
               <Button
                 disabled={deleteMutation.isPending}
                 onClick={() => deleteMutation.mutate()}
@@ -124,13 +136,12 @@ export function DebitNoteDetailPage() {
                 <Trash2 size={16} />
                 Delete Draft
               </Button>
-            ) : null}
+            )}
           </div>
-        </aside>
+        </DocumentCard>
       </div>
 
-      <section className="document-card document-card--lines">
-        <h2>Returned line items</h2>
+      <DocumentCard title="Returned Line Items" variant="lines">
         {document.lines?.length ? (
           <DataTable caption="Debit note lines">
             <thead>
@@ -138,68 +149,28 @@ export function DebitNoteDetailPage() {
                 <th scope="col">Description</th>
                 <th scope="col">Batch #</th>
                 <th className="numeric-cell" scope="col">Quantity</th>
-                <th className="numeric-cell" scope="col">Unit price</th>
-                <th className="numeric-cell" scope="col">Tax</th>
-                <th className="numeric-cell" scope="col">Line total</th>
+                <th className="numeric-cell" scope="col">Unit Cost</th>
+                <th className="numeric-cell" scope="col">Line Total</th>
               </tr>
             </thead>
             <tbody>
               {document.lines.map((line) => (
                 <tr key={line.id}>
-                  <td>
-                    <strong>{line.description}</strong>
-                  </td>
-                  <td>{line.batchNumber ?? '--'}</td>
-                  <td className="numeric-cell">
-                    <Quantity value={line.quantity} />
-                  </td>
-                  <td className="numeric-cell">
-                    <Money amount={line.unitPrice} />
-                  </td>
-                  <td className="numeric-cell">
-                    <Money amount={line.taxAmount} />
-                  </td>
-                  <td className="numeric-cell">
-                    <Money amount={line.lineTotal} />
-                  </td>
+                  <td><strong>{line.description}</strong></td>
+                  <td>{line.batchNumber ? <code>{line.batchNumber}</code> : '--'}</td>
+                  <td className="numeric-cell"><Quantity value={line.quantity} /></td>
+                  <td className="numeric-cell"><Money amount={line.unitPrice} /></td>
+                  <td className="numeric-cell"><strong><Money amount={line.quantity * line.unitPrice} /></strong></td>
                 </tr>
               ))}
             </tbody>
           </DataTable>
         ) : (
-          <p className="document-loading">No items recorded for this debit note.</p>
+          <div className="directory-state" style={{ minHeight: 120 }}>
+            No line items returned.
+          </div>
         )}
-      </section>
-
-      <section className="document-card document-card--notes">
-        <h2>Commercial remarks</h2>
-        <div className="document-notes">
-          <span>Notes</span>
-          <p>{document.notes ?? 'No notes recorded.'}</p>
-        </div>
-      </section>
-    </section>
-  )
-}
-
-function Fact({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt>{label}</dt>
-      <dd>{value}</dd>
-    </div>
-  )
-}
-
-function DocumentError({ onBack }: { onBack: () => void }) {
-  return (
-    <section className="workspace-page">
-      <div className="directory-state directory-state--error" role="alert">
-        <FileText aria-hidden="true" size={24} />
-        <strong>Debit note details could not be loaded.</strong>
-        <p>The debit note record may no longer be available, or you may not have permission to view it.</p>
-        <Button onClick={onBack} variant="secondary">Back to debit notes</Button>
-      </div>
+      </DocumentCard>
     </section>
   )
 }

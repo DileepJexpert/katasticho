@@ -1,13 +1,21 @@
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, FileText } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { PageHeader } from '@/design-system/page-header'
-import { Quantity } from '@/design-system/quantity'
-import { StatusChip } from '@/design-system/status-chip'
-import { formatDate, formatStatusLabel } from '@/shared/format/format'
+import { appRoutes } from '@/app/navigation'
+import {
+  Button,
+  DataTable,
+  DocumentCard,
+  DocumentError,
+  Fact,
+  FactList,
+  PageHeader,
+  Quantity,
+  StatusChip,
+  SummaryRow,
+} from '@/design-system'
 import { getDeliveryChallan } from '@/features/delivery-challans/delivery-challans-api'
+import { formatDate, formatStatusLabel } from '@/shared/format/format'
 
 export function DeliveryChallanDetailPage() {
   const { challanId } = useParams()
@@ -18,63 +26,61 @@ export function DeliveryChallanDetailPage() {
     enabled: Boolean(challanId),
   })
 
-  if (!challanId) return <DocumentError onBack={() => navigate('/delivery-challans')} />
-  if (challan.isLoading) return <section className="workspace-page"><div aria-live="polite" className="directory-state">Loading delivery challan...</div></section>
-  if (challan.isError || !challan.data) return <DocumentError onBack={() => navigate('/delivery-challans')} />
+  if (!challanId) return <DocumentError onBack={() => navigate(appRoutes.deliveryChallans)} />
+  if (challan.isLoading) {
+    return (
+      <section className="workspace-page">
+        <div aria-live="polite" className="directory-state">
+          Loading delivery challan...
+        </div>
+      </section>
+    )
+  }
+  if (challan.isError || !challan.data) {
+    return <DocumentError onBack={() => navigate(appRoutes.deliveryChallans)} />
+  }
 
   const document = challan.data
 
   return (
     <section className="workspace-page">
       <PageHeader
+        actions={<StatusChip status={formatStatusLabel(document.status)} />}
+        description={`${document.contactName ?? 'Walk-in / Unknown'} · created ${formatDate(document.challanDate)}`}
         eyebrow="Sales / Fulfilment / Delivery challan"
         title={document.challanNumber}
-        description={`${document.contactName ?? 'Walk-in / Unknown'} · created ${formatDate(document.challanDate)}`}
-        actions={<StatusChip status={formatStatusLabel(document.status)} />}
       />
 
       <div className="document-actions">
-        <Button onClick={() => navigate('/delivery-challans')} variant="secondary">
+        <Button onClick={() => navigate(appRoutes.deliveryChallans)} variant="secondary">
           <ArrowLeft aria-hidden="true" size={16} />
           Back to challans
         </Button>
       </div>
 
       <div className="document-layout">
-        <section className="document-card">
-          <h2>Logistics & Dispatch Information</h2>
-          <dl className="document-facts">
+        <DocumentCard title="Logistics & Dispatch Information">
+          <FactList columns={2}>
             <Fact label="Customer" value={document.contactName ?? '--'} />
-            <Fact label="Challan date" value={formatDate(document.challanDate)} />
-            <Fact label="Dispatch date" value={formatDate(document.dispatchDate)} />
+            <Fact label="Challan Date" value={formatDate(document.challanDate)} />
+            <Fact label="Dispatch Date" value={formatDate(document.dispatchDate)} />
             <Fact label="Warehouse" value={document.warehouseName ?? '--'} />
-            <Fact label="Sales order" value={document.salesOrderNumber ?? 'Direct challan'} />
-            <Fact label="Delivery method" value={document.deliveryMethod ?? '--'} />
-            <Fact label="Vehicle number" value={document.vehicleNumber ?? '--'} />
-            <Fact label="Tracking number" value={document.trackingNumber ?? '--'} />
-            <Fact label="Shipping address" value={document.shippingAddress ?? '--'} />
-          </dl>
-        </section>
+            <Fact label="Sales Order" mono value={document.salesOrderNumber ?? 'Direct challan'} />
+            <Fact label="Delivery Method" value={document.deliveryMethod ?? '--'} />
+            <Fact label="Vehicle Number" mono value={document.vehicleNumber ?? '--'} />
+            <Fact label="Tracking Number" mono value={document.trackingNumber ?? '--'} />
+            <Fact label="Shipping Address" value={document.shippingAddress ?? '--'} />
+          </FactList>
+        </DocumentCard>
 
-        <aside className="document-card document-card--summary">
-          <h2>Fulfilment summary</h2>
-          <div className="progress-row">
-            <span>Dispatch status</span>
-            <StatusChip status={formatStatusLabel(document.status)} />
-          </div>
-          <div className="progress-row">
-            <span>Invoicing status</span>
-            <StatusChip status={formatStatusLabel(document.salesOrderInvoicedStatus ?? 'Pending')} />
-          </div>
-          <div className="progress-row">
-            <span>Line items</span>
-            <strong>{document.lines.length}</strong>
-          </div>
-        </aside>
+        <DocumentCard title="Fulfilment Summary" variant="summary">
+          <SummaryRow label="Dispatch Status" value={<StatusChip status={formatStatusLabel(document.status)} />} />
+          <SummaryRow label="Invoicing Status" value={<StatusChip status={formatStatusLabel(document.salesOrderInvoicedStatus ?? 'Pending')} />} />
+          <SummaryRow label="Line Items" value={<strong>{document.lines.length}</strong>} />
+        </DocumentCard>
       </div>
 
-      <section className="document-card document-card--lines">
-        <h2>Dispatched line items</h2>
+      <DocumentCard title="Dispatched Line Items" variant="lines">
         <DataTable caption="Delivery challan lines">
           <thead>
             <tr>
@@ -110,37 +116,14 @@ export function DeliveryChallanDetailPage() {
             ))}
           </tbody>
         </DataTable>
-      </section>
+      </DocumentCard>
 
-      <section className="document-card document-card--notes">
-        <h2>Dispatch notes</h2>
+      <DocumentCard title="Dispatch Notes" variant="notes">
         <div className="document-notes">
           <span>Notes & Remarks</span>
           <p>{document.notes ?? 'No dispatch notes recorded for this delivery challan.'}</p>
         </div>
-      </section>
-    </section>
-  )
-}
-
-function Fact({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt>{label}</dt>
-      <dd>{value}</dd>
-    </div>
-  )
-}
-
-function DocumentError({ onBack }: { onBack: () => void }) {
-  return (
-    <section className="workspace-page">
-      <div className="directory-state directory-state--error" role="alert">
-        <FileText aria-hidden="true" size={24} />
-        <strong>Delivery challan details could not be loaded.</strong>
-        <p>The challan may no longer be available, or you may not have permission to view it.</p>
-        <Button onClick={onBack} variant="secondary">Back to challans</Button>
-      </div>
+      </DocumentCard>
     </section>
   )
 }

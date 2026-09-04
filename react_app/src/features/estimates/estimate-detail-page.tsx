@@ -5,19 +5,25 @@ import {
   ArrowRight,
   CheckCircle2,
   Download,
-  FileText,
   Send,
   Share2,
   Trash2,
   XCircle,
 } from 'lucide-react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
-import { Quantity } from '@/design-system/quantity'
-import { StatusChip } from '@/design-system/status-chip'
+import { useNavigate, useParams } from 'react-router-dom'
+import { appRoutes } from '@/app/navigation'
+import {
+  Button,
+  DataTable,
+  DocumentCard,
+  DocumentError,
+  Fact,
+  FactList,
+  Money,
+  PageHeader,
+  StatusChip,
+  SummaryRow,
+} from '@/design-system'
 import {
   acceptEstimate,
   convertEstimateToInvoice,
@@ -42,7 +48,6 @@ export function EstimateDetailPage() {
 
   const estimate = query.data
 
-  // Mutations
   const sendMutation = useMutation({
     mutationFn: () => sendEstimate(estimateId),
     onSuccess: () => {
@@ -90,7 +95,7 @@ export function EstimateDetailPage() {
     mutationFn: () => deleteEstimate(estimateId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['estimates-list'] })
-      navigate('/estimates')
+      navigate(appRoutes.estimates)
     },
   })
 
@@ -129,54 +134,21 @@ export function EstimateDetailPage() {
   }
 
   if (query.isError || !estimate) {
-    return (
-      <section className="workspace-page">
-        <div className="directory-state directory-state--error" role="alert">
-          <FileText aria-hidden="true" size={24} />
-          <strong>Quotation not found or inaccessible.</strong>
-          <Link className="btn btn--secondary" to="/estimates">
-            Back to estimates
-          </Link>
-        </div>
-      </section>
-    )
+    return <DocumentError onBack={() => navigate(appRoutes.estimates)} title="Quotation not found or inaccessible" />
   }
 
   return (
     <section className="workspace-page">
-      <div style={{ marginBottom: 'var(--space-sm)' }}>
-        <Link className="table-row-action" to="/estimates">
-          <ArrowLeft aria-hidden="true" size={14} style={{ display: 'inline', marginRight: 4 }} />
-          Back to all estimates
-        </Link>
-      </div>
-
-      {feedback && (
-        <div
-          className={`banner ${feedback.type === 'success' ? 'banner--success' : 'banner--error'}`}
-          role="status"
-          style={{ marginBottom: 'var(--space-md)' }}
-        >
-          <span>{feedback.message}</span>
-          <button className="banner-dismiss" onClick={() => setFeedback(null)} type="button">
-            ×
-          </button>
-        </div>
-      )}
-
       <PageHeader
-        eyebrow="Commercial Quotation"
-        title={`Estimate #${estimate.estimateNumber}`}
-        description={`Prepared for ${estimate.contactName} on ${estimate.estimateDate}`}
         actions={
-          <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
             <Button onClick={handleDownloadPdf} variant="secondary">
-              <Download aria-hidden="true" size={14} style={{ marginRight: 6 }} />
-              Download PDF
+              <Download aria-hidden="true" size={14} />
+              PDF
             </Button>
             <Button onClick={handleShareWhatsApp} variant="secondary">
-              <Share2 aria-hidden="true" size={14} style={{ marginRight: 6 }} />
-              Share WhatsApp
+              <Share2 aria-hidden="true" size={14} />
+              WhatsApp
             </Button>
             {estimate.status === 'DRAFT' && (
               <Button
@@ -184,8 +156,8 @@ export function EstimateDetailPage() {
                 onClick={() => sendMutation.mutate()}
                 variant="secondary"
               >
-                <Send aria-hidden="true" size={14} style={{ marginRight: 6 }} />
-                Mark as Sent
+                <Send aria-hidden="true" size={14} />
+                Send
               </Button>
             )}
             {estimate.status === 'SENT' && (
@@ -195,7 +167,7 @@ export function EstimateDetailPage() {
                   onClick={() => acceptMutation.mutate()}
                   variant="primary"
                 >
-                  <CheckCircle2 aria-hidden="true" size={14} style={{ marginRight: 6 }} />
+                  <CheckCircle2 aria-hidden="true" size={14} />
                   Accept
                 </Button>
                 <Button
@@ -203,7 +175,7 @@ export function EstimateDetailPage() {
                   onClick={() => declineMutation.mutate()}
                   variant="destructive"
                 >
-                  <XCircle aria-hidden="true" size={14} style={{ marginRight: 6 }} />
+                  <XCircle aria-hidden="true" size={14} />
                   Decline
                 </Button>
               </>
@@ -214,7 +186,7 @@ export function EstimateDetailPage() {
                 onClick={() => convertMutation.mutate()}
                 variant="primary"
               >
-                <ArrowRight aria-hidden="true" size={14} style={{ marginRight: 6 }} />
+                <ArrowRight aria-hidden="true" size={14} />
                 Convert to Invoice
               </Button>
             )}
@@ -233,173 +205,92 @@ export function EstimateDetailPage() {
             )}
           </div>
         }
+        description={`Prepared for ${estimate.contactName} on ${estimate.estimateDate}`}
+        eyebrow="Commercial Quotation"
+        title={`Estimate #${estimate.estimateNumber}`}
       />
 
-      {/* Summary Strip */}
-      <div className="summary-strip">
-        <div className="summary-card">
-          <span className="summary-card__label">Estimate Date</span>
-          <strong className="summary-card__value" style={{ fontSize: '1.1rem' }}>
-            {estimate.estimateDate}
-          </strong>
-          <span className="summary-card__hint">Expiry: {estimate.expiryDate || 'No expiry'}</span>
-        </div>
-
-        <div className="summary-card">
-          <span className="summary-card__label">Customer</span>
-          <strong className="summary-card__value" style={{ fontSize: '1.1rem' }}>
-            {estimate.contactName}
-          </strong>
-          <span className="summary-card__hint">Ref: {estimate.referenceNumber || 'None'}</span>
-        </div>
-
-        <div className="summary-card">
-          <span className="summary-card__label">Proposal Status</span>
-          <div style={{ marginTop: 4 }}>
-            <StatusChip status={estimate.status} />
-          </div>
-          <span className="summary-card__hint">
-            {estimate.convertedInvoiceId ? 'Invoiced' : 'Commercial offer'}
-          </span>
-        </div>
-
-        <div className="summary-card summary-card--accent">
-          <span className="summary-card__label">Total Proposal Value</span>
-          <strong className="summary-card__value">
-            <Money amount={estimate.total} />
-          </strong>
-          <span className="summary-card__hint">Tax: <Money amount={estimate.taxAmount} /></span>
-        </div>
+      <div className="document-actions">
+        <Button onClick={() => navigate(appRoutes.estimates)} variant="secondary">
+          <ArrowLeft aria-hidden="true" size={16} />
+          Back to all estimates
+        </Button>
       </div>
 
-      {/* Converted Invoice Notice Banner */}
-      {estimate.convertedInvoiceId && (
-        <div className="banner banner--success" style={{ marginBottom: 'var(--space-md)' }}>
-          <CheckCircle2 size={16} />
-          <span>
-            This estimate was converted into a Tax Invoice.{' '}
-            <Link to={`/invoices/${estimate.convertedInvoiceId}`} style={{ textDecoration: 'underline', fontWeight: 600 }}>
-              View Invoice
-            </Link>
-          </span>
+      {feedback && (
+        <div
+          className={`banner ${feedback.type === 'success' ? 'banner--success' : 'banner--error'}`}
+          role="status"
+          style={{ marginBottom: 'var(--space-4)' }}
+        >
+          <span>{feedback.message}</span>
+          <button className="banner-dismiss" onClick={() => setFeedback(null)} type="button">
+            ✕
+          </button>
         </div>
       )}
 
-      {/* Line Items Table */}
-      <div className="panel-card" style={{ padding: 'var(--space-md)', marginBottom: 'var(--space-md)' }}>
-        <h3 style={{ fontSize: '1.05rem', fontWeight: 600, marginBottom: 'var(--space-sm)' }}>
-          Line Items ({estimate.lines.length})
-        </h3>
+      <div className="document-layout">
+        <DocumentCard title="Proposal Information">
+          <FactList columns={2}>
+            <Fact label="Customer" value={estimate.contactName} />
+            <Fact label="Estimate Date" value={estimate.estimateDate} />
+            <Fact label="Expiry Date" value={estimate.expiryDate || 'No expiry'} />
+            <Fact label="Reference Number" mono value={estimate.referenceNumber || 'None'} />
+            <Fact label="Converted Invoice" mono value={estimate.convertedInvoiceNumber || 'Not converted'} />
+            <Fact label="Status" value={<StatusChip status={estimate.status} />} />
+          </FactList>
+        </DocumentCard>
 
-        <DataTable caption="Estimate quotation line items">
+        <DocumentCard title="Quotation Total" variant="summary">
+          <SummaryRow label="Subtotal" value={<Money amount={estimate.subtotal} />} />
+          <SummaryRow label="Estimated Tax" value={<Money amount={estimate.taxTotal} />} />
+          <SummaryRow isTotal label="Grand Total" value={<Money amount={estimate.total} />} />
+        </DocumentCard>
+      </div>
+
+      <DocumentCard title="Proposed Line Items" variant="lines">
+        <DataTable caption="Estimate line items">
           <thead>
             <tr>
-              <th scope="col">#</th>
-              <th scope="col">Item Description</th>
+              <th scope="col">Product / Service</th>
               <th scope="col">HSN</th>
               <th className="numeric-cell" scope="col">Rate</th>
               <th className="numeric-cell" scope="col">Qty</th>
-              <th className="numeric-cell" scope="col">Discount</th>
+              <th className="numeric-cell" scope="col">Disc %</th>
               <th className="numeric-cell" scope="col">Amount</th>
             </tr>
           </thead>
           <tbody>
-            {estimate.lines.map((line, idx) => (
-              <tr key={line.id || idx}>
-                <td>{idx + 1}</td>
+            {estimate.lines.map((l) => (
+              <tr key={l.id}>
                 <td>
                   <div className="cell-stack">
-                    <strong>{line.itemName}</strong>
-                    {line.description && <span className="cell-muted">{line.description}</span>}
+                    <strong>{l.itemName}</strong>
+                    {l.description ? <span className="cell-muted">{l.description}</span> : null}
                   </div>
                 </td>
-                <td>
-                  <span className="table-code">{line.hsnCode || 'â€”'}</span>
-                </td>
-                <td className="numeric-cell">
-                  <Money amount={line.rate} />
-                </td>
-                <td className="numeric-cell">
-                  <Quantity value={line.quantity} /> {line.unit || ''}
-                </td>
-                <td className="numeric-cell">
-                  {line.discountAmount ? (
-                    <Money amount={line.discountAmount} />
-                  ) : (
-                    <span className="cell-muted">â€”</span>
-                  )}
-                </td>
-                <td className="numeric-cell">
-                  <strong>
-                    <Money amount={line.amount} />
-                  </strong>
-                </td>
+                <td>{l.hsnCode ? <code>{l.hsnCode}</code> : '--'}</td>
+                <td className="numeric-cell"><Money amount={l.rate} /></td>
+                <td className="numeric-cell">{l.quantity} {l.unit || 'pcs'}</td>
+                <td className="numeric-cell">{l.discountPercentage || 0}%</td>
+                <td className="numeric-cell"><strong><Money amount={l.amount} /></strong></td>
               </tr>
             ))}
           </tbody>
         </DataTable>
+      </DocumentCard>
 
-        {/* Totals Box */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--space-md)' }}>
-          <div
-            style={{
-              width: 280,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 6,
-              padding: 'var(--space-md)',
-              background: 'var(--color-surface-subtle)',
-              borderRadius: 'var(--radius-md)',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span className="cell-muted">Subtotal:</span>
-              <Money amount={estimate.subtotal} />
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span className="cell-muted">Total Tax:</span>
-              <Money amount={estimate.taxAmount} />
-            </div>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                borderTop: '1px solid var(--color-border)',
-                paddingTop: 6,
-                marginTop: 4,
-                fontWeight: 'bold',
-                fontSize: '1.05rem',
-              }}
-            >
-              <span>Grand Total:</span>
-              <Money amount={estimate.total} />
-            </div>
-          </div>
+      <DocumentCard title="Commercial Terms & Notes" variant="notes">
+        <div className="document-notes">
+          <span>Customer notes</span>
+          <p>{estimate.notes || 'No customer notes specified.'}</p>
         </div>
-      </div>
-
-      {/* Notes & Terms */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(2, 1fr)',
-          gap: 'var(--space-md)',
-        }}
-      >
-        <div className="panel-card" style={{ padding: 'var(--space-md)' }}>
-          <h3 style={{ fontSize: '0.95rem', margin: '0 0 var(--space-xs) 0' }}>Customer Notes</h3>
-          <p style={{ margin: 0, fontSize: '0.85rem' }} className="cell-muted">
-            {estimate.notes || 'No customer notes specified.'}
-          </p>
+        <div className="document-notes">
+          <span>Terms & conditions</span>
+          <p>{estimate.terms || 'No terms & conditions specified.'}</p>
         </div>
-
-        <div className="panel-card" style={{ padding: 'var(--space-md)' }}>
-          <h3 style={{ fontSize: '0.95rem', margin: '0 0 var(--space-xs) 0' }}>Terms & Conditions</h3>
-          <p style={{ margin: 0, fontSize: '0.85rem' }} className="cell-muted">
-            {estimate.terms || 'Standard business terms apply.'}
-          </p>
-        </div>
-      </div>
+      </DocumentCard>
     </section>
   )
 }

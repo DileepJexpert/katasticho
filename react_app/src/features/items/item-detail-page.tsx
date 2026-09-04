@@ -15,7 +15,7 @@ import {
 } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { Button } from '@/design-system/button'
+import { Button, Fact, FactList, FormField, FormGrid, Modal, NumberInput, SelectInput, TextInput } from '@/design-system'
 import { DataTable } from '@/design-system/data-table'
 import { Money } from '@/design-system/money'
 import { PageHeader } from '@/design-system/page-header'
@@ -696,46 +696,46 @@ function StockAdjustmentModal({
   })
 
   return (
-    <div className="modal-backdrop" role="dialog">
-      <div className="modal-dialog">
-        <header className="modal-header">
-          <h3>Manual Stock Adjustment</h3>
-          <Button onClick={onClose} variant="ghost">✕</Button>
-        </header>
-        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <label className="field-group">
-            <span>Warehouse ID</span>
-            <input onChange={(e) => setWarehouseId(e.target.value)} placeholder="e.g. WH-MAIN" value={warehouseId} />
-          </label>
-          <label className="field-group">
-            <span>Quantity Delta (+/-)</span>
-            <input onChange={(e) => setQuantityDelta(Number(e.target.value))} placeholder="e.g. 10 or -5" type="number" value={quantityDelta} />
-          </label>
-          <label className="field-group">
-            <span>Unit Cost (₹)</span>
-            <input onChange={(e) => setUnitCost(Number(e.target.value))} placeholder="0.00" type="number" value={unitCost} />
-          </label>
-          <label className="field-group">
-            <span>Batch Number (optional)</span>
-            <input onChange={(e) => setBatchNumber(e.target.value)} placeholder="BATCH-001" value={batchNumber} />
-          </label>
-          <label className="field-group">
-            <span>Expiry Date (optional)</span>
-            <input onChange={(e) => setExpiryDate(e.target.value)} type="date" value={expiryDate} />
-          </label>
-          <label className="field-group">
-            <span>Adjustment Reason</span>
-            <input onChange={(e) => setReason(e.target.value)} placeholder="e.g. Physical count variance, damaged item" value={reason} />
-          </label>
-        </div>
-        <footer className="modal-footer">
+    <Modal
+      footer={
+        <>
           <Button onClick={onClose} variant="secondary">Cancel</Button>
           <Button disabled={quantityDelta === 0 || mutation.isPending} onClick={() => mutation.mutate()} variant="primary">
             {mutation.isPending ? 'Posting...' : 'Post Stock Adjustment'}
           </Button>
-        </footer>
+        </>
+      }
+      isOpen
+      onClose={onClose}
+      size="md"
+      title="Manual Stock Adjustment"
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+        <FormGrid columns={2}>
+          <FormField label="Warehouse ID">
+            <TextInput onChange={(e) => setWarehouseId(e.target.value)} placeholder="e.g. WH-MAIN" value={warehouseId} />
+          </FormField>
+          <FormField label="Quantity Delta (+/-)" required>
+            <NumberInput onChange={(e) => setQuantityDelta(Number(e.target.value))} placeholder="e.g. 10 or -5" value={quantityDelta} />
+          </FormField>
+          <FormField label="Unit Cost (₹)">
+            <NumberInput currencyPrefix="₹" min={0} onChange={(e) => setUnitCost(Number(e.target.value))} step="0.01" value={unitCost} />
+          </FormField>
+          <FormField label="Batch Number (optional)">
+            <TextInput onChange={(e) => setBatchNumber(e.target.value)} placeholder="BATCH-001" value={batchNumber} />
+          </FormField>
+        </FormGrid>
+
+        <FormGrid columns={2}>
+          <FormField label="Expiry Date (optional)">
+            <TextInput onChange={(e) => setExpiryDate(e.target.value)} type="date" value={expiryDate} />
+          </FormField>
+          <FormField label="Adjustment Reason">
+            <TextInput onChange={(e) => setReason(e.target.value)} placeholder="e.g. Physical count variance, damaged item" value={reason} />
+          </FormField>
+        </FormGrid>
       </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -751,65 +751,42 @@ function AtpModal({ itemId, onClose }: { itemId: string; onClose: () => void }) 
   const atp = atpQuery.data
 
   return (
-    <div className="modal-backdrop" role="dialog">
-      <div className="modal-dialog">
-        <header className="modal-header">
-          <h3>Available-to-Promise (ATP) Calculator</h3>
-          <Button onClick={onClose} variant="ghost">✕</Button>
-        </header>
-        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <label className="field-group">
-              <span>Warehouse ID</span>
-              <input onChange={(e) => setWarehouseId(e.target.value)} value={warehouseId} />
-            </label>
-            <label className="field-group">
-              <span>Requested Order Qty</span>
-              <input onChange={(e) => setQty(Number(e.target.value))} type="number" value={qty} />
-            </label>
-          </div>
+    <Modal
+      footer={
+        <Button onClick={onClose} variant="secondary">Close</Button>
+      }
+      isOpen
+      onClose={onClose}
+      size="md"
+      title="Available-to-Promise (ATP) Calculator"
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+        <FormGrid columns={2}>
+          <FormField label="Warehouse ID">
+            <TextInput onChange={(e) => setWarehouseId(e.target.value)} value={warehouseId} />
+          </FormField>
+          <FormField label="Requested Order Qty" required>
+            <NumberInput min={1} onChange={(e) => setQty(Number(e.target.value))} value={qty} />
+          </FormField>
+        </FormGrid>
 
-          {atpQuery.isLoading ? (
-            <div className="directory-state">Computing ATP promise...</div>
-          ) : atp ? (
-            <div className="document-card" style={{ marginTop: '0.5rem' }}>
-              <h4>ATP Fulfillment Promise</h4>
-              <dl className="document-facts">
-                <div className="fact-item">
-                  <dt>On Hand Stock</dt>
-                  <dd><strong>{atp.onHandQuantity}</strong></dd>
-                </div>
-                <div className="fact-item">
-                  <dt>Reserved / Committed</dt>
-                  <dd>{atp.reservedQuantity}</dd>
-                </div>
-                <div className="fact-item">
-                  <dt>Inbound PO Stock</dt>
-                  <dd>{atp.inboundPoQuantity}</dd>
-                </div>
-                <div className="fact-item">
-                  <dt>Net Available (ATP)</dt>
-                  <dd><strong>{atp.netAvailableQuantity}</strong></dd>
-                </div>
-                <div className="fact-item">
-                  <dt>Fulfillment Status</dt>
-                  <dd>
-                    <StatusChip status={atp.isFulfillable ? 'Fulfillable Now' : 'Stock Shortage'} />
-                  </dd>
-                </div>
-                <div className="fact-item">
-                  <dt>Earliest Promise Date</dt>
-                  <dd>{atp.earliestFulfillmentDate ? formatDate(atp.earliestFulfillmentDate) : 'Immediate'}</dd>
-                </div>
-              </dl>
-            </div>
-          ) : null}
-        </div>
-        <footer className="modal-footer">
-          <Button onClick={onClose} variant="secondary">Close</Button>
-        </footer>
+        {atpQuery.isLoading ? (
+          <div className="directory-state">Computing ATP promise...</div>
+        ) : atp ? (
+          <div className="document-card" style={{ marginTop: 'var(--space-2)' }}>
+            <h4 style={{ margin: '0 0 var(--space-3) 0', fontSize: 'var(--text-sm)' }}>ATP Fulfillment Promise</h4>
+            <FactList columns={2}>
+              <Fact label="On Hand Stock" value={<strong>{atp.onHandQuantity}</strong>} />
+              <Fact label="Reserved / Committed" value={atp.reservedQuantity} />
+              <Fact label="Inbound PO Stock" value={atp.inboundPoQuantity} />
+              <Fact label="Net Available (ATP)" value={<strong>{atp.netAvailableQuantity}</strong>} />
+              <Fact label="Fulfillment Status" value={<StatusChip status={atp.isFulfillable ? 'Fulfillable Now' : 'Stock Shortage'} />} />
+              <Fact label="Earliest Promise Date" value={atp.earliestFulfillmentDate ? formatDate(atp.earliestFulfillmentDate) : 'Immediate'} />
+            </FactList>
+          </div>
+        ) : null}
       </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -842,46 +819,49 @@ function AddPackagingBarcodeModal({
   })
 
   return (
-    <div className="modal-backdrop" role="dialog">
-      <div className="modal-dialog">
-        <header className="modal-header">
-          <h3>Add Packaging Barcode</h3>
-          <Button onClick={onClose} variant="ghost">✕</Button>
-        </header>
-        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <label className="field-group">
-            <span>Packaging Level</span>
-            <select onChange={(e) => setPackagingLevel(e.target.value)} value={packagingLevel}>
-              <option value="EACH">EACH (1x)</option>
-              <option value="INNER_PACK">INNER PACK (Box)</option>
-              <option value="MASTER_CARTON">MASTER CARTON (Case)</option>
-              <option value="PALLET">PALLET</option>
-            </select>
-          </label>
-          <label className="field-group">
-            <span>Barcode (EAN / GS1 / UPC)</span>
-            <input onChange={(e) => setBarcode(e.target.value)} placeholder="e.g. 8901234567890" value={barcode} />
-          </label>
-          <label className="field-group">
-            <span>Conversion Factor (Units of Each)</span>
-            <input onChange={(e) => setConversionFactor(Number(e.target.value))} placeholder="e.g. 12" type="number" value={conversionFactor} />
-          </label>
-          <label className="field-group">
-            <span>Gross Weight (kg)</span>
-            <input onChange={(e) => setGrossWeightKg(e.target.value)} placeholder="e.g. 1.25" type="number" value={grossWeightKg} />
-          </label>
-          <label className="field-group">
-            <span>Dimensions (LxWxH cm)</span>
-            <input onChange={(e) => setDimensionsCm(e.target.value)} placeholder="e.g. 30x20x15" value={dimensionsCm} />
-          </label>
-        </div>
-        <footer className="modal-footer">
+    <Modal
+      footer={
+        <>
           <Button onClick={onClose} variant="secondary">Cancel</Button>
           <Button disabled={!barcode || conversionFactor <= 0 || mutation.isPending} onClick={() => mutation.mutate()} variant="primary">
             {mutation.isPending ? 'Saving...' : 'Add Barcode'}
           </Button>
-        </footer>
+        </>
+      }
+      isOpen
+      onClose={onClose}
+      size="md"
+      title="Add Packaging Barcode"
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+        <FormField label="Packaging Level" required>
+          <SelectInput
+            onChange={(e) => setPackagingLevel(e.target.value)}
+            options={[
+              { value: 'EACH', label: 'EACH (1x)' },
+              { value: 'INNER_PACK', label: 'INNER PACK (Box)' },
+              { value: 'MASTER_CARTON', label: 'MASTER CARTON (Case)' },
+              { value: 'PALLET', label: 'PALLET' },
+            ]}
+            value={packagingLevel}
+          />
+        </FormField>
+        <FormField label="Barcode (EAN / GS1 / UPC)" required>
+          <TextInput onChange={(e) => setBarcode(e.target.value)} placeholder="e.g. 8901234567890" value={barcode} />
+        </FormField>
+        <FormGrid columns={3}>
+          <FormField label="Conversion Factor" required>
+            <NumberInput min={1} onChange={(e) => setConversionFactor(Number(e.target.value))} placeholder="e.g. 12" value={conversionFactor} />
+          </FormField>
+          <FormField label="Gross Weight (kg)">
+            <TextInput onChange={(e) => setGrossWeightKg(e.target.value)} placeholder="e.g. 1.25" value={grossWeightKg} />
+          </FormField>
+          <FormField label="Dimensions (cm)">
+            <TextInput onChange={(e) => setDimensionsCm(e.target.value)} placeholder="e.g. 30x20x15" value={dimensionsCm} />
+          </FormField>
+        </FormGrid>
       </div>
-    </div>
+    </Modal>
   )
 }
+

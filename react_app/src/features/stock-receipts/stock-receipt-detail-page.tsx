@@ -1,15 +1,23 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, FileText, PackageCheck, XCircle } from 'lucide-react'
+import { ArrowLeft, PackageCheck, XCircle } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
-import { Quantity } from '@/design-system/quantity'
-import { StatusChip } from '@/design-system/status-chip'
-import { formatDate, formatStatusLabel } from '@/shared/format/format'
+import { appRoutes } from '@/app/navigation'
+import {
+  Button,
+  DataTable,
+  DocumentCard,
+  DocumentError,
+  Fact,
+  FactList,
+  Money,
+  PageHeader,
+  Quantity,
+  StatusChip,
+  SummaryRow,
+} from '@/design-system'
 import { cancelStockReceipt, getStockReceipt, receiveStockReceipt } from './stock-receipts-api'
+import { formatDate, formatStatusLabel } from '@/shared/format/format'
 
 export function StockReceiptDetailPage() {
   const { receiptId } = useParams()
@@ -41,9 +49,19 @@ export function StockReceiptDetailPage() {
     onError: (err: Error) => setFeedback(`Cancel error: ${err.message}`),
   })
 
-  if (!receiptId) return <DocumentError onBack={() => navigate('/stock-receipts')} />
-  if (receipt.isLoading) return <section className="workspace-page"><div aria-live="polite" className="directory-state">Loading stock receipt...</div></section>
-  if (receipt.isError || !receipt.data) return <DocumentError onBack={() => navigate('/stock-receipts')} />
+  if (!receiptId) return <DocumentError onBack={() => navigate(appRoutes.stockReceipts)} />
+  if (receipt.isLoading) {
+    return (
+      <section className="workspace-page">
+        <div aria-live="polite" className="directory-state">
+          Loading stock receipt...
+        </div>
+      </section>
+    )
+  }
+  if (receipt.isError || !receipt.data) {
+    return <DocumentError onBack={() => navigate(appRoutes.stockReceipts)} />
+  }
 
   const document = receipt.data
   const currency = document.currency ?? 'INR'
@@ -51,56 +69,50 @@ export function StockReceiptDetailPage() {
   return (
     <section className="workspace-page">
       <PageHeader
-        eyebrow="Purchases / Inbound Logistics / Stock receipt"
-        title={document.receiptNumber}
-        description={`${document.supplierName} · Received ${formatDate(document.receiptDate)}`}
         actions={
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
             <StatusChip status={formatStatusLabel(document.status)} />
-            <Button onClick={() => navigate('/stock-receipts')} variant="secondary">
+            <Button onClick={() => navigate(appRoutes.stockReceipts)} variant="secondary">
               <ArrowLeft aria-hidden="true" size={16} />
               Back to receipts
             </Button>
           </div>
         }
+        description={`${document.supplierName} · Received ${formatDate(document.receiptDate)}`}
+        eyebrow="Purchases / Inbound Logistics / Stock receipt"
+        title={document.receiptNumber}
       />
 
-      {feedback ? (
-        <div className="alert-banner" style={{ background: '#0F857615', border: '1px solid #0F8576', padding: '12px 16px', borderRadius: '6px', color: '#0F8576', marginBottom: '16px' }}>
-          {feedback}
+      {feedback && (
+        <div
+          className="banner banner--success"
+          role="status"
+          style={{ marginBottom: 'var(--space-4)' }}
+        >
+          <span>{feedback}</span>
+          <button className="banner-dismiss" onClick={() => setFeedback(null)} type="button">✕</button>
         </div>
-      ) : null}
+      )}
 
       <div className="document-layout">
-        <section className="document-card">
-          <h2>Receipt information</h2>
-          <dl className="document-facts">
+        <DocumentCard title="Receipt Information">
+          <FactList columns={2}>
             <Fact label="Supplier" value={document.supplierName} />
             <Fact label="Warehouse" value={document.warehouseName} />
-            <Fact label="Supplier invoice #" value={document.supplierInvoiceNo ?? 'Not recorded'} />
-            <Fact label="Supplier invoice date" value={formatDate(document.supplierInvoiceDate)} />
-            <Fact label="GSTIN" value={document.supplierGstin ?? 'Not recorded'} />
+            <Fact label="Supplier Invoice #" mono value={document.supplierInvoiceNo ?? 'Not recorded'} />
+            <Fact label="Supplier Invoice Date" value={formatDate(document.supplierInvoiceDate)} />
+            <Fact label="GSTIN" mono value={document.supplierGstin ?? 'Not recorded'} />
             <Fact label="Status" value={formatStatusLabel(document.status)} />
-          </dl>
-        </section>
+          </FactList>
+        </DocumentCard>
 
-        <aside className="document-card document-card--summary">
-          <h2>Valuation summary</h2>
-          <div className="progress-row">
-            <span>Material value</span>
-            <Money amount={document.subtotal} currency={currency} />
-          </div>
-          <div className="progress-row">
-            <span>GST input tax</span>
-            <Money amount={document.taxAmount} currency={currency} />
-          </div>
-          <div className="progress-row progress-row--total">
-            <strong>Total invoice value</strong>
-            <Money amount={document.totalAmount} currency={currency} />
-          </div>
+        <DocumentCard title="Valuation Summary" variant="summary">
+          <SummaryRow label="Material Value" value={<Money amount={document.subtotal} currency={currency} />} />
+          <SummaryRow label="GST Input Tax" value={<Money amount={document.taxAmount} currency={currency} />} />
+          <SummaryRow isTotal label="Total Invoice Value" value={<Money amount={document.totalAmount} currency={currency} />} />
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '16px' }}>
-            {document.status === 'DRAFT' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
+            {document.status === 'DRAFT' && (
               <Button
                 disabled={receiveMutation.isPending}
                 onClick={() => receiveMutation.mutate()}
@@ -109,9 +121,9 @@ export function StockReceiptDetailPage() {
                 <PackageCheck size={16} />
                 {receiveMutation.isPending ? 'Receiving...' : 'Receive Stock into Ledger'}
               </Button>
-            ) : null}
+            )}
 
-            {document.status !== 'CANCELLED' && document.status !== 'RECEIVED' ? (
+            {document.status !== 'CANCELLED' && document.status !== 'RECEIVED' && (
               <Button
                 disabled={cancelMutation.isPending}
                 onClick={() => cancelMutation.mutate()}
@@ -120,13 +132,12 @@ export function StockReceiptDetailPage() {
                 <XCircle size={16} />
                 Cancel Receipt
               </Button>
-            ) : null}
+            )}
           </div>
-        </aside>
+        </DocumentCard>
       </div>
 
-      <section className="document-card document-card--lines">
-        <h2>Received items & batches</h2>
+      <DocumentCard title="Received Items & Batches" variant="lines">
         <DataTable caption="Stock receipt lines">
           <thead>
             <tr>
@@ -145,60 +156,20 @@ export function StockReceiptDetailPage() {
                 <td>{line.lineNumber}</td>
                 <td>
                   <div className="cell-stack">
-                    <strong>{line.description ?? line.itemId}</strong>
-                    {line.batchNumber ? (
-                      <span className="cell-muted">Batch: {line.batchNumber}</span>
-                    ) : null}
+                    <strong>{line.itemName}</strong>
+                    {line.batchNumber ? <code>Batch {line.batchNumber}</code> : null}
                   </div>
                 </td>
-                <td className="numeric-cell">
-                  <Quantity unit={line.unitOfMeasure} value={line.quantity} />
-                </td>
-                <td className="numeric-cell">
-                  <Money amount={line.unitPrice} currency={currency} />
-                </td>
-                <td className="numeric-cell">
-                  <Money amount={line.landedUnitCost} currency={currency} />
-                </td>
-                <td>{formatDate(line.expiryDate)}</td>
-                <td className="numeric-cell">
-                  <Money amount={line.lineTotal} currency={currency} />
-                </td>
+                <td className="numeric-cell"><Quantity value={line.quantity} /></td>
+                <td className="numeric-cell"><Money amount={line.unitPrice} currency={currency} /></td>
+                <td className="numeric-cell"><Money amount={line.landedCost} currency={currency} /></td>
+                <td>{line.expiryDate ? formatDate(line.expiryDate) : '--'}</td>
+                <td className="numeric-cell"><strong><Money amount={line.lineTotal} currency={currency} /></strong></td>
               </tr>
             ))}
           </tbody>
         </DataTable>
-      </section>
-
-      <section className="document-card document-card--notes">
-        <h2>Receipt notes</h2>
-        <div className="document-notes">
-          <span>Notes</span>
-          <p>{document.notes ?? 'No notes recorded.'}</p>
-        </div>
-      </section>
-    </section>
-  )
-}
-
-function Fact({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt>{label}</dt>
-      <dd>{value}</dd>
-    </div>
-  )
-}
-
-function DocumentError({ onBack }: { onBack: () => void }) {
-  return (
-    <section className="workspace-page">
-      <div className="directory-state directory-state--error" role="alert">
-        <FileText aria-hidden="true" size={24} />
-        <strong>Stock receipt details could not be loaded.</strong>
-        <p>The receipt record may no longer be available, or you may not have permission to view it.</p>
-        <Button onClick={onBack} variant="secondary">Back to receipts</Button>
-      </div>
+      </DocumentCard>
     </section>
   )
 }

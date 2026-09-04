@@ -1,14 +1,22 @@
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, FileText } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
-import { Quantity } from '@/design-system/quantity'
-import { StatusChip } from '@/design-system/status-chip'
-import { formatDate, formatStatusLabel } from '@/shared/format/format'
+import { appRoutes } from '@/app/navigation'
+import {
+  Button,
+  DataTable,
+  DocumentCard,
+  DocumentError,
+  Fact,
+  FactList,
+  Money,
+  PageHeader,
+  Quantity,
+  StatusChip,
+  SummaryRow,
+} from '@/design-system'
 import { getSalesOrder } from '@/features/sales-orders/sales-orders-api'
+import { formatDate, formatStatusLabel } from '@/shared/format/format'
 
 export function SalesOrderDetailPage() {
   const { salesOrderId } = useParams()
@@ -19,9 +27,19 @@ export function SalesOrderDetailPage() {
     enabled: Boolean(salesOrderId),
   })
 
-  if (!salesOrderId) return <DocumentError onBack={() => navigate('/sales-orders')} />
-  if (order.isLoading) return <section className="workspace-page"><div aria-live="polite" className="directory-state">Loading sales order...</div></section>
-  if (order.isError || !order.data) return <DocumentError onBack={() => navigate('/sales-orders')} />
+  if (!salesOrderId) return <DocumentError onBack={() => navigate(appRoutes.salesOrders)} />
+  if (order.isLoading) {
+    return (
+      <section className="workspace-page">
+        <div aria-live="polite" className="directory-state">
+          Loading sales order...
+        </div>
+      </section>
+    )
+  }
+  if (order.isError || !order.data) {
+    return <DocumentError onBack={() => navigate(appRoutes.salesOrders)} />
+  }
 
   const salesOrder = order.data
   const currency = salesOrder.currency ?? 'INR'
@@ -29,42 +47,42 @@ export function SalesOrderDetailPage() {
   return (
     <section className="workspace-page">
       <PageHeader
+        actions={<StatusChip status={formatStatusLabel(salesOrder.status)} />}
+        description={`${salesOrder.contactName ?? 'Unknown customer'} · ordered ${formatDate(salesOrder.orderDate)}`}
         eyebrow="Sales / Sales order"
         title={salesOrder.salesOrderNumber}
-        description={`${salesOrder.contactName ?? 'Unknown customer'} · ordered ${formatDate(salesOrder.orderDate)}`}
-        actions={<StatusChip status={formatStatusLabel(salesOrder.status)} />}
       />
 
       <div className="document-actions">
-        <Button onClick={() => navigate('/sales-orders')} variant="secondary"><ArrowLeft aria-hidden="true" size={16} />Back to orders</Button>
+        <Button onClick={() => navigate(appRoutes.salesOrders)} variant="secondary">
+          <ArrowLeft aria-hidden="true" size={16} />
+          Back to orders
+        </Button>
       </div>
 
       <div className="document-layout">
-        <section className="document-card">
-          <h2>Order information</h2>
-          <dl className="document-facts">
+        <DocumentCard title="Order Information">
+          <FactList columns={2}>
             <Fact label="Customer" value={salesOrder.contactName ?? '--'} />
-            <Fact label="Order date" value={formatDate(salesOrder.orderDate)} />
-            <Fact label="Expected shipment" value={formatDate(salesOrder.expectedShipmentDate)} />
+            <Fact label="Order Date" value={formatDate(salesOrder.orderDate)} />
+            <Fact label="Expected Shipment" value={formatDate(salesOrder.expectedShipmentDate)} />
             <Fact label="Warehouse" value={salesOrder.warehouseName ?? '--'} />
-            <Fact label="Reference" value={salesOrder.referenceNumber ?? '--'} />
-            <Fact label="Delivery method" value={salesOrder.deliveryMethod ?? '--'} />
-            <Fact label="Place of supply" value={salesOrder.placeOfSupply ?? '--'} />
+            <Fact label="Reference" mono value={salesOrder.referenceNumber ?? '--'} />
+            <Fact label="Delivery Method" value={salesOrder.deliveryMethod ?? '--'} />
+            <Fact label="Place of Supply" value={salesOrder.placeOfSupply ?? '--'} />
             <Fact label="Backorders" value={salesOrder.allowBackorder ? 'Allowed' : 'Not allowed'} />
-          </dl>
-        </section>
+          </FactList>
+        </DocumentCard>
 
-        <aside className="document-card document-card--summary">
-          <h2>Progress</h2>
-          <div className="progress-row"><span>Fulfilment</span><StatusChip status={formatStatusLabel(salesOrder.shippedStatus)} /></div>
-          <div className="progress-row"><span>Invoicing</span><StatusChip status={formatStatusLabel(salesOrder.invoicedStatus)} /></div>
-          <div className="progress-row"><span>Delivery challans</span><strong>{salesOrder.linkedChallanCount}</strong></div>
-          <div className="progress-row"><span>Invoices</span><strong>{salesOrder.linkedInvoiceCount}</strong></div>
-        </aside>
+        <DocumentCard title="Progress" variant="summary">
+          <SummaryRow label="Fulfilment" value={<StatusChip status={formatStatusLabel(salesOrder.shippedStatus)} />} />
+          <SummaryRow label="Invoicing" value={<StatusChip status={formatStatusLabel(salesOrder.invoicedStatus)} />} />
+          <SummaryRow label="Delivery Challans" value={<strong>{salesOrder.linkedChallanCount}</strong>} />
+          <SummaryRow label="Invoices" value={<strong>{salesOrder.linkedInvoiceCount}</strong>} />
+        </DocumentCard>
       </div>
 
-      <section className="document-card document-card--lines">
-        <h2>Ordered items</h2>
+      <DocumentCard title="Ordered Items" variant="lines">
         <DataTable caption="Sales order line items">
           <thead>
             <tr>
@@ -81,7 +99,12 @@ export function SalesOrderDetailPage() {
           <tbody>
             {salesOrder.lines.map((line) => (
               <tr key={line.id}>
-                <td><div className="cell-stack"><strong>{line.itemName ?? line.description ?? '--'}</strong><code>{line.hsnCode ? `HSN ${line.hsnCode}` : '--'}</code></div></td>
+                <td>
+                  <div className="cell-stack">
+                    <strong>{line.itemName ?? line.description ?? '--'}</strong>
+                    <code>{line.hsnCode ? `HSN ${line.hsnCode}` : '--'}</code>
+                  </div>
+                </td>
                 <td className="numeric-cell"><Quantity unit={line.unit} value={line.quantity} /></td>
                 <td className="numeric-cell"><Quantity unit={line.unit} value={line.quantityShipped} /></td>
                 <td className="numeric-cell"><Quantity unit={line.unit} value={line.quantityInvoiced} /></td>
@@ -93,40 +116,22 @@ export function SalesOrderDetailPage() {
             ))}
           </tbody>
         </DataTable>
-      </section>
+      </DocumentCard>
 
       <section className="document-layout">
-        <section className="document-card">
-          <h2>Commercial notes</h2>
+        <DocumentCard title="Commercial Notes">
           <div className="document-notes"><span>Notes</span><p>{salesOrder.notes ?? '--'}</p></div>
           <div className="document-notes"><span>Terms</span><p>{salesOrder.terms ?? '--'}</p></div>
-        </section>
-        <aside className="document-card document-card--summary">
-          <h2>Order total</h2>
-          <div className="progress-row"><span>Subtotal</span><Money amount={salesOrder.subtotal} currency={currency} /></div>
-          <div className="progress-row"><span>Tax</span><Money amount={salesOrder.taxAmount} currency={currency} /></div>
-          <div className="progress-row"><span>Shipping</span><Money amount={salesOrder.shippingCharge} currency={currency} /></div>
-          <div className="progress-row"><span>Adjustment</span><Money amount={salesOrder.adjustment} currency={currency} /></div>
-          <div className="progress-row progress-row--total"><strong>Total</strong><Money amount={salesOrder.totalAmount} currency={currency} /></div>
-        </aside>
+        </DocumentCard>
+
+        <DocumentCard title="Order Total" variant="summary">
+          <SummaryRow label="Subtotal" value={<Money amount={salesOrder.subtotal} currency={currency} />} />
+          <SummaryRow label="Tax" value={<Money amount={salesOrder.taxAmount} currency={currency} />} />
+          <SummaryRow label="Shipping" value={<Money amount={salesOrder.shippingCharge} currency={currency} />} />
+          <SummaryRow label="Adjustment" value={<Money amount={salesOrder.adjustment} currency={currency} />} />
+          <SummaryRow isTotal label="Total" value={<Money amount={salesOrder.totalAmount} currency={currency} />} />
+        </DocumentCard>
       </section>
-    </section>
-  )
-}
-
-function Fact({ label, value }: { label: string; value: string }) {
-  return <div><dt>{label}</dt><dd>{value}</dd></div>
-}
-
-function DocumentError({ onBack }: { onBack: () => void }) {
-  return (
-    <section className="workspace-page">
-      <div className="directory-state directory-state--error" role="alert">
-        <FileText aria-hidden="true" size={24} />
-        <strong>Sales order details could not be loaded.</strong>
-        <p>The order may no longer be available, or you may not have permission to view it.</p>
-        <Button onClick={onBack} variant="secondary">Back to orders</Button>
-      </div>
     </section>
   )
 }
