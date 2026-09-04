@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, Landmark } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Landmark, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
 import { Button } from '@/design-system/button'
@@ -27,13 +27,15 @@ export function PaymentsPage() {
         eyebrow="Sales / Receivables"
         title="Customer Payments"
         description="Cash, bank, UPI, and cheque collections against customer invoices."
-        actions={<StatusChip status="Read-only pilot" />}
+        actions={
+          <Button onClick={() => navigate(appRoutes.paymentCreate)} variant="primary">
+            <Plus aria-hidden="true" size={16} />
+            <span>Record Payment</span>
+          </Button>
+        }
       />
 
       <section className="list-panel" aria-label="Customer payment directory">
-        <div className="list-toolbar list-toolbar--stacked">
-          <p className="list-toolbar-note">Payment records show customer receipts posted to ledger accounts. Payment recording and voiding remain in Flutter during the controlled migration.</p>
-        </div>
 
         {payments.isError ? (
           <div className="directory-state directory-state--error" role="alert">
@@ -94,11 +96,13 @@ export function PaymentsPage() {
             <Landmark aria-hidden="true" size={24} />
             <strong>No customer payments found</strong>
             <p>Recorded payments and receipts applied to customer invoices will appear here.</p>
+            <Button onClick={() => navigate(appRoutes.paymentCreate)} variant="primary">
+              <Plus aria-hidden="true" size={16} />
+              <span>Record Payment</span>
+            </Button>
           </div>
         )}
       </section>
-
-      <p className="directory-note">Customer receipts credit Accounts Receivable and debit Cash/Bank accounts. Receipt creation, approvals, and reversal workflows remain in Flutter during the controlled migration.</p>
     </section>
   )
 }

@@ -75,7 +75,6 @@ export function SavedReportDetailPage() {
                 </>
               )}
             </span>
-            <StatusChip status="Read-only pilot" />
           </div>
         }
       />

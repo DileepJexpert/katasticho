@@ -34,6 +34,7 @@ import { SecondarySalesPage } from '@/features/mr/secondary-sales-page'
 import { MrApprovalsPage } from '@/features/mr/mr-approvals-page'
 import { BankingPage } from '@/features/banking/banking-page'
 import { BillsPage } from '@/features/bills/bills-page'
+import { BillCreatePage } from '@/features/bills/bill-create-page'
 import { BillDetailPage } from '@/features/bills/bill-detail-page'
 import { ThreeWayMatchPage } from '@/features/bills/three-way-match-page'
 import { ThreeWayMatchWorkbenchPage } from '@/features/bills/three-way-match-workbench-page'
@@ -41,12 +42,16 @@ import { BomManagerPage } from '@/features/bom/bom-manager-page'
 import { CapaDetailPage } from '@/features/capa/capa-detail-page'
 import { CapaPage } from '@/features/capa/capa-page'
 import { ContactsPage } from '@/features/contacts/contacts-page'
+import { ContactCreatePage } from '@/features/contacts/contact-create-page'
 import { CreditNoteDetailPage } from '@/features/credit-notes/credit-note-detail-page'
+import { CreditNoteCreatePage } from '@/features/credit-notes/credit-note-create-page'
 import { CreditNotesPage } from '@/features/credit-notes/credit-notes-page'
 import { DashboardPage } from '@/features/dashboard/dashboard-page'
 import { DebitNoteDetailPage } from '@/features/debit-notes/debit-note-detail-page'
+import { DebitNoteCreatePage } from '@/features/debit-notes/debit-note-create-page'
 import { DebitNotesPage } from '@/features/debit-notes/debit-notes-page'
 import { DeliveryChallanDetailPage } from '@/features/delivery-challans/delivery-challan-detail-page'
+import { DeliveryChallanCreatePage } from '@/features/delivery-challans/delivery-challan-create-page'
 import { DeliveryChallansPage } from '@/features/delivery-challans/delivery-challans-page'
 import { AttendancePage } from '@/features/hr/attendance-page'
 import { BiometricDevicesPage } from '@/features/hr/biometric-devices-page'
@@ -92,6 +97,7 @@ import { MrpPage } from '@/features/mrp/mrp-page'
 import { NcrDetailPage } from '@/features/ncrs/ncr-detail-page'
 import { NcrsPage } from '@/features/ncrs/ncrs-page'
 import { PaymentDetailPage } from '@/features/payments/payment-detail-page'
+import { PaymentCreatePage } from '@/features/payments/payment-create-page'
 import { PaymentsPage } from '@/features/payments/payments-page'
 import { PayrollRunDetailPage } from '@/features/payroll/payroll-run-detail-page'
 import { PayrollRunsPage } from '@/features/payroll/payroll-runs-page'
@@ -109,12 +115,14 @@ import { PicklistsPage } from '@/features/picklists/picklists-page'
 import { PriceListDetailPage } from '@/features/price-lists/price-list-detail-page'
 import { PriceListsPage } from '@/features/price-lists/price-lists-page'
 import { PurchaseOrderDetailPage } from '@/features/purchase-orders/purchase-order-detail-page'
+import { PurchaseOrderCreatePage } from '@/features/purchase-orders/purchase-order-create-page'
 import { PurchaseOrdersPage } from '@/features/purchase-orders/purchase-orders-page'
 import { QcInspectionDetailPage } from '@/features/qc-inspections/qc-inspection-detail-page'
 import { QcInspectionsPage } from '@/features/qc-inspections/qc-inspections-page'
 import { QcTemplatesPage } from '@/features/qc-inspections/qc-templates-page'
 import { RoutingsPage } from '@/features/routings/routings-page'
 import { InvoiceDetailPage } from '@/features/invoices/invoice-detail-page'
+import { InvoiceCreatePage } from '@/features/invoices/invoice-create-page'
 import { InvoicesPage } from '@/features/invoices/invoices-page'
 import { EstimatesPage } from '@/features/estimates/estimates-page'
 import { EstimateCreatePage } from '@/features/estimates/estimate-create-page'
@@ -130,10 +138,12 @@ import { ReportViewerPage } from '@/features/reports/report-viewer-page'
 import { SavedReportDetailPage } from '@/features/reports/saved-report-detail-page'
 import { SavedReportsPage } from '@/features/reports/saved-reports-page'
 import { SalesOrderDetailPage } from '@/features/sales-orders/sales-order-detail-page'
+import { SalesOrderCreatePage } from '@/features/sales-orders/sales-order-create-page'
 import { SalesOrdersPage } from '@/features/sales-orders/sales-orders-page'
 import { StockCountDetailPage } from '@/features/stock-counts/stock-count-detail-page'
 import { StockCountsPage } from '@/features/stock-counts/stock-counts-page'
 import { StockReceiptDetailPage } from '@/features/stock-receipts/stock-receipt-detail-page'
+import { StockReceiptCreatePage } from '@/features/stock-receipts/stock-receipt-create-page'
 import { StockReceiptsPage } from '@/features/stock-receipts/stock-receipts-page'
 import { TransferOrderDetailPage } from '@/features/transfer-orders/transfer-order-detail-page'
 import { TransferOrdersPage } from '@/features/transfer-orders/transfer-orders-page'
@@ -211,6 +221,10 @@ export const router = createBrowserRouter([
             element: <ContactsPage />,
           },
           {
+            path: 'contacts/new',
+            element: <ContactCreatePage />,
+          },
+          {
             path: 'items',
             element: <ItemsPage />,
           },
@@ -279,12 +293,20 @@ export const router = createBrowserRouter([
             element: <SalesOrdersPage />,
           },
           {
+            path: 'sales-orders/new',
+            element: <SalesOrderCreatePage />,
+          },
+          {
             path: 'sales-orders/:orderId',
             element: <SalesOrderDetailPage />,
           },
           {
             path: 'delivery-challans',
             element: <DeliveryChallansPage />,
+          },
+          {
+            path: 'delivery-challans/new',
+            element: <DeliveryChallanCreatePage />,
           },
           {
             path: 'delivery-challans/:challanId',
@@ -295,6 +317,10 @@ export const router = createBrowserRouter([
             element: <InvoicesPage />,
           },
           {
+            path: 'invoices/new',
+            element: <InvoiceCreatePage />,
+          },
+          {
             path: 'invoices/:invoiceId',
             element: <InvoiceDetailPage />,
           },
@@ -303,12 +329,20 @@ export const router = createBrowserRouter([
             element: <PaymentsPage />,
           },
           {
+            path: 'payments/new',
+            element: <PaymentCreatePage />,
+          },
+          {
             path: 'payments/:paymentId',
             element: <PaymentDetailPage />,
           },
           {
             path: 'credit-notes',
             element: <CreditNotesPage />,
+          },
+          {
+            path: 'credit-notes/new',
+            element: <CreditNoteCreatePage />,
           },
           {
             path: 'credit-notes/:creditNoteId',
@@ -399,6 +433,10 @@ export const router = createBrowserRouter([
             element: <PurchaseOrdersPage />,
           },
           {
+            path: 'purchase-orders/new',
+            element: <PurchaseOrderCreatePage />,
+          },
+          {
             path: 'purchase-orders/:orderId',
             element: <PurchaseOrderDetailPage />,
           },
@@ -407,12 +445,20 @@ export const router = createBrowserRouter([
             element: <StockReceiptsPage />,
           },
           {
+            path: 'stock-receipts/new',
+            element: <StockReceiptCreatePage />,
+          },
+          {
             path: 'stock-receipts/:receiptId',
             element: <StockReceiptDetailPage />,
           },
           {
             path: 'bills',
             element: <BillsPage />,
+          },
+          {
+            path: 'bills/new',
+            element: <BillCreatePage />,
           },
           {
             path: 'bills/:billId',
@@ -449,6 +495,10 @@ export const router = createBrowserRouter([
           {
             path: 'debit-notes',
             element: <DebitNotesPage />,
+          },
+          {
+            path: 'debit-notes/new',
+            element: <DebitNoteCreatePage />,
           },
           {
             path: 'debit-notes/:noteId',

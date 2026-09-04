@@ -49,3 +49,42 @@ export async function listContacts(options: Partial<ListContactsOptions> = {}) {
 export function getContactSummary() {
   return apiFetch<ContactSummary>('/api/v1/contacts/summary')
 }
+
+export function getContact(id: string) {
+  return apiFetch<Contact>(`/api/v1/contacts/${id}`)
+}
+
+export type CreateContactRequest = {
+  contactType: 'CUSTOMER' | 'VENDOR' | 'BOTH'
+  displayName: string
+  companyName?: string
+  email?: string
+  phone?: string
+  mobile?: string
+  gstin?: string
+  pan?: string
+  billingAddressLine1?: string
+  billingCity?: string
+  billingState?: string
+  billingStateCode?: string
+  billingPostalCode?: string
+  billingCountry?: string
+  shippingAddressLine1?: string
+  shippingCity?: string
+  shippingState?: string
+  shippingStateCode?: string
+  shippingPostalCode?: string
+  shippingCountry?: string
+  creditLimit?: number
+  paymentTermsDays?: number
+  openingBalance?: number
+  notes?: string
+}
+
+export function createContact(req: CreateContactRequest) {
+  return apiFetch<Contact>('/api/v1/contacts', {
+    method: 'POST',
+    body: req,
+  })
+}
+

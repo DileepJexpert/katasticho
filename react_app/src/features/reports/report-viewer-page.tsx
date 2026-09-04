@@ -117,7 +117,6 @@ export function ReportViewerPage() {
           <ArrowLeft aria-hidden="true" size={16} />
           Back to Reports Hub
         </Button>
-        <StatusChip status="Read-only pilot" />
       </div>
 
       {/* Filter / Date Parameter Controls */}

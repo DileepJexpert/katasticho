@@ -1,6 +1,6 @@
 import { useDeferredValue, useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, FileText, Search } from 'lucide-react'
+import { ChevronLeft, ChevronRight, FileText, Plus, Search } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
 import { Button } from '@/design-system/button'
@@ -46,7 +46,12 @@ export function InvoicesPage() {
         eyebrow="Sales / Receivables"
         title="Invoices"
         description="Customer invoices with server-returned payment progress and balance due."
-        actions={<StatusChip status="Read-only pilot" />}
+        actions={
+          <Button onClick={() => navigate(appRoutes.invoiceCreate)} variant="primary">
+            <Plus aria-hidden="true" size={16} />
+            <span>New Invoice</span>
+          </Button>
+        }
       />
 
       <section className="list-panel" aria-label="Invoice directory">
@@ -111,12 +116,14 @@ export function InvoicesPage() {
           <div className="directory-state">
             <FileText aria-hidden="true" size={24} />
             <strong>No {filter ? formatStatusLabel(filter).toLowerCase() : ''} invoices found.</strong>
-            <p>{deferredSearch ? 'Try a different invoice number or customer name.' : 'Create invoices in the existing Flutter workflow while this React module remains read-only.'}</p>
+            <p>{deferredSearch ? 'Try a different invoice number or customer name.' : 'Create your first invoice to bill customers and manage receivables.'}</p>
+            <Button onClick={() => navigate(appRoutes.invoiceCreate)} variant="primary">
+              <Plus aria-hidden="true" size={16} />
+              <span>New Invoice</span>
+            </Button>
           </div>
         )}
       </section>
-
-      <p className="directory-note">The payment amounts and balance due shown here are returned by the existing Accounts Receivable API. Open an invoice to review its payment history.</p>
     </section>
   )
 }

@@ -42,7 +42,6 @@ export function InvoiceDetailPage() {
 
       <div className="document-actions">
         <Button onClick={() => navigate('/invoices')} variant="secondary"><ArrowLeft aria-hidden="true" size={16} />Back to invoices</Button>
-        <StatusChip status="Read-only pilot" />
       </div>
 
       <div className="document-layout">
@@ -130,8 +129,6 @@ export function InvoiceDetailPage() {
         <div className="document-notes"><span>Notes</span><p>{document.notes ?? '--'}</p></div>
         <div className="document-notes"><span>Terms</span><p>{document.termsAndConditions ?? '--'}</p></div>
       </section>
-
-      <p className="directory-note">This page uses the existing invoice and invoice-payment records. Sending, cancelling, payment collection, sharing, and exports remain in Flutter during the controlled migration.</p>
     </section>
   )
 }

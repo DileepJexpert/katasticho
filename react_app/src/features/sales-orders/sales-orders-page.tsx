@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, FileText } from 'lucide-react'
+import { ChevronLeft, ChevronRight, FileText, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
 import { DataTable } from '@/design-system/data-table'
@@ -49,11 +49,16 @@ export function SalesOrdersPage() {
         eyebrow="Sales"
         title="Sales Orders"
         description="Customer commitments, fulfilment progress, and invoicing progress from the existing sales workflow."
-        actions={<StatusChip status="Read-only pilot" />}
+        actions={
+          <Button onClick={() => navigate(appRoutes.salesOrderCreate)} variant="primary">
+            <Plus aria-hidden="true" size={16} />
+            <span>New Sales Order</span>
+          </Button>
+        }
       />
 
       <section className="list-panel" aria-label="Sales order directory">
-        <div className="list-toolbar list-toolbar--stacked">
+        <div className="list-toolbar">
           <div className="role-tabs" aria-label="Filter sales orders by status" role="tablist">
             {salesOrderFilters.map((option) => (
               <button
@@ -68,7 +73,6 @@ export function SalesOrdersPage() {
               </button>
             ))}
           </div>
-          <p className="list-toolbar-note">Status filters and dates are served by the current Sales Order API. Search is intentionally unavailable because the existing list contract does not support it.</p>
         </div>
 
         {orders.isError ? (
@@ -110,12 +114,14 @@ export function SalesOrdersPage() {
           <div className="directory-state">
             <FileText aria-hidden="true" size={24} />
             <strong>No {filter ? formatStatusLabel(filter).toLowerCase() : ''} sales orders found.</strong>
-            <p>{filter ? 'Choose another status to review other orders.' : 'Create sales orders in the existing Flutter workflow while this React module remains read-only.'}</p>
+            <p>{filter ? 'Choose another status to review other orders.' : 'Create your first sales order to begin commercial tracking.'}</p>
+            <Button onClick={() => navigate(appRoutes.salesOrderCreate)} variant="primary">
+              <Plus aria-hidden="true" size={16} />
+              <span>New Sales Order</span>
+            </Button>
           </div>
         )}
       </section>
-
-      <p className="directory-note">Open an order to review the server-returned commercial, fulfilment, and invoicing data. All workflow actions remain in Flutter during migration.</p>
     </section>
   )
 }

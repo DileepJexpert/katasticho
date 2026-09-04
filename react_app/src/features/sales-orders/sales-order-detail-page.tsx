@@ -37,7 +37,6 @@ export function SalesOrderDetailPage() {
 
       <div className="document-actions">
         <Button onClick={() => navigate('/sales-orders')} variant="secondary"><ArrowLeft aria-hidden="true" size={16} />Back to orders</Button>
-        <StatusChip status="Read-only pilot" />
       </div>
 
       <div className="document-layout">
@@ -111,8 +110,6 @@ export function SalesOrderDetailPage() {
           <div className="progress-row progress-row--total"><strong>Total</strong><Money amount={salesOrder.totalAmount} currency={currency} /></div>
         </aside>
       </section>
-
-      <p className="directory-note">This page reflects the existing Sales Order record. Confirming, cancelling, dispatching, invoicing, and downloading documents remain in Flutter during the controlled migration.</p>
     </section>
   )
 }

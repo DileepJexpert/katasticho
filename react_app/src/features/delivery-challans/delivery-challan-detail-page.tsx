@@ -38,7 +38,6 @@ export function DeliveryChallanDetailPage() {
           <ArrowLeft aria-hidden="true" size={16} />
           Back to challans
         </Button>
-        <StatusChip status="Read-only pilot" />
       </div>
 
       <div className="document-layout">
@@ -120,8 +119,6 @@ export function DeliveryChallanDetailPage() {
           <p>{document.notes ?? 'No dispatch notes recorded for this delivery challan.'}</p>
         </div>
       </section>
-
-      <p className="directory-note">Dispatching, mark-delivered, PDF downloading, and barcode scanning actions remain in Flutter during the controlled migration.</p>
     </section>
   )
 }

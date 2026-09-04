@@ -13,7 +13,6 @@ import {
 import { Link } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
 import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
 import { reportCatalog, type ReportCatalogItem } from '@/features/reports/reports-api'
 
 const categoryTabs = [
@@ -52,7 +51,6 @@ export function ReportsHubPage() {
               <Bookmark aria-hidden="true" size={14} />
               Saved Reports & Schedules
             </Link>
-            <StatusChip status="Read-only pilot" />
           </div>
         }
       />

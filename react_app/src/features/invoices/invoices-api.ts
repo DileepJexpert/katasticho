@@ -79,3 +79,39 @@ export function getInvoice(id: string) {
 export function getInvoicePayments(id: string) {
   return apiFetch<InvoicePayment[]>(`/api/v1/invoices/${id}/payments`)
 }
+
+export type CreateInvoiceLineRequest = {
+  description: string
+  quantity: number
+  unitPrice: number
+  hsnCode?: string
+  gstRate?: number
+  taxGroupId?: string
+  itemId?: string
+  batchId?: string
+}
+
+export type CreateInvoiceRequest = {
+  contactId: string
+  invoiceDate: string
+  dueDate?: string
+  placeOfSupply?: string
+  reverseCharge?: boolean
+  notes?: string
+  termsAndConditions?: string
+  lines: CreateInvoiceLineRequest[]
+}
+
+export function createInvoice(req: CreateInvoiceRequest) {
+  return apiFetch<Invoice>('/api/v1/invoices', {
+    method: 'POST',
+    body: req,
+  })
+}
+
+export function postInvoice(id: string) {
+  return apiFetch<Invoice>(`/api/v1/invoices/${id}/post`, {
+    method: 'POST',
+  })
+}
+

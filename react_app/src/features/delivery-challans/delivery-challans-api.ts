@@ -60,3 +60,34 @@ export async function listDeliveryChallans({ page, status, salesOrderId }: ListD
 export function getDeliveryChallan(id: string) {
   return apiFetch<DeliveryChallan>(`/api/v1/delivery-challans/${id}`)
 }
+
+export type CreateDeliveryChallanLineRequest = {
+  soLineId: string
+  quantity: number
+  batchId?: string
+}
+
+export type CreateDeliveryChallanRequest = {
+  salesOrderId: string
+  lines: CreateDeliveryChallanLineRequest[]
+  challanDate?: string
+  deliveryMethod?: string
+  vehicleNumber?: string
+  trackingNumber?: string
+  notes?: string
+  shippingAddress?: string
+}
+
+export function createDeliveryChallan(req: CreateDeliveryChallanRequest) {
+  return apiFetch<DeliveryChallan>('/api/v1/delivery-challans', {
+    method: 'POST',
+    body: req,
+  })
+}
+
+export function dispatchDeliveryChallan(id: string) {
+  return apiFetch<DeliveryChallan>(`/api/v1/delivery-challans/${id}/dispatch`, {
+    method: 'POST',
+  })
+}
+

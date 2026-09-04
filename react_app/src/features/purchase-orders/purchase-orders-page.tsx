@@ -1,6 +1,6 @@
 import { useDeferredValue, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, Search, ShoppingBag } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Search, ShoppingBag } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
 import { Button } from '@/design-system/button'
@@ -57,7 +57,12 @@ export function PurchaseOrdersPage() {
         eyebrow="Purchases / Procurement"
         title="Purchase Orders"
         description="Supplier purchase commitments, expected delivery dates, and goods receipt tracking."
-        actions={<StatusChip status="Read-only pilot" />}
+        actions={
+          <Button onClick={() => navigate(appRoutes.purchaseOrderCreate)} variant="primary">
+            <Plus aria-hidden="true" size={16} />
+            <span>New Purchase Order</span>
+          </Button>
+        }
       />
 
       <section className="list-panel" aria-label="Purchase order directory">
@@ -162,11 +167,13 @@ export function PurchaseOrdersPage() {
             <ShoppingBag aria-hidden="true" size={24} />
             <strong>No purchase orders found</strong>
             <p>Supplier procurement purchase orders will appear here.</p>
+            <Button onClick={() => navigate(appRoutes.purchaseOrderCreate)} variant="primary">
+              <Plus aria-hidden="true" size={16} />
+              <span>New Purchase Order</span>
+            </Button>
           </div>
         )}
       </section>
-
-      <p className="directory-note">Creating purchase orders, generating GRNs from POs, and generating bills remain in Flutter during the parallel run.</p>
     </section>
   )
 }

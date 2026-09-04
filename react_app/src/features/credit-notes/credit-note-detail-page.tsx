@@ -39,7 +39,6 @@ export function CreditNoteDetailPage() {
           <ArrowLeft aria-hidden="true" size={16} />
           Back to credit notes
         </Button>
-        <StatusChip status="Read-only pilot" />
       </div>
 
       <div className="document-layout">
@@ -125,8 +124,6 @@ export function CreditNoteDetailPage() {
           <p>{document.reason ?? 'No remarks recorded.'}</p>
         </div>
       </section>
-
-      <p className="directory-note">Journal entry verification, PDF export, and invoice allocation remain in Flutter during the controlled migration.</p>
     </section>
   )
 }

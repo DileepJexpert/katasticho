@@ -1,4 +1,4 @@
-﻿import { apiFetch } from '@/api/client/api-client'
+import { apiFetch } from '@/api/client/api-client'
 
 export type StockReceiptLine = {
   id: string
@@ -86,5 +86,34 @@ export function cancelStockReceipt(id: string, reason?: string) {
   return apiFetch<StockReceipt>(`/api/v1/stock-receipts/${id}/cancel`, {
     method: 'POST',
     body: JSON.stringify({ reason: reason || 'Cancelled' }),
+  })
+}
+
+export type CreateStockReceiptLineRequest = {
+  itemId: string
+  description?: string
+  quantity: number
+  unitPrice: number
+  batchNumber?: string
+  expiryDate?: string
+  manufacturingDate?: string
+  purchaseOrderLineId?: string
+}
+
+export type CreateStockReceiptRequest = {
+  supplierId: string
+  warehouseId?: string
+  receiptDate: string
+  supplierInvoiceNo?: string
+  supplierInvoiceDate?: string
+  notes?: string
+  purchaseOrderId?: string
+  lines: CreateStockReceiptLineRequest[]
+}
+
+export function createStockReceipt(req: CreateStockReceiptRequest) {
+  return apiFetch<StockReceipt>('/api/v1/stock-receipts', {
+    method: 'POST',
+    body: req,
   })
 }

@@ -1,6 +1,9 @@
 import { useDeferredValue, useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, Search, UsersRound } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Search, UsersRound } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { appRoutes } from '@/app/navigation'
+import { Button } from '@/design-system/button'
 import { DataTable } from '@/design-system/data-table'
 import { Money } from '@/design-system/money'
 import { PageHeader } from '@/design-system/page-header'
@@ -25,6 +28,7 @@ export function ContactsPage() {
   const [page, setPage] = useState(0)
   const [search, setSearch] = useState('')
   const deferredSearch = useDeferredValue(search)
+  const navigate = useNavigate()
 
   useEffect(() => {
     setPage(0)
@@ -46,7 +50,12 @@ export function ContactsPage() {
         eyebrow="Master data"
         title="Contacts"
         description="One party master, with customer, vendor, and procurement supplier roles visible in one place."
-        actions={<StatusChip status="Read-only pilot" />}
+        actions={
+          <Button onClick={() => navigate(appRoutes.contactCreate)} variant="primary">
+            <Plus aria-hidden="true" size={16} />
+            <span>New Contact</span>
+          </Button>
+        }
       />
 
       <section className="list-panel" aria-label="Contact directory">
@@ -115,7 +124,11 @@ export function ContactsPage() {
           <div className="directory-state">
             <UsersRound size={24} aria-hidden="true" />
             <strong>No {currentTab.label.toLowerCase()} found.</strong>
-            <p>{deferredSearch ? 'Try a different name, phone, company, or GSTIN.' : 'Create or enable the required party role in the existing Flutter app during this pilot.'}</p>
+            <p>{deferredSearch ? 'Try a different name, phone, company, or GSTIN.' : 'Add your first contact to get started.'}</p>
+            <Button onClick={() => navigate(appRoutes.contactCreate)} variant="primary">
+              <Plus aria-hidden="true" size={16} />
+              <span>New Contact</span>
+            </Button>
           </div>
         )}
       </section>

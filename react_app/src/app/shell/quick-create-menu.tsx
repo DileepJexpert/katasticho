@@ -25,18 +25,18 @@ export interface QuickCreateAction {
 }
 
 const actions: readonly QuickCreateAction[] = [
-  { label: 'New Invoice', to: appRoutes.invoices, icon: ReceiptText, group: 'Sales' },
+  { label: 'New Invoice', to: appRoutes.invoiceCreate, icon: ReceiptText, group: 'Sales' },
   { label: 'New Estimate / Quote', to: appRoutes.estimateCreate, icon: FileSpreadsheet, group: 'Sales' },
-  { label: 'New Sales Order', to: appRoutes.salesOrders, icon: ClipboardList, group: 'Sales' },
-  { label: 'New Delivery Challan', to: appRoutes.deliveryChallans, icon: Truck, group: 'Sales' },
+  { label: 'New Sales Order', to: appRoutes.salesOrderCreate, icon: ClipboardList, group: 'Sales' },
+  { label: 'New Delivery Challan', to: appRoutes.deliveryChallanCreate, icon: Truck, group: 'Sales' },
 
-  { label: 'New Purchase Order', to: appRoutes.purchaseOrders, icon: ShoppingBag, group: 'Purchases' },
-  { label: 'New Stock Receipt (GRN)', to: appRoutes.stockReceipts, icon: Boxes, group: 'Purchases' },
-  { label: 'New Vendor Bill', to: appRoutes.bills, icon: FileSpreadsheet, group: 'Purchases' },
-  { label: 'New Debit Note', to: appRoutes.debitNotes, icon: FileText, group: 'Purchases' },
+  { label: 'New Purchase Order', to: appRoutes.purchaseOrderCreate, icon: ShoppingBag, group: 'Purchases' },
+  { label: 'New Stock Receipt (GRN)', to: appRoutes.stockReceiptCreate, icon: Boxes, group: 'Purchases' },
+  { label: 'New Vendor Bill', to: appRoutes.billCreate, icon: FileSpreadsheet, group: 'Purchases' },
+  { label: 'New Debit Note', to: appRoutes.debitNoteCreate, icon: FileText, group: 'Purchases' },
 
   { label: 'New Item', to: appRoutes.items, icon: Boxes, group: 'Operations' },
-  { label: 'New Contact', to: appRoutes.contacts, icon: UsersRound, group: 'Operations' },
+  { label: 'New Contact', to: appRoutes.contactCreate, icon: UsersRound, group: 'Operations' },
   { label: 'New Work Order', to: appRoutes.workOrders, icon: Briefcase, group: 'Operations' },
   { label: 'New Journal Entry', to: appRoutes.journals, icon: Landmark, group: 'Finance' },
 ]

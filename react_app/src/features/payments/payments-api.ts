@@ -41,3 +41,29 @@ export async function listPayments({ page }: ListPaymentsOptions) {
 export function getPayment(id: string) {
   return apiFetch<Payment>(`/api/v1/payments/${id}`)
 }
+
+export type RecordPaymentRequest = {
+  invoiceId: string
+  contactId?: string
+  paymentDate: string
+  amount: number
+  paymentMethod: string
+  referenceNumber?: string
+  bankAccount?: string
+  notes?: string
+}
+
+export function recordPayment(req: RecordPaymentRequest) {
+  return apiFetch<Payment>('/api/v1/payments', {
+    method: 'POST',
+    body: req,
+  })
+}
+
+export function voidPayment(id: string, reason?: string) {
+  return apiFetch<Payment>(`/api/v1/payments/${id}/void`, {
+    method: 'POST',
+    body: { reason: reason || 'Voided' },
+  })
+}
+

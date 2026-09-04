@@ -13,7 +13,6 @@ import { Button } from '@/design-system/button'
 import { DataTable } from '@/design-system/data-table'
 import { PageHeader } from '@/design-system/page-header'
 import { Quantity } from '@/design-system/quantity'
-import { StatusChip } from '@/design-system/status-chip'
 import { formatDate } from '@/shared/format/format'
 import { listSavedReports } from '@/features/reports/reports-api'
 
@@ -37,7 +36,6 @@ export function SavedReportsPage() {
         eyebrow="Intelligence & Custom Analytics"
         title="Saved Custom Reports"
         description="Saved report queries, customized column selections, and automated scheduled deliveries."
-        actions={<StatusChip status="Read-only pilot" />}
       />
 
       <div className="document-actions">
@@ -45,7 +43,6 @@ export function SavedReportsPage() {
           <ArrowLeft aria-hidden="true" size={16} />
           Back to Reports Hub
         </Button>
-        <StatusChip status="Read-only pilot" />
       </div>
 
       <div className="summary-strip">

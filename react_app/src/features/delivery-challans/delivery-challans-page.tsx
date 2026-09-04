@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, Truck } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Truck } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
 import { Button } from '@/design-system/button'
@@ -41,11 +41,16 @@ export function DeliveryChallansPage() {
         eyebrow="Sales / Fulfilment"
         title="Delivery Challans"
         description="Customer dispatches, warehouse shipment progress, and stock movement records."
-        actions={<StatusChip status="Read-only pilot" />}
+        actions={
+          <Button onClick={() => navigate(appRoutes.deliveryChallanCreate)} variant="primary">
+            <Plus aria-hidden="true" size={16} />
+            <span>New Delivery Challan</span>
+          </Button>
+        }
       />
 
       <section className="list-panel" aria-label="Delivery challan directory">
-        <div className="list-toolbar list-toolbar--stacked">
+        <div className="list-toolbar">
           <div className="role-tabs" aria-label="Filter delivery challans by status" role="tablist">
             {challanFilters.map((option) => (
               <button
@@ -60,7 +65,6 @@ export function DeliveryChallansPage() {
               </button>
             ))}
           </div>
-          <p className="list-toolbar-note">Status filters are served directly by the Delivery Challan API. Challan dispatch and stock deductions remain in the backend sales workflow.</p>
         </div>
 
         {challans.isError ? (
@@ -121,12 +125,14 @@ export function DeliveryChallansPage() {
           <div className="directory-state">
             <Truck aria-hidden="true" size={24} />
             <strong>No delivery challans found</strong>
-            <p>Delivery challans generated from confirmed sales orders will appear here for dispatch tracking.</p>
+            <p>Delivery challans generated from confirmed sales orders or created directly will appear here for dispatch tracking.</p>
+            <Button onClick={() => navigate(appRoutes.deliveryChallanCreate)} variant="primary">
+              <Plus aria-hidden="true" size={16} />
+              <span>New Delivery Challan</span>
+            </Button>
           </div>
         )}
       </section>
-
-      <p className="directory-note">Delivery challans record stock deduction from the source warehouse upon dispatch. Material creation and driver signature actions remain in Flutter during the parallel run.</p>
     </section>
   )
 }

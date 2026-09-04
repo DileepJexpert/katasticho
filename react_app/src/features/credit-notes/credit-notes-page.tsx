@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, FileBadge } from 'lucide-react'
+import { ChevronLeft, ChevronRight, FileBadge, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
 import { Button } from '@/design-system/button'
@@ -42,7 +42,12 @@ export function CreditNotesPage() {
         eyebrow="Sales / Receivables"
         title="Credit Notes"
         description="Sales returns, price corrections, and accounts receivable credit adjustments."
-        actions={<StatusChip status="Read-only pilot" />}
+        actions={
+          <Button onClick={() => navigate(appRoutes.creditNoteCreate)} variant="primary">
+            <Plus aria-hidden="true" size={16} />
+            <span>New Credit Note</span>
+          </Button>
+        }
       />
 
       <section className="list-panel" aria-label="Credit note directory">
@@ -132,11 +137,13 @@ export function CreditNotesPage() {
             <FileBadge aria-hidden="true" size={24} />
             <strong>No credit notes found</strong>
             <p>Customer credit adjustments and sales return notes will appear here.</p>
+            <Button onClick={() => navigate(appRoutes.creditNoteCreate)} variant="primary">
+              <Plus aria-hidden="true" size={16} />
+              <span>New Credit Note</span>
+            </Button>
           </div>
         )}
       </section>
-
-      <p className="directory-note">Issuing credit notes, PDF generation, and customer balance allocations remain in Flutter during the parallel run.</p>
     </section>
   )
 }

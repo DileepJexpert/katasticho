@@ -7,6 +7,7 @@ import {
   FileBadge,
   FileSpreadsheet,
   Layers,
+  Plus,
   Search,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
@@ -57,6 +58,10 @@ export function BillsPage() {
         description="Vendor bills, purchase invoicing, three-way match status, and accounts payable balances."
         actions={
           <div style={{ display: 'flex', gap: '8px' }}>
+            <Button onClick={() => navigate(appRoutes.billCreate)} variant="primary">
+              <Plus size={16} />
+              New Bill
+            </Button>
             <Button onClick={() => navigate('/three-way-match')} variant="secondary">
               <Layers size={16} />
               3-Way Match Inbox
@@ -159,6 +164,10 @@ export function BillsPage() {
             <FileSpreadsheet aria-hidden="true" size={24} />
             <strong>No vendor bills match your filters</strong>
             <p>Vendor bills recorded from purchase orders or manual entry will appear here.</p>
+            <Button onClick={() => navigate(appRoutes.billCreate)} variant="primary">
+              <Plus size={16} />
+              New Bill
+            </Button>
           </div>
         )}
       </section>

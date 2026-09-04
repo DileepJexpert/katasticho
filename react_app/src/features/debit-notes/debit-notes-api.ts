@@ -1,4 +1,4 @@
-﻿import { apiFetch } from '@/api/client/api-client'
+import { apiFetch } from '@/api/client/api-client'
 
 export type DebitNoteLine = {
   id: string
@@ -70,4 +70,30 @@ export function submitDebitNote(id: string) {
 
 export function deleteDebitNote(id: string) {
   return apiFetch<void>(`/api/v1/debit-notes/${id}`, { method: 'DELETE' })
+}
+
+export type CreateDebitNoteLineRequest = {
+  itemId: string
+  description?: string
+  quantity: number
+  unitPrice: number
+  batchNumber?: string
+  hsnCode?: string
+  taxRate?: number
+}
+
+export type CreateDebitNoteRequest = {
+  supplierId: string
+  noteDate: string
+  returnReason?: string
+  referenceBillId?: string
+  notes?: string
+  lines: CreateDebitNoteLineRequest[]
+}
+
+export function createDebitNote(req: CreateDebitNoteRequest) {
+  return apiFetch<DebitNote>('/api/v1/debit-notes', {
+    method: 'POST',
+    body: req,
+  })
 }

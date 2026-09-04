@@ -55,3 +55,27 @@ export async function listCreditNotes({ page }: ListCreditNotesOptions) {
 export function getCreditNote(id: string) {
   return apiFetch<CreditNote>(`/api/v1/credit-notes/${id}`)
 }
+
+export type CreateCreditNoteLineRequest = {
+  description: string
+  quantity: number
+  unitPrice: number
+  hsnCode?: string
+  gstRate?: number
+}
+
+export type CreateCreditNoteRequest = {
+  contactId: string
+  invoiceId?: string
+  creditNoteDate: string
+  reason: string
+  lines: CreateCreditNoteLineRequest[]
+}
+
+export function createCreditNote(req: CreateCreditNoteRequest) {
+  return apiFetch<CreditNote>('/api/v1/credit-notes', {
+    method: 'POST',
+    body: req,
+  })
+}
+

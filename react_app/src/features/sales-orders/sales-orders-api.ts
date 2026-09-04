@@ -69,3 +69,36 @@ export async function listSalesOrders({ page, status }: ListSalesOrdersOptions) 
 export function getSalesOrder(id: string) {
   return apiFetch<SalesOrder>(`/api/v1/sales-orders/${id}`)
 }
+
+export type CreateSalesOrderLineRequest = {
+  itemId?: string
+  description: string
+  hsnCode?: string
+  quantity: number
+  rate: number
+  unit?: string
+  discountPct?: number
+  taxGroupId?: string
+}
+
+export type CreateSalesOrderRequest = {
+  contactId: string
+  lines: CreateSalesOrderLineRequest[]
+  orderDate?: string
+  expectedShipmentDate?: string
+  referenceNumber?: string
+  deliveryMethod?: string
+  placeOfSupply?: string
+  notes?: string
+  terms?: string
+  warehouseId?: string
+  allowBackorder?: boolean
+}
+
+export function createSalesOrder(req: CreateSalesOrderRequest) {
+  return apiFetch<SalesOrder>('/api/v1/sales-orders', {
+    method: 'POST',
+    body: req,
+  })
+}
+

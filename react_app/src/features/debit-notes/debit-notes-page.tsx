@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, FileMinus } from 'lucide-react'
+import { ChevronLeft, ChevronRight, FileMinus, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
 import { Button } from '@/design-system/button'
@@ -38,7 +38,12 @@ export function DebitNotesPage() {
         eyebrow="Purchases / Payables"
         title="Debit Notes"
         description="Purchase returns, vendor chargebacks, and accounts payable credit claims."
-        actions={<StatusChip status="Read-only pilot" />}
+        actions={
+          <Button onClick={() => navigate(appRoutes.debitNoteCreate)} variant="primary">
+            <Plus aria-hidden="true" size={16} />
+            <span>New Debit Note</span>
+          </Button>
+        }
       />
 
       <section className="list-panel" aria-label="Debit note directory">
@@ -123,11 +128,13 @@ export function DebitNotesPage() {
             <FileMinus aria-hidden="true" size={24} />
             <strong>No debit notes found</strong>
             <p>Vendor debit claims and purchase return notes will appear here.</p>
+            <Button onClick={() => navigate(appRoutes.debitNoteCreate)} variant="primary">
+              <Plus aria-hidden="true" size={16} />
+              <span>New Debit Note</span>
+            </Button>
           </div>
         )}
       </section>
-
-      <p className="directory-note">Drafting debit notes, stock return dispatches, and AP ledger adjustments remain in Flutter during the parallel run.</p>
     </section>
   )
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, PackageCheck } from 'lucide-react'
+import { ChevronLeft, ChevronRight, PackageCheck, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
 import { Button } from '@/design-system/button'
@@ -42,7 +42,12 @@ export function StockReceiptsPage() {
         eyebrow="Purchases / Procurement"
         title="Stock Receipts (GRN)"
         description="Goods receipt notes, inbound shipments, batch and landed cost verification."
-        actions={<StatusChip status="Read-only pilot" />}
+        actions={
+          <Button onClick={() => navigate(appRoutes.stockReceiptCreate)} variant="primary">
+            <Plus aria-hidden="true" size={16} />
+            <span>New Stock Receipt</span>
+          </Button>
+        }
       />
 
       <section className="list-panel" aria-label="Stock receipt directory">
@@ -133,11 +138,13 @@ export function StockReceiptsPage() {
             <PackageCheck aria-hidden="true" size={24} />
             <strong>No stock receipts found</strong>
             <p>Inbound warehouse receipts and purchase order GRNs will appear here.</p>
+            <Button onClick={() => navigate(appRoutes.stockReceiptCreate)} variant="primary">
+              <Plus aria-hidden="true" size={16} />
+              <span>New Stock Receipt</span>
+            </Button>
           </div>
         )}
       </section>
-
-      <p className="directory-note">Receipt creation, physical stock intake, and batch expiry verification remain in Flutter during the controlled migration.</p>
     </section>
   )
 }

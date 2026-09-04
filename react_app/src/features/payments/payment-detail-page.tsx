@@ -38,7 +38,6 @@ export function PaymentDetailPage() {
           <ArrowLeft aria-hidden="true" size={16} />
           Back to payments
         </Button>
-        <StatusChip status="Read-only pilot" />
       </div>
 
       <div className="document-layout">
@@ -76,8 +75,6 @@ export function PaymentDetailPage() {
           <p>{document.notes ?? 'No remarks recorded for this payment receipt.'}</p>
         </div>
       </section>
-
-      <p className="directory-note">Payment voiding, refund workflows, and receipt voucher printing remain in Flutter during the parallel run.</p>
     </section>
   )
 }
