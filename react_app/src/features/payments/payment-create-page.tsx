@@ -3,9 +3,18 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Save } from 'lucide-react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { Button } from '@/design-system/button'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
+import {
+  Button,
+  FormCard,
+  FormField,
+  FormGrid,
+  Money,
+  NumberInput,
+  PageHeader,
+  SelectInput,
+  TextAreaInput,
+  TextInput,
+} from '@/design-system'
 import { listContacts } from '@/features/contacts/contacts-api'
 import { listInvoices } from '@/features/invoices/invoices-api'
 import { recordPayment, type RecordPaymentRequest } from '@/features/payments/payments-api'
@@ -113,172 +122,140 @@ export function PaymentCreatePage() {
     <section className="workspace-page">
       <Link className="form-back-link" to={appRoutes.payments}>
         <ArrowLeft size={16} /> Back to Customer Payments
-        
       </Link>
 
       <PageHeader
         eyebrow="Sales / Receivables"
         title="Record Customer Payment"
         description="Receive payment against outstanding customer invoices, update account balances, and record transaction references."
-        actions={
-          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-            <Button
-              onClick={() => navigate(appRoutes.payments)}
-              type="button"
-              variant="secondary"
-            >
-              Cancel
-            </Button>
-            <Button
-              disabled={createMutation.isPending || !invoiceId || amount <= 0}
-              form="payment-form"
-              type="submit"
-              variant="primary"
-            >
-              <Save size={16} />
-              {createMutation.isPending ? 'Recording...' : 'Record Payment'}
-            </Button>
-          </div>
-        }
       />
 
       {feedback && (
         <div
-          className={`directory-state ${feedback.type === 'error' ? 'directory-state--error' : ''}`}
+          className={`banner ${feedback.type === 'success' ? 'banner--success' : 'banner--error'}`}
           role="alert"
-          style={{ marginBottom: 'var(--space-4)', minHeight: 'auto', padding: 'var(--space-3)' }}
+          style={{ marginBottom: 'var(--space-4)' }}
         >
-          <strong>{feedback.message}</strong>
+          <span>{feedback.message}</span>
+          <button className="banner-dismiss" onClick={() => setFeedback(null)} type="button">
+            ✕
+          </button>
         </div>
       )}
 
-      <form className="create-form-container" id="payment-form" onSubmit={handleSubmit}>
-          <div className="form-card">
-          <div className="form-card-header">
-            <h2 className="form-card-title">1. Customer & Invoice Details</h2>
-          </div>
-            <div className="form-grid--auto">
-              <label className="field-group">
-                <span>Filter by Customer</span>
-                <select
-                  onChange={(e) => {
-                    setContactId(e.target.value)
-                    setInvoiceId('')
-                  }}
-                  value={contactId}
-                >
-                  <option value="">-- All Customers --</option>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.displayName}
-                    </option>
-                  ))}
-                </select>
-              </label>
+      <form className="create-form-container" onSubmit={handleSubmit}>
+        <FormCard
+          description="Select customer and choose from unpaid invoices."
+          stepNumber={1}
+          title="Customer & Invoice Details"
+        >
+          <FormGrid columns={2}>
+            <FormField label="Filter by Customer">
+              <SelectInput
+                onChange={(e) => {
+                  setContactId(e.target.value)
+                  setInvoiceId('')
+                }}
+                options={customers.map((c) => ({
+                  value: c.id,
+                  label: c.displayName || c.name,
+                }))}
+                placeholderOption="-- All Customers --"
+                value={contactId}
+              />
+            </FormField>
 
-              <label className="field-group">
-                <span>Invoice to Pay *</span>
-                <select
-                  onChange={(e) => handleSelectInvoice(e.target.value)}
-                  required
-                  value={invoiceId}
-                >
-                  <option value="">-- Select Unpaid Invoice --</option>
-                  {eligibleInvoices.map((inv) => (
-                    <option key={inv.id} value={inv.id}>
-                      {inv.invoiceNumber} - {inv.contactName || 'Customer'} (Due: ₹{Number(inv.balanceDue || 0).toLocaleString('en-IN')})
-                    </option>
-                  ))}
-                </select>
-              </label>
+            <FormField label="Invoice to Pay" required>
+              <SelectInput
+                onChange={(e) => handleSelectInvoice(e.target.value)}
+                options={eligibleInvoices.map((inv) => ({
+                  value: inv.id,
+                  label: `${inv.invoiceNumber} - ${inv.contactName || 'Customer'} (Due: ₹${Number(inv.balanceDue || 0).toLocaleString('en-IN')})`,
+                }))}
+                placeholderOption="-- Select Unpaid Invoice --"
+                required
+                value={invoiceId}
+              />
+            </FormField>
+          </FormGrid>
 
-              {selectedInvoice && (
-                <div style={{ alignItems: 'center', background: 'var(--bg-subtle)', borderRadius: 'var(--radius)', display: 'flex', gap: 'var(--space-4)', padding: 'var(--space-2) var(--space-3)' }}>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '11px' }}>Total Amount</span>
-                    <Money amount={selectedInvoice.totalAmount} />
-                  </div>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '11px' }}>Balance Due</span>
-                    <strong style={{ color: 'var(--brand-600)' }}><Money amount={selectedInvoice.balanceDue} /></strong>
-                  </div>
-                </div>
-              )}
+          {selectedInvoice && (
+            <div className="form-summary-card" style={{ marginTop: 'var(--space-3)', width: '100%', maxWidth: 360 }}>
+              <div className="form-summary-row">
+                <span className="cell-muted">Total Invoice Amount:</span>
+                <Money amount={selectedInvoice.totalAmount} />
+              </div>
+              <div className="form-summary-row form-summary-row--total">
+                <span>Balance Due:</span>
+                <Money amount={selectedInvoice.balanceDue} />
+              </div>
             </div>
-          </div>
+          )}
+        </FormCard>
 
-          <div className="form-card">
-          <div className="form-card-header">
-            <h2 className="form-card-title">2. Payment Transaction</h2>
-          </div>
-            <div className="form-grid--auto">
-              <label className="field-group">
-                <span>Amount Received (₹) *</span>
-                <input
-                  min="0.01"
-                  onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
-                  required
-                  step="0.01"
-                  type="number"
-                  value={amount}
-                />
-              </label>
+        <FormCard
+          description="Enter the amount collected, payment channel, transaction ID, and banking details."
+          stepNumber={2}
+          title="Payment Transaction"
+        >
+          <FormGrid columns={3}>
+            <FormField label="Amount Received" required>
+              <NumberInput
+                currencyPrefix="₹"
+                min={0.01}
+                onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
+                required
+                step="0.01"
+                value={amount}
+              />
+            </FormField>
 
-              <label className="field-group">
-                <span>Payment Date *</span>
-                <input
-                  onChange={(e) => setPaymentDate(e.target.value)}
-                  required
-                  type="date"
-                  value={paymentDate}
-                />
-              </label>
+            <FormField label="Payment Date" required>
+              <TextInput
+                onChange={(e) => setPaymentDate(e.target.value)}
+                required
+                type="date"
+                value={paymentDate}
+              />
+            </FormField>
 
-              <label className="field-group">
-                <span>Payment Method *</span>
-                <select
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                  value={paymentMethod}
-                >
-                  {PAYMENT_METHODS.map((pm) => (
-                    <option key={pm.value} value={pm.value}>
-                      {pm.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+            <FormField label="Payment Method" required>
+              <SelectInput
+                onChange={(e) => setPaymentMethod(e.target.value)}
+                options={PAYMENT_METHODS}
+                required
+                value={paymentMethod}
+              />
+            </FormField>
 
-              <label className="field-group">
-                <span>Reference / UTR / Cheque #</span>
-                <input
-                  onChange={(e) => setReferenceNumber(e.target.value)}
-                  placeholder="e.g. UTR12345678"
-                  type="text"
-                  value={referenceNumber}
-                />
-              </label>
+            <FormField label="Reference / UTR / Cheque #">
+              <TextInput
+                onChange={(e) => setReferenceNumber(e.target.value)}
+                placeholder="e.g. UTR12345678"
+                value={referenceNumber}
+              />
+            </FormField>
 
-              <label className="field-group">
-                <span>Bank Account / Ledger</span>
-                <input
-                  onChange={(e) => setBankAccount(e.target.value)}
-                  placeholder="e.g. HDFC Current Account"
-                  type="text"
-                  value={bankAccount}
-                />
-              </label>
-            </div>
+            <FormField label="Bank Account / Ledger">
+              <TextInput
+                onChange={(e) => setBankAccount(e.target.value)}
+                placeholder="e.g. HDFC Current Account"
+                value={bankAccount}
+              />
+            </FormField>
+          </FormGrid>
 
-            <label className="field-group" style={{ marginTop: 'var(--space-4)' }}>
-              <span>Payment Notes</span>
-              <textarea
+          <div style={{ marginTop: 'var(--space-4)' }}>
+            <FormField label="Payment Notes">
+              <TextAreaInput
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Collection remarks, customer receipt note..."
                 rows={2}
                 value={notes}
               />
-            </label>
+            </FormField>
           </div>
+        </FormCard>
 
         <div className="form-actions-bar">
           <Button

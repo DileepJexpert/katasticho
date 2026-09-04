@@ -3,15 +3,23 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Save, Trash2 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
+import {
+  Button,
+  CheckboxInput,
+  DataTable,
+  FormCard,
+  FormField,
+  FormGrid,
+  Money,
+  PageHeader,
+  SelectInput,
+  TextAreaInput,
+  TextInput,
+} from '@/design-system'
 import { listContacts } from '@/features/contacts/contacts-api'
 import {
   createInvoice,
   type CreateInvoiceLineRequest,
-  type CreateInvoiceRequest,
 } from '@/features/invoices/invoices-api'
 import { listItems } from '@/features/items/items-api'
 
@@ -105,14 +113,16 @@ export function InvoiceCreatePage() {
   }, [subtotal, totalGst])
 
   const createMutation = useMutation({
-    mutationFn: (req: CreateInvoiceRequest) => createInvoice(req),
+    mutationFn: createInvoice,
     onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] })
       navigate(appRoutes.invoiceDetail(created.id))
     },
-    onError: (err: unknown) => {
-      const msg = err instanceof Error ? err.message : 'Failed to create invoice.'
-      setFeedback({ type: 'error', message: msg })
+    onError: (err) => {
+      setFeedback({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to create sales invoice',
+      })
     },
   })
 
@@ -192,284 +202,272 @@ export function InvoiceCreatePage() {
       )}
 
       <form className="create-form-container" id="inv-form" onSubmit={handleSubmit}>
-          <div className="form-card">
-          <div className="form-card-header">
-            <div>
-              <h2 className="form-card-title">1. Customer & Billing Dates</h2>
-              <p className="form-card-description">Specify client party and invoice timeline</p>
-            </div>
-          </div>
-          <div className="form-grid--4col">
-              <label className="field-group">
-              <span>Customer *</span>
-              <select
+        <FormCard
+          description="Specify client party and invoice timeline"
+          stepNumber={1}
+          title="Customer & Billing Dates"
+        >
+          <FormGrid columns={4}>
+            <FormField label="Customer" required>
+              <SelectInput
                 onChange={(e) => setContactId(e.target.value)}
+                placeholderOption="-- Select Customer --"
                 required
                 value={contactId}
               >
-                  <option value="">-- Select Customer --</option>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.displayName} {c.companyName ? `(${c.companyName})` : ''}
-                    </option>
-                  ))}
-                </select>
-            </label>
+                {customers.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.displayName} {c.companyName ? `(${c.companyName})` : ''}
+                  </option>
+                ))}
+              </SelectInput>
+            </FormField>
 
-            <label className="field-group">
-              <span>Invoice Date *</span>
-              <input
+            <FormField label="Invoice Date" required>
+              <TextInput
                 onChange={(e) => setInvoiceDate(e.target.value)}
                 required
                 type="date"
                 value={invoiceDate}
               />
-            </label>
+            </FormField>
 
-              <label className="field-group">
-              <span>Due Date</span>
-              <input
+            <FormField label="Due Date">
+              <TextInput
                 onChange={(e) => setDueDate(e.target.value)}
                 type="date"
                 value={dueDate}
               />
-            </label>
+            </FormField>
 
-              <label className="field-group">
-              <span>Place of Supply</span>
-              <input
+            <FormField label="Place of Supply">
+              <TextInput
                 onChange={(e) => setPlaceOfSupply(e.target.value)}
                 placeholder="e.g. 29-Karnataka"
                 type="text"
                 value={placeOfSupply}
               />
-            </label>
+            </FormField>
+          </FormGrid>
 
-              </div>
           <div style={{ marginTop: 'var(--space-2)' }}>
-            <label className="form-checkbox-label">
-              <input
-                checked={reverseCharge}
-                onChange={(e) => setReverseCharge(e.target.checked)}
-                type="checkbox"
-              />
-              <span>Reverse Charge (RCM)</span>
-            </label>
+            <CheckboxInput
+              checked={reverseCharge}
+              description="Check if tax on this supply is payable by recipient under Section 9(3) / 9(4)"
+              label="Reverse Charge Mechanism (RCM)"
+              onChange={(e) => setReverseCharge(e.target.checked)}
+            />
           </div>
-        </div>
+        </FormCard>
 
-          <div className="form-card">
-          <div className="form-card-header">
-            <div>
-              <h2 className="form-card-title">2. Invoice Line Items</h2>
-              <p className="form-card-description">Product lines, quantities, rates, and tax calculations</p>
+        <FormCard
+          description="Product lines, quantities, rates, and tax calculations"
+          headerAction={
+            <SelectInput
+              onChange={(e) => {
+                if (e.target.value) {
+                  handleAddItem(e.target.value)
+                  e.target.value = ''
+                }
+              }}
+              placeholderOption="+ Add Item to Invoice..."
+              style={{ minWidth: '240px' }}
+              value=""
+            >
+              {catalogItems.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name} ({item.sku || 'No SKU'})
+                </option>
+              ))}
+            </SelectInput>
+          }
+          stepNumber={2}
+          title="Invoice Line Items"
+        >
+          {lines.length === 0 ? (
+            <div className="directory-state" style={{ minHeight: '120px' }}>
+              No line items added yet. Select an item above to add it to this invoice.
             </div>
-            <div>
-              <select
-                onChange={(e) => {
-                  if (e.target.value) {
-                    handleAddItem(e.target.value)
-                    e.target.value = ''
-                  }
-                }}
-                style={{ width: 'auto', minWidth: '240px' }}
-                value=""
-              >
-                  <option value="">+ Add Item to Invoice...</option>
-                  {catalogItems.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name} ({item.sku || 'No SKU'})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {lines.length === 0 ? (
-              <div className="directory-state" style={{ minHeight: '120px' }}>
-                No line items added yet. Select an item above to add it to this invoice.
-              </div>
-            ) : (
-              <DataTable caption="Invoice Lines">
-                <thead>
-                  <tr>
-                    <th scope="col">Item / Description</th>
-                    <th scope="col">HSN</th>
-                    <th className="numeric-cell" scope="col">Qty</th>
-                    <th className="numeric-cell" scope="col">Unit Price (₹)</th>
-                    <th className="numeric-cell" scope="col">GST %</th>
-                    <th className="numeric-cell" scope="col">Tax (₹)</th>
-                    <th className="numeric-cell" scope="col">Line Total</th>
-                    <th style={{ width: '40px' }} />
+          ) : (
+            <DataTable caption="Invoice Lines">
+              <thead>
+                <tr>
+                  <th scope="col">Item / Description</th>
+                  <th scope="col">HSN</th>
+                  <th className="numeric-cell" scope="col">Qty</th>
+                  <th className="numeric-cell" scope="col">Unit Price (₹)</th>
+                  <th className="numeric-cell" scope="col">GST %</th>
+                  <th className="numeric-cell" scope="col">Tax (₹)</th>
+                  <th className="numeric-cell" scope="col">Line Total</th>
+                  <th style={{ width: '40px' }} />
+                </tr>
+              </thead>
+              <tbody>
+                {lines.map((line) => (
+                  <tr key={line.id}>
+                    <td>
+                      <strong>{line.itemName}</strong>
+                      <input
+                        onChange={(e) => handleUpdateLine(line.id, { description: e.target.value })}
+                        placeholder="Item description"
+                        style={{
+                          background: 'transparent',
+                          border: 0,
+                          borderBottom: '1px solid var(--border)',
+                          color: 'var(--text-secondary)',
+                          display: 'block',
+                          fontSize: '12px',
+                          marginTop: '2px',
+                          width: '100%',
+                        }}
+                        value={line.description}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        onChange={(e) => handleUpdateLine(line.id, { hsnCode: e.target.value })}
+                        placeholder="HSN"
+                        style={{
+                          background: 'var(--bg-surface)',
+                          border: '1px solid var(--border)',
+                          borderRadius: 'var(--radius)',
+                          color: 'var(--text-primary)',
+                          height: '28px',
+                          padding: '0 4px',
+                          width: '80px',
+                        }}
+                        value={line.hsnCode}
+                      />
+                    </td>
+                    <td className="numeric-cell">
+                      <input
+                        min="1"
+                        onChange={(e) => handleUpdateLine(line.id, { quantity: parseFloat(e.target.value) || 0 })}
+                        step="any"
+                        style={{
+                          background: 'var(--bg-surface)',
+                          border: '1px solid var(--border-strong)',
+                          borderRadius: 'var(--radius)',
+                          color: 'var(--text-primary)',
+                          height: '28px',
+                          padding: '0 var(--space-2)',
+                          textAlign: 'right',
+                          width: '70px',
+                        }}
+                        type="number"
+                        value={line.quantity}
+                      />
+                    </td>
+                    <td className="numeric-cell">
+                      <input
+                        min="0"
+                        onChange={(e) => handleUpdateLine(line.id, { unitPrice: parseFloat(e.target.value) || 0 })}
+                        step="0.01"
+                        style={{
+                          background: 'var(--bg-surface)',
+                          border: '1px solid var(--border-strong)',
+                          borderRadius: 'var(--radius)',
+                          color: 'var(--text-primary)',
+                          height: '28px',
+                          padding: '0 var(--space-2)',
+                          textAlign: 'right',
+                          width: '90px',
+                        }}
+                        type="number"
+                        value={line.unitPrice}
+                      />
+                    </td>
+                    <td className="numeric-cell">
+                      <input
+                        max="28"
+                        min="0"
+                        onChange={(e) => handleUpdateLine(line.id, { gstRate: parseFloat(e.target.value) || 0 })}
+                        step="any"
+                        style={{
+                          background: 'var(--bg-surface)',
+                          border: '1px solid var(--border)',
+                          borderRadius: 'var(--radius)',
+                          color: 'var(--text-primary)',
+                          height: '28px',
+                          padding: '0 var(--space-2)',
+                          textAlign: 'right',
+                          width: '60px',
+                        }}
+                        type="number"
+                        value={line.gstRate}
+                      />
+                    </td>
+                    <td className="numeric-cell">
+                      <Money amount={line.lineTaxAmount} />
+                    </td>
+                    <td className="numeric-cell">
+                      <Money amount={line.lineTotal} />
+                    </td>
+                    <td>
+                      <button
+                        aria-label="Remove line"
+                        onClick={() => handleRemoveLine(line.id)}
+                        style={{
+                          background: 'transparent',
+                          border: 0,
+                          color: 'var(--neg-text)',
+                          cursor: 'pointer',
+                          padding: '4px',
+                        }}
+                        type="button"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {lines.map((line) => (
-                    <tr key={line.id}>
-                      <td>
-                        <strong>{line.itemName}</strong>
-                        <input
-                          onChange={(e) => handleUpdateLine(line.id, { description: e.target.value })}
-                          style={{
-                            background: 'transparent',
-                            border: '0',
-                            borderBottom: '1px solid var(--border)',
-                            color: 'var(--text-secondary)',
-                            display: 'block',
-                            fontSize: '12px',
-                            marginTop: '2px',
-                            width: '100%',
-                          }}
-                          value={line.description}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          onChange={(e) => handleUpdateLine(line.id, { hsnCode: e.target.value })}
-                          placeholder="HSN"
-                          style={{
-                            background: 'var(--bg-surface)',
-                            border: '1px solid var(--border)',
-                            borderRadius: 'var(--radius)',
-                            color: 'var(--text-primary)',
-                            height: '28px',
-                            padding: '0 4px',
-                            width: '80px',
-                          }}
-                          value={line.hsnCode}
-                        />
-                      </td>
-                      <td className="numeric-cell">
-                        <input
-                          min="1"
-                          onChange={(e) => handleUpdateLine(line.id, { quantity: parseFloat(e.target.value) || 0 })}
-                          step="any"
-                          style={{
-                            background: 'var(--bg-surface)',
-                            border: '1px solid var(--border-strong)',
-                            borderRadius: 'var(--radius)',
-                            color: 'var(--text-primary)',
-                            height: '28px',
-                            padding: '0 var(--space-2)',
-                            textAlign: 'right',
-                            width: '70px',
-                          }}
-                          type="number"
-                          value={line.quantity}
-                        />
-                      </td>
-                      <td className="numeric-cell">
-                        <input
-                          min="0"
-                          onChange={(e) => handleUpdateLine(line.id, { unitPrice: parseFloat(e.target.value) || 0 })}
-                          step="0.01"
-                          style={{
-                            background: 'var(--bg-surface)',
-                            border: '1px solid var(--border-strong)',
-                            borderRadius: 'var(--radius)',
-                            color: 'var(--text-primary)',
-                            height: '28px',
-                            padding: '0 var(--space-2)',
-                            textAlign: 'right',
-                            width: '90px',
-                          }}
-                          type="number"
-                          value={line.unitPrice}
-                        />
-                      </td>
-                      <td className="numeric-cell">
-                        <input
-                          max="28"
-                          min="0"
-                          onChange={(e) => handleUpdateLine(line.id, { gstRate: parseFloat(e.target.value) || 0 })}
-                          step="any"
-                          style={{
-                            background: 'var(--bg-surface)',
-                            border: '1px solid var(--border)',
-                            borderRadius: 'var(--radius)',
-                            color: 'var(--text-primary)',
-                            height: '28px',
-                            padding: '0 var(--space-2)',
-                            textAlign: 'right',
-                            width: '60px',
-                          }}
-                          type="number"
-                          value={line.gstRate}
-                        />
-                      </td>
-                      <td className="numeric-cell">
-                        <Money amount={line.lineTaxAmount} />
-                      </td>
-                      <td className="numeric-cell">
-                        <Money amount={line.lineTotal} />
-                      </td>
-                      <td>
-                        <button
-                          aria-label="Remove line"
-                          onClick={() => handleRemoveLine(line.id)}
-                          style={{
-                            background: 'transparent',
-                            border: 0,
-                            color: 'var(--neg-text)',
-                            cursor: 'pointer',
-                            padding: '4px',
-                          }}
-                          type="button"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </DataTable>
-            )}
+                ))}
+              </tbody>
+            </DataTable>
+          )}
 
-            {lines.length > 0 && (
+          {lines.length > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--space-4)' }}>
               <div className="form-summary-card">
-              <div className="form-summary-row">
-                <span>Taxable Subtotal</span>
-                <strong><Money amount={subtotal} /></strong>
-              </div>
-              <div className="form-summary-row">
-                <span>Total GST Amount</span>
-                <strong><Money amount={totalGst} /></strong>
-              </div>
-              <div className="form-summary-row form-summary-row--total">
-                <span>Invoice Total</span>
-                <span className="amount"><Money amount={grandTotal} /></span>
+                <div className="form-summary-row">
+                  <span>Taxable Subtotal</span>
+                  <strong><Money amount={subtotal} /></strong>
+                </div>
+                <div className="form-summary-row">
+                  <span>Total GST Amount</span>
+                  <strong><Money amount={totalGst} /></strong>
+                </div>
+                <div className="form-summary-row form-summary-row--total">
+                  <span>Invoice Total</span>
+                  <span className="amount"><Money amount={grandTotal} /></span>
+                </div>
               </div>
             </div>
-            )}
-          </div>
+          )}
+        </FormCard>
 
-          <div className="form-card">
-          <div className="form-card-header">
-            <div>
-              <h2 className="form-card-title">3. Terms & Notes</h2>
-              <p className="form-card-description">Custom notes and terms displayed on customer PDF invoice</p>
-            </div>
-          </div>
-          <div className="form-grid--2col">
-            <label className="field-group">
-              <span>Invoice Notes (shown to customer)</span>
-              <textarea
+        <FormCard
+          description="Custom notes and terms displayed on customer PDF invoice"
+          stepNumber={3}
+          title="Terms & Notes"
+        >
+          <FormGrid columns={2}>
+            <FormField label="Invoice Notes (shown to customer)">
+              <TextAreaInput
                 onChange={(e) => setNotes(e.target.value)}
                 rows={3}
                 value={notes}
               />
-            </label>
+            </FormField>
 
-            <label className="field-group">
-              <span>Terms & Conditions</span>
-              <textarea
+            <FormField label="Terms & Conditions">
+              <TextAreaInput
                 onChange={(e) => setTermsAndConditions(e.target.value)}
                 rows={3}
                 value={termsAndConditions}
               />
-            </label>
-          </div>
-        </div>
+            </FormField>
+          </FormGrid>
+        </FormCard>
 
         <div className="form-actions-bar">
           <Button

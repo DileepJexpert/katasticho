@@ -1,6 +1,6 @@
 import { useDeferredValue, useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Boxes, ChevronLeft, ChevronRight, Plus, Search, UploadCloud, X } from 'lucide-react'
+import { Boxes, ChevronLeft, ChevronRight, Plus, Search, UploadCloud } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
 import { Button } from '@/design-system/button'
@@ -293,114 +293,94 @@ function CreateItemModal({ onClose, onSuccess }: { onClose: () => void; onSucces
       }
       return createItem(payload)
     },
-    onSuccess: () => onSuccess(),
+    onSuccess: () => {
+      onSuccess()
+      onClose()
+    },
   })
 
   return (
-    <div className="modal-backdrop" role="dialog">
-      <div className="modal-dialog modal-dialog--lg">
-        <header className="modal-header">
-          <h3>Create Inventory Item</h3>
-          <button aria-label="Close dialog" className="modal-close-btn" onClick={onClose} type="button">
-            <X size={16} />
-          </button>
-        </header>
-        <div className="modal-body">
-          <div className="form-grid--2col">
-            <label className="field-group">
-              <span>Item Name *</span>
-              <input onChange={(e) => setName(e.target.value)} placeholder="e.g. Paracetamol 500mg" value={name} />
-            </label>
-            <label className="field-group">
-              <span>Item Type</span>
-              <select onChange={(e) => setItemType(e.target.value)} value={itemType}>
-                <option value="FINISHED_GOOD">Finished Good</option>
-                <option value="RAW_MATERIAL">Raw Material</option>
-                <option value="WORK_IN_PROGRESS">WIP</option>
-                <option value="MERCHANDISE">Merchandise</option>
-                <option value="SERVICE">Service</option>
-              </select>
-            </label>
-          </div>
-
-          <div className="form-grid--2col">
-            <label className="field-group">
-              <span>SKU</span>
-              <input onChange={(e) => setSku(e.target.value)} placeholder="e.g. SKU-PARA-500" value={sku} />
-            </label>
-            <label className="field-group">
-              <span>Barcode / EAN</span>
-              <input onChange={(e) => setBarcode(e.target.value)} placeholder="e.g. 890123456789" value={barcode} />
-            </label>
-          </div>
-
-          <div className="form-grid--3col">
-            <label className="field-group">
-              <span>HSN Code</span>
-              <input onChange={(e) => setHsnCode(e.target.value)} placeholder="e.g. 3004" value={hsnCode} />
-            </label>
-            <label className="field-group">
-              <span>GST Rate (%)</span>
-              <input onChange={(e) => setGstRate(Number(e.target.value))} type="number" value={gstRate} />
-            </label>
-            <label className="field-group">
-              <span>Unit of Measure</span>
-              <input onChange={(e) => setUnitOfMeasure(e.target.value)} placeholder="e.g. PCS, BOX, KG" value={unitOfMeasure} />
-            </label>
-          </div>
-
-          <div className="form-grid--2col">
-            <label className="field-group">
-              <span>Purchase Price (₹)</span>
-              <input onChange={(e) => setPurchasePrice(Number(e.target.value))} type="number" value={purchasePrice} />
-            </label>
-            <label className="field-group">
-              <span>Sale Price / MRP (₹)</span>
-              <input onChange={(e) => setSalePrice(Number(e.target.value))} type="number" value={salePrice} />
-            </label>
-          </div>
-
-          <div className="form-grid--3col">
-            <label className="field-group">
-              <span>Reorder Level</span>
-              <input onChange={(e) => setReorderLevel(Number(e.target.value))} type="number" value={reorderLevel} />
-            </label>
-            <label className="field-group">
-              <span>Reorder Quantity</span>
-              <input onChange={(e) => setReorderQuantity(Number(e.target.value))} type="number" value={reorderQuantity} />
-            </label>
-            <label className="field-group">
-              <span>Costing Method</span>
-              <select onChange={(e) => setCostingMethod(e.target.value)} value={costingMethod}>
-                <option value="FIFO">FIFO</option>
-                <option value="WEIGHTED_AVERAGE">Weighted Avg</option>
-              </select>
-            </label>
-          </div>
-
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-4)', marginTop: 'var(--space-2)' }}>
-            <label className="form-checkbox-label">
-              <input checked={trackInventory} onChange={(e) => setTrackInventory(e.target.checked)} type="checkbox" />
-              <span>Track Inventory</span>
-            </label>
-            <label className="form-checkbox-label">
-              <input checked={trackBatches} onChange={(e) => setTrackBatches(e.target.checked)} type="checkbox" />
-              <span>Track Batches & FEFO</span>
-            </label>
-            <label className="form-checkbox-label">
-              <input checked={trackSerials} onChange={(e) => setTrackSerials(e.target.checked)} type="checkbox" />
-              <span>Track Serial Numbers</span>
-            </label>
-          </div>
-        </div>
-        <footer className="modal-footer">
+    <Modal
+      footer={
+        <>
           <Button onClick={onClose} variant="secondary">Cancel</Button>
           <Button disabled={!name || mutation.isPending} onClick={() => mutation.mutate()} variant="primary">
             {mutation.isPending ? 'Creating...' : 'Create Item'}
           </Button>
-        </footer>
+        </>
+      }
+      isOpen
+      onClose={onClose}
+      size="lg"
+      title="Create Inventory Item"
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+        <FormGrid columns={2}>
+          <FormField label="Item Name" required>
+            <TextInput onChange={(e) => setName(e.target.value)} placeholder="e.g. Paracetamol 500mg" required value={name} />
+          </FormField>
+          <FormField label="Item Type" required>
+            <SelectInput
+              onChange={(e) => setItemType(e.target.value)}
+              options={[
+                { value: 'FINISHED_GOOD', label: 'Finished Good' },
+                { value: 'RAW_MATERIAL', label: 'Raw Material' },
+                { value: 'WORK_IN_PROGRESS', label: 'WIP' },
+                { value: 'MERCHANDISE', label: 'Merchandise' },
+                { value: 'SERVICE', label: 'Service' },
+              ]}
+              value={itemType}
+            />
+          </FormField>
+          <FormField label="SKU">
+            <TextInput onChange={(e) => setSku(e.target.value)} placeholder="e.g. SKU-PARA-500" value={sku} />
+          </FormField>
+          <FormField label="Barcode / EAN">
+            <TextInput onChange={(e) => setBarcode(e.target.value)} placeholder="e.g. 890123456789" value={barcode} />
+          </FormField>
+        </FormGrid>
+
+        <FormGrid columns={3}>
+          <FormField label="HSN Code">
+            <TextInput onChange={(e) => setHsnCode(e.target.value)} placeholder="e.g. 3004" value={hsnCode} />
+          </FormField>
+          <FormField label="GST Rate (%)">
+            <NumberInput min={0} onChange={(e) => setGstRate(Number(e.target.value))} unitSuffix="%" value={gstRate} />
+          </FormField>
+          <FormField label="Unit of Measure">
+            <TextInput onChange={(e) => setUnitOfMeasure(e.target.value)} placeholder="e.g. PCS, BOX, KG" value={unitOfMeasure} />
+          </FormField>
+          <FormField label="Purchase Price">
+            <NumberInput currencyPrefix="₹" min={0} onChange={(e) => setPurchasePrice(Number(e.target.value))} value={purchasePrice} />
+          </FormField>
+          <FormField label="Sale Price / MRP">
+            <NumberInput currencyPrefix="₹" min={0} onChange={(e) => setSalePrice(Number(e.target.value))} value={salePrice} />
+          </FormField>
+          <FormField label="Costing Method">
+            <SelectInput
+              onChange={(e) => setCostingMethod(e.target.value)}
+              options={[
+                { value: 'FIFO', label: 'FIFO' },
+                { value: 'WEIGHTED_AVERAGE', label: 'Weighted Avg' },
+              ]}
+              value={costingMethod}
+            />
+          </FormField>
+          <FormField label="Reorder Level">
+            <NumberInput min={0} onChange={(e) => setReorderLevel(Number(e.target.value))} value={reorderLevel} />
+          </FormField>
+          <FormField label="Reorder Quantity">
+            <NumberInput min={1} onChange={(e) => setReorderQuantity(Number(e.target.value))} value={reorderQuantity} />
+          </FormField>
+        </FormGrid>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-4)', marginTop: 'var(--space-1)' }}>
+          <CheckboxInput checked={trackInventory} description="Maintain stock ledger" onChange={(e) => setTrackInventory(e.target.checked)} title="Track Inventory" />
+          <CheckboxInput checked={trackBatches} description="FEFO batch expiration" onChange={(e) => setTrackBatches(e.target.checked)} title="Track Batches" />
+          <CheckboxInput checked={trackSerials} description="Individual unit serials" onChange={(e) => setTrackSerials(e.target.checked)} title="Track Serials" />
+        </div>
       </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -426,38 +406,9 @@ function ImportItemsModal({ onClose, onSuccess }: { onClose: () => void; onSucce
   }
 
   return (
-    <div className="modal-backdrop" role="dialog">
-      <div className="modal-dialog modal-dialog--md">
-        <header className="modal-header">
-          <h3>Bulk Import Items CSV</h3>
-          <button aria-label="Close dialog" className="modal-close-btn" onClick={onClose} type="button">
-            <X size={16} />
-          </button>
-        </header>
-        <div className="modal-body">
-          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
-            Upload CSV with columns: <code>name, sku, barcode, itemType, hsnCode, gstRate, uom, purchasePrice, salePrice</code>
-          </p>
-          <input accept=".csv" onChange={handleFileChange} type="file" />
-
-          {previewRows.length > 0 && (
-            <div style={{ marginTop: 'var(--space-2)' }}>
-              <h4 style={{ fontSize: 'var(--text-sm)', marginBottom: 'var(--space-2)' }}>Preview (First {previewRows.length} rows)</h4>
-              <table style={{ width: '100%', fontSize: 'var(--text-xs)', borderCollapse: 'collapse' }}>
-                <tbody>
-                  {previewRows.map((row, i) => (
-                    <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
-                      {row.map((col, j) => (
-                        <td key={j} style={{ padding: 'var(--space-1) var(--space-2)' }}>{col}</td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-        <footer className="modal-footer">
+    <Modal
+      footer={
+        <>
           <Button onClick={onClose} variant="secondary">Cancel</Button>
           <Button
             disabled={!csvContent}
@@ -468,8 +419,36 @@ function ImportItemsModal({ onClose, onSuccess }: { onClose: () => void; onSucce
           >
             Commit Import
           </Button>
-        </footer>
+        </>
+      }
+      isOpen
+      onClose={onClose}
+      size="md"
+      title="Bulk Import Items CSV"
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+        <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+          Upload CSV with columns: <code>name, sku, barcode, itemType, hsnCode, gstRate, uom, purchasePrice, salePrice</code>
+        </p>
+        <input accept=".csv" onChange={handleFileChange} type="file" />
+
+        {previewRows.length > 0 && (
+          <div style={{ marginTop: 'var(--space-2)' }}>
+            <h4 style={{ fontSize: 'var(--text-sm)', marginBottom: 'var(--space-2)' }}>Preview (First {previewRows.length} rows)</h4>
+            <table style={{ width: '100%', fontSize: 'var(--text-xs)', borderCollapse: 'collapse' }}>
+              <tbody>
+                {previewRows.map((row, i) => (
+                  <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
+                    {row.map((col, j) => (
+                      <td key={j} style={{ padding: 'var(--space-1) var(--space-2)' }}>{col}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
-    </div>
+    </Modal>
   )
 }

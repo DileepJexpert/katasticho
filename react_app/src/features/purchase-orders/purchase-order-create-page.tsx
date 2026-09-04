@@ -1,12 +1,21 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Save, Trash2 } from 'lucide-react'
+import { ArrowLeft, FileCheck, Save, Trash2 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
+import {
+  Button,
+  DataTable,
+  FormCard,
+  FormField,
+  FormGrid,
+  Money,
+  NumberInput,
+  PageHeader,
+  SelectInput,
+  TextAreaInput,
+  TextInput,
+} from '@/design-system'
 import { listContacts } from '@/features/contacts/contacts-api'
 import { listItems } from '@/features/items/items-api'
 import {
@@ -131,119 +140,96 @@ export function PurchaseOrderCreatePage() {
     <section className="workspace-page">
       <Link className="form-back-link" to={appRoutes.purchaseOrders}>
         <ArrowLeft size={16} /> Back to Purchase Orders
-        
       </Link>
 
       <PageHeader
         eyebrow="Purchases / Procurement"
         title="New Purchase Order"
         description="Draft purchase commitments to suppliers with expected delivery timelines and items to procure."
-        actions={
-          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-            <Button
-              onClick={() => navigate(appRoutes.purchaseOrders)}
-              type="button"
-              variant="secondary"
-            >
-              Cancel
-            </Button>
-            <Button
-              disabled={createMutation.isPending || !supplierId || lines.length === 0}
-              form="po-form"
-              type="submit"
-              variant="primary"
-            >
-              <Save size={16} />
-              {createMutation.isPending ? 'Saving...' : 'Create Purchase Order'}
-            </Button>
-          </div>
-        }
       />
 
       {feedback && (
         <div
-          className={`directory-state ${feedback.type === 'error' ? 'directory-state--error' : ''}`}
+          className={`banner ${feedback.type === 'success' ? 'banner--success' : 'banner--error'}`}
           role="alert"
-          style={{ marginBottom: 'var(--space-4)', minHeight: 'auto', padding: 'var(--space-3)' }}
+          style={{ marginBottom: 'var(--space-4)' }}
         >
-          <strong>{feedback.message}</strong>
+          <span>{feedback.message}</span>
+          <button className="banner-dismiss" onClick={() => setFeedback(null)} type="button">
+            ✕
+          </button>
         </div>
       )}
 
-      <form className="create-form-container" id="po-form" onSubmit={handleSubmit}>
-          <div className="form-card">
-          <div className="form-card-header">
-            <h2 className="form-card-title">1. Supplier & Procurement Details</h2>
-          </div>
-            <div className="form-grid--auto">
-              <label className="field-group">
-                <span>Supplier / Vendor *</span>
-                <select
-                  onChange={(e) => setSupplierId(e.target.value)}
-                  required
-                  value={supplierId}
-                >
-                  <option value="">-- Select Supplier --</option>
-                  {suppliers.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.displayName} {s.companyName ? `(${s.companyName})` : ''}
-                    </option>
-                  ))}
-                </select>
-              </label>
+      <form className="create-form-container" onSubmit={handleSubmit}>
+        <FormCard
+          description="Select the vendor and set the purchase order date and expected delivery window."
+          stepNumber={1}
+          title="Supplier & Procurement Details"
+        >
+          <FormGrid columns={3}>
+            <FormField label="Supplier / Vendor" required>
+              <SelectInput
+                onChange={(e) => setSupplierId(e.target.value)}
+                options={suppliers.map((s) => ({
+                  value: s.id,
+                  label: `${s.displayName} ${s.companyName ? '(' + s.companyName + ')' : ''}`,
+                }))}
+                placeholderOption="-- Select Supplier --"
+                required
+                value={supplierId}
+              />
+            </FormField>
 
-              <label className="field-group">
-                <span>Order Date *</span>
-                <input
-                  onChange={(e) => setOrderDate(e.target.value)}
-                  required
-                  type="date"
-                  value={orderDate}
-                />
-              </label>
+            <FormField label="Order Date" required>
+              <TextInput
+                onChange={(e) => setOrderDate(e.target.value)}
+                required
+                type="date"
+                value={orderDate}
+              />
+            </FormField>
 
-              <label className="field-group">
-                <span>Expected Delivery Date</span>
-                <input
-                  onChange={(e) => setExpectedDeliveryDate(e.target.value)}
-                  type="date"
-                  value={expectedDeliveryDate}
-                />
-              </label>
+            <FormField label="Expected Delivery Date">
+              <TextInput
+                onChange={(e) => setExpectedDeliveryDate(e.target.value)}
+                type="date"
+                value={expectedDeliveryDate}
+              />
+            </FormField>
+          </FormGrid>
+        </FormCard>
+
+        <FormCard
+          description="Select goods, quantities, and negotiated purchase unit costs."
+          headerAction={
+            <div style={{ minWidth: 260 }}>
+              <SelectInput
+                onChange={(e) => {
+                  if (e.target.value) {
+                    handleAddItem(e.target.value)
+                    e.target.value = ''
+                  }
+                }}
+                options={catalogItems.map((item) => ({
+                  value: item.id,
+                  label: `${item.name} (${item.sku || 'No SKU'})`,
+                }))}
+                placeholderOption="+ Add Item to Order..."
+                value=""
+              />
             </div>
-          </div>
-
-          <div className="form-card">
-            <div className="form-card-header">
-              <div>
-                <h2 className="form-card-title">2. Line Items to Procure</h2>
-                <p className="form-card-description">Select goods, quantities, and expected purchase unit costs</p>
-              </div>
-              <div>
-                <select
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      handleAddItem(e.target.value)
-                      e.target.value = ''
-                    }
-                  }}
-                  value=""
-                >
-                  <option value="">+ Add Item to Order...</option>
-                  {catalogItems.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name} ({item.sku || 'No SKU'})
-                    </option>
-                  ))}
-                </select>
-              </div>
+          }
+          stepNumber={2}
+          title={`Line Items to Procure (${lines.length})`}
+        >
+          {lines.length === 0 ? (
+            <div className="directory-state" style={{ padding: 'var(--space-6)' }}>
+              <FileCheck size={28} />
+              <p>No line items added yet. Select an item above to add it to this purchase order.</p>
             </div>
-
-            {lines.length === 0 ? (
-              <div className="directory-state" style={{ minHeight: '120px' }}>
-                No line items added yet. Select an item above to add it to this purchase order.
-              </div>
-            ) : (
+          ) : (
+            <>
               <DataTable caption="Purchase Order Lines">
                 <thead>
                   <tr>
@@ -258,113 +244,79 @@ export function PurchaseOrderCreatePage() {
                   {lines.map((line) => (
                     <tr key={line.id}>
                       <td>
-                        <strong>{line.itemName}</strong>
-                        <input
-                          onChange={(e) => handleUpdateLine(line.id, { description: e.target.value })}
-                          style={{
-                            background: 'transparent',
-                            border: '0',
-                            borderBottom: '1px solid var(--border)',
-                            color: 'var(--text-secondary)',
-                            display: 'block',
-                            fontSize: '12px',
-                            marginTop: '2px',
-                            width: '100%',
-                          }}
-                          value={line.description}
-                        />
+                        <div className="cell-stack">
+                          <strong>{line.itemName}</strong>
+                          <TextInput
+                            onChange={(e) => handleUpdateLine(line.id, { description: e.target.value })}
+                            placeholder="Optional line notes"
+                            style={{ marginTop: 'var(--space-1)', width: '100%' }}
+                            value={line.description}
+                          />
+                        </div>
                       </td>
                       <td className="numeric-cell">
-                        <input
-                          min="1"
+                        <NumberInput
+                          min={1}
                           onChange={(e) => handleUpdateLine(line.id, { quantity: parseFloat(e.target.value) || 0 })}
-                          step="any"
-                          style={{
-                            background: 'var(--bg-surface)',
-                            border: '1px solid var(--border-strong)',
-                            borderRadius: 'var(--radius)',
-                            color: 'var(--text-primary)',
-                            height: '28px',
-                            padding: '0 var(--space-2)',
-                            textAlign: 'right',
-                            width: '80px',
-                          }}
-                          type="number"
+                          step="1"
+                          style={{ width: 85 }}
                           value={line.quantity}
                         />
                       </td>
                       <td className="numeric-cell">
-                        <input
-                          min="0"
+                        <NumberInput
+                          currencyPrefix="₹"
+                          min={0}
                           onChange={(e) => handleUpdateLine(line.id, { unitPrice: parseFloat(e.target.value) || 0 })}
                           step="0.01"
-                          style={{
-                            background: 'var(--bg-surface)',
-                            border: '1px solid var(--border-strong)',
-                            borderRadius: 'var(--radius)',
-                            color: 'var(--text-primary)',
-                            height: '28px',
-                            padding: '0 var(--space-2)',
-                            textAlign: 'right',
-                            width: '100px',
-                          }}
-                          type="number"
+                          style={{ width: 110 }}
                           value={line.unitPrice}
                         />
                       </td>
                       <td className="numeric-cell">
-                        <Money amount={line.lineTotal} />
+                        <strong>
+                          <Money amount={line.lineTotal} />
+                        </strong>
                       </td>
                       <td>
-                        <button
+                        <Button
                           aria-label="Remove item"
                           onClick={() => handleRemoveLine(line.id)}
-                          style={{
-                            background: 'transparent',
-                            border: 0,
-                            color: 'var(--neg-text)',
-                            cursor: 'pointer',
-                            padding: '4px',
-                          }}
                           type="button"
+                          variant="ghost"
                         >
-                          <Trash2 size={16} />
-                        </button>
+                          <Trash2 color="var(--color-danger)" size={14} />
+                        </Button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </DataTable>
-            )}
 
-            {lines.length > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--space-4)' }}>
-                <div style={{ minWidth: '240px' }}>
-                  <div className="form-summary-card">
-                    <div className="form-summary-row form-summary-row--total">
-                      <span>Estimated PO Total</span>
-                      <span className="amount"><Money amount={totalAmount} /></span>
-                    </div>
-                  </div>
+              <div className="form-summary-card">
+                <div className="form-summary-row form-summary-row--total">
+                  <span>Estimated PO Total:</span>
+                  <Money amount={totalAmount} />
                 </div>
               </div>
-            )}
-          </div>
+            </>
+          )}
+        </FormCard>
 
-          <div className="form-card">
-            <div className="form-card-header">
-              <h2 className="form-card-title">3. Supplier Notes & Instructions</h2>
-            </div>
-            <label className="field-group">
-              <span>Delivery Instructions & Remarks</span>
-              <textarea
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Delivery notes, packaging guidelines, quality terms..."
-                rows={3}
-                value={notes}
-              />
-            </label>
-          </div>
+        <FormCard
+          description="Include packaging guidelines, gate delivery instructions, and terms."
+          stepNumber={3}
+          title="Supplier Notes & Instructions"
+        >
+          <FormField label="Delivery Instructions & Remarks">
+            <TextAreaInput
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Delivery notes, packaging guidelines, quality terms..."
+              rows={3}
+              value={notes}
+            />
+          </FormField>
+        </FormCard>
 
         <div className="form-actions-bar">
           <Button
@@ -375,7 +327,7 @@ export function PurchaseOrderCreatePage() {
             Cancel
           </Button>
           <Button
-            disabled={createMutation.isPending || !contactId || lines.length === 0}
+            disabled={createMutation.isPending || !supplierId || lines.length === 0}
             type="submit"
             variant="primary"
           >

@@ -1,11 +1,20 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Save, Trash2 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { PageHeader } from '@/design-system/page-header'
+import {
+  Button,
+  DataTable,
+  FormCard,
+  FormField,
+  FormGrid,
+  Money,
+  NumberInput,
+  PageHeader,
+  SelectInput,
+  TextInput,
+} from '@/design-system'
 import { listContacts } from '@/features/contacts/contacts-api'
 import {
   createCreditNote,
@@ -53,6 +62,22 @@ export function CreditNoteCreatePage() {
     setLines((prev) => prev.filter((l) => l.id !== id))
   }
 
+  const { subtotal, taxAmount, grandTotal } = useMemo(() => {
+    let sub = 0
+    let tax = 0
+    lines.forEach((l) => {
+      const lineSub = (l.quantity || 0) * (l.unitPrice || 0)
+      const lineTax = (lineSub * (l.gstRate || 0)) / 100
+      sub += lineSub
+      tax += lineTax
+    })
+    return {
+      subtotal: sub,
+      taxAmount: tax,
+      grandTotal: sub + tax,
+    }
+  }, [lines])
+
   const createMutation = useMutation({
     mutationFn: (req: CreateCreditNoteRequest) => createCreditNote(req),
     onSuccess: () => {
@@ -91,203 +116,181 @@ export function CreditNoteCreatePage() {
     <section className="workspace-page">
       <Link className="form-back-link" to={appRoutes.creditNotes}>
         <ArrowLeft size={16} /> Back to Credit Notes
-        
       </Link>
 
       <PageHeader
         eyebrow="Sales / Adjustments"
         title="New Credit Note"
         description="Issue credit notes for sales returns, rate differences, or post-invoice adjustments."
-        actions={
-          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-            <Button
-              onClick={() => navigate(appRoutes.creditNotes)}
-              type="button"
-              variant="secondary"
-            >
-              Cancel
-            </Button>
-            <Button
-              disabled={createMutation.isPending || !contactId}
-              form="cn-form"
-              type="submit"
-              variant="primary"
-            >
-              <Save size={16} />
-              {createMutation.isPending ? 'Saving...' : 'Create Credit Note'}
-            </Button>
-          </div>
-        }
       />
 
       {feedback && (
         <div
-          className={`directory-state ${feedback.type === 'error' ? 'directory-state--error' : ''}`}
+          className={`banner ${feedback.type === 'success' ? 'banner--success' : 'banner--error'}`}
           role="alert"
-          style={{ marginBottom: 'var(--space-4)', minHeight: 'auto', padding: 'var(--space-3)' }}
+          style={{ marginBottom: 'var(--space-4)' }}
         >
-          <strong>{feedback.message}</strong>
+          <span>{feedback.message}</span>
+          <button className="banner-dismiss" onClick={() => setFeedback(null)} type="button">
+            ✕
+          </button>
         </div>
       )}
 
-      <form className="create-form-container" id="cn-form" onSubmit={handleSubmit}>
-          <div className="form-card">
-          <div className="form-card-header">
-            <h2 className="form-card-title">1. Customer & Adjustment Reason</h2>
-          </div>
-            <div className="form-grid--auto">
-              <label className="field-group">
-                <span>Customer *</span>
-                <select
-                  onChange={(e) => setContactId(e.target.value)}
-                  required
-                  value={contactId}
-                >
-                  <option value="">-- Select Customer --</option>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.displayName}
-                    </option>
-                  ))}
-                </select>
-              </label>
+      <form className="create-form-container" onSubmit={handleSubmit}>
+        <FormCard
+          description="Identify the customer and the commercial justification for this credit note."
+          stepNumber={1}
+          title="Customer & Adjustment Reason"
+        >
+          <FormGrid columns={3}>
+            <FormField label="Customer" required>
+              <SelectInput
+                onChange={(e) => setContactId(e.target.value)}
+                options={customers.map((c) => ({
+                  value: c.id,
+                  label: c.displayName || c.name,
+                }))}
+                placeholderOption="-- Select Customer --"
+                required
+                value={contactId}
+              />
+            </FormField>
 
-              <label className="field-group">
-                <span>Credit Note Date *</span>
-                <input
-                  onChange={(e) => setCreditNoteDate(e.target.value)}
-                  required
-                  type="date"
-                  value={creditNoteDate}
-                />
-              </label>
+            <FormField label="Credit Note Date" required>
+              <TextInput
+                onChange={(e) => setCreditNoteDate(e.target.value)}
+                required
+                type="date"
+                value={creditNoteDate}
+              />
+            </FormField>
 
-              <label className="field-group">
-                <span>Reason *</span>
-                <input
-                  onChange={(e) => setReason(e.target.value)}
-                  placeholder="e.g. Sales return / Damaged goods"
-                  required
-                  type="text"
-                  value={reason}
-                />
-              </label>
-            </div>
-          </div>
+            <FormField label="Reason" required>
+              <TextInput
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="e.g. Sales return / Damaged goods"
+                required
+                value={reason}
+              />
+            </FormField>
+          </FormGrid>
+        </FormCard>
 
-          <div className="document-card document-card--lines">
-            <div style={{ alignItems: 'center', display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-3)' }}>
-              <h2>2. Credit Note Lines</h2>
-              <Button onClick={handleAddLine} type="button" variant="secondary">
-                + Add Line
-              </Button>
-            </div>
-
-            <DataTable caption="Credit note lines">
-              <thead>
-                <tr>
-                  <th scope="col">Description</th>
-                  <th className="numeric-cell" scope="col">Qty</th>
-                  <th className="numeric-cell" scope="col">Rate (₹)</th>
-                  <th className="numeric-cell" scope="col">GST %</th>
-                  <th style={{ width: '40px' }} />
-                </tr>
-              </thead>
-              <tbody>
-                {lines.map((line) => (
+        <FormCard
+          description="Specify line items, quantities returned or adjusted, unit rate, and GST rate."
+          headerAction={
+            <Button onClick={handleAddLine} type="button" variant="secondary">
+              + Add Line
+            </Button>
+          }
+          stepNumber={2}
+          title={`Credit Note Lines (${lines.length})`}
+        >
+          <DataTable caption="Credit note lines">
+            <thead>
+              <tr>
+                <th scope="col">Description</th>
+                <th className="numeric-cell" scope="col">Qty</th>
+                <th className="numeric-cell" scope="col">Rate (₹)</th>
+                <th className="numeric-cell" scope="col">GST %</th>
+                <th className="numeric-cell" scope="col">Total</th>
+                <th style={{ width: '40px' }} />
+              </tr>
+            </thead>
+            <tbody>
+              {lines.map((line) => {
+                const lineTotal = (line.quantity || 0) * (line.unitPrice || 0) * (1 + (line.gstRate || 0) / 100)
+                return (
                   <tr key={line.id}>
                     <td>
-                      <input
+                      <TextInput
                         onChange={(e) => handleUpdateLine(line.id, { description: e.target.value })}
                         placeholder="Item description or return reason"
-                        style={{
-                          background: 'var(--bg-surface)',
-                          border: '1px solid var(--border)',
-                          borderRadius: 'var(--radius)',
-                          color: 'var(--text-primary)',
-                          height: '28px',
-                          padding: '0 var(--space-2)',
-                          width: '100%',
-                        }}
                         value={line.description}
                       />
                     </td>
                     <td className="numeric-cell">
-                      <input
-                        min="1"
+                      <NumberInput
+                        min={1}
                         onChange={(e) => handleUpdateLine(line.id, { quantity: parseFloat(e.target.value) || 0 })}
-                        style={{
-                          background: 'var(--bg-surface)',
-                          border: '1px solid var(--border)',
-                          borderRadius: 'var(--radius)',
-                          color: 'var(--text-primary)',
-                          height: '28px',
-                          padding: '0 var(--space-2)',
-                          textAlign: 'right',
-                          width: '80px',
-                        }}
-                        type="number"
+                        style={{ width: 80 }}
                         value={line.quantity}
                       />
                     </td>
                     <td className="numeric-cell">
-                      <input
-                        min="0"
+                      <NumberInput
+                        currencyPrefix="₹"
+                        min={0}
                         onChange={(e) => handleUpdateLine(line.id, { unitPrice: parseFloat(e.target.value) || 0 })}
                         step="0.01"
-                        style={{
-                          background: 'var(--bg-surface)',
-                          border: '1px solid var(--border)',
-                          borderRadius: 'var(--radius)',
-                          color: 'var(--text-primary)',
-                          height: '28px',
-                          padding: '0 var(--space-2)',
-                          textAlign: 'right',
-                          width: '100px',
-                        }}
-                        type="number"
+                        style={{ width: 110 }}
                         value={line.unitPrice}
                       />
                     </td>
                     <td className="numeric-cell">
-                      <input
-                        min="0"
+                      <NumberInput
+                        min={0}
                         onChange={(e) => handleUpdateLine(line.id, { gstRate: parseFloat(e.target.value) || 0 })}
-                        style={{
-                          background: 'var(--bg-surface)',
-                          border: '1px solid var(--border)',
-                          borderRadius: 'var(--radius)',
-                          color: 'var(--text-primary)',
-                          height: '28px',
-                          padding: '0 var(--space-2)',
-                          textAlign: 'right',
-                          width: '60px',
-                        }}
-                        type="number"
+                        style={{ width: 75 }}
+                        unitSuffix="%"
                         value={line.gstRate}
                       />
                     </td>
+                    <td className="numeric-cell">
+                      <strong>
+                        <Money amount={lineTotal} />
+                      </strong>
+                    </td>
                     <td>
-                      <button
+                      <Button
                         aria-label="Remove item"
                         onClick={() => handleRemoveLine(line.id)}
-                        style={{
-                          background: 'transparent',
-                          border: 0,
-                          color: 'var(--neg-text)',
-                          cursor: 'pointer',
-                          padding: '4px',
-                        }}
                         type="button"
+                        variant="ghost"
                       >
-                        <Trash2 size={16} />
-                      </button>
+                        <Trash2 color="var(--color-danger)" size={14} />
+                      </Button>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </DataTable>
+                )
+              })}
+            </tbody>
+          </DataTable>
+
+          <div className="form-summary-card">
+            <div className="form-summary-row">
+              <span className="cell-muted">Subtotal:</span>
+              <Money amount={subtotal} />
+            </div>
+            <div className="form-summary-row">
+              <span className="cell-muted">Tax Amount:</span>
+              <Money amount={taxAmount} />
+            </div>
+            <div className="form-summary-row form-summary-row--total">
+              <span>Credit Note Total:</span>
+              <Money amount={grandTotal} />
+            </div>
           </div>
+        </FormCard>
+
+        <div className="form-actions-bar">
+          <Button
+            onClick={() => navigate(appRoutes.creditNotes)}
+            type="button"
+            variant="secondary"
+          >
+            Cancel
+          </Button>
+          <Button
+            disabled={createMutation.isPending || !contactId || lines.length === 0}
+            type="submit"
+            variant="primary"
+          >
+            <Save size={16} />
+            {createMutation.isPending ? 'Saving...' : 'Create Credit Note'}
+          </Button>
+        </div>
       </form>
     </section>
   )

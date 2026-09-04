@@ -1,12 +1,22 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Save, Trash2 } from 'lucide-react'
+import { ArrowLeft, FileCheck, Save, Trash2 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
+import {
+  Button,
+  CheckboxInput,
+  DataTable,
+  FormCard,
+  FormField,
+  FormGrid,
+  Money,
+  NumberInput,
+  PageHeader,
+  SelectInput,
+  TextAreaInput,
+  TextInput,
+} from '@/design-system'
 import {
   createBill,
   type CreatePurchaseBillRequest,
@@ -161,150 +171,123 @@ export function BillCreatePage() {
     <section className="workspace-page">
       <Link className="form-back-link" to={appRoutes.bills}>
         <ArrowLeft size={16} /> Back to Bills
-        
       </Link>
 
       <PageHeader
         eyebrow="Purchases / Payables"
         title="New Vendor Bill"
         description="Book vendor invoices against accounts payable, input tax credits, and purchase ledgers."
-        actions={
-          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-            <Button
-              onClick={() => navigate(appRoutes.bills)}
-              type="button"
-              variant="secondary"
-            >
-              Cancel
-            </Button>
-            <Button
-              disabled={createMutation.isPending || !contactId || lines.length === 0}
-              form="bill-form"
-              type="submit"
-              variant="primary"
-            >
-              <Save size={16} />
-              {createMutation.isPending ? 'Saving...' : 'Save Bill'}
-            </Button>
-          </div>
-        }
       />
 
       {feedback && (
         <div
-          className={`directory-state ${feedback.type === 'error' ? 'directory-state--error' : ''}`}
+          className={`banner ${feedback.type === 'success' ? 'banner--success' : 'banner--error'}`}
           role="alert"
-          style={{ marginBottom: 'var(--space-4)', minHeight: 'auto', padding: 'var(--space-3)' }}
+          style={{ marginBottom: 'var(--space-4)' }}
         >
-          <strong>{feedback.message}</strong>
+          <span>{feedback.message}</span>
+          <button className="banner-dismiss" onClick={() => setFeedback(null)} type="button">
+            ✕
+          </button>
         </div>
       )}
 
-      <form className="create-form-container" id="bill-form" onSubmit={handleSubmit}>
-          <div className="form-card">
-          <div className="form-card-header">
-            <h2 className="form-card-title">1. Vendor & Invoice Reference</h2>
-          </div>
-            <div className="form-grid--auto">
-              <label className="field-group">
-                <span>Vendor / Supplier *</span>
-                <select
-                  onChange={(e) => setContactId(e.target.value)}
-                  required
-                  value={contactId}
-                >
-                  <option value="">-- Select Vendor --</option>
-                  {vendors.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.displayName} {v.companyName ? `(${v.companyName})` : ''}
-                    </option>
-                  ))}
-                </select>
-              </label>
+      <form className="create-form-container" onSubmit={handleSubmit}>
+        <FormCard
+          description="Identify the vendor, enter their invoice reference, and set payment timelines."
+          stepNumber={1}
+          title="Vendor & Invoice Reference"
+        >
+          <FormGrid columns={4}>
+            <FormField label="Vendor / Supplier" required>
+              <SelectInput
+                onChange={(e) => setContactId(e.target.value)}
+                options={vendors.map((v) => ({
+                  value: v.id,
+                  label: `${v.displayName} ${v.companyName ? '(' + v.companyName + ')' : ''}`,
+                }))}
+                placeholderOption="-- Select Vendor --"
+                required
+                value={contactId}
+              />
+            </FormField>
 
-              <label className="field-group">
-                <span>Vendor Invoice #</span>
-                <input
-                  onChange={(e) => setVendorBillNumber(e.target.value)}
-                  placeholder="e.g. INV-2026-908"
-                  type="text"
-                  value={vendorBillNumber}
-                />
-              </label>
+            <FormField label="Vendor Invoice #" required>
+              <TextInput
+                onChange={(e) => setVendorBillNumber(e.target.value)}
+                placeholder="e.g. INV-2026-908"
+                required
+                value={vendorBillNumber}
+              />
+            </FormField>
 
-              <label className="field-group">
-                <span>Bill Date *</span>
-                <input
-                  onChange={(e) => setBillDate(e.target.value)}
-                  required
-                  type="date"
-                  value={billDate}
-                />
-              </label>
+            <FormField label="Bill Date" required>
+              <TextInput
+                onChange={(e) => setBillDate(e.target.value)}
+                required
+                type="date"
+                value={billDate}
+              />
+            </FormField>
 
-              <label className="field-group">
-                <span>Due Date</span>
-                <input
-                  onChange={(e) => setDueDate(e.target.value)}
-                  type="date"
-                  value={dueDate}
-                />
-              </label>
+            <FormField label="Due Date" required>
+              <TextInput
+                onChange={(e) => setDueDate(e.target.value)}
+                required
+                type="date"
+                value={dueDate}
+              />
+            </FormField>
 
-              <label className="field-group">
-                <span>Place of Supply</span>
-                <input
-                  onChange={(e) => setPlaceOfSupply(e.target.value)}
-                  placeholder="e.g. 29-Karnataka"
-                  type="text"
-                  value={placeOfSupply}
-                />
-              </label>
+            <FormField label="Place of Supply">
+              <TextInput
+                onChange={(e) => setPlaceOfSupply(e.target.value)}
+                placeholder="e.g. 29-Karnataka"
+                value={placeOfSupply}
+              />
+            </FormField>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '22px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: 'var(--text-xs)', cursor: 'pointer' }}>
-                  <input
-                    checked={reverseCharge}
-                    onChange={(e) => setReverseCharge(e.target.checked)}
-                    type="checkbox"
-                  />
-                  <span>Reverse Charge (RCM)</span>
-                </label>
-              </div>
+            <div style={{ display: 'flex', alignItems: 'center', height: '100%', paddingTop: 'var(--space-4)' }}>
+              <CheckboxInput
+                checked={reverseCharge}
+                description="Tax payable by recipient under RCM"
+                onChange={(e) => setReverseCharge(e.target.checked)}
+                title="Reverse Charge"
+              />
             </div>
-          </div>
+          </FormGrid>
+        </FormCard>
 
-          <div className="form-card">
-            <div className="form-card-header">
-              <div>
-                <h2 className="form-card-title">2. Bill Line Items</h2>
-                <p className="form-card-description">Vendor items, received quantities, tax rates, and landed costs</p>
-              </div>
-              <div>
-                <select
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      handleAddItem(e.target.value)
-                      e.target.value = ''
-                    }
-                  }}
-                  value=""
-                >
-                  <option value="">+ Add Item to Bill...</option>
-                  {catalogItems.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name} ({item.sku || 'No SKU'})
-                    </option>
-                  ))}
-                </select>
-              </div>
+        <FormCard
+          description="Vendor products/services, received quantities, tax rates, and landed costs."
+          headerAction={
+            <div style={{ minWidth: 260 }}>
+              <SelectInput
+                onChange={(e) => {
+                  if (e.target.value) {
+                    handleAddItem(e.target.value)
+                    e.target.value = ''
+                  }
+                }}
+                options={catalogItems.map((item) => ({
+                  value: item.id,
+                  label: `${item.name} (${item.sku || 'No SKU'})`,
+                }))}
+                placeholderOption="+ Add Item to Bill..."
+                value=""
+              />
             </div>
-
-            {lines.length === 0 ? (
-              <div className="directory-state" style={{ minHeight: '120px' }}>
-                No line items added yet. Select an item above to add it to this bill.
-              </div>
-            ) : (
+          }
+          stepNumber={2}
+          title={`Bill Line Items (${lines.length})`}
+        >
+          {lines.length === 0 ? (
+            <div className="directory-state" style={{ padding: 'var(--space-6)' }}>
+              <FileCheck size={28} />
+              <p>No line items added yet. Select an item above to add it to this bill.</p>
+            </div>
+          ) : (
+            <>
               <DataTable caption="Bill Lines">
                 <thead>
                   <tr>
@@ -322,93 +305,51 @@ export function BillCreatePage() {
                   {lines.map((line) => (
                     <tr key={line.id}>
                       <td>
-                        <strong>{line.itemName}</strong>
-                        <input
-                          onChange={(e) => handleUpdateLine(line.id, { description: e.target.value })}
-                          style={{
-                            background: 'transparent',
-                            border: '0',
-                            borderBottom: '1px solid var(--border)',
-                            color: 'var(--text-secondary)',
-                            display: 'block',
-                            fontSize: '12px',
-                            marginTop: '2px',
-                            width: '100%',
-                          }}
-                          value={line.description}
-                        />
+                        <div className="cell-stack">
+                          <strong>{line.itemName}</strong>
+                          <TextInput
+                            onChange={(e) => handleUpdateLine(line.id, { description: e.target.value })}
+                            placeholder="Line description"
+                            style={{ marginTop: 'var(--space-1)', width: '100%' }}
+                            value={line.description}
+                          />
+                        </div>
                       </td>
                       <td>
-                        <input
+                        <TextInput
                           onChange={(e) => handleUpdateLine(line.id, { hsnCode: e.target.value })}
                           placeholder="HSN"
-                          style={{
-                            background: 'var(--bg-surface)',
-                            border: '1px solid var(--border)',
-                            borderRadius: 'var(--radius)',
-                            color: 'var(--text-primary)',
-                            height: '28px',
-                            padding: '0 4px',
-                            width: '80px',
-                          }}
+                          style={{ width: 85 }}
                           value={line.hsnCode}
                         />
                       </td>
                       <td className="numeric-cell">
-                        <input
-                          min="1"
+                        <NumberInput
+                          min={1}
                           onChange={(e) => handleUpdateLine(line.id, { quantity: parseFloat(e.target.value) || 0 })}
-                          step="any"
-                          style={{
-                            background: 'var(--bg-surface)',
-                            border: '1px solid var(--border-strong)',
-                            borderRadius: 'var(--radius)',
-                            color: 'var(--text-primary)',
-                            height: '28px',
-                            padding: '0 var(--space-2)',
-                            textAlign: 'right',
-                            width: '70px',
-                          }}
-                          type="number"
+                          step="1"
+                          style={{ width: 75 }}
                           value={line.quantity}
                         />
                       </td>
                       <td className="numeric-cell">
-                        <input
-                          min="0"
+                        <NumberInput
+                          currencyPrefix="₹"
+                          min={0}
                           onChange={(e) => handleUpdateLine(line.id, { unitPrice: parseFloat(e.target.value) || 0 })}
                           step="0.01"
-                          style={{
-                            background: 'var(--bg-surface)',
-                            border: '1px solid var(--border-strong)',
-                            borderRadius: 'var(--radius)',
-                            color: 'var(--text-primary)',
-                            height: '28px',
-                            padding: '0 var(--space-2)',
-                            textAlign: 'right',
-                            width: '90px',
-                          }}
-                          type="number"
+                          style={{ width: 105 }}
                           value={line.unitPrice}
                         />
                       </td>
                       <td className="numeric-cell">
-                        <input
-                          max="28"
-                          min="0"
+                        <NumberInput
+                          max={28}
+                          min={0}
                           onChange={(e) => handleUpdateLine(line.id, { gstRate: parseFloat(e.target.value) || 0 })}
                           step="any"
-                          style={{
-                            background: 'var(--bg-surface)',
-                            border: '1px solid var(--border)',
-                            borderRadius: 'var(--radius)',
-                            color: 'var(--text-primary)',
-                            height: '28px',
-                            padding: '0 var(--space-2)',
-                            textAlign: 'right',
-                            width: '60px',
-                          }}
-                          type="number"
+                          style={{ width: 75 }}
+                          unitSuffix="%"
                           value={line.gstRate}
                         />
                       </td>
@@ -416,82 +357,75 @@ export function BillCreatePage() {
                         <Money amount={line.lineTax} />
                       </td>
                       <td className="numeric-cell">
-                        <Money amount={line.lineTotal} />
+                        <strong>
+                          <Money amount={line.lineTotal} />
+                        </strong>
                       </td>
                       <td>
-                        <button
+                        <Button
                           aria-label="Remove item"
                           onClick={() => handleRemoveLine(line.id)}
-                          style={{
-                            background: 'transparent',
-                            border: 0,
-                            color: 'var(--neg-text)',
-                            cursor: 'pointer',
-                            padding: '4px',
-                          }}
                           type="button"
+                          variant="ghost"
                         >
-                          <Trash2 size={16} />
-                        </button>
+                          <Trash2 color="var(--color-danger)" size={14} />
+                        </Button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </DataTable>
-            )}
 
-            {lines.length > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--space-4)' }}>
-                <div className="form-summary-card">
-                  <div className="form-summary-row">
-                    <span>Taxable Subtotal</span>
-                    <strong><Money amount={subtotal} /></strong>
-                  </div>
-                  <div className="form-summary-row">
-                    <span>Input GST (ITC)</span>
-                    <strong><Money amount={totalGst} /></strong>
-                  </div>
-                  <div className="form-summary-row form-summary-row--total">
-                    <span>Bill Amount</span>
-                    <span className="amount"><Money amount={grandTotal} /></span>
-                  </div>
+              <div className="form-summary-card">
+                <div className="form-summary-row">
+                  <span className="cell-muted">Taxable Subtotal:</span>
+                  <Money amount={subtotal} />
+                </div>
+                <div className="form-summary-row">
+                  <span className="cell-muted">Input GST (ITC):</span>
+                  <Money amount={totalGst} />
+                </div>
+                <div className="form-summary-row form-summary-row--total">
+                  <span>Bill Total:</span>
+                  <Money amount={grandTotal} />
                 </div>
               </div>
-            )}
-          </div>
+            </>
+          )}
+        </FormCard>
 
-          <div className="form-card">
-            <div className="form-card-header">
-              <h2 className="form-card-title">3. Notes & References</h2>
-            </div>
-            <label className="field-group">
-              <span>Internal / Vendor Notes</span>
-              <textarea
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Vendor notes, verification comments..."
-                rows={3}
-                value={notes}
-              />
-            </label>
-          </div>
+        <FormCard
+          description="Internal verification notes and vendor references."
+          stepNumber={3}
+          title="Notes & References"
+        >
+          <FormField label="Internal / Vendor Notes">
+            <TextAreaInput
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Vendor notes, verification comments..."
+              rows={3}
+              value={notes}
+            />
+          </FormField>
+        </FormCard>
 
-          <div className="form-actions-bar">
-            <Button
-              onClick={() => navigate(appRoutes.bills)}
-              type="button"
-              variant="secondary"
-            >
-              Cancel
-            </Button>
-            <Button
-              disabled={createMutation.isPending || !contactId || lines.length === 0}
-              type="submit"
-              variant="primary"
-            >
-              <Save size={16} />
-              {createMutation.isPending ? 'Saving...' : 'Record Vendor Bill'}
-            </Button>
-          </div>
+        <div className="form-actions-bar">
+          <Button
+            onClick={() => navigate(appRoutes.bills)}
+            type="button"
+            variant="secondary"
+          >
+            Cancel
+          </Button>
+          <Button
+            disabled={createMutation.isPending || !contactId || lines.length === 0}
+            type="submit"
+            variant="primary"
+          >
+            <Save size={16} />
+            {createMutation.isPending ? 'Saving...' : 'Record Vendor Bill'}
+          </Button>
+        </div>
       </form>
     </section>
   )

@@ -1,11 +1,19 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Save, Trash2 } from 'lucide-react'
+import { ArrowLeft, FileCheck, Save, Trash2 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { PageHeader } from '@/design-system/page-header'
+import {
+  Button,
+  DataTable,
+  FormCard,
+  FormField,
+  FormGrid,
+  NumberInput,
+  PageHeader,
+  SelectInput,
+  TextInput,
+} from '@/design-system'
 import { listContacts } from '@/features/contacts/contacts-api'
 import { listItems } from '@/features/items/items-api'
 import { listPurchaseOrders } from '@/features/purchase-orders/purchase-orders-api'
@@ -126,263 +134,211 @@ export function StockReceiptCreatePage() {
     <section className="workspace-page">
       <Link className="form-back-link" to={appRoutes.stockReceipts}>
         <ArrowLeft size={16} /> Back to Stock Receipts
-        
       </Link>
 
       <PageHeader
         eyebrow="Purchases / Warehouse"
         title="New Stock Receipt (GRN)"
         description="Receive incoming goods into warehouse inventory, capture supplier delivery batches, and verify against purchase orders."
-        actions={
-          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-            <Button
-              onClick={() => navigate(appRoutes.stockReceipts)}
-              type="button"
-              variant="secondary"
-            >
-              Cancel
-            </Button>
-            <Button
-              disabled={createMutation.isPending || !supplierId || lines.length === 0}
-              form="grn-form"
-              type="submit"
-              variant="primary"
-            >
-              <Save size={16} />
-              {createMutation.isPending ? 'Saving...' : 'Create Stock Receipt'}
-            </Button>
-          </div>
-        }
       />
 
       {feedback && (
         <div
-          className={`directory-state ${feedback.type === 'error' ? 'directory-state--error' : ''}`}
+          className={`banner ${feedback.type === 'success' ? 'banner--success' : 'banner--error'}`}
           role="alert"
-          style={{ marginBottom: 'var(--space-4)', minHeight: 'auto', padding: 'var(--space-3)' }}
+          style={{ marginBottom: 'var(--space-4)' }}
         >
-          <strong>{feedback.message}</strong>
+          <span>{feedback.message}</span>
+          <button className="banner-dismiss" onClick={() => setFeedback(null)} type="button">
+            ✕
+          </button>
         </div>
       )}
 
-      <form className="create-form-container" id="grn-form" onSubmit={handleSubmit}>
-          <div className="form-card">
-          <div className="form-card-header">
-            <h2 className="form-card-title">1. Supplier & Receipt Info</h2>
-          </div>
-            <div className="form-grid--auto">
-              <label className="field-group">
-                <span>Supplier *</span>
-                <select
-                  onChange={(e) => setSupplierId(e.target.value)}
-                  required
-                  value={supplierId}
-                >
-                  <option value="">-- Select Supplier --</option>
-                  {suppliers.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.displayName}
-                    </option>
-                  ))}
-                </select>
-              </label>
+      <form className="create-form-container" onSubmit={handleSubmit}>
+        <FormCard
+          description="Supplier selection, receipt date, supplier invoice/challan number, and linked purchase order."
+          stepNumber={1}
+          title="Supplier & Receipt Info"
+        >
+          <FormGrid columns={3}>
+            <FormField label="Supplier" required>
+              <SelectInput
+                onChange={(e) => setSupplierId(e.target.value)}
+                options={suppliers.map((s) => ({
+                  value: s.id,
+                  label: s.displayName,
+                }))}
+                placeholderOption="-- Select Supplier --"
+                required
+                value={supplierId}
+              />
+            </FormField>
 
-              <label className="field-group">
-                <span>Receipt Date *</span>
-                <input
-                  onChange={(e) => setReceiptDate(e.target.value)}
-                  required
-                  type="date"
-                  value={receiptDate}
-                />
-              </label>
+            <FormField label="Receipt Date" required>
+              <TextInput
+                onChange={(e) => setReceiptDate(e.target.value)}
+                required
+                type="date"
+                value={receiptDate}
+              />
+            </FormField>
 
-              <label className="field-group">
-                <span>Supplier DC / Invoice #</span>
-                <input
-                  onChange={(e) => setSupplierInvoiceNo(e.target.value)}
-                  placeholder="e.g. DC-987"
-                  type="text"
-                  value={supplierInvoiceNo}
-                />
-              </label>
+            <FormField label="Supplier DC / Invoice #">
+              <TextInput
+                onChange={(e) => setSupplierInvoiceNo(e.target.value)}
+                placeholder="e.g. DC-987"
+                value={supplierInvoiceNo}
+              />
+            </FormField>
 
-              <label className="field-group">
-                <span>Linked Purchase Order</span>
-                <select
-                  onChange={(e) => setPurchaseOrderId(e.target.value)}
-                  value={purchaseOrderId}
-                >
-                  <option value="">-- None / Direct GRN --</option>
-                  {purchaseOrders.map((po) => (
-                    <option key={po.id} value={po.id}>
-                      {po.poNumber} - {po.supplierName}
-                    </option>
-                  ))}
-                </select>
-              </label>
+            <FormField label="Linked Purchase Order">
+              <SelectInput
+                onChange={(e) => setPurchaseOrderId(e.target.value)}
+                options={[
+                  { value: '', label: '-- None / Direct GRN --' },
+                  ...purchaseOrders.map((po) => ({
+                    value: po.id,
+                    label: `${po.poNumber} - ${po.supplierName}`,
+                  })),
+                ]}
+                value={purchaseOrderId}
+              />
+            </FormField>
 
-              <label className="field-group">
-                <span>Supplier Invoice Date</span>
-                <input
-                  onChange={(e) => setSupplierInvoiceDate(e.target.value)}
-                  type="date"
-                  value={supplierInvoiceDate}
-                />
-              </label>
+            <FormField label="Supplier Invoice Date">
+              <TextInput
+                onChange={(e) => setSupplierInvoiceDate(e.target.value)}
+                type="date"
+                value={supplierInvoiceDate}
+              />
+            </FormField>
 
-              <label className="field-group">
-                <span>Receiving Notes</span>
-                <input
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="e.g. Gate pass #, condition..."
-                  type="text"
-                  value={notes}
-                />
-              </label>
+            <FormField label="Receiving Notes">
+              <TextInput
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="e.g. Gate pass #, condition..."
+                value={notes}
+              />
+            </FormField>
+          </FormGrid>
+        </FormCard>
+
+        <FormCard
+          description="Select catalog products, quantities, batches, and shelf life expiry dates."
+          headerAction={
+            <div style={{ minWidth: 260 }}>
+              <SelectInput
+                onChange={(e) => {
+                  if (e.target.value) {
+                    handleAddItem(e.target.value)
+                    e.target.value = ''
+                  }
+                }}
+                options={catalogItems.map((item) => ({
+                  value: item.id,
+                  label: `${item.name} (${item.sku || 'No SKU'})`,
+                }))}
+                placeholderOption="+ Add Item to GRN..."
+                value=""
+              />
             </div>
-          </div>
-
-          <div className="form-card">
-            <div className="form-card-header">
-              <div>
-                <h2 className="form-card-title">2. Items Received</h2>
-                <p className="form-card-description">Select catalog products, quantities, batches, and shelf life</p>
-              </div>
-              <div>
-                <select
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      handleAddItem(e.target.value)
-                      e.target.value = ''
-                    }
-                  }}
-                  value=""
-                >
-                  <option value="">+ Add Item to GRN...</option>
-                  {catalogItems.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name} ({item.sku || 'No SKU'})
-                    </option>
-                  ))}
-                </select>
-              </div>
+          }
+          stepNumber={2}
+          title={`Items Received (${lines.length})`}
+        >
+          {lines.length === 0 ? (
+            <div className="directory-state" style={{ padding: 'var(--space-6)' }}>
+              <FileCheck size={28} />
+              <p>No line items added yet. Select an item above to record inward receipt.</p>
             </div>
-
-            {lines.length === 0 ? (
-              <div className="directory-state" style={{ minHeight: '120px' }}>
-                No line items added yet. Select an item above to record inward receipt.
-              </div>
-            ) : (
-              <DataTable caption="Received items">
-                <thead>
-                  <tr>
-                    <th scope="col">Item</th>
-                    <th className="numeric-cell" scope="col">Received Qty</th>
-                    <th className="numeric-cell" scope="col">Unit Cost (₹)</th>
-                    <th scope="col">Batch #</th>
-                    <th scope="col">Expiry Date</th>
-                    <th style={{ width: '40px' }} />
+          ) : (
+            <DataTable caption="Received items">
+              <thead>
+                <tr>
+                  <th scope="col">Item</th>
+                  <th className="numeric-cell" scope="col">Received Qty</th>
+                  <th className="numeric-cell" scope="col">Unit Cost (₹)</th>
+                  <th scope="col">Batch #</th>
+                  <th scope="col">Expiry Date</th>
+                  <th style={{ width: '40px' }} />
+                </tr>
+              </thead>
+              <tbody>
+                {lines.map((line) => (
+                  <tr key={line.id}>
+                    <td>
+                      <strong>{line.itemName}</strong>
+                    </td>
+                    <td className="numeric-cell">
+                      <NumberInput
+                        min={1}
+                        onChange={(e) => handleUpdateLine(line.id, { quantity: parseFloat(e.target.value) || 0 })}
+                        step="1"
+                        style={{ width: 85 }}
+                        value={line.quantity}
+                      />
+                    </td>
+                    <td className="numeric-cell">
+                      <NumberInput
+                        currencyPrefix="₹"
+                        min={0}
+                        onChange={(e) => handleUpdateLine(line.id, { unitPrice: parseFloat(e.target.value) || 0 })}
+                        step="0.01"
+                        style={{ width: 110 }}
+                        value={line.unitPrice}
+                      />
+                    </td>
+                    <td>
+                      <TextInput
+                        onChange={(e) => handleUpdateLine(line.id, { batchNumber: e.target.value })}
+                        placeholder="e.g. BATCH-01"
+                        style={{ width: 120 }}
+                        value={line.batchNumber}
+                      />
+                    </td>
+                    <td>
+                      <TextInput
+                        onChange={(e) => handleUpdateLine(line.id, { expiryDate: e.target.value })}
+                        style={{ width: 140 }}
+                        type="date"
+                        value={line.expiryDate}
+                      />
+                    </td>
+                    <td>
+                      <Button
+                        aria-label="Remove item"
+                        onClick={() => handleRemoveLine(line.id)}
+                        type="button"
+                        variant="ghost"
+                      >
+                        <Trash2 color="var(--color-danger)" size={14} />
+                      </Button>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {lines.map((line) => (
-                    <tr key={line.id}>
-                      <td>
-                        <strong>{line.itemName}</strong>
-                      </td>
-                      <td className="numeric-cell">
-                        <input
-                          min="1"
-                          onChange={(e) => handleUpdateLine(line.id, { quantity: parseFloat(e.target.value) || 0 })}
-                          step="any"
-                          style={{
-                            background: 'var(--bg-surface)',
-                            border: '1px solid var(--border-strong)',
-                            borderRadius: 'var(--radius)',
-                            color: 'var(--text-primary)',
-                            height: '28px',
-                            padding: '0 var(--space-2)',
-                            textAlign: 'right',
-                            width: '80px',
-                          }}
-                          type="number"
-                          value={line.quantity}
-                        />
-                      </td>
-                      <td className="numeric-cell">
-                        <input
-                          min="0"
-                          onChange={(e) => handleUpdateLine(line.id, { unitPrice: parseFloat(e.target.value) || 0 })}
-                          step="0.01"
-                          style={{
-                            background: 'var(--bg-surface)',
-                            border: '1px solid var(--border-strong)',
-                            borderRadius: 'var(--radius)',
-                            color: 'var(--text-primary)',
-                            height: '28px',
-                            padding: '0 var(--space-2)',
-                            textAlign: 'right',
-                            width: '90px',
-                          }}
-                          type="number"
-                          value={line.unitPrice}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          onChange={(e) => handleUpdateLine(line.id, { batchNumber: e.target.value })}
-                          placeholder="e.g. BATCH-01"
-                          style={{
-                            background: 'var(--bg-surface)',
-                            border: '1px solid var(--border)',
-                            borderRadius: 'var(--radius)',
-                            color: 'var(--text-primary)',
-                            height: '28px',
-                            padding: '0 4px',
-                            width: '100px',
-                          }}
-                          value={line.batchNumber}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          onChange={(e) => handleUpdateLine(line.id, { expiryDate: e.target.value })}
-                          style={{
-                            background: 'var(--bg-surface)',
-                            border: '1px solid var(--border)',
-                            borderRadius: 'var(--radius)',
-                            color: 'var(--text-primary)',
-                            height: '28px',
-                            padding: '0 4px',
-                            width: '130px',
-                          }}
-                          type="date"
-                          value={line.expiryDate}
-                        />
-                      </td>
-                      <td>
-                        <button
-                          aria-label="Remove item"
-                          onClick={() => handleRemoveLine(line.id)}
-                          style={{
-                            background: 'transparent',
-                            border: 0,
-                            color: 'var(--neg-text)',
-                            cursor: 'pointer',
-                            padding: '4px',
-                          }}
-                          type="button"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </DataTable>
-            )}
-          </div>
+                ))}
+              </tbody>
+            </DataTable>
+          )}
+        </FormCard>
+
+        <div className="form-actions-bar">
+          <Button
+            onClick={() => navigate(appRoutes.stockReceipts)}
+            type="button"
+            variant="secondary"
+          >
+            Cancel
+          </Button>
+          <Button
+            disabled={createMutation.isPending || !supplierId || lines.length === 0}
+            type="submit"
+            variant="primary"
+          >
+            <Save size={16} />
+            {createMutation.isPending ? 'Saving...' : 'Create Stock Receipt'}
+          </Button>
+        </div>
       </form>
     </section>
   )

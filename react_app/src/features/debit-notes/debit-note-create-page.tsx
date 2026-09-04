@@ -1,11 +1,21 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Save, Trash2 } from 'lucide-react'
+import { ArrowLeft, FileCheck, Save, Trash2 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { PageHeader } from '@/design-system/page-header'
+import {
+  Button,
+  DataTable,
+  FormCard,
+  FormField,
+  FormGrid,
+  Money,
+  NumberInput,
+  PageHeader,
+  SelectInput,
+  TextAreaInput,
+  TextInput,
+} from '@/design-system'
 import { listContacts } from '@/features/contacts/contacts-api'
 import {
   createDebitNote,
@@ -69,6 +79,22 @@ export function DebitNoteCreatePage() {
     setLines((prev) => prev.filter((l) => l.id !== id))
   }
 
+  const { subtotal, taxAmount, grandTotal } = useMemo(() => {
+    let sub = 0
+    let tax = 0
+    lines.forEach((l) => {
+      const lineSub = (l.quantity || 0) * (l.unitPrice || 0)
+      const lineTax = (lineSub * (l.taxRate || 0)) / 100
+      sub += lineSub
+      tax += lineTax
+    })
+    return {
+      subtotal: sub,
+      taxAmount: tax,
+      grandTotal: sub + tax,
+    }
+  }, [lines])
+
   const createMutation = useMutation({
     mutationFn: (req: CreateDebitNoteRequest) => createDebitNote(req),
     onSuccess: () => {
@@ -115,130 +141,97 @@ export function DebitNoteCreatePage() {
     <section className="workspace-page">
       <Link className="form-back-link" to={appRoutes.debitNotes}>
         <ArrowLeft size={16} /> Back to Debit Notes
-        
       </Link>
 
       <PageHeader
         eyebrow="Purchases / Returns"
         title="New Debit Note"
         description="Draft debit notes for vendor purchase returns, price differences, or damaged goods deductions."
-        actions={
-          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-            <Button
-              onClick={() => navigate(appRoutes.debitNotes)}
-              type="button"
-              variant="secondary"
-            >
-              Cancel
-            </Button>
-            <Button
-              disabled={createMutation.isPending || !supplierId || lines.length === 0}
-              form="dn-form"
-              type="submit"
-              variant="primary"
-            >
-              <Save size={16} />
-              {createMutation.isPending ? 'Saving...' : 'Create Debit Note'}
-            </Button>
-          </div>
-        }
       />
 
       {feedback && (
         <div
-          className={`directory-state ${feedback.type === 'error' ? 'directory-state--error' : ''}`}
+          className={`banner ${feedback.type === 'success' ? 'banner--success' : 'banner--error'}`}
           role="alert"
-          style={{ marginBottom: 'var(--space-4)', minHeight: 'auto', padding: 'var(--space-3)' }}
+          style={{ marginBottom: 'var(--space-4)' }}
         >
-          <strong>{feedback.message}</strong>
+          <span>{feedback.message}</span>
+          <button className="banner-dismiss" onClick={() => setFeedback(null)} type="button">
+            ✕
+          </button>
         </div>
       )}
 
-      <form className="create-form-container" id="dn-form" onSubmit={handleSubmit}>
-          <div className="form-card">
-          <div className="form-card-header">
-            <h2 className="form-card-title">1. Supplier & Reason</h2>
-          </div>
-            <div className="form-grid--auto">
-              <label className="field-group">
-                <span>Supplier / Vendor *</span>
-                <select
-                  onChange={(e) => setSupplierId(e.target.value)}
-                  required
-                  value={supplierId}
-                >
-                  <option value="">-- Select Supplier --</option>
-                  {suppliers.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.displayName}
-                    </option>
-                  ))}
-                </select>
-              </label>
+      <form className="create-form-container" onSubmit={handleSubmit}>
+        <FormCard
+          description="Identify the supplier and commercial reason for returning inventory or adjusting payables."
+          stepNumber={1}
+          title="Supplier & Reason"
+        >
+          <FormGrid columns={3}>
+            <FormField label="Supplier / Vendor" required>
+              <SelectInput
+                onChange={(e) => setSupplierId(e.target.value)}
+                options={suppliers.map((s) => ({
+                  value: s.id,
+                  label: s.displayName,
+                }))}
+                placeholderOption="-- Select Supplier --"
+                required
+                value={supplierId}
+              />
+            </FormField>
 
-              <label className="field-group">
-                <span>Debit Note Date *</span>
-                <input
-                  onChange={(e) => setNoteDate(e.target.value)}
-                  required
-                  type="date"
-                  value={noteDate}
-                />
-              </label>
+            <FormField label="Debit Note Date" required>
+              <TextInput
+                onChange={(e) => setNoteDate(e.target.value)}
+                required
+                type="date"
+                value={noteDate}
+              />
+            </FormField>
 
-              <label className="field-group">
-                <span>Return Reason</span>
-                <input
-                  onChange={(e) => setReturnReason(e.target.value)}
-                  placeholder="e.g. Damaged during transit / expired"
-                  type="text"
-                  value={returnReason}
-                />
-              </label>
+            <FormField label="Return Reason" required>
+              <TextInput
+                onChange={(e) => setReturnReason(e.target.value)}
+                placeholder="e.g. Damaged during transit / expired"
+                required
+                value={returnReason}
+              />
+            </FormField>
+          </FormGrid>
+        </FormCard>
 
-              <label className="field-group">
-                <span>Internal Notes</span>
-                <input
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Additional remarks..."
-                  type="text"
-                  value={notes}
-                />
-              </label>
+        <FormCard
+          description="Select catalog items, quantities to return, agreed debit rates, and lot batches."
+          headerAction={
+            <div style={{ minWidth: 260 }}>
+              <SelectInput
+                onChange={(e) => {
+                  if (e.target.value) {
+                    handleAddItem(e.target.value)
+                    e.target.value = ''
+                  }
+                }}
+                options={catalogItems.map((item) => ({
+                  value: item.id,
+                  label: item.name,
+                }))}
+                placeholderOption="+ Add Item to Return..."
+                value=""
+              />
             </div>
-          </div>
-
-          <div className="form-card">
-            <div className="form-card-header">
-              <div>
-                <h2 className="form-card-title">2. Items to Return</h2>
-                <p className="form-card-description">Select goods to return to supplier for credit adjustment</p>
-              </div>
-              <div>
-                <select
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      handleAddItem(e.target.value)
-                      e.target.value = ''
-                    }
-                  }}
-                  value=""
-                >
-                  <option value="">+ Add Item to Return...</option>
-                  {catalogItems.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+          }
+          stepNumber={2}
+          title={`Items to Return (${lines.length})`}
+        >
+          {lines.length === 0 ? (
+            <div className="directory-state" style={{ padding: 'var(--space-6)' }}>
+              <FileCheck size={28} />
+              <p>No items added yet. Select an item above to add to debit note.</p>
             </div>
-
-            {lines.length === 0 ? (
-              <div className="directory-state" style={{ minHeight: '120px' }}>
-                No items added yet. Select an item above to add to debit note.
-              </div>
-            ) : (
+          ) : (
+            <>
               <DataTable caption="Returned items">
                 <thead>
                   <tr>
@@ -246,91 +239,98 @@ export function DebitNoteCreatePage() {
                     <th className="numeric-cell" scope="col">Quantity</th>
                     <th className="numeric-cell" scope="col">Unit Cost (₹)</th>
                     <th scope="col">Batch #</th>
+                    <th className="numeric-cell" scope="col">Total</th>
                     <th style={{ width: '40px' }} />
                   </tr>
                 </thead>
                 <tbody>
-                  {lines.map((line) => (
-                    <tr key={line.id}>
-                      <td>
-                        <strong>{line.itemName}</strong>
-                      </td>
-                      <td className="numeric-cell">
-                        <input
-                          min="1"
-                          onChange={(e) => handleUpdateLine(line.id, { quantity: parseFloat(e.target.value) || 0 })}
-                          step="any"
-                          style={{
-                            background: 'var(--bg-surface)',
-                            border: '1px solid var(--border-strong)',
-                            borderRadius: 'var(--radius)',
-                            color: 'var(--text-primary)',
-                            height: '28px',
-                            padding: '0 var(--space-2)',
-                            textAlign: 'right',
-                            width: '80px',
-                          }}
-                          type="number"
-                          value={line.quantity}
-                        />
-                      </td>
-                      <td className="numeric-cell">
-                        <input
-                          min="0"
-                          onChange={(e) => handleUpdateLine(line.id, { unitPrice: parseFloat(e.target.value) || 0 })}
-                          step="0.01"
-                          style={{
-                            background: 'var(--bg-surface)',
-                            border: '1px solid var(--border-strong)',
-                            borderRadius: 'var(--radius)',
-                            color: 'var(--text-primary)',
-                            height: '28px',
-                            padding: '0 var(--space-2)',
-                            textAlign: 'right',
-                            width: '100px',
-                          }}
-                          type="number"
-                          value={line.unitPrice}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          onChange={(e) => handleUpdateLine(line.id, { batchNumber: e.target.value })}
-                          placeholder="Batch"
-                          style={{
-                            background: 'var(--bg-surface)',
-                            border: '1px solid var(--border)',
-                            borderRadius: 'var(--radius)',
-                            color: 'var(--text-primary)',
-                            height: '28px',
-                            padding: '0 4px',
-                            width: '100px',
-                          }}
-                          value={line.batchNumber}
-                        />
-                      </td>
-                      <td>
-                        <button
-                          aria-label="Remove item"
-                          onClick={() => handleRemoveLine(line.id)}
-                          style={{
-                            background: 'transparent',
-                            border: 0,
-                            color: 'var(--neg-text)',
-                            cursor: 'pointer',
-                            padding: '4px',
-                          }}
-                          type="button"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {lines.map((line) => {
+                    const lineTotal = (line.quantity || 0) * (line.unitPrice || 0) * (1 + (line.taxRate || 0) / 100)
+                    return (
+                      <tr key={line.id}>
+                        <td>
+                          <strong>{line.itemName}</strong>
+                        </td>
+                        <td className="numeric-cell">
+                          <NumberInput
+                            min={1}
+                            onChange={(e) => handleUpdateLine(line.id, { quantity: parseFloat(e.target.value) || 0 })}
+                            step="1"
+                            style={{ width: 85 }}
+                            value={line.quantity}
+                          />
+                        </td>
+                        <td className="numeric-cell">
+                          <NumberInput
+                            currencyPrefix="₹"
+                            min={0}
+                            onChange={(e) => handleUpdateLine(line.id, { unitPrice: parseFloat(e.target.value) || 0 })}
+                            step="0.01"
+                            style={{ width: 110 }}
+                            value={line.unitPrice}
+                          />
+                        </td>
+                        <td>
+                          <TextInput
+                            onChange={(e) => handleUpdateLine(line.id, { batchNumber: e.target.value })}
+                            placeholder="Batch"
+                            style={{ width: 110 }}
+                            value={line.batchNumber}
+                          />
+                        </td>
+                        <td className="numeric-cell">
+                          <strong>
+                            <Money amount={lineTotal} />
+                          </strong>
+                        </td>
+                        <td>
+                          <Button
+                            aria-label="Remove item"
+                            onClick={() => handleRemoveLine(line.id)}
+                            type="button"
+                            variant="ghost"
+                          >
+                            <Trash2 color="var(--color-danger)" size={14} />
+                          </Button>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </DataTable>
-            )}
-          </div>
+
+              <div className="form-summary-card">
+                <div className="form-summary-row">
+                  <span className="cell-muted">Taxable Subtotal:</span>
+                  <Money amount={subtotal} />
+                </div>
+                <div className="form-summary-row">
+                  <span className="cell-muted">Adjusted Tax:</span>
+                  <Money amount={taxAmount} />
+                </div>
+                <div className="form-summary-row form-summary-row--total">
+                  <span>Debit Note Total:</span>
+                  <Money amount={grandTotal} />
+                </div>
+              </div>
+            </>
+          )}
+        </FormCard>
+
+        <FormCard
+          description="Internal documentation and audit details."
+          stepNumber={3}
+          title="Internal Remarks"
+        >
+          <FormField label="Internal Notes">
+            <TextAreaInput
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Additional remarks..."
+              rows={2}
+              value={notes}
+            />
+          </FormField>
+        </FormCard>
 
         <div className="form-actions-bar">
           <Button
@@ -341,7 +341,7 @@ export function DebitNoteCreatePage() {
             Cancel
           </Button>
           <Button
-            disabled={createMutation.isPending || !contactId || lines.length === 0}
+            disabled={createMutation.isPending || !supplierId || lines.length === 0}
             type="submit"
             variant="primary"
           >

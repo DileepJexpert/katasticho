@@ -3,8 +3,18 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Save } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { Button } from '@/design-system/button'
-import { PageHeader } from '@/design-system/page-header'
+import {
+  Button,
+  CheckboxInput,
+  FormCard,
+  FormField,
+  FormGrid,
+  NumberInput,
+  PageHeader,
+  SelectInput,
+  TextAreaInput,
+  TextInput,
+} from '@/design-system'
 import { createContact, type CreateContactRequest } from '@/features/contacts/contacts-api'
 
 export function ContactCreatePage() {
@@ -97,340 +107,295 @@ export function ContactCreatePage() {
     <section className="workspace-page">
       <Link className="form-back-link" to={appRoutes.contacts}>
         <ArrowLeft size={16} /> Back to Contacts
-        
       </Link>
 
       <PageHeader
         eyebrow="Master Data"
         title="New Contact"
         description="Add a customer, vendor, or dual-role commercial partner with GST registration and address masters."
-        actions={
-          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-            <Button
-              onClick={() => navigate(appRoutes.contacts)}
-              type="button"
-              variant="secondary"
-            >
-              Cancel
-            </Button>
-            <Button
-              disabled={createMutation.isPending || !displayName.trim()}
-              form="contact-form"
-              type="submit"
-              variant="primary"
-            >
-              <Save size={16} />
-              {createMutation.isPending ? 'Saving...' : 'Save Contact'}
-            </Button>
-          </div>
-        }
       />
 
       {feedback && (
         <div
-          className={`directory-state ${feedback.type === 'error' ? 'directory-state--error' : ''}`}
+          className={`banner ${feedback.type === 'success' ? 'banner--success' : 'banner--error'}`}
           role="alert"
-          style={{ marginBottom: 'var(--space-4)', minHeight: 'auto', padding: 'var(--space-3)' }}
+          style={{ marginBottom: 'var(--space-4)' }}
         >
-          <strong>{feedback.message}</strong>
+          <span>{feedback.message}</span>
+          <button className="banner-dismiss" onClick={() => setFeedback(null)} type="button">
+            ✕
+          </button>
         </div>
       )}
 
-      <form className="create-form-container" id="contact-form" onSubmit={handleSubmit}>
-          <div className="form-card">
-          <div className="form-card-header">
-            <h2 className="form-card-title">1. General & Tax Details</h2>
-          </div>
-            <div className="form-grid--auto">
-              <label className="field-group">
-                <span>Contact Role *</span>
-                <select
-                  onChange={(e) => setContactType(e.target.value as 'CUSTOMER' | 'VENDOR' | 'BOTH')}
-                  value={contactType}
-                >
-                  <option value="CUSTOMER">Customer (Sales & Receivables)</option>
-                  <option value="VENDOR">Vendor (Purchases & Payables)</option>
-                  <option value="BOTH">Both (Customer & Vendor)</option>
-                </select>
-              </label>
+      <form className="create-form-container" onSubmit={handleSubmit}>
+        <FormCard
+          description="Contact roles, legal identity, GSTIN, and direct communication coordinates."
+          stepNumber={1}
+          title="General & Tax Details"
+        >
+          <FormGrid columns={3}>
+            <FormField label="Contact Role" required>
+              <SelectInput
+                onChange={(e) => setContactType(e.target.value as 'CUSTOMER' | 'VENDOR' | 'BOTH')}
+                options={[
+                  { value: 'CUSTOMER', label: 'Customer (Sales & Receivables)' },
+                  { value: 'VENDOR', label: 'Vendor (Purchases & Payables)' },
+                  { value: 'BOTH', label: 'Both (Customer & Vendor)' },
+                ]}
+                required
+                value={contactType}
+              />
+            </FormField>
 
-              <label className="field-group">
-                <span>Display Name *</span>
-                <input
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="e.g. Apex Health Corp"
-                  required
-                  type="text"
-                  value={displayName}
-                />
-              </label>
+            <FormField label="Display Name" required>
+              <TextInput
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="e.g. Apex Health Corp"
+                required
+                value={displayName}
+              />
+            </FormField>
 
-              <label className="field-group">
-                <span>Company / Legal Entity Name</span>
-                <input
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  placeholder="Official registered company name"
-                  type="text"
-                  value={companyName}
-                />
-              </label>
+            <FormField label="Company / Legal Entity Name">
+              <TextInput
+                onChange={(e) => setCompanyName(e.target.value)}
+                placeholder="Official registered company name"
+                value={companyName}
+              />
+            </FormField>
 
-              <label className="field-group">
-                <span>GSTIN (15 characters)</span>
-                <input
-                  maxLength={15}
-                  onChange={(e) => setGstin(e.target.value.toUpperCase())}
-                  placeholder="e.g. 27AAAAA0000A1Z5"
-                  type="text"
-                  value={gstin}
-                />
-              </label>
+            <FormField label="GSTIN (15 characters)">
+              <TextInput
+                maxLength={15}
+                onChange={(e) => setGstin(e.target.value.toUpperCase())}
+                placeholder="e.g. 27AAAAA0000A1Z5"
+                value={gstin}
+              />
+            </FormField>
 
-              <label className="field-group">
-                <span>PAN Number</span>
-                <input
-                  maxLength={10}
-                  onChange={(e) => setPan(e.target.value.toUpperCase())}
-                  placeholder="e.g. AAAAA0000A"
-                  type="text"
-                  value={pan}
-                />
-              </label>
+            <FormField label="PAN Number">
+              <TextInput
+                maxLength={10}
+                onChange={(e) => setPan(e.target.value.toUpperCase())}
+                placeholder="e.g. AAAAA0000A"
+                value={pan}
+              />
+            </FormField>
 
-              <label className="field-group">
-                <span>Email Address</span>
-                <input
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="billing@company.com"
-                  type="email"
-                  value={email}
-                />
-              </label>
+            <FormField label="Email Address">
+              <TextInput
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="billing@company.com"
+                type="email"
+                value={email}
+              />
+            </FormField>
 
-              <label className="field-group">
-                <span>Phone / Landline</span>
-                <input
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="022-28001234"
-                  type="text"
-                  value={phone}
-                />
-              </label>
+            <FormField label="Phone / Landline">
+              <TextInput
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="022-28001234"
+                value={phone}
+              />
+            </FormField>
 
-              <label className="field-group">
-                <span>Mobile Number</span>
-                <input
-                  onChange={(e) => setMobile(e.target.value)}
-                  placeholder="+91 98200 12345"
-                  type="text"
-                  value={mobile}
-                />
-              </label>
-            </div>
-          </div>
+            <FormField label="Mobile Number">
+              <TextInput
+                onChange={(e) => setMobile(e.target.value)}
+                placeholder="+91 98200 12345"
+                value={mobile}
+              />
+            </FormField>
+          </FormGrid>
+        </FormCard>
 
-          <div className="form-card">
-          <div className="form-card-header">
-            <h2 className="form-card-title">2. Billing & Shipping Address</h2>
-          </div>
-            <div className="form-grid--auto">
-              <label className="field-group field-group--span-2">
-                <span>Billing Address Line 1</span>
-                <input
+        <FormCard
+          description="Principal place of business and dispatch delivery coordinates."
+          stepNumber={2}
+          title="Billing & Shipping Address"
+        >
+          <FormGrid columns={3}>
+            <div style={{ gridColumn: 'span 2' }}>
+              <FormField label="Billing Address Line 1">
+                <TextInput
                   onChange={(e) => setBillingAddressLine1(e.target.value)}
                   placeholder="Street, suite, floor, industrial area"
-                  type="text"
                   value={billingAddressLine1}
                 />
-              </label>
-
-              <label className="field-group">
-                <span>City</span>
-                <input
-                  onChange={(e) => setBillingCity(e.target.value)}
-                  placeholder="e.g. Mumbai"
-                  type="text"
-                  value={billingCity}
-                />
-              </label>
-
-              <label className="field-group">
-                <span>State</span>
-                <input
-                  onChange={(e) => setBillingState(e.target.value)}
-                  placeholder="e.g. Maharashtra"
-                  type="text"
-                  value={billingState}
-                />
-              </label>
-
-              <label className="field-group">
-                <span>State Code (GST)</span>
-                <input
-                  maxLength={2}
-                  onChange={(e) => setBillingStateCode(e.target.value)}
-                  placeholder="e.g. 27"
-                  type="text"
-                  value={billingStateCode}
-                />
-              </label>
-
-              <label className="field-group">
-                <span>Postal Code</span>
-                <input
-                  onChange={(e) => setBillingPostalCode(e.target.value)}
-                  placeholder="e.g. 400001"
-                  type="text"
-                  value={billingPostalCode}
-                />
-              </label>
-
-              <label className="field-group">
-                <span>Country</span>
-                <input
-                  onChange={(e) => setBillingCountry(e.target.value)}
-                  type="text"
-                  value={billingCountry}
-                />
-              </label>
+              </FormField>
             </div>
 
-            <div style={{ marginTop: 'var(--space-4)' }}>
-              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                <input
-                  checked={sameAsBilling}
-                  onChange={(e) => setSameAsBilling(e.target.checked)}
-                  type="checkbox"
-                />
-                <span style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--fw-medium)' }}>
-                  Shipping address is identical to billing address
-                </span>
-              </label>
-            </div>
+            <FormField label="City">
+              <TextInput
+                onChange={(e) => setBillingCity(e.target.value)}
+                placeholder="e.g. Mumbai"
+                value={billingCity}
+              />
+            </FormField>
 
-            {!sameAsBilling && (
-              <div style={{ display: 'grid', gap: 'var(--space-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', marginTop: 'var(--space-4)' }}>
-                <label className="field-group field-group--span-2">
-                <span>Shipping Address Line 1</span>
-                  <input
-                    onChange={(e) => setShippingAddressLine1(e.target.value)}
-                    placeholder="Shipping destination address"
-                    type="text"
-                    value={shippingAddressLine1}
-                  />
-              </label>
-                <label className="field-group">
-                <span>Shipping City</span>
-                  <input
+            <FormField label="State">
+              <TextInput
+                onChange={(e) => setBillingState(e.target.value)}
+                placeholder="e.g. Maharashtra"
+                value={billingState}
+              />
+            </FormField>
+
+            <FormField label="State Code (GST)">
+              <TextInput
+                maxLength={2}
+                onChange={(e) => setBillingStateCode(e.target.value)}
+                placeholder="e.g. 27"
+                value={billingStateCode}
+              />
+            </FormField>
+
+            <FormField label="Postal Code">
+              <TextInput
+                onChange={(e) => setBillingPostalCode(e.target.value)}
+                placeholder="e.g. 400001"
+                value={billingPostalCode}
+              />
+            </FormField>
+
+            <FormField label="Country">
+              <TextInput
+                onChange={(e) => setBillingCountry(e.target.value)}
+                value={billingCountry}
+              />
+            </FormField>
+          </FormGrid>
+
+          <div style={{ marginTop: 'var(--space-4)' }}>
+            <CheckboxInput
+              checked={sameAsBilling}
+              description="Shipping address is identical to billing address"
+              onChange={(e) => setSameAsBilling(e.target.checked)}
+              title="Same as Billing Address"
+            />
+          </div>
+
+          {!sameAsBilling && (
+            <div style={{ marginTop: 'var(--space-4)', paddingTop: 'var(--space-3)', borderTop: '1px dashed var(--color-border)' }}>
+              <h4 style={{ fontSize: 'var(--text-sm)', marginBottom: 'var(--space-3)' }}>Shipping Address</h4>
+              <FormGrid columns={3}>
+                <div style={{ gridColumn: 'span 2' }}>
+                  <FormField label="Shipping Address Line 1">
+                    <TextInput
+                      onChange={(e) => setShippingAddressLine1(e.target.value)}
+                      placeholder="Shipping destination address"
+                      value={shippingAddressLine1}
+                    />
+                  </FormField>
+                </div>
+
+                <FormField label="Shipping City">
+                  <TextInput
                     onChange={(e) => setShippingCity(e.target.value)}
                     placeholder="e.g. Pune"
-                    type="text"
                     value={shippingCity}
                   />
-              </label>
-                <label className="field-group">
-                <span>Shipping State</span>
-                  <input
+                </FormField>
+
+                <FormField label="Shipping State">
+                  <TextInput
                     onChange={(e) => setShippingState(e.target.value)}
                     placeholder="e.g. Maharashtra"
-                    type="text"
                     value={shippingState}
                   />
-              </label>
-                <label className="field-group">
-                <span>Shipping State Code</span>
-                  <input
+                </FormField>
+
+                <FormField label="Shipping State Code">
+                  <TextInput
                     maxLength={2}
                     onChange={(e) => setShippingStateCode(e.target.value)}
                     placeholder="e.g. 27"
-                    type="text"
                     value={shippingStateCode}
                   />
-              </label>
-                <label className="field-group">
-                <span>Shipping Postal Code</span>
-                  <input
+                </FormField>
+
+                <FormField label="Shipping Postal Code">
+                  <TextInput
                     onChange={(e) => setShippingPostalCode(e.target.value)}
                     placeholder="e.g. 411001"
-                    type="text"
                     value={shippingPostalCode}
                   />
-              </label>
-                <label className="field-group">
-                <span>Shipping Country</span>
-                  <input
+                </FormField>
+
+                <FormField label="Shipping Country">
+                  <TextInput
                     onChange={(e) => setShippingCountry(e.target.value)}
-                    type="text"
                     value={shippingCountry}
                   />
-              </label>
-              </div>
-            )}
-          </div>
-
-          <div className="form-card">
-          <div className="form-card-header">
-            <h2 className="form-card-title">3. Credit & Commercial Terms</h2>
-          </div>
-            <div className="form-grid--auto">
-              <label className="field-group">
-                <span>Credit Limit (₹)</span>
-                <input
-                  min="0"
-                  onChange={(e) => setCreditLimit(parseFloat(e.target.value) || 0)}
-                  type="number"
-                  value={creditLimit}
-                />
-              </label>
-
-              <label className="field-group">
-                <span>Payment Terms (Days)</span>
-                <input
-                  min="0"
-                  onChange={(e) => setPaymentTermsDays(parseInt(e.target.value) || 0)}
-                  type="number"
-                  value={paymentTermsDays}
-                />
-              </label>
-
-              <label className="field-group">
-                <span>Opening Balance (₹)</span>
-                <input
-                  onChange={(e) => setOpeningBalance(parseFloat(e.target.value) || 0)}
-                  type="number"
-                  value={openingBalance}
-                />
-              </label>
+                </FormField>
+              </FormGrid>
             </div>
+          )}
+        </FormCard>
 
-            <label className="field-group" style={{ marginTop: 'var(--space-4)' }}>
-              <span>Internal Notes</span>
-              <textarea
+        <FormCard
+          description="Set credit policies, default payment terms, and opening receivables/payables."
+          stepNumber={3}
+          title="Credit & Commercial Terms"
+        >
+          <FormGrid columns={3}>
+            <FormField label="Credit Limit">
+              <NumberInput
+                currencyPrefix="₹"
+                min={0}
+                onChange={(e) => setCreditLimit(parseFloat(e.target.value) || 0)}
+                value={creditLimit}
+              />
+            </FormField>
+
+            <FormField label="Payment Terms">
+              <NumberInput
+                min={0}
+                onChange={(e) => setPaymentTermsDays(parseInt(e.target.value) || 0)}
+                unitSuffix="Days"
+                value={paymentTermsDays}
+              />
+            </FormField>
+
+            <FormField label="Opening Balance">
+              <NumberInput
+                currencyPrefix="₹"
+                onChange={(e) => setOpeningBalance(parseFloat(e.target.value) || 0)}
+                value={openingBalance}
+              />
+            </FormField>
+          </FormGrid>
+
+          <div style={{ marginTop: 'var(--space-4)' }}>
+            <FormField label="Internal Notes">
+              <TextAreaInput
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Internal customer background, credit remarks, etc."
                 rows={2}
                 value={notes}
               />
-            </label>
+            </FormField>
           </div>
+        </FormCard>
 
-          <div className="form-actions-bar">
-            <Button
-              onClick={() => navigate(appRoutes.contacts)}
-              type="button"
-              variant="secondary"
-            >
-              Cancel
-            </Button>
-            <Button
-              disabled={createMutation.isPending || !displayName.trim()}
-              type="submit"
-              variant="primary"
-            >
-              <Save size={16} />
-              {createMutation.isPending ? 'Saving...' : 'Save Contact'}
-            </Button>
-          </div>
+        <div className="form-actions-bar">
+          <Button
+            onClick={() => navigate(appRoutes.contacts)}
+            type="button"
+            variant="secondary"
+          >
+            Cancel
+          </Button>
+          <Button
+            disabled={createMutation.isPending || !displayName.trim()}
+            type="submit"
+            variant="primary"
+          >
+            <Save size={16} />
+            {createMutation.isPending ? 'Saving...' : 'Save Contact'}
+          </Button>
+        </div>
       </form>
     </section>
   )
