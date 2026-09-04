@@ -294,14 +294,12 @@ the ERP.
   search, detail view, statement with date range filter, ledger entries, and
   same-name disambiguation through company, phone, GSTIN, and role badges.
   Contact create/edit/import remain pending.
-- [x] Items pilot: server-paginated read-only directory with search, item code,
-  unit, GST, prices, on-hand, negative-stock exception filtering, and a
-  contract-verified detail review for item facts, warehouse balances, stock
-  ledger, batches, and packaging barcodes. Item create/edit/import, stock
-  adjustments, reversals, and barcode/serial mutations remain Flutter-only.
-  **Release guard:** React deliberately exposes no Item mutation route or
-  quick-create action until the backend can export the approved OpenAPI snapshot
-  and the typed write contracts and acceptance cases are reviewed.
+- [x] Items: server-paginated directory, detail review, and typed create/edit
+  workflow for catalog identity, pricing, GST/HSN, primary and transaction
+  units, batch controls, preferred vendor, and create-only opening stock. Stock
+  adjustments, reversals, imports, and barcode/serial mutations remain
+  Flutter-only. Item writes use the existing ItemController request contracts
+  and preserve its opening-stock audit rule.
 - [x] Sales Orders pilot: server-paginated, status-filtered directory and
   read-only document review using the existing Sales Order list/detail
   contracts. Creation, confirmation, cancellation, dispatch, invoicing, and
@@ -314,14 +312,15 @@ the ERP.
   read-only line review using the existing Picklist contracts. Creating,
   starting, changing picked quantities, completing, and cancelling remain
   Flutter-only.
-- [ ] Items: create/edit item master, opening stock, imports, serial operations,
-  and stock-execution actions. Read-only pricing, tax/HSN, units, batch/expiry,
-  packaging, warehouse, and ledger review are complete.
-- [ ] Shared masters: warehouse and price-list read-only directories and detail
-  review are complete. Warehouse/zone/putaway and price-list/customer-tier
-  writes, tax groups, branches, users, and entity pickers remain pending.
-  Payment Terms and the Chart of Accounts have read-only reviews; their writes
-  remain Flutter-only.
+- [ ] Items: imports, serial operations, stock adjustments/reversals, and other
+  stock-execution actions. Item master create/edit and create-only opening stock
+  are complete; read-only pricing, tax/HSN, units, batch/expiry, packaging,
+  warehouse, and ledger review remain available.
+- [x] Shared masters: warehouse, price-list, Units of Measure (UoM), and tax-group
+  read-only directories and detail reviews are complete. Warehouse/zone/putaway,
+  price-list/customer-tier, and UoM/tax-group writes, branches, and users remain
+  pending. Payment Terms and the Chart of Accounts have read-only reviews; their
+  writes remain Flutter-only.
 
 #### Purchase-to-pay golden chain
 
@@ -441,7 +440,7 @@ checklists only after the wave starts. Status values are `NOT_STARTED`,
 | R-00 | OpenAPI contract and route/endpoint ledger | 0 | DISCOVERY | Local backend runs, but `/v3/api-docs` currently returns `500`; snapshot and generated types are blocked pending a separately authorised backend fix. React migration must not repair it. |
 | R-01 | Browser auth, tenant, roles, capabilities, shell | 1 | BUILDING | React consumes the existing web-session endpoint, keeps the access token in memory, and sends the tenant header. Navigation registry and command palette are in progress; no backend change is permitted in this stream. |
 | R-02 | Design system and shared ERP primitives | 1 | BUILDING | Token CSS plus initial Button, TextField, StatusChip, Money, PageHeader, and DataTable primitives pass lint, tests, and production build. |
-| R-03 | Contacts, supplier roles, item and shared masters | 2 | BUILDING | Read-only Contacts pilot is live in source: search, server paging, role counts, Customer/Vendor/Both/Supplier filters, and same-name disambiguation. Create, detail, edit, ledger, and import remain pending. |
+| R-03 | Contacts, supplier roles, item and shared masters | 2 | BUILDING | Contacts provide search, paging, role counts, detail, statement, and create flows. Items provide typed create/edit for commercial, GST/HSN, unit, batch-control, preferred-vendor, and opening-stock fields; imports and stock-execution mutations remain pending. |
 | R-04 | Purchase -> GRN -> bill -> vendor payment | 2 | NOT_STARTED | Stock/AP/GST/journal golden path passes. |
 | R-05 | Sales -> challan -> invoice -> receipt | 2 | NOT_STARTED | Stock/AR/GST/journal golden path passes, including partial payment. |
 | R-06 | Inventory and pricing operations | 3 | NOT_STARTED | Counts, transfers, batches, FEFO, valuation, and prices pass QA. |

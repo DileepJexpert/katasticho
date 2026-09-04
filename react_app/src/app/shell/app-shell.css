@@ -717,7 +717,7 @@
 .pagination-actions button { align-items: center; background: var(--bg-surface); border: 1px solid var(--border-strong); border-radius: var(--radius); color: var(--text-secondary); display: inline-flex; height: 28px; justify-content: center; width: 28px; }
 .pagination-actions button:hover:not(:disabled) { background: var(--bg-subtle); color: var(--text-primary); }
 .pagination-actions button:disabled { color: var(--text-muted); }
-.directory-state { align-items: center; color: var(--text-secondary); display: flex; flex-direction: column; gap: var(--space-2); min-height: 240px; justify-content: center; padding: var(--space-6); text-align: center; }
+.directory-state { align-items: center; color: var(--text-secondary); display: flex; flex-direction: column; gap: var(--space-2); min-height: 176px; justify-content: center; padding: var(--space-4); text-align: center; }
 .directory-state strong { color: var(--text-primary); font-weight: var(--fw-semibold); }
 .directory-state p { font-size: var(--text-sm); max-width: 460px; }
 .directory-state--error { background: var(--neg-bg); color: var(--neg-text); }

@@ -57,7 +57,12 @@ function applyThemeToDOM(mode: ThemeMode, palette: BrandPalette) {
 
   let resolved = mode
   if (mode === 'system') {
-    resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+    resolved =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-color-scheme: dark)').matches
+        ? 'dark'
+        : 'light'
   }
   root.setAttribute('data-theme', resolved)
 }
@@ -71,11 +76,14 @@ export const useThemeStore = create<ThemeState>((set, get) => {
     applyThemeToDOM(initialMode, initialPalette)
 
     // Listen to OS theme changes if on system mode
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-      if (get().themeMode === 'system') {
-        applyThemeToDOM('system', get().brandPalette)
-      }
-    })
+    if (typeof window.matchMedia === 'function') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+      mediaQuery.addEventListener?.('change', () => {
+        if (get().themeMode === 'system') {
+          applyThemeToDOM('system', get().brandPalette)
+        }
+      })
+    }
   }
 
   return {

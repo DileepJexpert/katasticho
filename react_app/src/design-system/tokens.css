@@ -110,6 +110,19 @@
   --text-secondary: #A8A8A1;
   --text-muted: #787871;
   --text-on-brand: #FFFFFF;
+
+  --pos-text: #4ADE80;
+  --pos-bg: rgba(21, 128, 61, 0.2);
+  --pos-border: rgba(34, 197, 94, 0.3);
+  --neg-text: #F87171;
+  --neg-bg: rgba(190, 58, 52, 0.2);
+  --neg-border: rgba(239, 68, 68, 0.3);
+  --warn-text: #FBBF24;
+  --warn-bg: rgba(180, 83, 9, 0.2);
+  --warn-border: rgba(245, 158, 11, 0.3);
+  --info-text: #60A5FA;
+  --info-bg: rgba(29, 78, 216, 0.2);
+  --info-border: rgba(59, 130, 246, 0.3);
 }
 
 /* Brand Palette Themes */

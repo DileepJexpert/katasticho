@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useId, type KeyboardEvent } from 'react'
+import { useState, useEffect, useRef, useId, type KeyboardEvent, type ReactNode } from 'react'
 import { Search, X, Loader2, Check } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -19,6 +19,7 @@ export interface EntityPickerProps<T> {
   className?: string
   id?: string
   ariaLabel?: string
+  renderEmpty?: (query: string) => ReactNode
 }
 
 export function EntityPicker<T>({
@@ -38,6 +39,7 @@ export function EntityPicker<T>({
   className,
   id,
   ariaLabel = 'Search options',
+  renderEmpty,
 }: EntityPickerProps<T>) {
   const generatedId = useId()
   const inputId = id || generatedId
@@ -251,9 +253,13 @@ export function EntityPicker<T>({
           className="entity-picker__options"
         >
           {results.length === 0 ? (
-            <div className="entity-picker__empty">
-              {isLoading ? 'Searching...' : 'No matching records found'}
-            </div>
+            renderEmpty && !isLoading ? (
+              renderEmpty(query.trim())
+            ) : (
+              <div className="entity-picker__empty">
+                {isLoading ? 'Searching...' : 'No matching records found'}
+              </div>
+            )
           ) : (
             results.map((item, idx) => {
               const itemId = getOptionId(item)

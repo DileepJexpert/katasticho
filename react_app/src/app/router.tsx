@@ -73,6 +73,8 @@ import { GstCompliancePage } from '@/features/gst/gst-compliance-page'
 import { TdsCompliancePage } from '@/features/tax/tds-compliance-page'
 import { TcsCompliancePage } from '@/features/tax/tcs-compliance-page'
 import { TaxAccountMappingsPage } from '@/features/tax/tax-account-mappings-page'
+import { TaxGroupsPage } from '@/features/tax/tax-groups-page'
+import { UomsPage } from '@/features/inventory/uoms-page'
 import { FranchisePage } from '@/features/franchise/franchise-page'
 import { FranchiseNodeDetailPage } from '@/features/franchise/franchise-node-detail-page'
 import { KenyaCompliancePage } from '@/features/kenya/kenya-compliance-page'
@@ -82,6 +84,7 @@ import { UsersPage } from '@/features/settings/users-page'
 import { PaymentTermsPage } from '@/features/settings/payment-terms-page'
 import { PdfTemplateCustomizerPage } from '@/features/settings/pdf-template-customizer-page'
 import { ItemDetailPage } from '@/features/items/item-detail-page'
+import { ItemFormPage } from '@/features/items/item-form-page'
 import { ItemsPage } from '@/features/items/items-page'
 import { BatchTracePage } from '@/features/inventory/batch-trace-page'
 import { ShortbookPage } from '@/features/inventory/shortbook-page'
@@ -241,7 +244,11 @@ export const router = createBrowserRouter([
           },
           {
             path: 'items/new',
-            element: <Navigate replace to={appRoutes.items} />,
+            element: <ItemFormPage />,
+          },
+          {
+            path: 'items/:itemId/edit',
+            element: <ItemFormPage />,
           },
           {
             path: 'items/:itemId',
@@ -302,6 +309,10 @@ export const router = createBrowserRouter([
           {
             path: 'price-lists/:priceListId',
             element: <PriceListDetailPage />,
+          },
+          {
+            path: 'inventory/uoms',
+            element: <UomsPage />,
           },
           {
             path: 'sales-orders',
@@ -814,6 +825,10 @@ export const router = createBrowserRouter([
           {
             path: 'settings/tax-accounts',
             element: <TaxAccountMappingsPage />,
+          },
+          {
+            path: 'tax-groups',
+            element: <TaxGroupsPage />,
           },
           {
             path: 'franchise',

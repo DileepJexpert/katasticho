@@ -53,6 +53,7 @@ import {
   Stethoscope,
   Target,
   Wrench,
+  Scale,
 } from 'lucide-react'
 
 export const appRoutes = {
@@ -62,6 +63,8 @@ export const appRoutes = {
   contactDetail: (id: string) => `/contacts/${id}`,
   contactStatement: (id: string) => `/contacts/${id}/statement`,
   items: '/items',
+  itemCreate: '/items/new',
+  itemEdit: (id: string) => '/items/' + id + '/edit',
   itemDetail: (id: string) => `/items/${id}`,
   batchTrace: '/batch-trace',
   shortbook: '/shortbook',
@@ -212,6 +215,8 @@ export const appRoutes = {
   tds: '/compliance/tds',
   tcs: '/compliance/tcs',
   taxAccountMappings: '/settings/tax-accounts',
+  taxGroups: '/tax-groups',
+  uoms: '/inventory/uoms',
   paymentTerms: '/settings/payment-terms',
   franchise: '/franchise',
   franchiseDetail: (nodeId: string) => `/franchise/${nodeId}`,
@@ -498,6 +503,13 @@ export const navGroups: readonly NavGroup[] = [
         description: 'Tier pricing & volume rates',
         icon: Tag,
         to: appRoutes.priceLists,
+      },
+      {
+        id: 'inventory.uoms',
+        label: 'Units of Measure',
+        description: 'Measurement units and baselines',
+        icon: Scale,
+        to: appRoutes.uoms,
       },
       {
         id: 'inventory.batch_trace',
@@ -863,6 +875,13 @@ export const navGroups: readonly NavGroup[] = [
         description: 'GST/VAT input/output GL account bindings',
         icon: Building2,
         to: appRoutes.taxAccountMappings,
+      },
+      {
+        id: 'compliance.tax_groups',
+        label: 'Tax Groups',
+        description: 'GST and tax rate group definitions',
+        icon: Layers,
+        to: appRoutes.taxGroups,
       },
       {
         id: 'compliance.kenya',

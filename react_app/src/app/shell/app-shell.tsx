@@ -3,6 +3,7 @@ import {
   Building2,
   Check,
   ChevronRight,
+  HelpCircle,
   LogOut,
   Menu,
   Moon,
@@ -24,6 +25,7 @@ import {
 } from '@/app/navigation'
 import { Button } from '@/design-system/button'
 import { CommandPalette } from '@/design-system/command-palette'
+import { KeyboardShortcutsModal } from '@/design-system/keyboard-shortcuts-modal'
 import { QuickCreateMenu } from '@/app/shell/quick-create-menu'
 import { OrgSwitcherModal } from '@/features/auth/org-switcher-modal'
 import { getDisabledNavigationIds } from '@/shared/navigation/navigation-settings'
@@ -39,6 +41,7 @@ export function AppShell() {
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
   const [paletteDropdownOpen, setPaletteDropdownOpen] = useState(false)
   const [orgSwitcherOpen, setOrgSwitcherOpen] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [activeFlyoutGroup, setActiveFlyoutGroup] = useState<NavGroup | null>(null)
   const [flyoutPosition, setFlyoutPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
   const [expandedMobileGroups, setExpandedMobileGroups] = useState<Record<string, boolean>>({})
@@ -450,6 +453,17 @@ export function AppShell() {
               {themeMode === 'dark' ? <Moon size={17} /> : <Sun size={17} />}
             </button>
 
+            {/* Keyboard Shortcuts Helper Button */}
+            <button
+              aria-label="Keyboard shortcuts"
+              className="topbar-icon-btn"
+              onClick={() => setShortcutsOpen(true)}
+              title="Keyboard shortcuts (?)"
+              type="button"
+            >
+              <HelpCircle size={17} aria-hidden="true" />
+            </button>
+
             <div className="topbar-divider" />
 
             {/* Organization & User Profile Menu */}
@@ -541,6 +555,13 @@ export function AppShell() {
       <OrgSwitcherModal
         isOpen={orgSwitcherOpen}
         onClose={() => setOrgSwitcherOpen(false)}
+      />
+
+      {/* Keyboard Shortcuts Modal (? / F1) */}
+      <KeyboardShortcutsModal
+        isOpen={shortcutsOpen}
+        onClose={() => setShortcutsOpen(false)}
+        onOpen={() => setShortcutsOpen(true)}
       />
     </div>
   )
