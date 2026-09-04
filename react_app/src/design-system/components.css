@@ -508,6 +508,7 @@
 .document-card__header { align-items: center; display: flex; gap: var(--space-3); justify-content: space-between; margin-bottom: var(--space-3); }
 .document-card__header h2 { margin: 0; }
 .document-card__header-action { align-items: center; display: flex; flex: 0 0 auto; }
+.fact-value--mono { font-family: var(--font-mono); }
 .document-card__actions { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-3); }
 .document-card__toolbar { align-items: center; display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: space-between; margin-bottom: var(--space-3); }
 .document-card__toolbar-meta { color: var(--text-muted); font-size: var(--text-sm); }

@@ -35,7 +35,6 @@ const actions: readonly QuickCreateAction[] = [
   { label: 'New Vendor Bill', to: appRoutes.billCreate, icon: FileSpreadsheet, group: 'Purchases' },
   { label: 'New Debit Note', to: appRoutes.debitNoteCreate, icon: FileText, group: 'Purchases' },
 
-  { label: 'New Item', to: appRoutes.itemCreate, icon: Boxes, group: 'Operations' },
   { label: 'New Contact', to: appRoutes.contactCreate, icon: UsersRound, group: 'Operations' },
   { label: 'New Work Order', to: appRoutes.workOrders, icon: Briefcase, group: 'Operations' },
   { label: 'New Journal Entry', to: appRoutes.journals, icon: Landmark, group: 'Finance' },

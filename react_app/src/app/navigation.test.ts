@@ -108,6 +108,7 @@ describe('navigation', () => {
       'ca.alerts',
       'ca.dispatch',
       'settings.users',
+      'settings.payment_terms',
       'settings.pdf_templates',
       'settings.ai',
     ])

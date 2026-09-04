@@ -1,7 +1,8 @@
 import { apiFetch } from '@/api/client/api-client'
 
-export type AccountType = 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE'
+type NumberLike = number | string | null
 
+/** Read projection returned by the frozen AccountController contract. */
 export type Account = {
   id: string
   code: string
@@ -17,13 +18,12 @@ export type Account = {
   hasChildren: boolean
   childCount: number
   description: string | null
-  openingBalance: number | string | null
+  openingBalance: NumberLike
   currency: string | null
   isActive: boolean
 }
 
 export type AccountTransaction = {
-  id?: string
   lineId: string
   journalEntryId: string
   entryNumber: string
@@ -31,71 +31,21 @@ export type AccountTransaction = {
   sourceModule: string | null
   entryDescription: string | null
   lineDescription: string | null
-  description?: string | null
-  debit: number | string | null
-  credit: number | string | null
+  debit: NumberLike
+  credit: NumberLike
   currency: string | null
-  baseDebit: number | string | null
-  baseCredit: number | string | null
+  baseDebit: NumberLike
+  baseCredit: NumberLike
 }
 
-export type CreateAccountRequest = {
-  code: string
-  name: string
-  type: AccountType | string
-  subType?: string
-  parentId?: string
-  description?: string
-  openingBalance?: number
-  currency?: string
-}
-
-export type UpdateAccountRequest = {
-  name: string
-  subType?: string
-  description?: string
-  isActive?: boolean
-}
-
-export async function listAccounts() {
+export function listAccounts() {
   return apiFetch<Account[]>('/api/v1/accounts')
 }
 
-export async function getAccount(id: string) {
+export function getAccount(id: string) {
   return apiFetch<Account>(`/api/v1/accounts/${id}`)
 }
 
-export async function createAccount(req: CreateAccountRequest) {
-  return apiFetch<Account>('/api/v1/accounts', {
-    method: 'POST',
-    body: req,
-  })
-}
-
-export async function updateAccount(id: string, req: UpdateAccountRequest) {
-  return apiFetch<Account>(`/api/v1/accounts/${id}`, {
-    method: 'PUT',
-    body: req,
-  })
-}
-
-export async function deleteAccount(id: string) {
-  return apiFetch<void>(`/api/v1/accounts/${id}`, {
-    method: 'DELETE',
-  })
-}
-
-export async function seedTemplate(industry = 'TRADING') {
-  return apiFetch<{ result: unknown; industry: string }>('/api/v1/accounts/template', {
-    method: 'POST',
-    body: { industry },
-  })
-}
-
-export async function getAccountTransactions(id: string, startDate?: string, endDate?: string) {
-  const params = new URLSearchParams()
-  if (startDate) params.set('startDate', startDate)
-  if (endDate) params.set('endDate', endDate)
-  const q = params.toString() ? `?${params.toString()}` : ''
-  return apiFetch<AccountTransaction[]>(`/api/v1/accounts/${id}/transactions${q}`)
+export function getAccountTransactions(id: string) {
+  return apiFetch<AccountTransaction[]>(`/api/v1/accounts/${id}/transactions`)
 }

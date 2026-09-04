@@ -1,32 +1,11 @@
-import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Tag } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import { Tag } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import {
-  Button,
-  CheckboxInput,
-  DataTable,
-  FormField,
-  FormGrid,
-  Modal,
-  PageHeader,
-  SelectInput,
-  StatusChip,
-  TextInput,
-} from '@/design-system'
-import {
-  createPriceList,
-  listPriceLists,
-  type CreatePriceListRequest,
-  type PriceList,
-} from '@/features/price-lists/price-lists-api'
+import { DataTable, EmptyState, PageHeader, StatusChip } from '@/design-system'
+import { listPriceLists, type PriceList } from '@/features/price-lists/price-lists-api'
 
 export function PriceListsPage() {
-  const [showCreateModal, setShowCreateModal] = useState(false)
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
-
   const priceLists = useQuery({
     queryKey: ['price-lists'],
     queryFn: listPriceLists,
@@ -36,13 +15,8 @@ export function PriceListsPage() {
     <section className="workspace-page">
       <PageHeader
         eyebrow="Sales / Pricing"
-        title="Price Lists & Tier Schemes"
-        description="Customer tier pricing, volume slab discounts, and promotional markup price lists."
-        actions={
-          <Button onClick={() => setShowCreateModal(true)} variant="primary">
-            <Plus size={16} /> Create Price List
-          </Button>
-        }
+        title="Price lists"
+        description="Read-only tier-pricing review. Price-list maintenance remains in Flutter during migration."
       />
 
       <section className="list-panel" aria-label="Price list directory">
@@ -58,142 +32,39 @@ export function PriceListsPage() {
             <thead>
               <tr>
                 <th scope="col">Price list</th>
-                <th scope="col">Scheme type</th>
+                <th scope="col">Description</th>
                 <th scope="col">Currency</th>
-                <th className="numeric-cell" scope="col">Custom rules</th>
                 <th scope="col">Default</th>
                 <th scope="col">Status</th>
-                <th scope="col">Actions</th>
               </tr>
             </thead>
-            <tbody>
-              {priceLists.data.map((list) => (
-                <PriceListRow
-                  key={list.id}
-                  onOpen={() => navigate(appRoutes.priceListDetail ? appRoutes.priceListDetail(list.id) : `/price-lists/${list.id}`)}
-                  priceList={list}
-                />
-              ))}
-            </tbody>
+            <tbody>{priceLists.data.map((priceList) => <PriceListRow key={priceList.id} priceList={priceList} />)}</tbody>
           </DataTable>
         ) : (
-          <div className="directory-state">
-            <Tag aria-hidden="true" size={24} />
-            <strong>No price lists configured.</strong>
-            <p>Create wholesale, distributor, or seasonal price lists to override base item pricing.</p>
-          </div>
+          <EmptyState
+            description="Price lists will appear here when they are configured for the organisation."
+            icon={Tag}
+            title="No price lists are available."
+          />
         )}
       </section>
-
-      {/* Create Modal */}
-      {showCreateModal && (
-        <CreatePriceListModal
-          onClose={() => setShowCreateModal(false)}
-          onSuccess={(id) => {
-            setShowCreateModal(false)
-            queryClient.invalidateQueries({ queryKey: ['price-lists'] })
-            navigate(appRoutes.priceListDetail ? appRoutes.priceListDetail(id) : `/price-lists/${id}`)
-          }}
-        />
-      )}
     </section>
   )
 }
 
-function PriceListRow({ onOpen, priceList }: { onOpen: () => void; priceList: PriceList }) {
+function PriceListRow({ priceList }: { priceList: PriceList }) {
   return (
-    <tr onClick={onOpen} style={{ cursor: 'pointer' }}>
+    <tr>
       <td>
         <div className="item-primary">
           <span aria-hidden="true" className="item-avatar"><Tag size={15} /></span>
-          <div className="cell-stack">
-            <strong>{priceList.name}</strong>
-            <code>{priceList.code}</code>
-          </div>
+          <Link className="table-row-link" to={appRoutes.priceListDetail(priceList.id)}>{priceList.name}</Link>
         </div>
       </td>
-      <td>{priceList.schemeType}</td>
-      <td>{priceList.currency}</td>
-      <td className="numeric-cell"><strong>{priceList.itemCount} items</strong></td>
+      <td>{priceList.description ?? '--'}</td>
+      <td><code>{priceList.currency ?? '--'}</code></td>
       <td><StatusChip status={priceList.isDefault ? 'Default' : 'Standard'} /></td>
       <td><StatusChip status={priceList.active ? 'Active' : 'Inactive'} /></td>
-      <td>
-        <Button onClick={(e) => { e.stopPropagation(); onOpen() }} variant="ghost">
-          Configure Rules
-        </Button>
-      </td>
     </tr>
-  )
-}
-
-function CreatePriceListModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (id: string) => void }) {
-  const [code, setCode] = useState('')
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [currency, setCurrency] = useState('INR')
-  const [schemeType, setSchemeType] = useState('PERCENTAGE_DISCOUNT')
-  const [isDefault, setIsDefault] = useState(false)
-
-  const mutation = useMutation({
-    mutationFn: () => {
-      const payload: CreatePriceListRequest = {
-        code,
-        name,
-        description: description || undefined,
-        currency,
-        schemeType,
-        isDefault,
-      }
-      return createPriceList(payload)
-    },
-    onSuccess: (res) => onSuccess(res.id),
-  })
-
-  return (
-    <Modal
-      footer={
-        <>
-          <Button onClick={onClose} variant="secondary">Cancel</Button>
-          <Button disabled={!code || !name || mutation.isPending} onClick={() => mutation.mutate()} variant="primary">
-            {mutation.isPending ? 'Creating...' : 'Create Price List'}
-          </Button>
-        </>
-      }
-      isOpen
-      onClose={onClose}
-      size="lg"
-      title="Create Price List"
-    >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        <FormGrid columns={2}>
-          <FormField label="Code" required>
-            <TextInput onChange={(e) => setCode(e.target.value)} placeholder="e.g. PL-WHOLESALE" value={code} />
-          </FormField>
-          <FormField label="Name" required>
-            <TextInput onChange={(e) => setName(e.target.value)} placeholder="e.g. Wholesale Tier A" value={name} />
-          </FormField>
-        </FormGrid>
-        <FormField label="Description">
-          <TextInput onChange={(e) => setDescription(e.target.value)} placeholder="15% off standard prices for tier A distributors" value={description} />
-        </FormField>
-        <FormGrid columns={2}>
-          <FormField label="Pricing Scheme">
-            <SelectInput onChange={(e) => setSchemeType(e.target.value)} value={schemeType}>
-              <option value="PERCENTAGE_DISCOUNT">Percentage Discount</option>
-              <option value="FIXED_PRICE">Fixed Item Prices</option>
-              <option value="MARKUP">Cost Markup</option>
-            </SelectInput>
-          </FormField>
-          <FormField label="Currency">
-            <TextInput onChange={(e) => setCurrency(e.target.value)} value={currency} />
-          </FormField>
-        </FormGrid>
-        <CheckboxInput
-          checked={isDefault}
-          label="Set as Default Price List"
-          onChange={(e) => setIsDefault(e.target.checked)}
-        />
-      </div>
-    </Modal>
   )
 }

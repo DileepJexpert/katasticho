@@ -79,9 +79,9 @@ import { KenyaCompliancePage } from '@/features/kenya/kenya-compliance-page'
 import { CashRunwayPage } from '@/features/analytics/cash-runway-page'
 import { FluxCommentaryPage } from '@/features/analytics/flux-commentary-page'
 import { UsersPage } from '@/features/settings/users-page'
+import { PaymentTermsPage } from '@/features/settings/payment-terms-page'
 import { PdfTemplateCustomizerPage } from '@/features/settings/pdf-template-customizer-page'
 import { ItemDetailPage } from '@/features/items/item-detail-page'
-import { ItemCreatePage } from '@/features/items/item-create-page'
 import { ItemsPage } from '@/features/items/items-page'
 import { BatchTracePage } from '@/features/inventory/batch-trace-page'
 import { ShortbookPage } from '@/features/inventory/shortbook-page'
@@ -241,7 +241,7 @@ export const router = createBrowserRouter([
           },
           {
             path: 'items/new',
-            element: <ItemCreatePage />,
+            element: <Navigate replace to={appRoutes.items} />,
           },
           {
             path: 'items/:itemId',
@@ -838,6 +838,10 @@ export const router = createBrowserRouter([
           {
             path: 'settings/users',
             element: <UsersPage />,
+          },
+          {
+            path: 'settings/payment-terms',
+            element: <PaymentTermsPage />,
           },
           {
             path: 'settings/pdf-templates',

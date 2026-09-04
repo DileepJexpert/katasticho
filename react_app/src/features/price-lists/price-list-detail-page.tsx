@@ -1,404 +1,173 @@
 import { useState } from 'react'
-import type { ReactNode } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import {
-  ArrowLeft,
-  DollarSign,
-  Plus,
-  Trash2,
-  Users,
-} from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { AlertTriangle, ArrowLeft, Tag, Users, type LucideIcon } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import { Button, DataTable, DocumentCard, Fact, FactList, FilterTabs, Money, PageHeader, Quantity, StatusChip } from '@/design-system'
 import {
-  addPriceListContact,
-  addPriceListItem,
   getPriceList,
-  getPriceListContacts,
-  getPriceListItems,
-  removePriceListContact,
-  removePriceListItem,
-  type PriceListContact,
+  listPriceListCustomers,
+  listPriceListItems,
+  type PriceList,
+  type PriceListCustomer,
   type PriceListItem,
 } from '@/features/price-lists/price-lists-api'
-import { listItems, type Item } from '@/features/items/items-api'
-import { listContacts, type Contact } from '@/features/contacts/contacts-api'
+import { formatDateTime, formatStatusLabel } from '@/shared/format/format'
+
+type PriceListTab = 'overview' | 'tiers' | 'customers'
 
 export function PriceListDetailPage() {
   const { priceListId } = useParams()
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState<'ITEMS' | 'CONTACTS'>('ITEMS')
-  const [showAddItemModal, setShowAddItemModal] = useState(false)
-  const [showAddContactModal, setShowAddContactModal] = useState(false)
-
+  const [activeTab, setActiveTab] = useState<PriceListTab>('overview')
   const priceListQuery = useQuery({
     queryKey: ['price-lists', priceListId],
     queryFn: () => getPriceList(priceListId!),
     enabled: Boolean(priceListId),
   })
-
-  const itemsQuery = useQuery({
-    queryKey: ['price-list-items', priceListId],
-    queryFn: () => getPriceListItems(priceListId!),
-    enabled: Boolean(priceListId) && activeTab === 'ITEMS',
+  const tiersQuery = useQuery({
+    queryKey: ['price-lists', priceListId, 'tiers'],
+    queryFn: () => listPriceListItems(priceListId!),
+    enabled: Boolean(priceListId) && activeTab === 'tiers',
+  })
+  const customersQuery = useQuery({
+    queryKey: ['price-lists', priceListId, 'customers'],
+    queryFn: () => listPriceListCustomers(priceListId!),
+    enabled: Boolean(priceListId) && activeTab === 'customers',
   })
 
-  const contactsQuery = useQuery({
-    queryKey: ['price-list-contacts', priceListId],
-    queryFn: () => getPriceListContacts(priceListId!),
-    enabled: Boolean(priceListId) && activeTab === 'CONTACTS',
-  })
-
-  const removeItemMutation = useMutation({
-    mutationFn: (itemId: string) => removePriceListItem(priceListId!, itemId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['price-list-items', priceListId] }),
-  })
-
-  const removeContactMutation = useMutation({
-    mutationFn: (contactId: string) => removePriceListContact(priceListId!, contactId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['price-list-contacts', priceListId] }),
-  })
-
-  if (!priceListId) return <DocumentError onBack={() => navigate(appRoutes.priceLists)} />
-  if (priceListQuery.isLoading) return <section className="workspace-page"><div aria-live="polite" className="directory-state">Loading price list...</div></section>
-  if (priceListQuery.isError || !priceListQuery.data) return <DocumentError onBack={() => navigate(appRoutes.priceLists)} />
+  if (!priceListId) return <PriceListState message="No price list ID was specified." />
+  if (priceListQuery.isLoading) return <PriceListState message="Loading price list..." />
+  if (priceListQuery.isError || !priceListQuery.data) {
+    return (
+      <section className="workspace-page">
+        <div className="directory-state directory-state--error" role="alert">
+          <AlertTriangle aria-hidden="true" size={24} />
+          <strong>Price list details could not be loaded.</strong>
+          <Button onClick={() => navigate(appRoutes.priceLists)} variant="secondary">Back to price lists</Button>
+        </div>
+      </section>
+    )
+  }
 
   const priceList = priceListQuery.data
-  const items = itemsQuery.data ?? []
-  const contacts = contactsQuery.data ?? []
 
   return (
     <section className="workspace-page">
       <PageHeader
-        actions={
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <Button onClick={() => navigate(appRoutes.priceLists)} variant="secondary">
-              <ArrowLeft className="icon" /> Back to Price Lists
-            </Button>
-            {activeTab === 'ITEMS' ? (
-              <Button onClick={() => setShowAddItemModal(true)} variant="primary">
-                <Plus className="icon" /> Add Item Rule
-              </Button>
-            ) : (
-              <Button onClick={() => setShowAddContactModal(true)} variant="primary">
-                <Plus className="icon" /> Assign Customer
-              </Button>
-            )}
-          </div>
-        }
-        description={`Scheme: ${priceList.schemeType} · Currency: ${priceList.currency}`}
-        eyebrow="Inventory / Pricing & Tier Schemes"
+        eyebrow="Sales / Price-list review"
         title={priceList.name}
+        description={`${priceList.currency ?? 'No currency'} · ${priceList.isDefault ? 'Organisation default' : 'Non-default list'}`}
+        actions={<StatusChip status={priceList.active ? 'Active' : 'Inactive'} />}
       />
 
-      <div className="document-facts-grid" style={{ marginBottom: '1.5rem' }}>
-        <Fact label="Code" value={<strong>{priceList.code}</strong>} />
-        <Fact label="Scheme Type" value={<StatusChip status={priceList.schemeType} />} />
-        <Fact label="Currency" value={priceList.currency} />
-        <Fact label="Default Tier" value={priceList.isDefault ? 'Yes (System Default)' : 'No'} />
-        <Fact label="Status" value={<StatusChip status={priceList.active ? 'ACTIVE' : 'INACTIVE'} />} />
-      </div>
-
-      <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid var(--color-border)', marginBottom: '1rem' }}>
-        <button
-          className={`tab-btn ${activeTab === 'ITEMS' ? 'active' : ''}`}
-          onClick={() => setActiveTab('ITEMS')}
-          style={{ padding: '0.5rem 1rem', background: 'none', border: 'none', borderBottom: activeTab === 'ITEMS' ? '2px solid var(--color-primary)' : 'none', cursor: 'pointer', fontWeight: activeTab === 'ITEMS' ? 600 : 400 }}
-          type="button"
-        >
-          <DollarSign className="icon" style={{ marginRight: '4px', verticalAlign: 'middle' }} /> Item Pricing Rules ({items.length})
-        </button>
-        <button
-          className={`tab-btn ${activeTab === 'CONTACTS' ? 'active' : ''}`}
-          onClick={() => setActiveTab('CONTACTS')}
-          style={{ padding: '0.5rem 1rem', background: 'none', border: 'none', borderBottom: activeTab === 'CONTACTS' ? '2px solid var(--color-primary)' : 'none', cursor: 'pointer', fontWeight: activeTab === 'CONTACTS' ? 600 : 400 }}
-          type="button"
-        >
-          <Users className="icon" style={{ marginRight: '4px', verticalAlign: 'middle' }} /> Assigned Customers ({contacts.length})
-        </button>
-      </div>
-
-      {activeTab === 'ITEMS' && (
-        items.length > 0 ? (
-          <DataTable caption="Item Pricing Rules">
-            <thead>
-              <tr>
-                <th scope="col">Item</th>
-                <th className="numeric-cell" scope="col">Custom Price</th>
-                <th className="numeric-cell" scope="col">Discount %</th>
-                <th className="numeric-cell" scope="col">Min Quantity</th>
-                <th scope="col">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((row: PriceListItem) => (
-                <tr key={row.id || row.itemId}>
-                  <td>
-                    <div>
-                      <strong>{row.itemName}</strong>
-                      {row.itemSku && <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>SKU: {row.itemSku}</div>}
-                    </div>
-                  </td>
-                  <td className="numeric-cell">
-                    {row.customPrice != null ? <Money amount={Number(row.customPrice)} /> : 'â€”'}
-                  </td>
-                  <td className="numeric-cell">
-                    {row.discountPercentage != null ? `${row.discountPercentage}%` : 'â€”'}
-                  </td>
-                  <td className="numeric-cell">{row.minQuantity ?? 1}</td>
-                  <td>
-                    <Button
-                      disabled={removeItemMutation.isPending}
-                      onClick={() => removeItemMutation.mutate(row.itemId)}
-                      variant="destructive"
-                    >
-                      <Trash2 className="icon" /> Remove
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </DataTable>
-        ) : (
-          <div className="directory-state">
-            No custom pricing rules defined for this price list. Base catalog prices apply.
-          </div>
-        )
-      )}
-
-      {activeTab === 'CONTACTS' && (
-        contacts.length > 0 ? (
-          <DataTable caption="Assigned Customers">
-            <thead>
-              <tr>
-                <th scope="col">Customer / Tier Contact</th>
-                <th scope="col">Phone</th>
-                <th scope="col">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {contacts.map((row: PriceListContact) => (
-                <tr key={row.id || row.contactId}>
-                  <td>
-                    <div>
-                      <strong>{row.contactName}</strong>
-                      {row.email && <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{row.email}</div>}
-                    </div>
-                  </td>
-                  <td>{row.phone ?? 'â€”'}</td>
-                  <td>
-                    <Button
-                      disabled={removeContactMutation.isPending}
-                      onClick={() => removeContactMutation.mutate(row.contactId)}
-                      variant="destructive"
-                    >
-                      <Trash2 className="icon" /> Remove
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </DataTable>
-        ) : (
-          <div className="directory-state">
-            No customers specifically bound to this tier yet.
-          </div>
-        )
-      )}
-
-      {showAddItemModal && (
-        <AddPriceListItemModal
-          onClose={() => setShowAddItemModal(false)}
-          onSuccess={() => {
-            setShowAddItemModal(false)
-            queryClient.invalidateQueries({ queryKey: ['price-list-items', priceListId] })
-          }}
-          priceListId={priceListId}
-        />
-      )}
-
-      {showAddContactModal && (
-        <AddPriceListContactModal
-          onClose={() => setShowAddContactModal(false)}
-          onSuccess={() => {
-            setShowAddContactModal(false)
-            queryClient.invalidateQueries({ queryKey: ['price-list-contacts', priceListId] })
-          }}
-          priceListId={priceListId}
-        />
-      )}
-    </section>
-  )
-}
-
-function AddPriceListItemModal({
-  priceListId,
-  onClose,
-  onSuccess,
-}: {
-  priceListId: string
-  onClose: () => void
-  onSuccess: () => void
-}) {
-  const [itemId, setItemId] = useState('')
-  const [customPrice, setCustomPrice] = useState<number | ''>('')
-  const [discountPercentage, setDiscountPercentage] = useState<number | ''>('')
-  const [minQuantity, setMinQuantity] = useState<number | ''>(1)
-
-  const itemsQuery = useQuery({
-    queryKey: ['items-dropdown'],
-    queryFn: () => listItems(),
-  })
-
-  const mutation = useMutation({
-    mutationFn: () =>
-      addPriceListItem(priceListId, {
-        itemId,
-        customPrice: customPrice === '' ? undefined : Number(customPrice),
-        discountPercentage: discountPercentage === '' ? undefined : Number(discountPercentage),
-        minQuantity: minQuantity === '' ? undefined : Number(minQuantity),
-      }),
-    onSuccess: () => onSuccess(),
-  })
-
-  return (
-    <div className="modal-backdrop" role="dialog">
-      <div className="modal-dialog">
-        <header className="modal-header">
-          <h3>Add Item Pricing Rule</h3>
-          <Button onClick={onClose} variant="ghost">✕</Button>
-        </header>
-        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <label className="field-group">
-            <span>Select Product / Item</span>
-            <select onChange={(e) => setItemId(e.target.value)} value={itemId}>
-              <option value="">-- Choose Item --</option>
-              {itemsQuery.data?.content?.map((item: Item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name} ({item.sku ?? 'No SKU'})
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <label className="field-group">
-              <span>Custom Fixed Price</span>
-              <input
-                onChange={(e) => setCustomPrice(e.target.value === '' ? '' : Number(e.target.value))}
-                placeholder="Leave blank for % discount"
-                type="number"
-                value={customPrice}
-              />
-            </label>
-            <label className="field-group">
-              <span>Discount Percentage (%)</span>
-              <input
-                onChange={(e) => setDiscountPercentage(e.target.value === '' ? '' : Number(e.target.value))}
-                placeholder="e.g. 15"
-                type="number"
-                value={discountPercentage}
-              />
-            </label>
-          </div>
-
-          <label className="field-group">
-            <span>Minimum Order Quantity for Scheme</span>
-            <input
-              min={1}
-              onChange={(e) => setMinQuantity(e.target.value === '' ? '' : Number(e.target.value))}
-              type="number"
-              value={minQuantity}
-            />
-          </label>
-        </div>
-        <footer className="modal-footer">
-          <Button onClick={onClose} variant="secondary">Cancel</Button>
-          <Button disabled={!itemId || mutation.isPending} onClick={() => mutation.mutate()} variant="primary">
-            {mutation.isPending ? 'Saving...' : 'Add Pricing Rule'}
-          </Button>
-        </footer>
-      </div>
-    </div>
-  )
-}
-
-function AddPriceListContactModal({
-  priceListId,
-  onClose,
-  onSuccess,
-}: {
-  priceListId: string
-  onClose: () => void
-  onSuccess: () => void
-}) {
-  const [contactId, setContactId] = useState('')
-
-  const contactsQuery = useQuery({
-    queryKey: ['contacts-dropdown'],
-    queryFn: () => listContacts(),
-  })
-
-  const mutation = useMutation({
-    mutationFn: () => addPriceListContact(priceListId, contactId),
-    onSuccess: () => onSuccess(),
-  })
-
-  return (
-    <div className="modal-backdrop" role="dialog">
-      <div className="modal-dialog">
-        <header className="modal-header">
-          <h3>Assign Customer to Price Tier</h3>
-          <Button onClick={onClose} variant="ghost">✕</Button>
-        </header>
-        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <label className="field-group">
-            <span>Select Customer / Contact</span>
-            <select onChange={(e) => setContactId(e.target.value)} value={contactId}>
-              <option value="">-- Choose Contact --</option>
-              {contactsQuery.data?.content?.map((c: Contact) => (
-                <option key={c.id} value={c.id}>
-                  {c.displayName} ({c.contactType ?? 'CUSTOMER'})
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <footer className="modal-footer">
-          <Button onClick={onClose} variant="secondary">Cancel</Button>
-          <Button disabled={!contactId || mutation.isPending} onClick={() => mutation.mutate()} variant="primary">
-            {mutation.isPending ? 'Assigning...' : 'Assign Customer'}
-          </Button>
-        </footer>
-      </div>
-    </div>
-  )
-}
-
-function Fact({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div className="document-fact">
-      <dt>{label}</dt>
-      <dd>{value}</dd>
-    </div>
-  )
-}
-
-function DocumentError({ onBack }: { onBack: () => void }) {
-  return (
-    <section className="workspace-page">
-      <div className="directory-state">
-        <p>Price List not found or failed to load.</p>
-        <Button onClick={onBack} variant="secondary">
-          <ArrowLeft className="icon" /> Back to Price Lists
+      <div className="document-actions">
+        <Button onClick={() => navigate(appRoutes.priceLists)} variant="ghost">
+          <ArrowLeft aria-hidden="true" size={16} />
+          Back to price lists
         </Button>
+        <span className="cell-muted">Read-only review. Price-list and customer-assignment changes remain in Flutter during migration.</span>
       </div>
+
+      <FilterTabs
+        activeValue={activeTab}
+        ariaLabel="Price-list review sections"
+        items={[
+          { value: 'overview', label: 'Overview' },
+          { value: 'tiers', label: 'Item tiers' },
+          { value: 'customers', label: 'Assigned customers' },
+        ]}
+        onChange={(value) => setActiveTab(value as PriceListTab)}
+      />
+
+      {activeTab === 'overview' && <PriceListOverview priceList={priceList} />}
+      {activeTab === 'tiers' && <TiersTab isError={tiersQuery.isError} isLoading={tiersQuery.isLoading} tiers={tiersQuery.data ?? []} />}
+      {activeTab === 'customers' && <CustomersTab customers={customersQuery.data ?? []} isError={customersQuery.isError} isLoading={customersQuery.isLoading} />}
     </section>
   )
+}
+
+function PriceListState({ message }: { message: string }) {
+  return <section className="workspace-page"><div aria-live="polite" className="directory-state">{message}</div></section>
+}
+
+function PriceListOverview({ priceList }: { priceList: PriceList }) {
+  return (
+    <div className="document-layout">
+      <DocumentCard title="Price-list details">
+        <FactList>
+          <Fact label="Description" value={priceList.description} />
+          <Fact label="Currency" mono value={priceList.currency} />
+          <Fact label="Organisation default" value={priceList.isDefault ? 'Yes' : 'No'} />
+          <Fact label="Status" value={<StatusChip status={priceList.active ? 'Active' : 'Inactive'} />} />
+          <Fact label="Created" value={formatDateTime(priceList.createdAt)} />
+        </FactList>
+      </DocumentCard>
+      <DocumentCard title="Pricing resolution" variant="summary">
+        <FactList>
+          <Fact label="Customer rule" value="Pinned customer list is checked first" />
+          <Fact label="Organisation rule" value="Default list is checked next" />
+          <Fact label="Fallback" value="Base item sale price applies when no eligible tier exists" />
+        </FactList>
+      </DocumentCard>
+    </div>
+  )
+}
+
+function TiersTab({ isError, isLoading, tiers }: { isError: boolean; isLoading: boolean; tiers: PriceListItem[] }) {
+  if (isLoading) return <PriceListState message="Loading item tiers..." />
+  if (isError) return <div className="directory-state directory-state--error" role="alert">Item tiers could not be loaded.</div>
+  if (!tiers.length) return <EmptyPriceListTab icon={Tag} message="No item tiers are configured for this price list." />
+
+  return (
+    <DocumentCard title="Item tiers" variant="lines">
+      <DataTable caption="Price-list item tiers">
+        <thead>
+          <tr>
+            <th scope="col">Item</th>
+            <th className="numeric-cell" scope="col">Minimum quantity</th>
+            <th className="numeric-cell" scope="col">Unit price</th>
+          </tr>
+        </thead>
+        <tbody>{tiers.map((tier) => (
+          <tr key={tier.id}>
+            <td><div className="cell-stack"><strong>{tier.itemName ?? 'Unavailable item'}</strong><code>{tier.itemSku ?? tier.itemId}</code></div></td>
+            <td className="numeric-cell"><Quantity value={tier.minQuantity} /></td>
+            <td className="numeric-cell"><Money amount={tier.price} /></td>
+          </tr>
+        ))}</tbody>
+      </DataTable>
+    </DocumentCard>
+  )
+}
+
+function CustomersTab({ customers, isError, isLoading }: { customers: PriceListCustomer[]; isError: boolean; isLoading: boolean }) {
+  if (isLoading) return <PriceListState message="Loading assigned customers..." />
+  if (isError) return <div className="directory-state directory-state--error" role="alert">Assigned customers could not be loaded.</div>
+  if (!customers.length) return <EmptyPriceListTab icon={Users} message="No customers are assigned to this price list." />
+
+  return (
+    <DocumentCard title="Assigned customers" variant="lines">
+      <DataTable caption="Customers assigned to this price list">
+        <thead>
+          <tr>
+            <th scope="col">Customer</th>
+            <th scope="col">Role</th>
+            <th scope="col">Phone</th>
+          </tr>
+        </thead>
+        <tbody>{customers.map((customer) => (
+          <tr key={customer.id}>
+            <td><strong>{customer.displayName}</strong></td>
+            <td>{formatStatusLabel(customer.contactType ?? 'Customer')}</td>
+            <td>{customer.phone ?? '--'}</td>
+          </tr>
+        ))}</tbody>
+      </DataTable>
+    </DocumentCard>
+  )
+}
+
+function EmptyPriceListTab({ icon: Icon, message }: { icon: LucideIcon; message: string }) {
+  return <div className="directory-state"><Icon aria-hidden="true" size={24} /><span>{message}</span></div>
 }

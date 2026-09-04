@@ -295,12 +295,13 @@ the ERP.
   same-name disambiguation through company, phone, GSTIN, and role badges.
   Contact create/edit/import remain pending.
 - [x] Items pilot: server-paginated read-only directory with search, item code,
-  unit, GST, prices, on-hand, and negative-stock exception filtering. Item
-  create/edit/import/detail remain pending.
-  **Release guard:** unverified Item mutations currently present in the React
-  source are prototypes, not accepted Wave 2 functionality. Do not expand or
-  expose them for operational use until the backend can export the approved
-  OpenAPI snapshot and their typed contracts and acceptance cases are reviewed.
+  unit, GST, prices, on-hand, negative-stock exception filtering, and a
+  contract-verified detail review for item facts, warehouse balances, stock
+  ledger, batches, and packaging barcodes. Item create/edit/import, stock
+  adjustments, reversals, and barcode/serial mutations remain Flutter-only.
+  **Release guard:** React deliberately exposes no Item mutation route or
+  quick-create action until the backend can export the approved OpenAPI snapshot
+  and the typed write contracts and acceptance cases are reviewed.
 - [x] Sales Orders pilot: server-paginated, status-filtered directory and
   read-only document review using the existing Sales Order list/detail
   contracts. Creation, confirmation, cancellation, dispatch, invoicing, and
@@ -313,10 +314,14 @@ the ERP.
   read-only line review using the existing Picklist contracts. Creating,
   starting, changing picked quantities, completing, and cancelling remain
   Flutter-only.
-- [ ] Items: item master, pricing, tax/HSN, units, batch/expiry/serial flags,
-  opening stock, imports, and detail activity.
-- [ ] Shared masters: warehouses, accounts, tax groups, payment terms, price
-  lists, branches, users, and entity pickers.
+- [ ] Items: create/edit item master, opening stock, imports, serial operations,
+  and stock-execution actions. Read-only pricing, tax/HSN, units, batch/expiry,
+  packaging, warehouse, and ledger review are complete.
+- [ ] Shared masters: warehouse and price-list read-only directories and detail
+  review are complete. Warehouse/zone/putaway and price-list/customer-tier
+  writes, tax groups, branches, users, and entity pickers remain pending.
+  Payment Terms and the Chart of Accounts have read-only reviews; their writes
+  remain Flutter-only.
 
 #### Purchase-to-pay golden chain
 
@@ -344,9 +349,10 @@ the same backend document state during parallel testing.
 **Goal:** complete the daily office ERP used by an owner, accountant, and
 operator.
 
-- [ ] Accounting: chart of accounts, journals, guided transactions, vouchers,
+- [ ] Accounting: the Chart of Accounts directory and immutable account-ledger
+  review are complete. Account writes, journals, guided transactions, vouchers,
   fiscal periods, audit trail, fixed assets, amortisation, bank accounts, and
-  reconciliation.
+  reconciliation remain pending.
 - [ ] Inventory: stock views, warehouse/rack management, batch/serial/expiry,
   stock count, transfer orders, picklists, putaway, valuation, reorder, and
   consignment where approved.

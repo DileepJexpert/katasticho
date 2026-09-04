@@ -35,7 +35,7 @@ export function Fact({ label, value, mono = false, className = '' }: FactProps) 
   return (
     <div className={className}>
       <dt>{label}</dt>
-      <dd style={mono ? { fontFamily: 'var(--font-mono)' } : undefined}>
+      <dd className={mono ? 'fact-value--mono' : undefined}>
         {value !== undefined && value !== null && value !== '' ? value : '--'}
       </dd>
     </div>

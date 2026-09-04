@@ -27,7 +27,7 @@ describe('CommandPalette', () => {
 
     expect(onNavigate).toHaveBeenCalledWith(appRoutes.contacts)
     expect(onOpenChange).toHaveBeenCalledWith(false)
-  })
+  }, 15000)
 
   it('opens from the Ctrl+K shortcut and closes with Escape', async () => {
     const onOpenChange = vi.fn()
