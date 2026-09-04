@@ -1,4 +1,6 @@
 import {
+  TrendingUp,
+  Palette,
   Globe,
   Store,
   AlertOctagon,
@@ -200,6 +202,10 @@ export const appRoutes = {
   franchise: '/franchise',
   franchiseDetail: (nodeId: string) => `/franchise/${nodeId}`,
   kenyaCompliance: '/compliance/kenya',
+  cashRunway: '/reports/cash-runway',
+  fluxCommentary: '/reports/flux-commentary',
+  users: '/settings/users',
+  pdfTemplates: '/settings/pdf-templates',
 } as const
 
 export type NavigationContext = {
@@ -782,6 +788,34 @@ const navigationItems: readonly NavigationItem[] = [
     description: 'Customized queries & schedules',
     icon: Bookmark,
     to: appRoutes.savedReports,
+  },
+  {
+    id: 'reporting.cash_runway',
+    label: '13-Week Cash Runway',
+    description: 'Rolling liquidity forecast & stress testing',
+    icon: TrendingUp,
+    to: appRoutes.cashRunway,
+  },
+  {
+    id: 'reporting.flux_commentary',
+    label: 'Flux Commentary',
+    description: 'MoM/YoY balance sheet variance analytics',
+    icon: BarChart3,
+    to: appRoutes.fluxCommentary,
+  },
+  {
+    id: 'settings.users',
+    label: 'Team & User Roles',
+    description: 'Invite members & manage permissions',
+    icon: Users,
+    to: appRoutes.users,
+  },
+  {
+    id: 'settings.pdf_templates',
+    label: 'PDF Document Designer',
+    description: 'Brand colors, logos, QR codes & terms',
+    icon: Palette,
+    to: appRoutes.pdfTemplates,
   },
   {
     id: 'compliance.gst',

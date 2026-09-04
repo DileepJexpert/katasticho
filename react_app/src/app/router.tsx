@@ -63,6 +63,10 @@ import { TaxAccountMappingsPage } from '@/features/tax/tax-account-mappings-page
 import { FranchisePage } from '@/features/franchise/franchise-page'
 import { FranchiseNodeDetailPage } from '@/features/franchise/franchise-node-detail-page'
 import { KenyaCompliancePage } from '@/features/kenya/kenya-compliance-page'
+import { CashRunwayPage } from '@/features/analytics/cash-runway-page'
+import { FluxCommentaryPage } from '@/features/analytics/flux-commentary-page'
+import { UsersPage } from '@/features/settings/users-page'
+import { PdfTemplateCustomizerPage } from '@/features/settings/pdf-template-customizer-page'
 import { ItemDetailPage } from '@/features/items/item-detail-page'
 import { ItemsPage } from '@/features/items/items-page'
 import { BatchTracePage } from '@/features/inventory/batch-trace-page'
@@ -751,6 +755,22 @@ export const router = createBrowserRouter([
           {
             path: 'compliance/kenya',
             element: <KenyaCompliancePage />,
+          },
+          {
+            path: 'reports/cash-runway',
+            element: <CashRunwayPage />,
+          },
+          {
+            path: 'reports/flux-commentary',
+            element: <FluxCommentaryPage />,
+          },
+          {
+            path: 'settings/users',
+            element: <UsersPage />,
+          },
+          {
+            path: 'settings/pdf-templates',
+            element: <PdfTemplateCustomizerPage />,
           },
           {
             path: 'pharmacy-masters',
