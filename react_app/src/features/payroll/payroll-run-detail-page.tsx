@@ -1,480 +1,67 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import {
-  ArrowLeft,
-  Calendar,
-  CheckCircle2,
-  FileCheck,
-  FileSpreadsheet,
-  FileText,
-  Play,
-  RotateCcw,
-  Send,
-  Users,
-  X,
-  XCircle,
-} from 'lucide-react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
+import { apiFetchBlob } from '@/api/client/api-client'
 import { appRoutes } from '@/app/navigation'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
-import { Quantity } from '@/design-system/quantity'
-import { StatusChip } from '@/design-system/status-chip'
-import { formatDate, formatStatusLabel } from '@/shared/format/format'
-import {
-  approvePayrollRun,
-  calculatePayrollRun,
-  cancelPayrollRun,
-  getPayrollRun,
-  listEmployees,
-  listPayslips,
-  postPayrollRun,
-  type Payslip,
-} from '@/features/payroll/payroll-api'
+import { Button, DataTable, Fact, FactList, FormCard, FormField, Modal, Money, PageHeader, Quantity, SelectInput, StatusChip } from '@/design-system'
+import { downloadBlob } from '@/shared/files/download-blob'
+import { formatDate } from '@/shared/format/format'
+import { useSessionStore } from '@/shared/session/session-store'
+import { ConfirmedAction } from '@/shared/workflows/confirmed-action'
+import { LocalDirectory } from '@/shared/workflows/local-directory'
+import { QueryFeedback } from '@/shared/workflows/query-feedback'
+import { WorkspaceBoundary } from '@/shared/workflows/workspace-boundary'
+import { approvePayrollRun, calculatePayrollRun, cancelPayrollRun, getEmployee, getPayrollRun, getPayslip, listPayslips, postPayrollRun } from './payroll-api'
 
+const lifecycle = { calculate: calculatePayrollRun, approve: approvePayrollRun, post: postPayrollRun, cancel: cancelPayrollRun }
+type Action = keyof typeof lifecycle
+const descriptions: Record<Action, string> = {
+  calculate: 'Calculate or replace draft payslips using current salary structures and approved attendance. Review the resulting figures before approval.',
+  approve: 'Approve this calculated payroll run? Review every payslip before continuing.',
+  post: 'Post this approved payroll run to the general ledger? Posting salary liabilities is not a bank payment.',
+  cancel: 'Cancel this unposted payroll run? Posted payroll cannot be cancelled here.',
+}
 export function PayrollRunDetailPage() {
-  const { runId } = useParams<{ runId: string }>()
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
-
-  const [selectedPayslip, setSelectedPayslip] = useState<Payslip | null>(null)
-
-  const runQuery = useQuery({
-    queryKey: ['payroll-runs', runId],
-    queryFn: () => getPayrollRun(runId!),
-    enabled: Boolean(runId),
-  })
-
-  const payslipsQuery = useQuery({
-    queryKey: ['payroll-runs', runId, 'payslips'],
-    queryFn: () => listPayslips(runId!),
-    enabled: Boolean(runId),
-  })
-
-  const employeesQuery = useQuery({
-    queryKey: ['payroll-employees-lookup'],
-    queryFn: () => listEmployees(0, 200),
-  })
-
-  // Lifecycle mutations
-  const calculateMutation = useMutation({
-    mutationFn: () => calculatePayrollRun(runId!),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['payroll-runs', runId] })
-      queryClient.invalidateQueries({ queryKey: ['payroll-runs', runId, 'payslips'] })
-    },
-  })
-
-  const approveMutation = useMutation({
-    mutationFn: () => approvePayrollRun(runId!),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['payroll-runs', runId] })
-    },
-  })
-
-  const postMutation = useMutation({
-    mutationFn: () => postPayrollRun(runId!),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['payroll-runs', runId] })
-    },
-  })
-
-  const cancelMutation = useMutation({
-    mutationFn: () => cancelPayrollRun(runId!),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['payroll-runs', runId] })
-    },
-  })
-
-  if (!runId) return <DocumentError onBack={() => navigate(appRoutes.payrollRuns)} />
-  if (runQuery.isLoading) {
-    return (
-      <section className="workspace-page">
-        <div aria-live="polite" className="directory-state">
-          Loading payroll run details...
-        </div>
-      </section>
-    )
-  }
-  if (runQuery.isError || !runQuery.data) {
-    return <DocumentError onBack={() => navigate(appRoutes.payrollRuns)} />
-  }
-
+  const { runId = '' } = useParams()
+  return <WorkspaceBoundary roles={['OWNER', 'ADMIN', 'ACCOUNTANT']}><PayrollRunDetail key={runId} id={runId} /></WorkspaceBoundary>
+}
+function PayrollRunDetail({ id }: { id: string }) {
+  const orgId = useSessionStore((s) => s.user!.orgId)
+  const client = useQueryClient()
+  const runQuery = useQuery({ queryKey: ['payroll-runs', orgId, id], queryFn: () => getPayrollRun(id), enabled: !!id })
+  const slipsQuery = useQuery({ queryKey: ['payroll-runs', orgId, id, 'payslips'], queryFn: () => listPayslips(id), enabled: !!id })
+  const [action, setAction] = useState<Action | null>(null)
+  const [slip, setSlip] = useState<string | null>(null)
+  const [format, setFormat] = useState('GENERIC')
   const run = runQuery.data
-  const payslips = payslipsQuery.data ?? []
-  const employeeMap = new Map((employeesQuery.data?.content ?? []).map((e) => [e.id, e]))
-
-  return (
-    <section className="workspace-page">
-      <PageHeader
-        eyebrow="HR & Payroll / Processing Run"
-        title={`Payroll Cycle: ${formatDate(run.periodStart)} â€“ ${formatDate(run.periodEnd)}`}
-        description={`Monthly salary disbursement batch covering ${run.employeeCount} eligible employees.`}
-        actions={
-          <div className="table-actions">
-            <span className="status-badge">
-              <Users aria-hidden="true" size={14} style={{ display: 'inline', marginRight: 4 }} />
-              {run.employeeCount} Employees
-            </span>
-            <StatusChip status={formatStatusLabel(run.status)} />
-          </div>
-        }
-      />
-
-      <div className="document-actions">
-        <Button onClick={() => navigate(appRoutes.payrollRuns)} variant="secondary">
-          <ArrowLeft aria-hidden="true" size={16} />
-          Back to Payroll Runs
-        </Button>
-
-        {/* Lifecycle Action Buttons */}
-        {run.status === 'DRAFT' ? (
-          <Button
-            disabled={calculateMutation.isPending}
-            onClick={() => calculateMutation.mutate()}
-            variant="primary"
-          >
-            <Play aria-hidden="true" size={16} />
-            {calculateMutation.isPending ? 'Calculating...' : 'Calculate Payroll'}
-          </Button>
-        ) : null}
-
-        {run.status === 'CALCULATED' ? (
-          <div style={{ display: 'flex', gap: 8 }}>
-            <Button
-              disabled={calculateMutation.isPending}
-              onClick={() => calculateMutation.mutate()}
-              variant="secondary"
-            >
-              <RotateCcw aria-hidden="true" size={16} />
-              Recalculate
-            </Button>
-            <Button
-              disabled={approveMutation.isPending}
-              onClick={() => approveMutation.mutate()}
-              variant="primary"
-            >
-              <CheckCircle2 aria-hidden="true" size={16} />
-              Approve Payroll
-            </Button>
-            <Button
-              disabled={cancelMutation.isPending}
-              onClick={() => cancelMutation.mutate()}
-              variant="destructive"
-            >
-              <XCircle aria-hidden="true" size={16} />
-              Cancel Run
-            </Button>
-          </div>
-        ) : null}
-
-        {run.status === 'APPROVED' ? (
-          <div style={{ display: 'flex', gap: 8 }}>
-            <Button
-              disabled={postMutation.isPending}
-              onClick={() => postMutation.mutate()}
-              variant="primary"
-            >
-              <Send aria-hidden="true" size={16} />
-              Post to General Ledger (GL)
-            </Button>
-            <Button
-              disabled={cancelMutation.isPending}
-              onClick={() => cancelMutation.mutate()}
-              variant="destructive"
-            >
-              <XCircle aria-hidden="true" size={16} />
-              Cancel Run
-            </Button>
-          </div>
-        ) : null}
-
-        {run.status === 'POSTED' ? (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <span className="status-badge" style={{ color: 'var(--k-color-text-success)' }}>
-              <CheckCircle2 aria-hidden="true" size={14} style={{ display: 'inline', marginRight: 4 }} />
-              Posted to GL (Journal ID: {run.journalEntryId ? <code className="table-code">{run.journalEntryId.slice(0, 8)}</code> : 'Recorded'})
-            </span>
-          </div>
-        ) : null}
-      </div>
-
-      <div className="summary-strip">
-        <div className="summary-card">
-          <span className="summary-card__label">Gross Payroll</span>
-          <strong className="summary-card__value">
-            <Money amount={run.grossTotal} />
-          </strong>
-          <span className="summary-card__hint">Total employee earnings</span>
-        </div>
-        <div className="summary-card">
-          <span className="summary-card__label">Total Deductions</span>
-          <strong className="summary-card__value text-danger">
-            <Money amount={run.deductionTotal} />
-          </strong>
-          <span className="summary-card__hint">PF, ESI, PT, TDS & LOP</span>
-        </div>
-        <div className="summary-card">
-          <span className="summary-card__label">Employer Statutory</span>
-          <strong className="summary-card__value">
-            <Money amount={run.employerContributionTotal} />
-          </strong>
-          <span className="summary-card__hint">PF 12% + ESI 3.25% Match</span>
-        </div>
-        <div className="summary-card">
-          <span className="summary-card__label">Net Disbursable Pay</span>
-          <strong className="summary-card__value text-success">
-            <Money amount={run.netPayTotal} />
-          </strong>
-          <span className="summary-card__hint">Total bank disbursement</span>
-        </div>
-      </div>
-
-      <div className="document-layout">
-        <section className="document-card">
-          <h2>
-            <Calendar aria-hidden="true" size={18} style={{ display: 'inline', marginRight: 6 }} />
-            Cycle execution facts
-          </h2>
-          <dl className="document-facts">
-            <Fact label="Period Start" value={formatDate(run.periodStart)} />
-            <Fact label="Period End" value={formatDate(run.periodEnd)} />
-            <Fact label="Execution Status" value={<StatusChip status={formatStatusLabel(run.status)} />} />
-            <Fact label="Eligible Headcount" value={<Quantity unit="Staff" value={run.employeeCount} />} />
-            <Fact label="Calculated Timestamp" value={run.calculatedAt ? formatDate(run.calculatedAt) : 'Pending calculation'} />
-            <Fact label="Approved Timestamp" value={run.approvedAt ? formatDate(run.approvedAt) : 'Pending approval'} />
-            <Fact label="Posted Timestamp" value={run.postedAt ? formatDate(run.postedAt) : 'Not posted to GL'} />
-            <Fact
-              label="GL Journal Reference"
-              value={
-                run.journalEntryId ? (
-                  <Link className="table-code" to={appRoutes.journalDetail(run.journalEntryId)}>
-                    {run.journalEntryId}
-                  </Link>
-                ) : (
-                  'Pending GL Post'
-                )
-              }
-            />
-          </dl>
-        </section>
-
-        <section className="document-card">
-          <h2>
-            <FileSpreadsheet aria-hidden="true" size={18} style={{ display: 'inline', marginRight: 6 }} />
-            Statutory & Disbursal Files
-          </h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
-            <p className="cell-muted" style={{ fontSize: '0.85rem' }}>
-              Compliant bank transfer and statutory return templates generated from calculated payslips.
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <Button onClick={() => alert('Bank NEFT/RTGS salary transfer file exported.')} variant="secondary">
-                <FileSpreadsheet aria-hidden="true" size={14} />
-                Export Bank Disbursal File (CSV)
-              </Button>
-              <Button onClick={() => alert('EPFO Electronic Challan cum Return (ECR) text file generated.')} variant="secondary">
-                <FileText aria-hidden="true" size={14} />
-                Export EPFO ECR Return File
-              </Button>
-              <Button onClick={() => alert('ESIC Monthly Contribution Return file generated.')} variant="secondary">
-                <FileCheck aria-hidden="true" size={14} />
-                Export ESIC Monthly Return
-              </Button>
-            </div>
-          </div>
-        </section>
-      </div>
-
-      <div className="document-section">
-        <h2>
-          <Users aria-hidden="true" size={18} style={{ display: 'inline', marginRight: 6 }} />
-          Individual employee payslips ({payslips.length})
-        </h2>
-        {payslips.length === 0 ? (
-          <div className="directory-state">
-            <Users aria-hidden="true" size={24} />
-            <strong>No payslips generated for this run yet.</strong>
-            <p>Click "Calculate Payroll" to execute earnings and statutory deduction engines for all staff.</p>
-          </div>
-        ) : (
-          <DataTable caption="Calculated employee salary slips with deductions and net payout">
-            <thead>
-              <tr>
-                <th scope="col">Code</th>
-                <th scope="col">Employee Name</th>
-                <th scope="col">Department</th>
-                <th className="numeric-cell" scope="col">LOP Days</th>
-                <th className="numeric-cell" scope="col">Gross Pay</th>
-                <th className="numeric-cell" scope="col">Deductions</th>
-                <th className="numeric-cell" scope="col">Employer Match</th>
-                <th className="numeric-cell" scope="col">Net Pay</th>
-                <th scope="col">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {payslips.map((ps) => {
-                const emp = ps.employee || employeeMap.get(ps.employeeId)
-                const code = ps.employeeCode || emp?.employeeCode || `EMP-${ps.employeeId.slice(0, 6).toUpperCase()}`
-                const name = ps.employeeName || emp?.fullName || 'Staff Member'
-                const dept = ps.department || emp?.department || 'Operations'
-
-                return (
-                  <tr key={ps.id}>
-                    <td>
-                      <Link
-                        className="table-code"
-                        to={appRoutes.employeeDetail(ps.employeeId)}
-                      >
-                        {code}
-                      </Link>
-                    </td>
-                    <td>
-                      <strong>{name}</strong>
-                    </td>
-                    <td>{dept}</td>
-                    <td className="numeric-cell">
-                      {Number(ps.lopDays || 0) > 0 ? (
-                        <span className="text-danger">{ps.lopDays} d</span>
-                      ) : (
-                        '0'
-                      )}
-                    </td>
-                    <td className="numeric-cell">
-                      <Money amount={ps.grossPay} />
-                    </td>
-                    <td className="numeric-cell text-danger">
-                      <Money amount={ps.totalDeductions} />
-                    </td>
-                    <td className="numeric-cell">
-                      <Money amount={ps.employerContributions} />
-                    </td>
-                    <td className="numeric-cell">
-                      <strong><Money amount={ps.netPay} /></strong>
-                    </td>
-                    <td>
-                      <Button
-                        onClick={() => setSelectedPayslip(ps)}
-                        variant="ghost"
-                      >
-                        View Breakdown
-                      </Button>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </DataTable>
-        )}
-      </div>
-
-      {/* Payslip Breakdown Modal */}
-      {selectedPayslip ? (
-        <PayslipBreakdownModal
-          onClose={() => setSelectedPayslip(null)}
-          payslip={selectedPayslip}
-        />
-      ) : null}
-    </section>
-  )
+  const canCalculate = run?.status === 'DRAFT' || run?.status === 'CALCULATED'
+  return <section className="workspace-page"><Link to={appRoutes.payrollRuns}>Back to payroll runs</Link><PageHeader eyebrow="HR and payroll" title={run ? `Payroll: ${formatDate(run.periodStart)} to ${formatDate(run.periodEnd)}` : 'Payroll run'} description="Review server-calculated salaries, approve, and post the payroll liability." />
+    <QueryFeedback query={runQuery}>{run && <><FormCard title="Payroll summary" headerAction={<StatusChip status={run.status} />}><FactList><Fact label="Employees" value={run.employeeCount} /><Fact label="Gross payroll" value={<Money amount={run.grossTotal} />} /><Fact label="Deductions" value={<Money amount={run.deductionTotal} />} /><Fact label="Employer contributions" value={<Money amount={run.employerContributionTotal} />} /><Fact label="Net payable" value={<Money amount={run.netPayTotal} />} /><Fact label="Journal" value={run.journalEntryId ? <Link to={appRoutes.journalDetail(run.journalEntryId)}>Open posted journal</Link> : 'Not posted'} /></FactList><div className="document-actions">{canCalculate && <Button onClick={() => setAction('calculate')}>{run.status === 'DRAFT' ? 'Calculate payroll' : 'Recalculate payroll'}</Button>}{run.status === 'CALCULATED' && <Button onClick={() => setAction('approve')}>Approve payroll</Button>}{run.status === 'APPROVED' && <Button onClick={() => setAction('post')}>Post to general ledger</Button>}{['DRAFT', 'CALCULATED', 'APPROVED'].includes(run.status) && <Button variant="destructive" onClick={() => setAction('cancel')}>Cancel run</Button>}</div></FormCard>
+      <FormCard title="Payroll exports"><p>These downloads use the existing payroll generators. Downloading does not send a bank payment or file a statutory return. Review the files before use.</p><FormField label="Bank file format"><SelectInput value={format} onChange={(e) => setFormat(e.target.value)}>{['GENERIC', 'HDFC', 'ICICI', 'SBI'].map((value) => <option key={value}>{value}</option>)}</SelectInput></FormField><div className="document-actions"><PayrollDownload path={`/api/v1/payroll/runs/${encodeURIComponent(id)}/bank-file?format=${format}`} filename={`salary-${run.periodStart}-${format}.csv`} accept="text/csv" label="Download bank CSV" /><PayrollDownload path={`/api/v1/payroll/runs/${encodeURIComponent(id)}/ecr`} filename={`pf-ecr-${run.periodStart}.txt`} accept="text/plain" label="Download PF ECR" /><PayrollDownload path={`/api/v1/payroll/runs/${encodeURIComponent(id)}/esi-return`} filename={`esi-${run.periodStart}.csv`} accept="text/csv" label="Download ESIC return" /></div></FormCard>
+    </>}</QueryFeedback>
+    <FormCard title="Employee payslips"><QueryFeedback query={slipsQuery}><LocalDirectory rows={slipsQuery.data ?? []} caption="Payroll payslips" searchText={(row) => `${row.employeeName ?? ''} ${row.employeeCode ?? ''} ${row.status ?? ''}`} header={<tr><th>Employee</th><th className="numeric-cell">LOP days</th><th className="numeric-cell">Gross</th><th className="numeric-cell">Deductions</th><th className="numeric-cell">Employer contributions</th><th className="numeric-cell">Net payable</th><th>Actions</th></tr>} renderRow={(row) => <tr key={row.id}><td><PayrollEmployeeName id={row.employeeId} /></td><td className="numeric-cell"><Quantity value={row.lopDays} /></td><td className="numeric-cell"><Money amount={row.grossPay} /></td><td className="numeric-cell"><Money amount={row.totalDeductions} /></td><td className="numeric-cell"><Money amount={row.employerContributions} /></td><td className="numeric-cell"><Money amount={row.netPay} /></td><td><Button variant="ghost" onClick={() => setSlip(row.id)}>View payslip</Button></td></tr>} /></QueryFeedback></FormCard>
+    {action && <ConfirmedAction title={`${action} payroll`} description={descriptions[action]} destructive={action === 'cancel'} run={() => lifecycle[action](id)} onClose={() => setAction(null)} onDone={() => { setAction(null); void client.invalidateQueries({ queryKey: ['payroll-runs'] }) }} />}
+    {slip && <PayslipDetail id={slip} onClose={() => setSlip(null)} />}
+  </section>
 }
-
-function PayslipBreakdownModal({
-  payslip,
-  onClose,
-}: {
-  payslip: Payslip
-  onClose: () => void
-}) {
-  return (
-    <div className="modal-backdrop" role="presentation">
-      <div aria-labelledby="payslip-modal-title" aria-modal="true" className="modal-dialog modal-dialog--lg" role="dialog">
-        <div className="modal-header">
-          <div>
-            <h2 id="payslip-modal-title">
-              Payslip: {payslip.employeeName || 'Staff Member'}
-            </h2>
-            <p className="cell-muted">Detailed earnings and statutory deduction ledger.</p>
-          </div>
-          <button className="icon-button" onClick={onClose} type="button">
-            <X aria-hidden="true" size={18} />
-          </button>
-        </div>
-        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div className="summary-strip">
-            <div className="summary-card">
-              <span className="summary-card__label">Gross Earnings</span>
-              <strong className="summary-card__value text-success">
-                <Money amount={payslip.grossPay} />
-              </strong>
-            </div>
-            <div className="summary-card">
-              <span className="summary-card__label">Deductions Total</span>
-              <strong className="summary-card__value text-danger">
-                <Money amount={payslip.totalDeductions} />
-              </strong>
-            </div>
-            <div className="summary-card">
-              <span className="summary-card__label">Net Disbursed</span>
-              <strong className="summary-card__value text-primary">
-                <Money amount={payslip.netPay} />
-              </strong>
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            <section className="document-card">
-              <h2>Earnings</h2>
-              <dl className="document-facts">
-                <Fact label="Gross Salary" value={<Money amount={payslip.grossPay} />} />
-                <Fact label="Loss of Pay (LOP)" value={`${payslip.lopDays} days`} />
-              </dl>
-            </section>
-
-            <section className="document-card">
-              <h2>Statutory & Other Deductions</h2>
-              <dl className="document-facts">
-                <Fact label="Employee Deductions" value={<Money amount={payslip.totalDeductions} />} />
-                <Fact label="Employer Contributions" value={<Money amount={payslip.employerContributions} />} />
-              </dl>
-            </section>
-          </div>
-        </div>
-        <div className="modal-footer">
-          <Button onClick={() => alert('Downloading official Form 16 / Payslip PDF...')} variant="secondary">
-            <FileText aria-hidden="true" size={14} />
-            Download PDF Payslip
-          </Button>
-          <Button onClick={onClose} variant="primary">Close</Button>
-        </div>
-      </div>
-    </div>
-  )
+function PayrollEmployeeName({ id }: { id: string }) {
+  const orgId = useSessionStore((s) => s.user!.orgId)
+  const query = useQuery({ queryKey: ['payroll-employee', orgId, id], queryFn: () => getEmployee(id) })
+  return <Link to={appRoutes.employeeDetail(id)}>{query.data ? `${query.data.fullName}${query.data.employeeCode ? ` (${query.data.employeeCode})` : ''}` : query.isError ? 'Employee unavailable' : 'Loading employee...'}</Link>
 }
-
-function Fact({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div>
-      <dt className="document-fact-label">{label}</dt>
-      <dd className="document-fact-value">{value}</dd>
-    </div>
-  )
+function PayslipDetail({ id, onClose }: { id: string; onClose: () => void }) {
+  const orgId = useSessionStore((s) => s.user!.orgId)
+  const query = useQuery({ queryKey: ['payslip', orgId, id], queryFn: () => getPayslip(id) })
+  const slip = query.data
+  return <Modal isOpen size="lg" title="Payslip breakdown" onClose={onClose} footer={<><PayrollDownload path={`/api/v1/payroll/payslips/${encodeURIComponent(id)}/pdf`} filename="payslip.pdf" accept="application/pdf" label="Download payslip PDF" /><Button variant="secondary" onClick={onClose}>Close</Button></>}><QueryFeedback query={query}>{slip && <><PayrollEmployeeName id={slip.employeeId} /><FactList><Fact label="Gross pay" value={<Money amount={slip.grossPay} />} /><Fact label="Deductions" value={<Money amount={slip.totalDeductions} />} /><Fact label="Net payable" value={<Money amount={slip.netPay} />} /></FactList><DataTable caption="Payslip component lines"><thead><tr><th>Component type</th><th className="numeric-cell">Amount</th></tr></thead><tbody>{slip.lines?.map((line) => <tr key={line.id}><td>{line.componentType ?? 'Component'}</td><td className="numeric-cell"><Money amount={line.amount} /></td></tr>)}</tbody></DataTable><p>The JSON service omits component names; the generated PDF contains the detailed pay slip.</p></>}</QueryFeedback></Modal>
 }
-
-function DocumentError({ onBack }: { onBack: () => void }) {
-  return (
-    <section className="workspace-page">
-      <div className="directory-state directory-state--error" role="alert">
-        <FileText aria-hidden="true" size={24} />
-        <strong>Unable to load payroll run details.</strong>
-        <p>The record was not found or your session cannot access this workspace.</p>
-        <Button onClick={onBack} variant="secondary">
-          <ArrowLeft aria-hidden="true" size={16} />
-          Back to Payroll Runs
-        </Button>
-      </div>
-    </section>
-  )
+function PayrollDownload({ path, filename, accept, label }: { path: string; filename: string; accept: string; label: string }) {
+  const identity = useSessionStore((s) => `${s.user?.orgId}:${s.user?.id}`)
+  const download = useMutation({ mutationFn: async () => {
+    const blob = await apiFetchBlob(path, accept)
+    const user = useSessionStore.getState().user
+    if (`${user?.orgId}:${user?.id}` !== identity) throw new Error('The workspace changed. Download again from the current workspace.')
+    downloadBlob(blob, filename)
+  } })
+  return <div><Button variant="secondary" loading={download.isPending} disabled={download.isPending} onClick={() => download.mutate()}>{label}</Button>{download.error && <p role="alert" className="form-error">{download.error.message}</p>}</div>
 }

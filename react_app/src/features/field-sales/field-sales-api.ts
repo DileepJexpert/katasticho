@@ -159,6 +159,7 @@ export type RouteExecution = {
   totalOrdersValue?: number | string
   totalCollections?: number | string
   overrideReason?: string | null
+  notes?: string | null
 }
 
 export type FieldVisit = {
@@ -167,6 +168,7 @@ export type FieldVisit = {
   contactId: string
   contactName?: string
   visitSequence?: number
+  sequenceNumber?: number
   status: 'PENDING' | 'CHECKED_IN' | 'COMPLETED' | 'SKIPPED' | string
   checkInTime?: string | null
   checkOutTime?: string | null
@@ -177,6 +179,9 @@ export type FieldVisit = {
   collectionAmount?: number | string | null
   notes?: string | null
   skipReason?: string | null
+  customerReceiptId?: string | null
+  geoVerified?: boolean | null
+  geoDistanceM?: number | string | null
 }
 
 export type DayClose = {
@@ -190,6 +195,10 @@ export type DayClose = {
   cashDeposited?: number | string | null
   totalCollections?: number | string
   totalExpenses?: number | string
+  cashCollections?: number | string
+  cashExpenses?: number | string
+  cashVariance?: number | string
+  closeDate?: string
   status: 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | string
   notes?: string | null
   rejectionReason?: string | null
@@ -562,6 +571,8 @@ export async function listAssignments(includeInactive = false) {
   return apiFetch<FieldSalesAssignment[]>(`/api/v1/field-sales/assignments?includeInactive=${includeInactive}`)
 }
 
+export const getMyAssignments = (effectiveOn: string) => apiFetch<FieldSalesAssignment[]>(`/api/v1/field-sales/assignments/me?${new URLSearchParams({ effectiveOn })}`)
+
 export async function createAssignment(data: {
   salespersonId: string
   routeId?: string | null
@@ -585,6 +596,7 @@ export async function createAssignment(data: {
 }
 
 export const createFieldSalesAssignment = createAssignment
+export const updateFieldAssignment = (id: string, body: { salespersonId: string; routeId: string; vanId?: string | null; territory: string; effectiveFrom: string; effectiveTo: string | null }) => apiFetch<FieldSalesAssignment>(`/api/v1/field-sales/assignments/${encodeURIComponent(id)}`, { method: 'PUT', body })
 
 export async function endAssignment(id: string, endDate?: string) {
   return apiFetch<FieldSalesAssignment>(`/api/v1/field-sales/assignments/${id}/end`, {
@@ -638,14 +650,14 @@ export async function getExecutionVisits(executionId: string) {
   return apiFetch<FieldVisit[]>(`/api/v1/field-sales/executions/${executionId}/visits`)
 }
 
-export async function checkInVisit(visitId: string, latitude = 0, longitude = 0) {
+export async function checkInVisit(visitId: string, latitude: number, longitude: number) {
   return apiFetch<FieldVisit>(`/api/v1/field-sales/visits/${visitId}/check-in`, {
     method: 'POST',
     body: JSON.stringify({ latitude, longitude }),
   })
 }
 
-export async function checkOutVisit(visitId: string, notes?: string, latitude = 0, longitude = 0) {
+export async function checkOutVisit(visitId: string, notes: string | undefined, latitude: number, longitude: number) {
   return apiFetch<FieldVisit>(`/api/v1/field-sales/visits/${visitId}/check-out`, {
     method: 'POST',
     body: JSON.stringify({ notes, latitude, longitude }),

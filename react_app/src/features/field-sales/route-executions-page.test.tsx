@@ -4,17 +4,20 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RouteExecutionsPage } from './route-executions-page'
 import * as fieldSalesApi from '@/features/field-sales/field-sales-api'
-import * as payrollApi from '@/features/payroll/payroll-api'
+import * as settingsApi from '@/features/settings/settings-api'
+import { useSessionStore } from '@/shared/session/session-store'
+import { enterpriseUser } from '@/features/accounting/enterprise-test-fixtures'
 
 vi.mock('@/features/field-sales/field-sales-api', () => ({
   listExecutions: vi.fn(),
   listRoutes: vi.fn(),
   listVans: vi.fn(),
   startExecution: vi.fn(),
+  getMyAssignments: vi.fn(),
 }))
 
-vi.mock('@/features/payroll/payroll-api', () => ({
-  listEmployees: vi.fn(),
+vi.mock('@/features/settings/settings-api', () => ({
+  listOrgUsers: vi.fn(),
 }))
 
 const mockExecutions = {
@@ -28,8 +31,8 @@ const mockExecutions = {
       vanCode: 'VAN-01',
       executionDate: '2026-09-05',
       completedVisits: 8,
-      totalVisits: 12,
-      totalOrderValue: 45000,
+      plannedVisits: 12,
+      totalOrdersValue: 45000,
       totalCollections: 32000,
       status: 'IN_PROGRESS',
     },
@@ -67,6 +70,9 @@ const mockEmployees = {
       employeeCode: 'EMP-0101',
       designation: 'Field Representative',
       department: 'Sales',
+      email: 'vikram@example.test',
+      role: 'OPERATOR',
+      active: true,
     },
   ],
 }
@@ -87,10 +93,11 @@ function renderWithClient(ui: React.ReactElement) {
 describe('RouteExecutionsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    useSessionStore.setState({ status: 'authenticated', user: enterpriseUser })
     vi.mocked(fieldSalesApi.listExecutions).mockResolvedValue(mockExecutions as unknown as Awaited<ReturnType<typeof fieldSalesApi.listExecutions>>)
     vi.mocked(fieldSalesApi.listRoutes).mockResolvedValue(mockRoutes as unknown as Awaited<ReturnType<typeof fieldSalesApi.listRoutes>>)
     vi.mocked(fieldSalesApi.listVans).mockResolvedValue(mockVans as unknown as Awaited<ReturnType<typeof fieldSalesApi.listVans>>)
-    vi.mocked(payrollApi.listEmployees).mockResolvedValue(mockEmployees as unknown as Awaited<ReturnType<typeof payrollApi.listEmployees>>)
+    vi.mocked(settingsApi.listOrgUsers).mockResolvedValue(mockEmployees.content)
   })
 
   it('renders executions directory with metrics and executions log table', async () => {
@@ -101,6 +108,21 @@ describe('RouteExecutionsPage', () => {
     expect(screen.getByText('Vikram Patel')).toBeInTheDocument()
     expect(screen.getByText('VAN-01')).toBeInTheDocument()
     expect(screen.getByText('8 / 12')).toBeInTheDocument()
+  })
+
+  it('resolves reference names when execution responses contain only ids', async () => {
+    vi.mocked(fieldSalesApi.listExecutions).mockResolvedValue({
+      ...mockExecutions,
+      content: [{ ...mockExecutions.content[0], routeName: undefined, salespersonName: undefined, vanCode: undefined, vanId: 'van-1' }],
+    } as unknown as Awaited<ReturnType<typeof fieldSalesApi.listExecutions>>)
+
+    renderWithClient(<RouteExecutionsPage />)
+
+    expect(await screen.findByText('North Ring Route')).toBeInTheDocument()
+    expect(screen.getByText('Vikram Patel')).toBeInTheDocument()
+    expect(screen.getByText('VAN-01')).toBeInTheDocument()
+    expect(screen.queryByText('Direct Beat Run')).not.toBeInTheDocument()
+    expect(screen.queryByText('Assigned Agent')).not.toBeInTheDocument()
   })
 
   it('opens start run modal, selects route and salesperson via EntityPicker, and dispatches', async () => {

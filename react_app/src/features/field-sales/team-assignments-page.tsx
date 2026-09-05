@@ -1,415 +1,53 @@
-import { useState, useMemo } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import {
-  CheckCircle2,
-  MapPin,
-  Plus,
-  RefreshCw,
-  Search,
-  Truck,
-  UserCheck,
-  Users,
-} from 'lucide-react'
-import {
-  Button,
-  DataTable,
-  DocumentCard,
-  PageHeader,
-  StatusChip,
-} from '@/design-system'
-import {
-  createAssignment,
-  endAssignment,
-  listAssignments,
-  listBeats,
-  listRoutes,
-  listVans,
-  type FieldSalesAssignment,
-  type SalesBeat,
-  type SalesRoute,
-  type SalesVan,
-} from '@/features/field-sales/field-sales-api'
+import { useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Button, EntityPicker, FormField, FormGrid, Modal, PageHeader, StatusChip } from '@/design-system'
+import { TextField } from '@/design-system/text-field'
+import { listOrgUsers } from '@/features/settings/settings-api'
+import { useSessionStore } from '@/shared/session/session-store'
+import { ConfirmedAction } from '@/shared/workflows/confirmed-action'
+import { LocalDirectory } from '@/shared/workflows/local-directory'
+import { QueryFeedback } from '@/shared/workflows/query-feedback'
+import { WorkspaceBoundary } from '@/shared/workflows/workspace-boundary'
+import { createAssignment, deleteAssignment, endAssignment, listAssignments, updateFieldAssignment, type FieldSalesAssignment } from './field-sales-api'
+import { planningRoutes, planningVans } from './field-planning-lookups'
 
-function getTodayIso(): string {
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+function today() { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}` }
+function enabled(row: FieldSalesAssignment) { return row.active ?? row.isActive }
+export function TeamAssignmentsPage() { return <WorkspaceBoundary roles={['OWNER', 'ADMIN']}><Assignments /></WorkspaceBoundary> }
+function Assignments() {
+  const orgId = useSessionStore((s) => s.user!.orgId)
+  const client = useQueryClient()
+  const [editor, setEditor] = useState<FieldSalesAssignment | 'new' | null>(null)
+  const [action, setAction] = useState<{ row: FieldSalesAssignment; type: 'end' | 'deactivate' } | null>(null)
+  const query = useQuery({ queryKey: ['field-sales', orgId, 'assignments', 'all'], queryFn: () => listAssignments(true) })
+  const users = useQuery({ queryKey: ['field-sales', orgId, 'users', 'picker'], queryFn: listOrgUsers })
+  const routes = useQuery({ queryKey: ['field-sales', orgId, 'routes', 'picker'], queryFn: planningRoutes })
+  const vans = useQuery({ queryKey: ['field-sales', orgId, 'vans', 'picker'], queryFn: planningVans })
+  const refresh = () => { setEditor(null); setAction(null); void client.invalidateQueries({ queryKey: ['field-sales'] }) }
+  const names = (row: FieldSalesAssignment) => ({ person: users.data?.find((u) => u.id === row.salespersonId)?.fullName || users.data?.find((u) => u.id === row.salespersonId)?.email || row.salespersonName || 'User unavailable', route: routes.data?.find((r) => r.id === row.routeId)?.name || row.routeName || 'No route', van: vans.data?.find((v) => v.id === row.vanId)?.vehicleNumber || row.vanPlateNumber || 'No van' })
+  return <section className="workspace-page"><PageHeader eyebrow="Field sales / Planning" title="Team Assignments" description="Assign organisation users to routes and vans for an effective date range. Beats belong to the route, not the assignment." actions={<Button onClick={() => setEditor('new')}>New Assignment</Button>} />{(users.error || routes.error || vans.error) && <p role="alert" className="form-error">Reference names could not be loaded. {users.error?.message ?? routes.error?.message ?? vans.error?.message}</p>}<QueryFeedback query={query}><LocalDirectory rows={query.data ?? []} caption="Team route assignments" searchText={(row) => `${Object.values(names(row)).join(' ')} ${row.territory ?? ''}`} header={<tr><th>Salesperson</th><th>Route</th><th>Van</th><th>Territory</th><th>Effective dates</th><th>Status</th><th>Actions</th></tr>} renderRow={(row) => { const name = names(row); const status = !enabled(row) ? 'INACTIVE' : row.effectiveTo && row.effectiveTo < today() ? 'ENDED' : row.effectiveFrom > today() ? 'SCHEDULED' : 'ACTIVE'; return <tr key={row.id}><td>{name.person}</td><td>{name.route}</td><td>{name.van}</td><td>{row.territory ?? '--'}</td><td>{row.effectiveFrom} to {row.effectiveTo ?? 'Open-ended'}</td><td><StatusChip status={status} /></td><td><div className="table-actions">{enabled(row) && <><Button variant="ghost" onClick={() => setEditor(row)}>Edit</Button><Button variant="secondary" onClick={() => setAction({ row, type: 'end' })}>End</Button><Button variant="destructive" onClick={() => setAction({ row, type: 'deactivate' })}>Deactivate</Button></>}</div></td></tr> }} /></QueryFeedback>
+    {editor && <AssignmentEditor row={editor === 'new' ? undefined : editor} onClose={() => setEditor(null)} onDone={refresh} />}
+    {action?.type === 'deactivate' && <ConfirmedAction title="Deactivate assignment" description={`Deactivate ${names(action.row).person}'s assignment? This removes it from active route eligibility.`} destructive run={() => deleteAssignment(action.row.id)} onClose={() => setAction(null)} onDone={refresh} />}
+    {action?.type === 'end' && <EndAssignment row={action.row} onClose={() => setAction(null)} onDone={refresh} />}
+  </section>
 }
-
-export function TeamAssignmentsPage() {
-  const queryClient = useQueryClient()
-  const [searchTerm, setSearchTerm] = useState('')
-  const [includeInactive, setIncludeInactive] = useState(false)
-  const [showCreateModal, setShowCreateModal] = useState(false)
-  const [actionSuccess, setActionSuccess] = useState<string | null>(null)
-
-  // Form states
-  const [salespersonId, setSalespersonId] = useState('')
-  const [routeId, setRouteId] = useState('')
-  const [beatId, setBeatId] = useState('')
-  const [vanId, setVanId] = useState('')
-  const [startDate, setStartDate] = useState(getTodayIso())
-
-  const assignmentsQuery = useQuery({
-    queryKey: ['field-sales', 'assignments', includeInactive],
-    queryFn: () => listAssignments(includeInactive),
-  })
-
-  const routesQuery = useQuery({
-    queryKey: ['field-sales', 'routes'],
-    queryFn: () => listRoutes(0, 100),
-  })
-
-  const beatsQuery = useQuery({
-    queryKey: ['field-sales', 'beats'],
-    queryFn: () => listBeats(0, 100),
-  })
-
-  const vansQuery = useQuery({
-    queryKey: ['field-sales', 'vans'],
-    queryFn: () => listVans(0, 100),
-  })
-
-  function handleRefresh() {
-    queryClient.invalidateQueries({ queryKey: ['field-sales', 'assignments'] })
-  }
-
-  const createMutation = useMutation({
-    mutationFn: () =>
-      createAssignment({
-        salespersonId,
-        routeId: routeId || undefined,
-        beatId: beatId || undefined,
-        vanId: vanId || undefined,
-        startDate,
-      }),
-    onSuccess: () => {
-      setActionSuccess('Territory assignment created successfully.')
-      setShowCreateModal(false)
-      setSalespersonId('')
-      setRouteId('')
-      setBeatId('')
-      setVanId('')
-      queryClient.invalidateQueries({ queryKey: ['field-sales', 'assignments'] })
-    },
-  })
-
-  const endMutation = useMutation({
-    mutationFn: (id: string) => endAssignment(id, getTodayIso()),
-    onSuccess: () => {
-      setActionSuccess('Assignment ended.')
-      queryClient.invalidateQueries({ queryKey: ['field-sales', 'assignments'] })
-    },
-  })
-
-  const assignments: FieldSalesAssignment[] = useMemo(
-    () => assignmentsQuery.data ?? [],
-    [assignmentsQuery.data]
-  )
-  const routes: SalesRoute[] = routesQuery.data?.content ?? []
-  const beats: SalesBeat[] = beatsQuery.data?.content ?? []
-  const vans: SalesVan[] = vansQuery.data?.content ?? []
-
-  const filteredAssignments = useMemo(() => {
-    if (!searchTerm.trim()) return assignments
-    const term = searchTerm.trim().toLowerCase()
-    return assignments.filter((a) => {
-      const spMatch = (a.salespersonName || '').toLowerCase().includes(term)
-      const rMatch = (a.routeName || '').toLowerCase().includes(term)
-      const bMatch = (a.beatName || '').toLowerCase().includes(term)
-      return spMatch || rMatch || bMatch
-    })
-  }, [assignments, searchTerm])
-
-  const activeCount = assignments.filter((a) => a.active).length
-
-  return (
-    <section className="workspace-page">
-      <PageHeader
-        actions={
-          <div className="flex items-center gap-2">
-            <Button
-              aria-label="Refresh assignments"
-              onClick={handleRefresh}
-              variant="secondary"
-            >
-              <RefreshCw size={15} aria-hidden="true" />
-              <span>Refresh</span>
-            </Button>
-            <Button
-              onClick={() => setShowCreateModal(true)}
-              variant="primary"
-            >
-              <Plus size={15} aria-hidden="true" />
-              <span>New Assignment</span>
-            </Button>
-          </div>
-        }
-        eyebrow="Field Operations • Territory Administration"
-        title="Team Route & Beat Assignments"
-        description="Territory beat and route allocations to sales representatives, van assignments, and active tenure management."
-      />
-
-      <div className="dashboard-workspace">
-        {actionSuccess && (
-          <div className="p-3 text-sm rounded bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-2">
-            <CheckCircle2 size={16} className="text-emerald-600 flex-none" />
-            <span>{actionSuccess}</span>
-          </div>
-        )}
-
-        {/* ── Summary Strip ── */}
-        <section aria-label="Assignment metrics" className="metric-grid">
-          <article className="metric-card metric-card--brand">
-            <span className="metric-icon">
-              <UserCheck size={18} aria-hidden="true" />
-            </span>
-            <div className="metric-content">
-              <span className="metric-label">Active Assignments</span>
-              <span className="metric-value font-mono">
-                {assignmentsQuery.isLoading ? '—' : activeCount}
-              </span>
-              <span className="metric-footnote">Reps currently assigned to routes</span>
-            </div>
-          </article>
-
-          <article className="metric-card">
-            <span className="metric-icon">
-              <MapPin size={18} aria-hidden="true" />
-            </span>
-            <div className="metric-content">
-              <span className="metric-label">Covered Routes</span>
-              <span className="metric-value font-mono">
-                {routes.length}
-              </span>
-              <span className="metric-footnote">Active master sales routes</span>
-            </div>
-          </article>
-
-          <article className="metric-card metric-card--success">
-            <span className="metric-icon">
-              <Truck size={18} aria-hidden="true" />
-            </span>
-            <div className="metric-content">
-              <span className="metric-label">Fleet Vans Allocated</span>
-              <span className="metric-value font-mono">
-                {assignments.filter((a) => Boolean(a.vanId)).length}
-              </span>
-              <span className="metric-footnote">Vehicles paired to representatives</span>
-            </div>
-          </article>
-        </section>
-
-        {/* ── Search & Filter Controls ── */}
-        <section
-          aria-label="Assignment filters"
-          className="flex flex-wrap items-center justify-between gap-3 p-3 bg-surface border border-subtle rounded-lg"
-        >
-          <div className="relative" style={{ width: '280px' }}>
-            <Search
-              size={14}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"
-            />
-            <input
-              aria-label="Search assignments"
-              className="dashboard-branch-select"
-              placeholder="Search rep, route, or beat..."
-              style={{ width: '100%', paddingLeft: '32px' }}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-
-          <label className="flex items-center gap-2 text-xs text-secondary cursor-pointer">
-            <input
-              type="checkbox"
-              checked={includeInactive}
-              onChange={(e) => setIncludeInactive(e.target.checked)}
-            />
-            <span>Include Inactive / Historical Assignments</span>
-          </label>
-        </section>
-
-        {/* ── Assignments Table ── */}
-        <DocumentCard title={`Assignments Registry (${filteredAssignments.length})`}>
-          {assignmentsQuery.isLoading ? (
-            <div className="p-4 text-secondary text-sm">Loading assignments...</div>
-          ) : filteredAssignments.length > 0 ? (
-            <DataTable caption="Active field representative territory assignments">
-              <thead>
-                <tr>
-                  <th scope="col">Sales Representative</th>
-                  <th scope="col">Assigned Route</th>
-                  <th scope="col">Assigned Beat</th>
-                  <th scope="col">Mobile Van</th>
-                  <th scope="col">Tenure</th>
-                  <th scope="col">Status</th>
-                  <th className="numeric-cell" scope="col">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredAssignments.map((a) => (
-                  <tr key={a.id}>
-                    <td>
-                      <strong>{a.salespersonName || 'Representative'}</strong>
-                    </td>
-                    <td>
-                      <span className="text-secondary">{a.routeName || '—'}</span>
-                    </td>
-                    <td>
-                      <span className="text-secondary">{a.beatName || '—'}</span>
-                    </td>
-                    <td>
-                      {a.vanPlateNumber ? (
-                        <span className="font-mono text-xs text-brand font-semibold">
-                          {a.vanPlateNumber}
-                        </span>
-                      ) : (
-                        <span className="text-muted text-xs">—</span>
-                      )}
-                    </td>
-                    <td>
-                      <span className="font-mono text-xs text-muted">
-                        {a.startDate} {a.endDate ? `to ${a.endDate}` : '(Current)'}
-                      </span>
-                    </td>
-                    <td>
-                      <StatusChip status={(a.isActive ?? a.active) ? 'ACTIVE' : 'INACTIVE'} />
-                    </td>
-                    <td className="numeric-cell">
-                      {(a.isActive ?? a.active) && (
-                        <Button
-                          disabled={endMutation.isPending}
-                          onClick={() => endMutation.mutate(a.id)}
-                          variant="secondary"
-                        >
-                          <span>End</span>
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </DataTable>
-          ) : (
-            <div className="p-8 text-center text-secondary text-sm">
-              <Users size={28} className="mx-auto mb-2 text-muted opacity-40" />
-              <span>No assignments matching criteria.</span>
-            </div>
-          )}
-        </DocumentCard>
-
-        {/* ── New Assignment Modal ── */}
-        {showCreateModal && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
-            role="dialog"
-            aria-modal="true"
-          >
-            <div className="bg-surface border border-subtle rounded-xl shadow-xl max-w-lg w-full p-5 flex flex-col gap-4">
-              <div className="flex items-center justify-between pb-3 border-b border-subtle">
-                <strong className="text-base font-semibold text-primary">
-                  New Territory Assignment
-                </strong>
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  className="text-muted hover:text-primary text-sm p-1"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className="flex flex-col gap-3">
-                <label className="field-group">
-                  <span className="text-xs font-semibold text-secondary">Salesperson UUID / ID *</span>
-                  <input
-                    aria-label="Salesperson ID"
-                    placeholder="Enter salesperson UUID..."
-                    className="dashboard-branch-select"
-                    value={salespersonId}
-                    onChange={(e) => setSalespersonId(e.target.value)}
-                  />
-                </label>
-
-                <label className="field-group">
-                  <span className="text-xs font-semibold text-secondary">Assigned Route</span>
-                  <select
-                    aria-label="Assigned Route"
-                    className="dashboard-branch-select"
-                    value={routeId}
-                    onChange={(e) => setRouteId(e.target.value)}
-                  >
-                    <option value="">None (Ad-hoc)</option>
-                    {routes.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.name} ({r.code})
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="field-group">
-                  <span className="text-xs font-semibold text-secondary">Assigned Beat</span>
-                  <select
-                    aria-label="Assigned Beat"
-                    className="dashboard-branch-select"
-                    value={beatId}
-                    onChange={(e) => setBeatId(e.target.value)}
-                  >
-                    <option value="">None</option>
-                    {beats.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.name} ({b.code})
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="field-group">
-                  <span className="text-xs font-semibold text-secondary">Mobile Van</span>
-                  <select
-                    aria-label="Mobile Van"
-                    className="dashboard-branch-select"
-                    value={vanId}
-                    onChange={(e) => setVanId(e.target.value)}
-                  >
-                    <option value="">None</option>
-                    {vans.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {v.plateNumber} - {v.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="field-group">
-                  <span className="text-xs font-semibold text-secondary">Start Date</span>
-                  <input
-                    aria-label="Start Date"
-                    type="date"
-                    className="dashboard-branch-select font-mono text-xs"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                  />
-                </label>
-              </div>
-
-              <div className="pt-3 border-t border-subtle flex justify-end gap-2">
-                <Button onClick={() => setShowCreateModal(false)} variant="secondary">
-                  Cancel
-                </Button>
-                <Button
-                  disabled={!salespersonId || createMutation.isPending}
-                  onClick={() => createMutation.mutate()}
-                  variant="primary"
-                >
-                  <span>{createMutation.isPending ? 'Assigning...' : 'Confirm Assignment'}</span>
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </section>
-  )
+function AssignmentEditor({ row, onClose, onDone }: { row?: FieldSalesAssignment; onClose: () => void; onDone: () => void }) {
+  const orgId = useSessionStore((s) => s.user!.orgId)
+  const users = useQuery({ queryKey: ['field-sales', orgId, 'users', 'picker'], queryFn: listOrgUsers })
+  const routes = useQuery({ queryKey: ['field-sales', orgId, 'routes', 'picker'], queryFn: planningRoutes })
+  const vans = useQuery({ queryKey: ['field-sales', orgId, 'vans', 'picker'], queryFn: planningVans })
+  const [person, setPerson] = useState(row?.salespersonId ?? '')
+  const [route, setRoute] = useState(row?.routeId ?? '')
+  const [van, setVan] = useState(row?.vanId ?? '')
+  const [territory, setTerritory] = useState(row?.territory ?? '')
+  const [from, setFrom] = useState(row?.effectiveFrom ?? today())
+  const [to, setTo] = useState(row?.effectiveTo ?? '')
+  const valid = !!person && !!route && !!from && (!to || to >= from) && (!row?.vanId || !!van) && users.data?.some((u) => u.id === person && u.active)
+  const save = useMutation({ mutationFn: () => { const body = { salespersonId: person, routeId: route, vanId: van || null, territory, effectiveFrom: from, effectiveTo: to || null }; return row ? updateFieldAssignment(row.id, body) : createAssignment(body) }, onSuccess: onDone })
+  return <Modal isOpen title={row ? 'Edit team assignment' : 'New team assignment'} onClose={() => { if (!save.isPending) onClose() }} error={save.error?.message ?? users.error?.message ?? routes.error?.message ?? vans.error?.message} footer={<><Button variant="secondary" disabled={save.isPending} onClick={onClose}>Cancel</Button><Button disabled={!valid || save.isPending} loading={save.isPending} onClick={() => save.mutate()}>Save assignment</Button></>}><FormGrid><FormField label="Salesperson"><EntityPicker ariaLabel="Assignment salesperson" value={person} onChange={(id) => setPerson(id ?? '')} options={(users.data ?? []).filter((u) => u.active)} getOptionId={(u) => u.id} getOptionLabel={(u) => u.fullName || u.email} getOptionDescription={(u) => `${u.email} / ${u.role}`} /></FormField><FormField label="Route"><EntityPicker ariaLabel="Assignment route" value={route} onChange={(id) => setRoute(id ?? '')} options={routes.data ?? []} getOptionId={(r) => r.id} getOptionLabel={(r) => r.name} getOptionDescription={(r) => r.code} /></FormField><FormField label="Van (optional)"><EntityPicker ariaLabel="Assignment van" value={van || null} onChange={(id) => setVan(id ?? '')} options={vans.data ?? []} getOptionId={(v) => v.id} getOptionLabel={(v) => v.vehicleNumber || v.code} /></FormField><TextField label="Territory" value={territory} onChange={(e) => setTerritory(e.target.value)} /><TextField label="Effective from" type="date" required value={from} onChange={(e) => setFrom(e.target.value)} /><TextField label="Effective to (optional)" type="date" min={from} value={to} onChange={(e) => setTo(e.target.value)} /></FormGrid>{row?.vanId && <p>The existing update API cannot clear a van. Select a replacement, or end this assignment and create a new one without a van.</p>}</Modal>
+}
+function EndAssignment({ row, onClose, onDone }: { row: FieldSalesAssignment; onClose: () => void; onDone: () => void }) {
+  const [date, setDate] = useState(today() < row.effectiveFrom ? row.effectiveFrom : today())
+  const save = useMutation({ mutationFn: () => endAssignment(row.id, date), onSuccess: onDone })
+  return <Modal isOpen title="End assignment" onClose={() => { if (!save.isPending) onClose() }} error={save.error?.message} footer={<><Button variant="secondary" disabled={save.isPending} onClick={onClose}>Cancel</Button><Button disabled={!date || date < row.effectiveFrom || save.isPending} onClick={() => save.mutate()}>Confirm end date</Button></>}><TextField label="End date" type="date" min={row.effectiveFrom} value={date} onChange={(e) => setDate(e.target.value)} /><p>The backend applies the effective end date to this assignment.</p></Modal>
 }

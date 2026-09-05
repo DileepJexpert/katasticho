@@ -1,6 +1,6 @@
 # Katasticho React Web Migration Plan
 
-**Status:** Active implementation - Wave 2 master-data writes plus both golden-chain source wiring are built; live acceptance is deferred while Wave 3 source implementation continues
+**Status:** Active implementation through Wave 5 - partner network, supply planning, external portal, HR/payroll review and field-sales corrections added on 2026-09-05; full parity and live acceptance remain open. See the dated reconciliation and executive tracker below.
 **Purpose:** The single planning and tracking document for replacing the Flutter
 web/admin client with a production-quality React web ERP while keeping the
 Spring Boot backend, database, accounting rules, and business workflows safe.
@@ -767,6 +767,99 @@ navigation, API-client, or design-system files were changed for this slice.
 See `docs/testing/REACT_ESTIMATES_ACCEPTANCE.md` for the contract matrix,
 backend blockers and the safe manual acceptance sequence.
 
+### R-13/R-14 Partner, Planning and Portal Administration - 2026-09-05
+
+**Status: BUILDING.** This continuation adds lazy-loaded route entries in
+React, using the existing PartnerNetworkController, SupplyChainController and
+PortalUserAdminController contracts. Java, database, Flutter and backend tests
+remain unchanged. The React app has not been started for manual acceptance.
+
+- [x] Partner directory, incoming request approval/rejection, suspension,
+  published catalog metadata create/edit/unpublish, approved-supplier search,
+  incoming/outgoing order lists, order lines/events and party-aware tracking.
+- [x] Supply planning overview; server-paged requisitions, creation, low-stock
+  draft generation and approval lifecycle; tracking-only shipment directory,
+  creation/detail/dispatch/delivery/cancellation; alerts scan/resolve; moving,
+  seasonal and weighted forecasts; ABC/reorder calculations; named item-supplier
+  mappings with preferred supplier actions; read-only returns and scorecards.
+- [x] Owner/Admin external portal account list, named contact invites,
+  regenerate/suspend/reactivate/remove actions and one-time token handling.
+  External customer/vendor login, invite acceptance, documents, statements,
+  customer catalog and guarded reorder submission are now separate public routes.
+- [x] Shared role/organisation boundary resets drafts on organisation, user or
+  role change. Local pagination limits unpaged result rendering to 25 rows;
+  paged APIs retain real server pagination. Named pickers replace raw UUID entry.
+- [x] Command palette now derives visibility from the same group-aware rules
+  as the sidebar. Group permissions and disabled groups are no longer bypassed
+  by flattening navigation items before filtering.
+- [x] Existing density and visual tokens only: 34px controls, 36px rows,
+  shared FormGrid/FormCard/Modal/DataTable/StatusChip/Money/Quantity primitives.
+  No feature-local CSS, colour palette, or application server was introduced.
+- [x] Focused regression checks: 90 passed across six files (including existing
+  navigation tests). These are mocked UI/request tests, not live acceptance.
+- [x] Full React suite: 469 tests passed across 104 files with two workers;
+  ESLint and production build (including TypeScript) passed. Existing main-bundle
+  size warning remains; the new routes are lazy-loaded. Detailed evidence is in
+  `testing/REACT_PARTNER_SUPPLY_ACCEPTANCE.md`.
+- [ ] New partner discovery, network order placement/confirmation and PO/SO
+  linking remain blocked by contract gaps/ownership validation, not implemented
+  as raw-ID forms or client-only safety workarounds.
+- [ ] Supply return execution and supplier-score recalculation need separately
+  authorised backend corrections. Tracking is not stock movement or GL posting.
+- [x] Shipment departure/arrival scheduling, agreed-unit line weight and notes,
+  plus operational turnover ratios are wired to existing API fields. Turnover
+  explicitly reports current average-cost stock value, not FIFO or period-average
+  inventory. Document-reference writes remain withheld because ownership is not
+  validated by the current service.
+- [x] External portal sessions use a dedicated memory-only portal token, never
+  the ERP administrator token/cookie/org header. Customer documents, statements,
+  order history/detail, frequent items, catalog paging, confirmed reorder and
+  password change are wired. Vendor bills are available; vendor PO lookup remains
+  withheld because its backend lookup uses a contact id where the repository
+  expects a supplier projection id. Portal amounts omit a symbol because the API
+  does not provide organisation currency.
+- [ ] Complete live tenant/role, responsive, concurrency and accounting/stock
+  comparison checks before accepting these workflows or retiring Flutter.
+
+See `docs/testing/REACT_PARTNER_SUPPLY_ACCEPTANCE.md` for the route/role matrix,
+verified contract limitations and a page-by-page manual acceptance sequence.
+The current continuation is uncommitted until a subsequent requested checkpoint.
+
+### R-10/R-11 Contract Review Corrections - 2026-09-05
+
+**Status: BUILDING, source corrected; live acceptance pending.** Antigravity's
+HR/payroll and field-sales source was checked against existing controllers,
+entities and lifecycle services. No Java, migration or Flutter file was changed.
+
+- [x] Payroll run detail uses real calculate/approve/post/cancel mutations with
+  confirmation, resolves employee identities, and downloads actual bank, PF,
+  ESIC and payslip files. GL posting is not presented as salary payment.
+- [x] Attendance uses server punch and monthly-summary data, real punch actions,
+  actual regularization fields, local-time-to-UTC conversion, named employee
+  review and reasoned approval/rejection. Fabricated attendance totals are gone.
+- [x] Route executions use organisation users rather than payroll employee ids,
+  resolve route/salesperson/van labels without invented fallbacks, and constrain
+  Operator route/van selection to effective assignments.
+- [x] Visit execution follows actual `PLANNED` -> `IN_PROGRESS` -> `COMPLETED`
+  states, requires fresh device location for check-in/out, respects salesperson
+  ownership, and labels visit collections as real oldest-invoice-first receipts.
+- [x] Assignment create/edit/deactivate uses effective dates, named selectors,
+  temporal status and confirmation. Beat selection was removed because the
+  assignment service ignores that input; route planning owns beats.
+- [x] Day close no longer fabricates an empty directory. It opens from an
+  execution or saved close link, submits actual cash values, displays the
+  server variance, and confirms approval/rejection.
+- [ ] Frozen API limitations remain: no day-close list or lookup-by-execution,
+  no rejected-close resubmission, assignment update cannot clear a van, visit
+  order references lack contact ownership validation, and payslip JSON omits
+  component names. React discloses or withholds affected actions.
+- [ ] Full employee-to-payroll/statutory reconciliation, MR/native field runtime,
+  responsive review, GPS acceptance, tenant/role testing and manual workflow
+  comparison with Flutter remain open.
+- [x] Current source validation: 469 tests passed across 104 files, ESLint passed
+  with zero warnings, TypeScript and production build passed. The existing main
+  bundle size warning remains visible. No application server or browser was run.
+
 Use this table as the live executive tracker. Expand a row into smaller issue
 checklists only after the wave starts. Status values are `NOT_STARTED`,
 `DISCOVERY`, `BUILDING`, `QA`, `PILOT`, `COMPLETE`, or `NATIVE_RETAINED`.
@@ -783,11 +876,11 @@ checklists only after the wave starts. Status values are `NOT_STARTED`,
 | R-07 | Accounting, banking, reports, audit | 3 | BUILDING | Manual journal source wiring supports account-code posting, balanced draft/post workflows, post-dated scheduling, and reversal review. Typed Trial Balance, P&L, Balance Sheet, General Ledger, and AR/AP ageing views present server-calculated values through the existing report contracts. Runtime and reconciliation acceptance remain pending. |
 | R-08 | GST, statutory, and country tax workflows | 3 | BUILDING | React GST/tax/regional pages exist. Full contract, filing, country/role and compliance-document review and acceptance are pending. |
 | R-09 | POS web administration and receipt operations | 3 | BUILDING | React checkout, customer creation, discounts, shifts and receipt source workflows exist. Returns, tax/stock/GL acceptance and native printing/offline certification still require review. |
-| R-10 | HR and Payroll | 4 | BUILDING | Implementation commit 6fd0a875 adds HR/Payroll workflows. Independent contract/parity review, employee-to-posted-payroll testing and statutory reconciliation are pending. |
-| R-11 | Field Sales/MR administration | 4 | BUILDING | Implementation commit d6dd0d8d adds Field Sales/MR workflows. Independent planning/assignment/approval/role and end-to-end acceptance remain pending; native execution is assessed separately. |
+| R-10 | HR and Payroll | 4 | BUILDING | HR/payroll source was contract-reviewed: real attendance punches/summary/regularization and payroll lifecycle/download corrections are implemented. Employee-to-posted-payroll, payment/statutory reconciliation, role/tenant runtime and manual acceptance remain pending. |
+| R-11 | Field Sales/MR administration | 4 | BUILDING | Planning, assignments, execution, GPS visit actions, collections and day-close source were contract-reviewed and corrected. Missing backend lookup/resubmission/clear-van safeguards plus MR/native execution and end-to-end acceptance remain pending. |
 | R-12 | Pharma and Manufacturing | 4 | BUILDING | React pharmacy, BOM, work-order, QC, maintenance and related pages exist; manufacturing is under concurrent work. Review complete action loops and real item/batch effects before acceptance. |
-| R-13 | Partner, supply chain, courier, franchise, loyalty | 5 | BUILDING | Transport/franchise/loyalty React source exists; partner/supply-chain coverage and complete create/detail/action loops still need a source audit and acceptance. |
-| R-14 | Platform, CA console, portal, onboarding, AI | 5 | BUILDING | React settings/CA/AI source exists. Platform, external portal, onboarding, integration and permission coverage require reconciliation and end-to-end acceptance. |
+| R-13 | Partner, supply chain, courier, franchise, loyalty | 5 | BUILDING | Reviewed transport/franchise/loyalty source plus partner and supply workflows. Shipment scheduling/weights and operational current-stock turnover are wired. Partner discovery/order integrity/linking, document references, supply returns and supplier-score recalculation retain frozen-contract blockers. Live acceptance remains open; see REACT_PARTNER_SUPPLY_ACCEPTANCE.md. |
+| R-14 | Platform, CA console, portal, onboarding, AI | 5 | BUILDING | React settings/CA/AI and portal administration exist. A separately authenticated external portal now covers customer documents/statements/catalog/reorders and vendor bills; vendor PO retrieval and currency metadata are frozen API blockers. Platform/onboarding, integration, permission and end-to-end acceptance remain open. |
 | R-15 | Cutover and Flutter web retirement | 6 | NOT_STARTED | Pilot accepted, rollback rehearsed, React default enabled. |
 
 ## 8. Quality Gates

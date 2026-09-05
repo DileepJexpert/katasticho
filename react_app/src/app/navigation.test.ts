@@ -2,6 +2,18 @@ import { describe, expect, it } from 'vitest'
 import { getVisibleNavigation, getVisibleNavStructure } from '@/app/navigation'
 
 describe('navigation', () => {
+  it('matches partner, planning and portal controller role boundaries', () => {
+    const idsFor = (role: string) => getVisibleNavigation({ role, industry: null, country: null }).map((item) => item.id)
+    expect(idsFor('OPERATOR')).toEqual(expect.arrayContaining(['partner_network.partners', 'supply_chain.dashboard', 'supply_chain.shipments']))
+    expect(idsFor('OPERATOR')).not.toContain('supply_chain.requisitions')
+    expect(idsFor('OPERATOR')).not.toContain('settings.portal_users')
+    expect(idsFor('ACCOUNTANT')).toContain('supply_chain.requisitions')
+    expect(idsFor('ACCOUNTANT')).not.toContain('partner_network.partners')
+    expect(idsFor('VIEWER')).not.toContain('supply_chain.dashboard')
+    const hidden = getVisibleNavStructure({ role: 'ADMIN', industry: null, country: null, disabledIds: ['supply_chain', 'settings.portal_users'] })
+    expect(hidden.groups.some((group) => group.id === 'supply_chain')).toBe(false)
+    expect(hidden.groups.flatMap((group) => group.items).some((item) => item.id === 'settings.portal_users')).toBe(false)
+  })
   it('removes a disabled stable navigation id without removing other live routes', () => {
     const visible = getVisibleNavigation({
       role: 'ADMIN',
@@ -114,6 +126,21 @@ describe('navigation', () => {
       'payroll.runs',
       'payroll.labor_pay_preview',
       'payroll.settings',
+      'partner_network.partners',
+      'partner_network.catalog',
+      'partner_network.supplier_search',
+      'partner_network.outgoing_orders',
+      'partner_network.incoming_orders',
+      'supply_chain.dashboard',
+      'supply_chain.requisitions',
+      'supply_chain.shipments',
+      'supply_chain.returns',
+      'supply_chain.alerts',
+      'supply_chain.forecasts',
+      'supply_chain.reorder_policies',
+      'supply_chain.item_suppliers',
+      'supply_chain.supplier_rankings',
+      'supply_chain.turnover',
       'transport.courier_shipments',
       'transport.cod_remittances',
       'transport.lorry_receipts',
@@ -128,6 +155,7 @@ describe('navigation', () => {
       'ca.compliance',
       'ca.alerts',
       'ca.dispatch',
+      'settings.portal_users',
       'settings.users',
       'settings.payment_terms',
       'settings.pdf_templates',

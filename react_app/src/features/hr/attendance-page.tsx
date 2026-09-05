@@ -1,358 +1,47 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import {
-  Calendar,
-  Clock,
-  Plus,
-  ShieldCheck,
-  UserCheck,
-} from 'lucide-react'
-import {
-  Button,
-  DataTable,
-  FormField,
-  FormGrid,
-  Modal,
-  PageHeader,
-  StatusChip,
-  TextAreaInput,
-  TextInput,
-} from '@/design-system'
-import { formatDate, formatStatusLabel } from '@/shared/format/format'
-import {
-  approveRegularization,
-  getAttendanceSummary,
-  listMyRegularizations,
-  listPendingRegularizations,
-  rejectRegularization,
-  requestRegularization,
-} from '@/features/hr/hr-api'
+import { Button, Fact, FactList, FilterTabs, FormCard, FormGrid, Modal, PageHeader, StatusChip } from '@/design-system'
+import { TextField } from '@/design-system/text-field'
+import { listOrgUsers } from '@/features/settings/settings-api'
+import { useSessionStore } from '@/shared/session/session-store'
+import { ConfirmedAction } from '@/shared/workflows/confirmed-action'
+import { LocalDirectory } from '@/shared/workflows/local-directory'
+import { QueryFeedback } from '@/shared/workflows/query-feedback'
+import { WorkspaceBoundary } from '@/shared/workflows/workspace-boundary'
+import { approveRegularization, getAttendanceSummary, getAttendanceToday, listMyRegularizations, listPendingRegularizations, recordAttendancePunch, rejectRegularization, requestRegularization } from './hr-api'
+import { regularizationTime } from './regularization-time'
 
-const attendanceTabs = [
-  { key: 'summary', label: 'Monthly Summary' },
-  { key: 'pending', label: 'Pending Regularizations (HR)' },
-  { key: 'mine', label: 'My Requests' },
-] as const
-
-type AttendanceTab = (typeof attendanceTabs)[number]['key']
-
-export function AttendancePage() {
-  const [activeTab, setActiveTab] = useState<AttendanceTab>('summary')
-  const [isRegModalOpen, setIsRegModalOpen] = useState(false)
-  const [month] = useState(new Date().toISOString().slice(0, 7) + '-01')
-
-  const queryClient = useQueryClient()
-
-  const summaryQuery = useQuery({
-    queryKey: ['hr-attendance-summary', month],
-    queryFn: () => getAttendanceSummary(undefined, month),
-  })
-
-  const pendingQuery = useQuery({
-    queryKey: ['hr-attendance-pending'],
-    queryFn: () => listPendingRegularizations(),
-  })
-
-  const myRegQuery = useQuery({
-    queryKey: ['hr-attendance-mine'],
-    queryFn: () => listMyRegularizations(),
-  })
-
-  const reqMutation = useMutation({
-    mutationFn: (req: { workDate: string; punchIn?: string; punchOut?: string; reason: string }) =>
-      requestRegularization(req),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['hr-attendance-mine'] })
-      queryClient.invalidateQueries({ queryKey: ['hr-attendance-pending'] })
-      setIsRegModalOpen(false)
-    },
-  })
-
-  const approveMutation = useMutation({
-    mutationFn: (id: string) => approveRegularization(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['hr-attendance-pending'] })
-      queryClient.invalidateQueries({ queryKey: ['hr-attendance-summary'] })
-    },
-  })
-
-  const rejectMutation = useMutation({
-    mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
-      rejectRegularization(id, reason),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['hr-attendance-pending'] })
-    },
-  })
-
-  const summary = summaryQuery.data ?? {}
-  const pendingList = pendingQuery.data ?? []
-  const myList = myRegQuery.data ?? []
-
-  return (
-    <section className="workspace-page">
-      <PageHeader
-        eyebrow="Core HR"
-        title="Attendance & Regularization"
-        description="Daily attendance logs, shift punches, biometric terminal synchronization, and missed punch regularization workflows."
-        actions={
-          <div className="table-actions">
-            <Button onClick={() => setIsRegModalOpen(true)} variant="primary">
-              <Plus aria-hidden="true" size={16} />
-              Request Regularization
-            </Button>
-          </div>
-        }
-      />
-
-      <div className="summary-strip">
-        <div className="summary-card">
-          <span className="summary-card__label">Present Days</span>
-          <strong className="summary-card__value text-success">{summary.presentDays ?? 22}</strong>
-          <span className="summary-card__hint">On-time attendances</span>
-        </div>
-        <div className="summary-card">
-          <span className="summary-card__label">Absent / LOP</span>
-          <strong className="summary-card__value text-danger">{summary.absentDays ?? 0}</strong>
-          <span className="summary-card__hint">Loss of pay impact</span>
-        </div>
-        <div className="summary-card">
-          <span className="summary-card__label">Approved Leaves</span>
-          <strong className="summary-card__value">{summary.leaveDays ?? 2}</strong>
-          <span className="summary-card__hint">Paid leave days</span>
-        </div>
-        <div className="summary-card">
-          <span className="summary-card__label">Overtime</span>
-          <strong className="summary-card__value text-primary">{summary.overtimeHours ?? 0} hrs</strong>
-          <span className="summary-card__hint">Logged overtime</span>
-        </div>
-      </div>
-
-      <div className="list-toolbar">
-        <div aria-label="Attendance tabs" className="list-tabs" role="tablist">
-          {attendanceTabs.map((tab) => (
-            <button
-              aria-selected={activeTab === tab.key}
-              className={activeTab === tab.key ? 'list-tab list-tab--active' : 'list-tab'}
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              role="tab"
-              type="button"
-            >
-              {tab.label}
-              {tab.key === 'pending' && pendingList.length > 0 ? (
-                <span className="status-badge" style={{ marginLeft: 6, background: 'var(--k-color-warning-subtle)', color: 'var(--k-color-warning-bold)' }}>
-                  {pendingList.length}
-                </span>
-              ) : null}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* TAB 1: SUMMARY */}
-      {activeTab === 'summary' ? (
-        <div className="document-layout">
-          <section className="document-card">
-            <h2>
-              <Clock aria-hidden="true" size={18} style={{ display: 'inline', marginRight: 6 }} />
-              Self-service daily punch clock
-            </h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 12 }}>
-              <p className="cell-muted" style={{ fontSize: '0.9rem' }}>
-                Current timestamp: <strong>{new Date().toLocaleTimeString()}</strong> · Work location: <strong>Headquarters / Main Office</strong>
-              </p>
-              <div style={{ display: 'flex', gap: 12 }}>
-                <Button onClick={() => alert('Punch In registered successfully at ' + new Date().toLocaleTimeString())} variant="primary">
-                  <UserCheck aria-hidden="true" size={16} />
-                  Punch In (Start Shift)
-                </Button>
-                <Button onClick={() => alert('Punch Out registered successfully at ' + new Date().toLocaleTimeString())} variant="secondary">
-                  <Clock aria-hidden="true" size={16} />
-                  Punch Out (End Shift)
-                </Button>
-              </div>
-            </div>
-          </section>
-
-          <section className="document-card">
-            <h2>
-              <Calendar aria-hidden="true" size={18} style={{ display: 'inline', marginRight: 6 }} />
-              Monthly attendance stats
-            </h2>
-            <dl className="document-facts">
-              <Fact label="Month" value={month.slice(0, 7)} />
-              <Fact label="Present Days" value={summary.presentDays ?? 22} />
-              <Fact label="Half Days" value={summary.halfDays ?? 0} />
-              <Fact label="Late Punches" value={summary.lateDays ?? 1} />
-              <Fact label="Paid Holidays" value={summary.holidayDays ?? 2} />
-            </dl>
-          </section>
-        </div>
-      ) : null}
-
-      {/* TAB 2: PENDING APPROVALS */}
-      {activeTab === 'pending' ? (
-        <div>
-          {pendingList.length === 0 ? (
-            <div className="directory-state">
-              <ShieldCheck aria-hidden="true" size={24} />
-              <strong>No pending attendance regularization requests.</strong>
-              <p>All punch correction requests have been reviewed.</p>
-            </div>
-          ) : (
-            <DataTable caption="Pending employee regularization approvals">
-              <thead>
-                <tr>
-                  <th scope="col">Work Date</th>
-                  <th scope="col">Employee</th>
-                  <th scope="col">Requested Punch In</th>
-                  <th scope="col">Requested Punch Out</th>
-                  <th scope="col">Reason</th>
-                  <th scope="col">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pendingList.map((r) => (
-                  <tr key={r.id}>
-                    <td><strong>{formatDate(r.workDate)}</strong></td>
-                    <td>Staff Member</td>
-                    <td>{r.punchIn ? new Date(r.punchIn).toLocaleTimeString() : 'â€”'}</td>
-                    <td>{r.punchOut ? new Date(r.punchOut).toLocaleTimeString() : 'â€”'}</td>
-                    <td>{r.reason}</td>
-                    <td>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <Button
-                          disabled={approveMutation.isPending}
-                          onClick={() => approveMutation.mutate(r.id)}
-                          variant="primary"
-                        >
-                          Approve
-                        </Button>
-                        <Button
-                          disabled={rejectMutation.isPending}
-                          onClick={() => rejectMutation.mutate({ id: r.id, reason: 'Discrepancy' })}
-                          variant="destructive"
-                        >
-                          Reject
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </DataTable>
-          )}
-        </div>
-      ) : null}
-
-      {/* TAB 3: MY REQUESTS */}
-      {activeTab === 'mine' ? (
-        <div>
-          {myList.length === 0 ? (
-            <div className="directory-state">
-              <Clock aria-hidden="true" size={24} />
-              <strong>No regularization requests submitted.</strong>
-              <p>Click "Request Regularization" to correct missed punches or on-duty visits.</p>
-            </div>
-          ) : (
-            <DataTable caption="My attendance regularization history">
-              <thead>
-                <tr>
-                  <th scope="col">Work Date</th>
-                  <th scope="col">Requested In</th>
-                  <th scope="col">Requested Out</th>
-                  <th scope="col">Reason</th>
-                  <th scope="col">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {myList.map((r) => (
-                  <tr key={r.id}>
-                    <td><strong>{formatDate(r.workDate)}</strong></td>
-                    <td>{r.punchIn ? new Date(r.punchIn).toLocaleTimeString() : 'â€”'}</td>
-                    <td>{r.punchOut ? new Date(r.punchOut).toLocaleTimeString() : 'â€”'}</td>
-                    <td>{r.reason}</td>
-                    <td>
-                      <StatusChip status={formatStatusLabel(r.status)} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </DataTable>
-          )}
-        </div>
-      ) : null}
-
-      {/* Request Regularization Modal */}
-      {isRegModalOpen && (
-        <Modal
-          description="Submit missed punch or on-duty regularization for supervisor approval."
-          footer={
-            <>
-              <Button onClick={() => setIsRegModalOpen(false)} type="button" variant="secondary">Cancel</Button>
-              <Button form="reg-form" disabled={reqMutation.isPending} type="submit" variant="primary">
-                {reqMutation.isPending ? 'Submitting...' : 'Submit Request'}
-              </Button>
-            </>
-          }
-          isOpen={isRegModalOpen}
-          onClose={() => setIsRegModalOpen(false)}
-          size="md"
-          title="Request Attendance Regularization"
-        >
-          <form
-            id="reg-form"
-            onSubmit={(e) => {
-              e.preventDefault()
-              const fd = new FormData(e.currentTarget)
-              const workDate = String(fd.get('workDate') ?? '')
-              const inTime = String(fd.get('punchInTime') ?? '')
-              const outTime = String(fd.get('punchOutTime') ?? '')
-              const reason = String(fd.get('reason') ?? '').trim()
-
-              const punchIn = inTime ? `${workDate}T${inTime}:00Z` : undefined
-              const punchOut = outTime ? `${workDate}T${outTime}:00Z` : undefined
-
-              reqMutation.mutate({ workDate, punchIn, punchOut, reason })
-            }}
-            style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
-          >
-            <FormField label="Work Date" required>
-              <TextInput
-                defaultValue={new Date().toISOString().slice(0, 10)}
-                name="workDate"
-                required
-                type="date"
-              />
-            </FormField>
-            <FormGrid columns={2}>
-              <FormField label="Punch In Time">
-                <TextInput defaultValue="09:00" name="punchInTime" type="time" />
-              </FormField>
-              <FormField label="Punch Out Time">
-                <TextInput defaultValue="18:00" name="punchOutTime" type="time" />
-              </FormField>
-            </FormGrid>
-            <FormField label="Reason for Regularization" required>
-              <TextAreaInput
-                name="reason"
-                placeholder="e.g. Biometric terminal offline / On-duty client visit"
-                required
-                rows={3}
-              />
-            </FormField>
-          </form>
-        </Modal>
-      )}
-    </section>
-  )
+function today() { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}` }
+export function AttendancePage() { return <WorkspaceBoundary roles={['OWNER', 'ADMIN', 'ACCOUNTANT', 'OPERATOR', 'VIEWER']}><Attendance /></WorkspaceBoundary> }
+function Attendance() {
+  const user = useSessionStore((s) => s.user!)
+  const admin = ['OWNER', 'ADMIN'].includes(user.role)
+  const client = useQueryClient()
+  const [tab, setTab] = useState('summary')
+  const [month, setMonth] = useState(today().slice(0, 7))
+  const [create, setCreate] = useState(false)
+  const [action, setAction] = useState<{ type: 'punch-in' | 'punch-out' | 'approve' | 'reject'; id?: string } | null>(null)
+  const [reason, setReason] = useState('')
+  const summary = useQuery({ queryKey: ['hr-attendance', user.orgId, user.id, 'summary', month], queryFn: () => getAttendanceSummary(undefined, `${month}-01`), enabled: !!month })
+  const current = useQuery({ queryKey: ['hr-attendance', user.orgId, user.id, 'today'], queryFn: getAttendanceToday })
+  const mine = useQuery({ queryKey: ['hr-attendance', user.orgId, user.id, 'mine'], queryFn: listMyRegularizations, enabled: tab === 'mine' })
+  const pending = useQuery({ queryKey: ['hr-attendance', user.orgId, 'pending'], queryFn: listPendingRegularizations, enabled: admin && tab === 'pending' })
+  const users = useQuery({ queryKey: ['hr-attendance', user.orgId, 'users'], queryFn: listOrgUsers, enabled: admin && tab === 'pending' })
+  const refresh = () => { setCreate(false); setAction(null); void client.invalidateQueries({ queryKey: ['hr-attendance'] }) }
+  const directory = tab === 'pending' ? pending : mine
+  return <section className="workspace-page"><PageHeader eyebrow="Core HR" title="Attendance and regularization" description="Actual server attendance records and approved punch corrections." actions={<Button onClick={() => setCreate(true)}>Request regularization</Button>} /><FilterTabs activeValue={tab} onChange={setTab} ariaLabel="Attendance sections" items={[{ value: 'summary', label: 'Monthly summary' }, { value: 'mine', label: 'My requests' }, ...(admin ? [{ value: 'pending', label: 'Pending approvals' }] : [])]} />
+    {tab === 'summary' ? <><FormCard title="Daily punch clock"><QueryFeedback query={current}><FactList><Fact label="Punch in" value={current.data?.punchInAt ? new Date(current.data.punchInAt).toLocaleString() : 'Not recorded'} /><Fact label="Punch out" value={current.data?.punchOutAt ? new Date(current.data.punchOutAt).toLocaleString() : 'Not recorded'} /></FactList><div className="document-actions"><Button disabled={!current.isSuccess || !!current.data?.punchInAt} onClick={() => setAction({ type: 'punch-in' })}>Punch in</Button><Button variant="secondary" disabled={!current.data?.punchInAt || !!current.data.punchOutAt} onClick={() => setAction({ type: 'punch-out' })}>Punch out</Button></div></QueryFeedback><p>The server records the punch time for your signed-in account. This office punch does not include GPS coordinates.</p></FormCard><FormCard title="Monthly attendance"><TextField label="Month" type="month" value={month} onChange={(e) => setMonth(e.target.value)} /><QueryFeedback query={summary}>{summary.data && <FactList><Fact label="Present days" value={summary.data.presentDays ?? '--'} /><Fact label="Absent days" value={summary.data.absentDays ?? '--'} /><Fact label="Approved leave days (paid and unpaid)" value={summary.data.leaveDays ?? '--'} /><Fact label="Payable days" value={summary.data.payableDays ?? '--'} /><Fact label="Recorded hours" value={summary.data.totalHours ?? '--'} /><Fact label="Holidays" value={summary.data.holidays ?? '--'} /></FactList>}</QueryFeedback></FormCard></> : <QueryFeedback query={directory}><LocalDirectory rows={directory.data ?? []} caption="Attendance corrections" searchText={(row) => `${row.workDate} ${row.reason} ${row.status}`} header={<tr><th>Date</th><th>Employee</th><th>Requested punch in</th><th>Requested punch out</th><th>Reason</th><th>Status</th><th>Actions</th></tr>} renderRow={(row) => <tr key={row.id}><td>{row.workDate}</td><td>{row.userId === user.id ? user.fullName || user.email : users.data?.find((entry) => entry.id === row.userId)?.fullName || 'Employee unavailable'}</td><td>{row.requestedPunchIn ? new Date(row.requestedPunchIn).toLocaleString() : '--'}</td><td>{row.requestedPunchOut ? new Date(row.requestedPunchOut).toLocaleString() : '--'}</td><td>{row.reason}</td><td><StatusChip status={row.status} /></td><td>{admin && row.status === 'PENDING' && <div className="table-actions"><Button variant="secondary" onClick={() => setAction({ type: 'approve', id: row.id })}>Approve</Button><Button variant="destructive" onClick={() => { setReason(''); setAction({ type: 'reject', id: row.id }) }}>Reject</Button></div>}</td></tr>} /></QueryFeedback>}
+    {create && <RegularizationForm onClose={() => setCreate(false)} onDone={refresh} />}
+    {action && action.type !== 'reject' && <ConfirmedAction title={action.type === 'approve' ? 'Approve attendance correction' : action.type === 'punch-in' ? 'Record punch in' : 'Record punch out'} description={action.type === 'approve' ? 'Approval writes the requested punch times onto the employee attendance record. Confirm you checked the correction.' : 'Record this attendance punch now using the server time?'} run={() => action.type === 'approve' ? approveRegularization(action.id!) : recordAttendancePunch(action.type as 'punch-in' | 'punch-out')} onClose={() => setAction(null)} onDone={refresh} />}
+    {action?.type === 'reject' && <RejectRegularization id={action.id!} reason={reason} setReason={setReason} onClose={() => setAction(null)} onDone={refresh} />}
+  </section>
 }
-
-function Fact({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div>
-      <dt className="document-fact-label">{label}</dt>
-      <dd className="document-fact-value">{value}</dd>
-    </div>
-  )
+function RegularizationForm({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const [error, setError] = useState('')
+  const save = useMutation({ mutationFn: requestRegularization, onSuccess: onDone })
+  return <Modal isOpen title="Request attendance regularization" onClose={() => { if (!save.isPending) onClose() }} error={error || save.error?.message} footer={<><Button variant="secondary" disabled={save.isPending} onClick={onClose}>Cancel</Button><Button type="submit" form="attendance-correction" disabled={save.isPending} loading={save.isPending}>Submit request</Button></>}><p>Times use this device's local timezone and are converted to UTC for the API. For an overnight shift, submit each affected date separately.</p><form id="attendance-correction" onSubmit={(event) => { event.preventDefault(); if (save.isPending) return; setError(''); const form = new FormData(event.currentTarget); const workDate = String(form.get('date') ?? ''); const reason = String(form.get('reason') ?? '').trim(); try { if (!reason) throw new Error('Enter a reason.'); save.mutate({ workDate, reason, ...regularizationTime(workDate, String(form.get('in') ?? ''), String(form.get('out') ?? '')) }) } catch (cause) { setError(cause instanceof Error ? cause.message : 'Invalid punch times.') } }}><FormGrid><TextField label="Work date" type="date" name="date" required defaultValue={today()} /><TextField label="Punch in time" type="time" name="in" /><TextField label="Punch out time" type="time" name="out" /><TextField label="Reason" name="reason" required /></FormGrid></form></Modal>
+}
+function RejectRegularization({ id, reason, setReason, onClose, onDone }: { id: string; reason: string; setReason: (value: string) => void; onClose: () => void; onDone: () => void }) {
+  const save = useMutation({ mutationFn: () => rejectRegularization(id, reason.trim()), onSuccess: onDone })
+  return <Modal isOpen title="Reject attendance correction" onClose={() => { if (!save.isPending) onClose() }} error={save.error?.message} footer={<Button variant="destructive" disabled={!reason.trim() || save.isPending} onClick={() => save.mutate()}>Confirm rejection</Button>}><TextField label="Rejection reason" required value={reason} onChange={(e) => setReason(e.target.value)} /></Modal>
 }

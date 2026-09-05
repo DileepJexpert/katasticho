@@ -45,6 +45,8 @@ export type AttendanceRegularization = {
   workDate: string
   punchIn?: string | null
   punchOut?: string | null
+  requestedPunchIn?: string | null
+  requestedPunchOut?: string | null
   reason: string
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | string
   rejectionReason?: string | null
@@ -52,6 +54,11 @@ export type AttendanceRegularization = {
 }
 
 export type AttendanceSummary = {
+  workingDays?: number
+  holidays?: number
+  weekends?: number
+  totalHours?: number
+  payableDays?: number
   presentDays?: number
   absentDays?: number
   halfDays?: number
@@ -61,6 +68,10 @@ export type AttendanceSummary = {
   overtimeHours?: number
   lopDays?: number
 }
+
+export type AttendanceToday = { id: string; workDate: string; punchInAt: string | null; punchOutAt: string | null }
+export const getAttendanceToday = async () => (await apiFetch<AttendanceToday | null>('/api/v1/attendance/today')) ?? null
+export const recordAttendancePunch = (action: 'punch-in' | 'punch-out') => apiFetch<AttendanceToday>(`/api/v1/attendance/${action}`, { method: 'POST', body: {} })
 
 export type LeaveType = {
   id: string

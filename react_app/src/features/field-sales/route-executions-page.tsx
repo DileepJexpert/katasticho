@@ -17,30 +17,54 @@ import { TextInput } from '@/design-system/text-input'
 import { formatDate } from '@/shared/format/format'
 import {
   listExecutions,
-  listRoutes,
-  listVans,
+  getMyAssignments,
   startExecution,
   type RouteExecution,
   type RouteSummary,
   type Van,
 } from '@/features/field-sales/field-sales-api'
-import { listEmployees, type Employee } from '@/features/payroll/payroll-api'
+import { listOrgUsers, type OrgUser } from '@/features/settings/settings-api'
+import { useSessionStore } from '@/shared/session/session-store'
+import { WorkspaceBoundary } from '@/shared/workflows/workspace-boundary'
+import { TablePagination } from '@/design-system'
+import { planningRoutes, planningVans } from './field-planning-lookups'
 
 export function RouteExecutionsPage() {
+  return <WorkspaceBoundary roles={['OWNER', 'ADMIN', 'OPERATOR']}><ExecutionsDirectory /></WorkspaceBoundary>
+}
+function ExecutionsDirectory() {
+  const user = useSessionStore((s) => s.user!)
+  const [page, setPage] = useState(0)
   const [isStartOpen, setIsStartOpen] = useState(false)
   const queryClient = useQueryClient()
 
   const { data: pageData, isLoading, isError } = useQuery({
-    queryKey: ['field-sales', 'executions'],
-    queryFn: () => listExecutions(),
+    queryKey: ['field-sales', user.orgId, 'executions', page],
+    queryFn: () => listExecutions(page),
+  })
+  const routesQuery = useQuery({ queryKey: ['field-sales', user.orgId, 'routes', 'picker'], queryFn: planningRoutes })
+  const vansQuery = useQuery({ queryKey: ['field-sales', user.orgId, 'vans', 'picker'], queryFn: planningVans })
+  const usersQuery = useQuery({
+    queryKey: ['field-sales', user.orgId, 'users', 'picker'],
+    queryFn: listOrgUsers,
+    enabled: ['OWNER', 'ADMIN'].includes(user.role),
   })
 
   const executions: RouteExecution[] = pageData?.content ?? []
+  const routeLabel = (execution: RouteExecution) => execution.routeName
+    || routesQuery.data?.find((route) => route.id === execution.routeId)?.name
+    || 'Route name unavailable'
+  const salespersonLabel = (execution: RouteExecution) => execution.salespersonName
+    || (execution.salespersonId === user.id ? user.fullName || user.email : usersQuery.data?.find((entry) => entry.id === execution.salespersonId)?.fullName)
+    || 'Salesperson name unavailable'
+  const vanLabel = (execution: RouteExecution) => execution.vanCode
+    || vansQuery.data?.find((van) => van.id === execution.vanId)?.code
+    || (execution.vanId ? 'Van name unavailable' : 'No van')
 
   const startMutation = useMutation({
-    mutationFn: (payload: { routeId: string; salespersonId: string; vanId?: string; executionDate: string }) => startExecution(payload),
+    mutationFn: (payload: { routeId: string; salespersonId: string; vanId?: string; executionDate: string; overrideReason?: string }) => startExecution(payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['field-sales', 'executions'] })
+      queryClient.invalidateQueries({ queryKey: ['field-sales'] })
       setIsStartOpen(false)
     },
   })
@@ -61,13 +85,13 @@ export function RouteExecutionsPage() {
 
       <div className="summary-strip">
         <div className="metric-cell">
-          <span className="metric-label">Runs Recorded</span>
+          <span className="metric-label">Runs on this page</span>
           <strong className="metric-value">{executions.length}</strong>
         </div>
         <div className="metric-cell">
           <span className="metric-label">Orders Value</span>
           <strong className="metric-value">
-            <Money amount={executions.reduce((acc: number, e: RouteExecution) => acc + Number(e.totalOrderValue || 0), 0)} />
+            <Money amount={executions.reduce((acc: number, e: RouteExecution) => acc + Number(e.totalOrdersValue || 0), 0)} />
           </strong>
         </div>
         <div className="metric-cell">
@@ -81,7 +105,7 @@ export function RouteExecutionsPage() {
       <div className="table-card">
         {isLoading ? (
           <div className="directory-state">Loading route executions...</div>
-        ) : isError ? (
+        ) : isError || routesQuery.isError || vansQuery.isError || usersQuery.isError ? (
           <div className="directory-state directory-state--error">Failed to load route executions.</div>
         ) : executions.length === 0 ? (
           <div className="directory-state">
@@ -110,14 +134,14 @@ export function RouteExecutionsPage() {
                       <strong>{formatDate(e.executionDate)}</strong>
                     </Link>
                   </td>
-                  <td>{e.routeName || 'Direct Beat Run'}</td>
-                  <td>{e.salespersonName || 'Assigned Agent'}</td>
-                  <td>{e.vanCode || 'No Van'}</td>
+                  <td>{routeLabel(e)}</td>
+                  <td>{salespersonLabel(e)}</td>
+                  <td>{vanLabel(e)}</td>
                   <td style={{ textAlign: 'right' }}>
-                    {e.completedVisits ?? 0} / {e.totalVisits ?? 0}
+                    {e.completedVisits ?? 0} / {e.plannedVisits ?? 0}
                   </td>
                   <td style={{ textAlign: 'right' }}>
-                    <strong><Money amount={e.totalOrderValue ?? 0} /></strong>
+                    <strong><Money amount={e.totalOrdersValue ?? 0} /></strong>
                   </td>
                   <td style={{ textAlign: 'right' }}>
                     <Money amount={e.totalCollections ?? 0} />
@@ -130,10 +154,12 @@ export function RouteExecutionsPage() {
         )}
       </div>
 
+      {pageData && <TablePagination page={page} totalPages={pageData.totalPages} totalElements={pageData.totalElements} onPageChange={setPage} itemLabel="execution" />}
       {isStartOpen ? (
         <StartExecutionModal
+          error={startMutation.error?.message}
           isPending={startMutation.isPending}
-          onClose={() => setIsStartOpen(false)}
+          onClose={() => { if (!startMutation.isPending) setIsStartOpen(false) }}
           onSubmit={(payload) => startMutation.mutate(payload)}
         />
       ) : null}
@@ -145,38 +171,48 @@ function StartExecutionModal({
   onClose,
   onSubmit,
   isPending,
+  error,
 }: {
   onClose: () => void
-  onSubmit: (payload: { routeId: string; salespersonId: string; vanId?: string; executionDate: string }) => void
+  onSubmit: (payload: { routeId: string; salespersonId: string; vanId?: string; executionDate: string; overrideReason?: string }) => void
   isPending: boolean
+  error?: string
 }) {
+  const user = useSessionStore((s) => s.user!)
+  const admin = ['OWNER', 'ADMIN'].includes(user.role)
   const [routeId, setRouteId] = useState('')
-  const [salespersonId, setSalespersonId] = useState('')
+  const [salespersonId, setSalespersonId] = useState(admin ? '' : user.id)
   const [vanId, setVanId] = useState('')
-  const [executionDate, setExecutionDate] = useState(new Date().toISOString().slice(0, 10))
+  const [executionDate, setExecutionDate] = useState(() => { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}` })
+  const [overrideReason, setOverrideReason] = useState('')
 
   const routesQuery = useQuery({
-    queryKey: ['field-sales', 'routes', 'picker'],
-    queryFn: () => listRoutes(0, 100),
+    queryKey: ['field-sales', user.orgId, 'routes', 'picker'],
+    queryFn: planningRoutes,
   })
 
   const vansQuery = useQuery({
-    queryKey: ['field-sales', 'vans', 'picker'],
-    queryFn: () => listVans(0, 100),
+    queryKey: ['field-sales', user.orgId, 'vans', 'picker'],
+    queryFn: planningVans,
   })
 
-  const employeesQuery = useQuery({
-    queryKey: ['employees', 'picker'],
-    queryFn: () => listEmployees(0, 100),
+  const usersQuery = useQuery({
+    queryKey: ['field-sales', user.orgId, 'users', 'picker'],
+    queryFn: listOrgUsers,
+    enabled: admin,
   })
+  const assignments = useQuery({ queryKey: ['field-sales', user.orgId, 'my-assignments', executionDate], queryFn: () => getMyAssignments(executionDate), enabled: !admin && !!executionDate })
+  const allowedRoutes = admin ? routesQuery.data ?? [] : (routesQuery.data ?? []).filter((route) => assignments.data?.some((assignment) => assignment.routeId === route.id))
+  const eligible = !!routeId && !!salespersonId && !!executionDate && (admin || allowedRoutes.some((route) => route.id === routeId))
 
   return (
     <Modal
-      description="Dispatch a van or field rep on a scheduled route run."
+      error={error ?? routesQuery.error?.message ?? vansQuery.error?.message ?? usersQuery.error?.message ?? assignments.error?.message}
+      description="Create a planned run. Starting the route is a separate action on its detail page."
       footer={
         <>
-          <Button onClick={onClose} type="button" variant="secondary">Cancel</Button>
-          <Button disabled={isPending || !routeId || !salespersonId} form="start-exec-form" type="submit" variant="primary">
+          <Button disabled={isPending} onClick={onClose} type="button" variant="secondary">Cancel</Button>
+          <Button disabled={isPending || !eligible} form="start-exec-form" type="submit" variant="primary">
             {isPending ? 'Starting Run...' : 'Start Execution Run'}
           </Button>
         </>
@@ -190,12 +226,13 @@ function StartExecutionModal({
         id="start-exec-form"
         onSubmit={(e) => {
           e.preventDefault()
-          if (!routeId || !salespersonId) return
+          if (!eligible || isPending) return
           onSubmit({
             routeId,
             salespersonId,
             vanId: vanId || undefined,
             executionDate,
+            ...(admin && overrideReason.trim() ? { overrideReason: overrideReason.trim() } : {}),
           })
         }}
         style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
@@ -203,8 +240,8 @@ function StartExecutionModal({
         <FormField label="Select Route" required>
           <EntityPicker<RouteSummary>
             value={routeId || null}
-            onChange={(id) => setRouteId(id || '')}
-            options={routesQuery.data?.content || []}
+            onChange={(id) => { setRouteId(id || ''); setVanId(!admin ? assignments.data?.find((a) => a.routeId === id)?.vanId ?? '' : '') }}
+            options={allowedRoutes}
             getOptionId={(r) => r.id}
             getOptionLabel={(r) => r.name}
             getOptionDescription={(r) => r.code ? `Code: ${r.code}` : undefined}
@@ -213,29 +250,30 @@ function StartExecutionModal({
           />
         </FormField>
 
-        <FormField label="Assigned Salesperson" required>
-          <EntityPicker<Employee>
+        {admin ? <FormField label="Assigned Salesperson" required>
+          <EntityPicker<OrgUser>
             value={salespersonId || null}
             onChange={(id) => setSalespersonId(id || '')}
-            options={employeesQuery.data?.content || []}
+            options={(usersQuery.data ?? []).filter((entry) => entry.active)}
             getOptionId={(e) => e.id}
-            getOptionLabel={(e) => `${e.fullName}${e.employeeCode ? ` (${e.employeeCode})` : ''}`}
-            getOptionDescription={(e) => e.designation || e.department || undefined}
+            getOptionLabel={(e) => e.fullName || e.email}
+            getOptionDescription={(e) => `${e.email} / ${e.role}`}
             placeholder="Search salesperson by name or code..."
           />
-        </FormField>
+        </FormField> : <p>Assigned salesperson: {user.fullName || user.email}</p>}
 
         <FormField label="Assigned Van (Optional)">
           <EntityPicker<Van>
             value={vanId || null}
             onChange={(id) => setVanId(id || '')}
-            options={vansQuery.data?.content || []}
+            options={admin ? vansQuery.data ?? [] : (vansQuery.data ?? []).filter((van) => assignments.data?.some((a) => a.routeId === routeId && a.vanId === van.id))}
             getOptionId={(v) => v.id}
             getOptionLabel={(v) => `${v.vehicleNumber} (${v.code})`}
             getOptionDescription={(v) => v.name || undefined}
             placeholder="Search delivery van by vehicle number..."
           />
         </FormField>
+        {admin && <FormField label="Admin override reason (only if unassigned or using a different van)"><TextInput value={overrideReason} onChange={(e) => setOverrideReason(e.target.value)} /></FormField>}
 
         <FormField label="Execution Date" required>
           <TextInput

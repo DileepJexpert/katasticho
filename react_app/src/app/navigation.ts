@@ -59,6 +59,22 @@ import {
 
 export const appRoutes = {
   overview: '/',
+  tradingPartners: '/partner-network/partners',
+  partnerCatalog: '/partner-network/catalog',
+  supplierCatalog: '/partner-network/supplier-search',
+  networkOutgoing: '/partner-network/outgoing',
+  networkIncoming: '/partner-network/incoming',
+  planningDashboard: '/supply-chain',
+  requisitions: '/supply-chain/requisitions',
+  planningShipments: '/supply-chain/shipments',
+  planningReturns: '/supply-chain/returns',
+  planningAlerts: '/supply-chain/alerts',
+  planningForecasts: '/supply-chain/forecasts',
+  reorderPolicies: '/supply-chain/reorder-policies',
+  itemSuppliers: '/supply-chain/item-suppliers',
+  supplierPerformance: '/supply-chain/supplier-performance',
+  inventoryTurnover: '/supply-chain/turnover',
+  portalAccounts: '/settings/portal-users',
   contacts: '/contacts',
   contactCreate: '/contacts/new',
   contactDetail: (id: string) => `/contacts/${id}`,
@@ -1190,6 +1206,39 @@ export const navGroups: readonly NavGroup[] = [
     ],
   },
   {
+    id: 'partner_network',
+    label: 'Partner Network',
+    description: 'Trading relationships, catalogs and network order tracking',
+    icon: UsersRound,
+    roles: ['OWNER', 'ADMIN', 'OPERATOR'],
+    items: [
+      { id: 'partner_network.partners', label: 'Trading Partners', description: 'Review and approve trading relationships', icon: UsersRound, to: appRoutes.tradingPartners },
+      { id: 'partner_network.catalog', label: 'Published Catalog', description: 'Publish catalog metadata to approved buyers', icon: BookOpen, to: appRoutes.partnerCatalog },
+      { id: 'partner_network.supplier_search', label: 'Supplier Catalog', description: 'Search products from approved sellers', icon: Store, to: appRoutes.supplierCatalog },
+      { id: 'partner_network.outgoing_orders', label: 'Outgoing Orders', description: 'Buyer network order history', icon: ArrowUpRight, to: appRoutes.networkOutgoing },
+      { id: 'partner_network.incoming_orders', label: 'Incoming Orders', description: 'Seller network order history', icon: ShoppingBag, to: appRoutes.networkIncoming },
+    ],
+  },
+  {
+    id: 'supply_chain',
+    label: 'Supply Planning',
+    description: 'Replenishment, requisitions and shipment tracking',
+    icon: Boxes,
+    roles: ['OWNER', 'ADMIN', 'ACCOUNTANT', 'OPERATOR'],
+    items: [
+      { id: 'supply_chain.dashboard', label: 'Planning Overview', description: 'Stock signals and planning counts', icon: BarChart3, to: appRoutes.planningDashboard },
+      { id: 'supply_chain.requisitions', label: 'Purchase Requisitions', description: 'Draft, submit and approve purchase requests', icon: ClipboardList, to: appRoutes.requisitions, roles: ['OWNER', 'ADMIN', 'ACCOUNTANT'] },
+      { id: 'supply_chain.shipments', label: 'Shipment Tracking', description: 'Track loads separately from stock movements', icon: Truck, to: appRoutes.planningShipments },
+      { id: 'supply_chain.returns', label: 'Return Requests', description: 'Read-only return request register', icon: ArrowLeftRight, to: appRoutes.planningReturns, roles: ['OWNER', 'ADMIN', 'ACCOUNTANT'] },
+      { id: 'supply_chain.alerts', label: 'Supply Alerts', description: 'Scan and resolve planning signals', icon: AlertOctagon, to: appRoutes.planningAlerts, roles: ['OWNER', 'ADMIN', 'ACCOUNTANT'] },
+      { id: 'supply_chain.forecasts', label: 'Demand Forecasts', description: 'Moving, seasonal and weighted forecasts', icon: TrendingUp, to: appRoutes.planningForecasts, roles: ['OWNER', 'ADMIN', 'ACCOUNTANT'] },
+      { id: 'supply_chain.reorder_policies', label: 'ABC & Reorder Policies', description: 'Classification and reorder parameters', icon: ListChecks, to: appRoutes.reorderPolicies, roles: ['OWNER', 'ADMIN', 'ACCOUNTANT'] },
+      { id: 'supply_chain.item_suppliers', label: 'Item Suppliers', description: 'Supplier pricing and lead times per item', icon: Store, to: appRoutes.itemSuppliers, roles: ['OWNER', 'ADMIN', 'ACCOUNTANT'] },
+      { id: 'supply_chain.supplier_rankings', label: 'Supplier Performance', description: 'Recorded period scorecards', icon: Award, to: appRoutes.supplierPerformance, roles: ['OWNER', 'ADMIN', 'ACCOUNTANT'] },
+      { id: 'supply_chain.turnover', label: 'Inventory Turnover', description: 'Operational current-stock ratios', icon: BarChart3, to: appRoutes.inventoryTurnover, roles: ['OWNER', 'ADMIN', 'ACCOUNTANT'] },
+    ],
+  },
+  {
     id: 'transport',
     label: 'Courier & Transport',
     description: 'Shipments, COD, lorry receipts & rate cards',
@@ -1317,6 +1366,7 @@ export const navGroups: readonly NavGroup[] = [
     description: 'User access, templates & system config',
     icon: Settings,
     items: [
+      { id: 'settings.portal_users', label: 'Portal Accounts', description: 'Invite and manage customer/vendor access', icon: UsersRound, to: appRoutes.portalAccounts, roles: ['OWNER', 'ADMIN'] },
       {
         id: 'settings.users',
         label: 'Team & User Roles',
@@ -1350,13 +1400,6 @@ export const navGroups: readonly NavGroup[] = [
   },
 ]
 
-// Flat list of all items for search palette and backward compatibility
-const navigationItems: readonly NavigationItem[] = [
-  ...topLevelNavItems,
-  ...bottomLevelNavItems,
-  ...navGroups.flatMap((group) => group.items),
-]
-
 function isItemAllowed(item: NavigationItem, context: NavigationContext, disabledIds: Set<string>, capabilities: Set<string>): boolean {
   if (context.role?.toUpperCase() === 'PLATFORM_ADMIN') return true
   if (disabledIds.has(item.id)) return false
@@ -1378,12 +1421,9 @@ function resolveNavigationItem(item: NavigationItem, context: NavigationContext)
 }
 
 export function getVisibleNavigation(context: NavigationContext): NavigationItem[] {
-  const disabledIds = new Set(context.disabledIds ?? [])
-  const capabilities = new Set(context.capabilities ?? [])
-
-  return navigationItems
-    .filter((item) => isItemAllowed(item, context, disabledIds, capabilities))
-    .map((item) => resolveNavigationItem(item, context))
+  // The command palette must honour the same group gates as the sidebar.
+  const structure = getVisibleNavStructure(context)
+  return [...structure.topItems, ...structure.bottomItems, ...structure.groups.flatMap((group) => group.items)]
 }
 
 export type VisibleNavStructure = {

@@ -200,6 +200,7 @@ import { LorryReceiptDetailPage } from '@/features/transport/lorry-receipt-detai
 import { FreightRateCardsPage } from '@/features/transport/freight-rate-cards-page'
 import { VehicleLogsPage } from '@/features/transport/vehicle-logs-page'
 import { useSessionStore } from '@/shared/session/session-store'
+import { useAdminSessionBootstrap } from '@/shared/session/use-admin-session-bootstrap'
 
 function SessionLoading() {
   return (
@@ -211,6 +212,7 @@ function SessionLoading() {
 }
 
 function ProtectedRoute() {
+  useAdminSessionBootstrap()
   const status = useSessionStore((state) => state.status)
 
   if (status === 'booting') return <SessionLoading />
@@ -219,6 +221,7 @@ function ProtectedRoute() {
 }
 
 function PublicRoute() {
+  useAdminSessionBootstrap()
   const status = useSessionStore((state) => state.status)
 
   if (status === 'booting') return <SessionLoading />
@@ -227,6 +230,9 @@ function PublicRoute() {
 }
 
 export const router = createBrowserRouter([
+  { path: '/portal/login', lazy: async () => ({ Component: (await import('@/features/portal/portal-auth-page')).PortalAuthPage }) },
+  { path: '/portal/accept-invite', lazy: async () => ({ Component: (await import('@/features/portal/portal-auth-page')).PortalAuthPage }) },
+  { path: '/portal', lazy: async () => ({ Component: (await import('@/features/portal/portal-page')).PortalPage }) },
   {
     element: <PublicRoute />,
     children: [
@@ -1195,6 +1201,25 @@ export const router = createBrowserRouter([
             path: 'ca/dispatch',
             element: <CaDispatchPage />,
           },
+          { path: 'partner-network/partners', lazy: async () => ({ Component: (await import('@/features/partner-network/partners-page')).PartnersPage }) },
+          { path: 'partner-network/catalog', lazy: async () => ({ Component: (await import('@/features/partner-network/catalog-page')).CatalogPage }) },
+          { path: 'partner-network/supplier-search', lazy: async () => { const { CatalogPage } = await import('@/features/partner-network/catalog-page'); return { Component: () => <CatalogPage supplier /> } } },
+          { path: 'partner-network/outgoing', lazy: async () => { const { NetworkOrdersPage } = await import('@/features/partner-network/network-orders-page'); return { Component: () => <NetworkOrdersPage direction="outgoing" /> } } },
+          { path: 'partner-network/incoming', lazy: async () => { const { NetworkOrdersPage } = await import('@/features/partner-network/network-orders-page'); return { Component: () => <NetworkOrdersPage direction="incoming" /> } } },
+          { path: 'partner-network/orders/:orderId', lazy: async () => ({ Component: (await import('@/features/partner-network/network-orders-page')).NetworkOrderDetailPage }) },
+          { path: 'supply-chain', lazy: async () => ({ Component: (await import('@/features/supply-chain/planning-dashboard-page')).PlanningDashboardPage }) },
+          { path: 'supply-chain/requisitions', lazy: async () => ({ Component: (await import('@/features/supply-chain/requisitions-page')).RequisitionsPage }) },
+          { path: 'supply-chain/requisitions/:requisitionId', lazy: async () => ({ Component: (await import('@/features/supply-chain/requisitions-page')).RequisitionDetailPage }) },
+          { path: 'supply-chain/shipments', lazy: async () => ({ Component: (await import('@/features/supply-chain/shipments-page')).SupplyShipmentsPage }) },
+          { path: 'supply-chain/shipments/:shipmentId', lazy: async () => ({ Component: (await import('@/features/supply-chain/shipments-page')).SupplyShipmentDetailPage }) },
+          { path: 'supply-chain/returns', lazy: async () => ({ Component: (await import('@/features/supply-chain/supply-returns-page')).SupplyReturnsPage }) },
+          { path: 'supply-chain/alerts', lazy: async () => ({ Component: (await import('@/features/supply-chain/supply-alerts-page')).SupplyAlertsPage }) },
+          { path: 'supply-chain/forecasts', lazy: async () => ({ Component: (await import('@/features/supply-chain/forecasts-page')).ForecastsPage }) },
+          { path: 'supply-chain/reorder-policies', lazy: async () => ({ Component: (await import('@/features/supply-chain/reorder-policies-page')).ReorderPoliciesPage }) },
+          { path: 'supply-chain/item-suppliers', lazy: async () => ({ Component: (await import('@/features/supply-chain/item-suppliers-page')).ItemSuppliersPage }) },
+          { path: 'supply-chain/supplier-performance', lazy: async () => ({ Component: (await import('@/features/supply-chain/supplier-performance-page')).SupplierPerformancePage }) },
+          { path: 'supply-chain/turnover', lazy: async () => ({ Component: (await import('@/features/supply-chain/turnover-page')).InventoryTurnoverPage }) },
+          { path: 'settings/portal-users', lazy: async () => ({ Component: (await import('@/features/portal-admin/portal-accounts-page')).PortalAccountsPage }) },
         ],
       },
     ],

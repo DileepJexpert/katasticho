@@ -4,6 +4,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { TeamAssignmentsPage } from './team-assignments-page'
 import * as fieldSalesApi from '@/features/field-sales/field-sales-api'
+import { useSessionStore } from '@/shared/session/session-store'
+import { enterpriseUser } from '@/features/accounting/enterprise-test-fixtures'
+import * as settingsApi from '@/features/settings/settings-api'
+
+vi.mock('@/features/settings/settings-api', () => ({ listOrgUsers: vi.fn() }))
 
 vi.mock('@/features/field-sales/field-sales-api', () => ({
   listAssignments: vi.fn(),
@@ -12,6 +17,8 @@ vi.mock('@/features/field-sales/field-sales-api', () => ({
   listVans: vi.fn(),
   createAssignment: vi.fn(),
   endAssignment: vi.fn(),
+  updateFieldAssignment: vi.fn(),
+  deleteAssignment: vi.fn(),
 }))
 
 const mockAssignments = [
@@ -25,7 +32,7 @@ const mockAssignments = [
     beatName: 'Koramangala Beat',
     vanId: 'van-1',
     vanPlateNumber: 'KA-01-AB-1234',
-    startDate: '2026-09-01',
+    effectiveFrom: '2026-09-01',
     active: true,
   },
 ]
@@ -67,7 +74,7 @@ const mockVans = {
   content: [
     {
       id: 'van-1',
-      registrationNumber: 'KA-01-AB-1234',
+      vehicleNumber: 'KA-01-AB-1234',
       model: 'Tata Ace Gold',
       active: true,
     },
@@ -99,6 +106,8 @@ function renderAssignments() {
 describe('TeamAssignmentsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    useSessionStore.setState({ status: 'authenticated', user: enterpriseUser })
+    vi.mocked(settingsApi.listOrgUsers).mockResolvedValue([{ id: 'sp-1', email: 'rohan@example.test', fullName: 'Rohan Sharma', role: 'OPERATOR', active: true }])
     vi.mocked(fieldSalesApi.listAssignments).mockResolvedValue(
       mockAssignments as unknown as fieldSalesApi.FieldSalesAssignment[]
     )
@@ -122,7 +131,7 @@ describe('TeamAssignmentsPage', () => {
   it('renders assignment title, assignments table, and rep info', async () => {
     renderAssignments()
 
-    expect(screen.getByText('Team Route & Beat Assignments')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Team Assignments' })).toBeInTheDocument()
     expect(await screen.findByText('Rohan Sharma')).toBeInTheDocument()
     expect(screen.getByText('South Metro Route')).toBeInTheDocument()
     expect(screen.getByText('KA-01-AB-1234')).toBeInTheDocument()
@@ -136,8 +145,9 @@ describe('TeamAssignmentsPage', () => {
     const newAssignButton = screen.getByRole('button', { name: /New Assignment/i })
     fireEvent.click(newAssignButton)
 
-    expect(screen.getByText('New Territory Assignment')).toBeInTheDocument()
-    expect(screen.getByLabelText(/Salesperson ID/i)).toBeInTheDocument()
+    expect(screen.getByText('New team assignment')).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Assignment salesperson' })).toBeInTheDocument()
+    expect(screen.queryByLabelText(/Salesperson ID/i)).not.toBeInTheDocument()
   })
 
   it('triggers end assignment mutation when end button is clicked', async () => {
@@ -147,6 +157,8 @@ describe('TeamAssignmentsPage', () => {
 
     const endButton = screen.getByRole('button', { name: /^End$/i })
     fireEvent.click(endButton)
+    expect(fieldSalesApi.endAssignment).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm end date' }))
 
     await waitFor(() => {
       expect(fieldSalesApi.endAssignment).toHaveBeenCalledWith('assign-1', expect.any(String))
