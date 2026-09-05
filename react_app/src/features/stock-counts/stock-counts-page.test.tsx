@@ -5,6 +5,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { StockCountsPage } from './stock-counts-page'
 import { StockCountDetailPage } from './stock-count-detail-page'
 import * as stockCountsApi from './stock-counts-api'
+import { useInventoryAccess } from '@/features/inventory/inventory-access'
+import { listItems, type Item } from '@/features/items/items-api'
+
+vi.mock('@/features/inventory/inventory-access', () => ({ useInventoryAccess: vi.fn() }))
 
 vi.mock('./stock-counts-api', () => ({
   listStockCounts: vi.fn(),
@@ -96,6 +100,7 @@ function renderWithClient(ui: React.ReactElement, initialRoute = '/') {
 describe('Stock Counts & Audits Workspace', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(useInventoryAccess).mockReturnValue({ operate: true, manage: true, administer: true, readZones: true })
     vi.mocked(stockCountsApi.listStockCounts).mockResolvedValue({
       content: mockStockCounts,
       page: 0,
@@ -169,5 +174,46 @@ describe('Stock Counts & Audits Workspace', () => {
     await waitFor(() => {
       expect(stockCountsApi.postStockCount).toHaveBeenCalledWith('sc-1')
     })
+  })
+
+  it('does not allow operators to post or cancel counts', async () => {
+    vi.mocked(useInventoryAccess).mockReturnValue({ operate: true, manage: false, administer: false, readZones: true })
+    vi.mocked(stockCountsApi.getStockCount).mockResolvedValue(mockStockCounts[0]!)
+    renderWithClient(<Routes><Route path="/stock-counts/:countId" element={<StockCountDetailPage />} /></Routes>, '/stock-counts/sc-1')
+    await screen.findByText('SC-2026-0001')
+    expect(screen.queryByRole('button', { name: 'Post adjustments' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Cancel draft' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Net variance')).not.toBeInTheDocument()
+  })
+
+  it('hides both creation entry points for viewers, including the empty register', async () => {
+    vi.mocked(useInventoryAccess).mockReturnValue({ operate: false, manage: false, administer: false, readZones: false })
+    vi.mocked(stockCountsApi.listStockCounts).mockResolvedValue({ content: [], page: 0, size: 25, totalElements: 0, totalPages: 0, last: true })
+    renderWithClient(<StockCountsPage />)
+    await screen.findByText('No stock counts recorded')
+    expect(screen.queryByRole('button', { name: /new stock count|start a count/i })).not.toBeInTheDocument()
+  })
+
+  it('blocks batch-tracked counts instead of creating a draft that cannot post a variance', async () => {
+    vi.mocked(listItems).mockResolvedValue({ content: [{ id: 'batched-item', name: 'Tracked spice', active: true, trackInventory: true, trackBatches: true } as Item], page: 0, size: 20, totalElements: 1, totalPages: 1, last: true })
+    renderWithClient(<StockCountsPage />)
+    fireEvent.click(screen.getByRole('button', { name: /new stock count/i }))
+    fireEvent.focus(screen.getByRole('combobox', { name: 'Search items to add to stock count' }))
+    fireEvent.click(await screen.findByRole('option', { name: /Tracked spice/ }))
+    expect(screen.getByRole('alert')).toHaveTextContent('not supported by the existing stock-count API')
+    expect(screen.queryByRole('spinbutton', { name: 'Physical quantity for Tracked spice' })).not.toBeInTheDocument()
+    expect(stockCountsApi.createStockCount).not.toHaveBeenCalled()
+  })
+
+  it('preserves an explicit zero physical count in the draft request', async () => {
+    vi.mocked(listItems).mockResolvedValue({ content: [{ id: 'plain-item', name: 'Loose spice', active: true, trackInventory: true, trackBatches: false } as Item], page: 0, size: 20, totalElements: 1, totalPages: 1, last: true })
+    vi.mocked(stockCountsApi.createStockCount).mockResolvedValue(mockStockCounts[0]!)
+    renderWithClient(<StockCountsPage />)
+    fireEvent.click(screen.getByRole('button', { name: /new stock count/i }))
+    fireEvent.focus(screen.getByRole('combobox', { name: 'Search items to add to stock count' }))
+    fireEvent.click(await screen.findByRole('option', { name: /Loose spice/ }))
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Physical quantity for Loose spice' }), { target: { value: '0' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Create draft count' }))
+    await waitFor(() => expect(stockCountsApi.createStockCount).toHaveBeenCalledWith(expect.objectContaining({ warehouseId: 'wh-1', lines: [{ itemId: 'plain-item', countedQuantity: 0, notes: undefined }] })))
   })
 })

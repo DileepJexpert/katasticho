@@ -5,6 +5,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { TransferOrderDetailPage } from './transfer-order-detail-page'
 import { TransferOrdersPage } from './transfer-orders-page'
 import * as transferOrdersApi from './transfer-orders-api'
+import { useInventoryAccess } from './inventory-access'
+
+vi.mock('./inventory-access', () => ({ useInventoryAccess: vi.fn() }))
 
 vi.mock('./transfer-orders-api', () => ({
   listTransferOrders: vi.fn(),
@@ -68,6 +71,7 @@ function renderWithClient(ui: React.ReactElement, initialRoute = '/') {
 describe('Transfer orders', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(useInventoryAccess).mockReturnValue({ operate: true, manage: true, administer: true, readZones: true })
     vi.mocked(transferOrdersApi.listTransferOrders).mockResolvedValue({
       content: [draftTransfer, inTransitTransfer],
       page: 0,
@@ -154,5 +158,21 @@ describe('Transfer orders', () => {
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel transfer' }))
     await waitFor(() => expect(transferOrdersApi.cancelTransferOrder).toHaveBeenCalledWith('to-2'))
+  })
+
+  it('lets operators receive but not cancel a transfer', async () => {
+    vi.mocked(useInventoryAccess).mockReturnValue({ operate: true, manage: false, administer: false, readZones: true })
+    vi.mocked(transferOrdersApi.getTransferOrder).mockResolvedValue(inTransitTransfer)
+    renderWithClient(<Routes><Route element={<TransferOrderDetailPage />} path="/transfer-orders/:transferOrderId" /></Routes>, '/transfer-orders/to-2')
+    await screen.findByText('TO-2026-000002')
+    expect(screen.getByRole('button', { name: 'Receive transfer' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument()
+  })
+
+  it('keeps transfer creation hidden for viewers', async () => {
+    vi.mocked(useInventoryAccess).mockReturnValue({ operate: false, manage: false, administer: false, readZones: false })
+    renderWithClient(<TransferOrdersPage />)
+    await screen.findByText('TO-2026-000001')
+    expect(screen.queryByRole('button', { name: /new transfer/i })).not.toBeInTheDocument()
   })
 })

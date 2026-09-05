@@ -50,6 +50,7 @@ export type CreateTransferOrderRequest = {
   notes?: string
   lines: Array<{
     itemId: string
+    batchId?: string
     quantity: number
     notes?: string
   }>

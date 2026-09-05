@@ -7,6 +7,7 @@ import {
   Button,
   CheckboxInput,
   DataTable,
+  EntityPicker,
   FormField,
   FormGrid,
   Modal,
@@ -17,10 +18,11 @@ import {
   SelectInput,
   StatusChip,
   TextAreaInput,
-  TextInput,
 } from '@/design-system'
 import { formatDate, formatStatusLabel } from '@/shared/format/format'
 import { listWorkOrders, createWorkOrder, autoCreateFromReorder } from '@/features/work-orders/work-orders-api'
+import { listItems, type Item } from '@/features/items/items-api'
+import { listWarehouses } from '@/features/warehouses/warehouses-api'
 
 const statusTabs = [
   { key: 'all', label: 'All work orders' },
@@ -38,12 +40,18 @@ export function WorkOrdersPage() {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
+  const [selectedFg, setSelectedFg] = useState<Item | null>(null)
   const [fgId, setFgId] = useState('')
   const [warehouseId, setWarehouseId] = useState('')
   const [qty, setQty] = useState('100')
   const [priority, setPriority] = useState('NORMAL')
   const [notes, setNotes] = useState('')
   const [backflush, setBackflush] = useState(false)
+
+  const warehousesQuery = useQuery({
+    queryKey: ['warehouses'],
+    queryFn: listWarehouses,
+  })
 
   const query = useQuery({
     queryKey: ['work-orders', page, activeTab],
@@ -57,7 +65,7 @@ export function WorkOrdersPage() {
   const createMutation = useMutation({
     mutationFn: () => createWorkOrder({
       finishedGoodId: fgId,
-      warehouseId: warehouseId || 'w1000000-0000-0000-0000-000000000001',
+      warehouseId,
       quantityToProduce: Number(qty),
       priority,
       notes,
@@ -65,7 +73,9 @@ export function WorkOrdersPage() {
     }),
     onSuccess: () => {
       setIsCreateOpen(false)
+      setSelectedFg(null)
       setFgId('')
+      setWarehouseId('')
       setNotes('')
       queryClient.invalidateQueries({ queryKey: ['work-orders'] })
     },
@@ -244,7 +254,7 @@ export function WorkOrdersPage() {
           <>
             <Button onClick={() => setIsCreateOpen(false)} variant="secondary">Cancel</Button>
             <Button
-              disabled={createMutation.isPending || !fgId.trim()}
+              disabled={createMutation.isPending || !fgId.trim() || !warehouseId.trim() || Number(qty) <= 0}
               onClick={() => createMutation.mutate()}
               variant="primary"
             >
@@ -258,20 +268,39 @@ export function WorkOrdersPage() {
         title="Create Manufacturing Work Order"
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <FormField label="Finished Good Item ID" required>
-            <TextInput
-              onChange={(e) => setFgId(e.target.value)}
-              placeholder="UUID of manufactured product (composite item)"
-              required
-              value={fgId}
+          <FormField label="Finished Good Item" required>
+            <EntityPicker<Item>
+              ariaLabel="Finished Good Item"
+              value={selectedFg?.id ?? null}
+              selectedEntity={selectedFg}
+              onChange={(_id, item) => {
+                setSelectedFg(item ?? null)
+                setFgId(item?.id ?? '')
+              }}
+              onSearch={async (q) => {
+                const res = await listItems({ search: q, activeOnly: true, size: 25 })
+                return res.content
+              }}
+              getOptionId={(item) => item.id}
+              getOptionLabel={(item) => item.name}
+              getOptionDescription={(item) => `${item.sku} · ${item.unitOfMeasure ?? 'Units'}`}
+              placeholder="Search finished good by name or SKU..."
             />
           </FormField>
-          <FormField label="Production Facility / Warehouse ID">
-            <TextInput
-              onChange={(e) => setWarehouseId(e.target.value)}
-              placeholder="Target Warehouse UUID (optional)"
+          <FormField label="Production Facility / Warehouse" required>
+            <SelectInput
+              aria-label="Production Facility / Warehouse"
               value={warehouseId}
-            />
+              onChange={(e) => setWarehouseId(e.target.value)}
+              required
+            >
+              <option value="">Select a warehouse</option>
+              {warehousesQuery.data?.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.name} {w.code ? `(${w.code})` : ''}
+                </option>
+              ))}
+            </SelectInput>
           </FormField>
           <FormGrid columns={2}>
             <FormField label="Quantity to Produce" required>

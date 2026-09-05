@@ -1,10 +1,40 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
+import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { FormField } from '@/design-system/form-field'
 import { Modal } from '@/design-system/modal'
 import { TextInput } from '@/design-system/text-input'
 
 describe('Modal Primitive', () => {
+  it('keeps the parent open and scroll locked when a nested picker closes', () => {
+    const parentClose = vi.fn()
+    function NestedDialogs() {
+      const [childOpen, setChildOpen] = useState(false)
+      return <Modal isOpen onClose={parentClose} title="Pick quantities">
+        <button onClick={() => setChildOpen(true)}>Choose batch</button>
+        <Modal isOpen={childOpen} onClose={() => setChildOpen(false)} title="Batch picker"><input aria-label="Find batch" /></Modal>
+      </Modal>
+    }
+    const { unmount } = render(<NestedDialogs />)
+    const trigger = screen.getByRole('button', { name: 'Choose batch' })
+    trigger.focus()
+    fireEvent.click(trigger)
+    expect(screen.getByRole('textbox', { name: 'Find batch' })).toHaveFocus()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('dialog', { name: 'Batch picker' })).not.toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Pick quantities' })).toBeInTheDocument()
+    expect(parentClose).not.toHaveBeenCalled()
+    expect(trigger).toHaveFocus()
+    expect(document.body.style.overflow).toBe('hidden')
+    fireEvent.click(trigger)
+    const child = screen.getByRole('dialog', { name: 'Batch picker' })
+    within(child).getByRole('textbox').focus()
+    fireEvent.keyDown(document, { key: 'Tab' })
+    expect(within(child).getByRole('button', { name: 'Close dialog' })).toHaveFocus()
+    unmount()
+    expect(document.body.style.overflow).not.toBe('hidden')
+  })
+
   it('renders accessibility attributes and closes on Escape key', () => {
     const onClose = vi.fn()
 

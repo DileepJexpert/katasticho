@@ -4,12 +4,14 @@ export type PicklistLine = {
   id: string
   itemId: string
   itemName: string
-  itemSku: string | null
+  sku: string | null
+  salesOrderLineId: string
   requiredQuantity: number | string
   pickedQuantity: number | string
-  unitOfMeasure: string | null
+  batchId: string | null
   batchNumber?: string | null
-  rackLocation?: string | null
+  rackLocationId: string | null
+  rackLocationCode: string | null
   notes: string | null
 }
 
@@ -20,7 +22,8 @@ export type Picklist = {
   salesOrderNumber: string | null
   warehouseId: string
   warehouseName: string | null
-  status: 'DRAFT' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | string
+  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | string
+  assignedTo: string | null
   lineCount: number
   pickedCount: number
   notes: string | null
@@ -43,13 +46,12 @@ export type CreatePicklistRequest = {
   salesOrderId: string
   warehouseId: string
   notes?: string
+  assignedTo?: string
+  lines: { salesOrderLineId: string; requiredQuantity: number; batchId?: string; notes?: string }[]
 }
 
 export type UpdatePicklistLineRequest = {
-  lineId: string
-  pickedQuantity: number
-  batchNumber?: string
-  notes?: string
+  lines: { lineId: string; pickedQuantity: number; batchId?: string; notes?: string }[]
 }
 
 export async function listPicklists(page = 0) {
@@ -75,7 +77,7 @@ export async function startPicking(id: string) {
 
 export const startPicklist = startPicking
 
-export async function updatePickedQuantities(id: string, req: UpdatePicklistLineRequest | UpdatePicklistLineRequest[]) {
+export async function updatePickedQuantities(id: string, req: UpdatePicklistLineRequest) {
   return apiFetch<Picklist>(`/api/v1/picklists/${id}/lines`, {
     method: 'PUT',
     body: req,

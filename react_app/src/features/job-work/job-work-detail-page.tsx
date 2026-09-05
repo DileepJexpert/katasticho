@@ -6,8 +6,9 @@ import { Button } from '@/design-system/button'
 import { FormField } from '@/design-system/form-field'
 import { Modal } from '@/design-system/modal'
 import { NumberInput } from '@/design-system/number-input'
-import { TextInput } from '@/design-system/text-input'
+import { SelectInput } from '@/design-system/select-input'
 import { DataTable } from '@/design-system/data-table'
+import { EntityPicker } from '@/design-system'
 import { Money } from '@/design-system/money'
 import { PageHeader } from '@/design-system/page-header'
 import { Quantity } from '@/design-system/quantity'
@@ -19,6 +20,7 @@ import {
   receiveJobWorkGoods,
   cancelJobWorkOrder,
 } from '@/features/job-work/job-work-api'
+import { listItems, type Item } from '@/features/items/items-api'
 
 export function JobWorkDetailPage() {
   const { jobWorkId, id: routeId } = useParams()
@@ -27,6 +29,7 @@ export function JobWorkDetailPage() {
   const queryClient = useQueryClient()
 
   const [isReceiveOpen, setIsReceiveOpen] = useState(false)
+  const [selectedReceiveItem, setSelectedReceiveItem] = useState<Item | null>(null)
   const [receiveItemId, setReceiveItemId] = useState('')
   const [receivedQty, setReceivedQty] = useState('95')
   const [wastageQty, setWastageQty] = useState('5')
@@ -50,6 +53,8 @@ export function JobWorkDetailPage() {
     }]),
     onSuccess: () => {
       setIsReceiveOpen(false)
+      setSelectedReceiveItem(null)
+      setReceiveItemId('')
       queryClient.invalidateQueries({ queryKey: ['job-work', id] })
     },
   })
@@ -71,6 +76,7 @@ export function JobWorkDetailPage() {
   }
 
   const document = query.data
+  const outputLines = document.lines?.filter((l) => l.lineType === 'EXPECTED_OUTPUT') ?? []
 
   return (
     <section className="workspace-page">
@@ -105,7 +111,7 @@ export function JobWorkDetailPage() {
           </Button>
         )}
 
-        {(document.status === 'SENT' || document.status === 'PARTIALLY_RECEIVED') && (
+        {(document.status === 'SENT' || document.status === 'DISPATCHED' || document.status === 'PARTIALLY_RECEIVED') && (
           <Button onClick={() => setIsReceiveOpen(true)} variant="primary">
             <PackageCheck size={16} />
             Receive Processed Goods
@@ -210,13 +216,43 @@ export function JobWorkDetailPage() {
         }
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <FormField label="Received Output Item ID" required>
-            <TextInput
-              onChange={(e) => setReceiveItemId(e.target.value)}
-              placeholder="Processed Item UUID"
-              value={receiveItemId}
-            />
-          </FormField>
+          {outputLines.length > 0 ? (
+            <FormField label="Received Output Item" required>
+              <SelectInput
+                aria-label="Received Output Item"
+                onChange={(e) => setReceiveItemId(e.target.value)}
+                required
+                value={receiveItemId}
+              >
+                <option value="">Select expected output line</option>
+                {outputLines.map((l) => (
+                  <option key={l.id} value={l.itemId}>
+                    {l.itemName || l.itemId}
+                  </option>
+                ))}
+              </SelectInput>
+            </FormField>
+          ) : (
+            <FormField label="Received Output Item" required>
+              <EntityPicker<Item>
+                ariaLabel="Received Output Item"
+                getOptionDescription={(item) => `${item.sku || 'No SKU'} · ${item.unitOfMeasure || 'unit'}`}
+                getOptionId={(item) => item.id}
+                getOptionLabel={(item) => item.name}
+                onChange={(_id, item) => {
+                  setSelectedReceiveItem(item ?? null)
+                  setReceiveItemId(item?.id ?? '')
+                }}
+                onSearch={async (query) => {
+                  const res = await listItems({ search: query, activeOnly: true, size: 25 })
+                  return res.content
+                }}
+                placeholder="Search processed item..."
+                selectedEntity={selectedReceiveItem}
+                value={selectedReceiveItem?.id ?? null}
+              />
+            </FormField>
+          )}
           <FormField label="Received Good Quantity" required>
             <NumberInput
               onChange={(e) => setReceivedQty(e.target.value)}

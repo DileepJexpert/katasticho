@@ -3,19 +3,29 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ShieldCheck, Plus, Search, Layers } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { PageHeader } from '@/design-system/page-header'
-import { Quantity } from '@/design-system/quantity'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  DataTable,
+  EntityPicker,
+  FormField,
+  Modal,
+  NumberInput,
+  PageHeader,
+  Quantity,
+  SelectInput,
+  StatusChip,
+  TextInput,
+} from '@/design-system'
 import { formatStatusLabel } from '@/shared/format/format'
 import { listQcInspections, createQcInspection } from '@/features/qc-inspections/qc-inspections-api'
+import { listItems, type Item } from '@/features/items/items-api'
 
 export function QcInspectionsPage() {
   const queryClient = useQueryClient()
   const [page] = useState(0)
   const [search, setSearch] = useState('')
   const [isCreateOpen, setIsCreateOpen] = useState(false)
+  const [selectedItem, setSelectedItem] = useState<Item | null>(null)
   const [itemId, setItemId] = useState('')
   const [inspectionType, setInspectionType] = useState('INBOUND_GRN')
   const [inspectedQty, setInspectedQty] = useState('50')
@@ -35,7 +45,9 @@ export function QcInspectionsPage() {
     }),
     onSuccess: () => {
       setIsCreateOpen(false)
+      setSelectedItem(null)
       setItemId('')
+      setBatchId('')
       queryClient.invalidateQueries({ queryKey: ['qc-inspections'] })
     },
   })
@@ -130,68 +142,75 @@ export function QcInspectionsPage() {
         </DataTable>
       )}
 
-      {isCreateOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-card">
-            <h3>Initiate QC Inspection</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Inspected Item ID:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setItemId(e.target.value)}
-                  placeholder="Item UUID"
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={itemId}
-                />
-              </label>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Inspection Stage:</span>
-                <select
-                  className="search-input"
-                  onChange={(e) => setInspectionType(e.target.value)}
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={inspectionType}
-                >
-                  <option value="INBOUND_GRN">Inbound Goods Receipt (GRN)</option>
-                  <option value="IN_PROCESS">In-Process Production Audit</option>
-                  <option value="FINAL_RELEASE">Final Finished Goods Release</option>
-                </select>
-              </label>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Batch ID (Optional):</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setBatchId(e.target.value)}
-                  placeholder="Inventory Batch UUID"
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={batchId}
-                />
-              </label>
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Sample Inspection Quantity:</span>
-                <input
-                  className="search-input"
-                  onChange={(e) => setInspectedQty(e.target.value)}
-                  style={{ width: '100%', marginTop: '4px' }}
-                  type="number"
-                  value={inspectedQty}
-                />
-              </label>
-            </div>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '16px' }}>
-              <Button onClick={() => setIsCreateOpen(false)} variant="secondary">Cancel</Button>
-              <Button
-                disabled={createMutation.isPending || !itemId.trim()}
-                onClick={() => createMutation.mutate()}
-                variant="primary"
-              >
-                Initiate Inspection
-              </Button>
-            </div>
-          </div>
+      <Modal
+        footer={
+          <>
+            <Button onClick={() => setIsCreateOpen(false)} variant="secondary">Cancel</Button>
+            <Button
+              disabled={createMutation.isPending || !itemId.trim()}
+              onClick={() => createMutation.mutate()}
+              variant="primary"
+            >
+              {createMutation.isPending ? 'Initiating...' : 'Initiate Inspection'}
+            </Button>
+          </>
+        }
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        size="md"
+        title="Initiate QC Inspection"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <FormField label="Item to Inspect" required>
+            <EntityPicker<Item>
+              ariaLabel="Item to Inspect"
+              getOptionDescription={(item) => `${item.sku || 'No SKU'} · ${item.unitOfMeasure || 'unit'}`}
+              getOptionId={(item) => item.id}
+              getOptionLabel={(item) => item.name}
+              onChange={(_id, item) => {
+                setSelectedItem(item ?? null)
+                setItemId(item?.id ?? '')
+              }}
+              onSearch={async (query) => {
+                const res = await listItems({ search: query, activeOnly: true, size: 25 })
+                return res.content
+              }}
+              placeholder="Search item to inspect..."
+              selectedEntity={selectedItem}
+              value={selectedItem?.id ?? null}
+            />
+          </FormField>
+
+          <FormField label="Inspection Stage" required>
+            <SelectInput
+              aria-label="Inspection Stage"
+              onChange={(e) => setInspectionType(e.target.value)}
+              value={inspectionType}
+            >
+              <option value="INBOUND_GRN">Inbound Goods Receipt (GRN)</option>
+              <option value="IN_PROCESS">In-Process Production Audit</option>
+              <option value="FINAL_RELEASE">Final Finished Goods Release</option>
+            </SelectInput>
+          </FormField>
+
+          <FormField label="Batch / Lot Number (Optional)">
+            <TextInput
+              onChange={(e) => setBatchId(e.target.value)}
+              placeholder="e.g. BATCH-2026-09"
+              value={batchId}
+            />
+          </FormField>
+
+          <FormField label="Sample Inspection Quantity" required>
+            <NumberInput
+              min={1}
+              onChange={(e) => setInspectedQty(e.target.value)}
+              required
+              value={inspectedQty}
+            />
+          </FormField>
         </div>
-      )}
+      </Modal>
     </section>
   )
 }

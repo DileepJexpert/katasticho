@@ -1,5 +1,5 @@
 ﻿import { useMemo, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import {
   Building2,
   CheckCircle2,
@@ -10,9 +10,7 @@ import {
   History,
   Percent,
   Pill,
-  Plus,
   Search,
-  Sparkles,
   X,
 } from 'lucide-react'
 import { Button } from '@/design-system/button'
@@ -22,23 +20,18 @@ import { PageHeader } from '@/design-system/page-header'
 import { Quantity } from '@/design-system/quantity'
 import { StatusChip } from '@/design-system/status-chip'
 import {
-  createRackLocation,
   getHsnRateHistory,
   getSubstitutions,
-  listRackLocations,
   searchDrugs,
   searchHsn,
   searchManufacturers,
-  seedDemoRackLocations,
   type DrugMaster,
-  type RackLocationRequest,
 } from '@/features/pharmacy/pharmacy-api'
-import { listWarehouses } from '@/features/warehouses/warehouses-api'
+import { RackLocationsWorkspace } from '@/features/inventory/rack-locations-page'
 
 type TabKey = 'drugs' | 'hsn' | 'manufacturers' | 'racks'
 
 export function PharmacyMastersPage() {
-  const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<TabKey>('drugs')
 
   // Drug Master state
@@ -51,16 +44,6 @@ export function PharmacyMastersPage() {
 
   // Manufacturer state
   const [mfgSearch, setMfgSearch] = useState('')
-
-  // Rack Locations state
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>('')
-  const [isAddRackOpen, setIsAddRackOpen] = useState(false)
-  const [newRackCode, setNewRackCode] = useState('')
-  const [newRackName, setNewRackName] = useState('')
-  const [newRackZone, setNewRackZone] = useState('')
-  const [newRackAisle, setNewRackAisle] = useState('')
-  const [newRackShelf, setNewRackShelf] = useState('')
-  const [newRackBin, setNewRackBin] = useState('')
 
   // Queries
   const drugsQuery = useQuery({
@@ -78,16 +61,6 @@ export function PharmacyMastersPage() {
     queryFn: () => searchManufacturers(mfgSearch, 60),
   })
 
-  const warehousesQuery = useQuery({
-    queryKey: ['warehouses-list'],
-    queryFn: () => listWarehouses(),
-  })
-
-  const racksQuery = useQuery({
-    queryKey: ['pharmacy-racks', selectedWarehouseId],
-    queryFn: () => listRackLocations(selectedWarehouseId || undefined),
-  })
-
   const substitutionsQuery = useQuery({
     queryKey: ['pharmacy-substitutions', selectedDrug?.id],
     queryFn: () => (selectedDrug ? getSubstitutions(selectedDrug.id) : Promise.resolve([])),
@@ -100,33 +73,9 @@ export function PharmacyMastersPage() {
     enabled: Boolean(selectedHsnCode),
   })
 
-  // Mutations
-  const createRackMutation = useMutation({
-    mutationFn: (req: RackLocationRequest) => createRackLocation(req),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pharmacy-racks'] })
-      setIsAddRackOpen(false)
-      setNewRackCode('')
-      setNewRackName('')
-      setNewRackZone('')
-      setNewRackAisle('')
-      setNewRackShelf('')
-      setNewRackBin('')
-    },
-  })
-
-  const seedDemoMutation = useMutation({
-    mutationFn: () => seedDemoRackLocations(),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pharmacy-racks'] })
-    },
-  })
-
   const drugs = drugsQuery.data ?? []
   const hsnList = hsnQuery.data ?? []
   const manufacturers = mfgQuery.data ?? []
-  const warehouses = warehousesQuery.data ?? []
-  const rackLocations = racksQuery.data ?? []
   const substitutions = substitutionsQuery.data ?? []
   const rateHistory = rateHistoryQuery.data ?? []
 
@@ -136,21 +85,6 @@ export function PharmacyMastersPage() {
     if (priced.length === 0) return 0
     return priced.reduce((sum, d) => sum + (d.mrp || 0), 0) / priced.length
   }, [drugs])
-
-  const handleCreateRack = (e: React.FormEvent) => {
-    e.preventDefault()
-    const whId = selectedWarehouseId || (warehouses[0]?.id ?? '')
-    if (!whId || !newRackCode.trim()) return
-    createRackMutation.mutate({
-      warehouseId: whId,
-      code: newRackCode.trim().toUpperCase(),
-      name: newRackName.trim() || undefined,
-      zone: newRackZone.trim() || undefined,
-      aisle: newRackAisle.trim() || undefined,
-      shelf: newRackShelf.trim() || undefined,
-      bin: newRackBin.trim() || undefined,
-    })
-  }
 
   return (
     <section className="workspace-page">
@@ -192,7 +126,7 @@ export function PharmacyMastersPage() {
           type="button"
         >
           <Grid aria-hidden="true" size={14} style={{ marginRight: 6 }} />
-          Rack Locations ({rackLocations.length})
+          Rack Locations
         </button>
       </div>
 
@@ -481,110 +415,7 @@ export function PharmacyMastersPage() {
         </>
       )}
 
-      {activeTab === 'racks' && (
-        <>
-          <div className="list-toolbar" style={{ justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', gap: 'var(--space-sm)', alignItems: 'center' }}>
-              <select
-                aria-label="Filter racks by warehouse"
-                className="select-field"
-                onChange={(e) => setSelectedWarehouseId(e.target.value)}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--color-border)',
-                  background: 'var(--color-surface)',
-                  color: 'var(--color-text-primary)',
-                  fontSize: '0.9rem',
-                }}
-                value={selectedWarehouseId}
-              >
-                <option value="">All Warehouses</option>
-                {warehouses.map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {w.name} ({w.code})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
-              <Button
-                disabled={seedDemoMutation.isPending}
-                onClick={() => seedDemoMutation.mutate()}
-                variant="secondary"
-              >
-                <Sparkles aria-hidden="true" size={14} style={{ marginRight: 6 }} />
-                {seedDemoMutation.isPending ? 'Loading...' : 'Seed Demo Layout'}
-              </Button>
-              <Button onClick={() => setIsAddRackOpen(true)} variant="primary">
-                <Plus aria-hidden="true" size={14} style={{ marginRight: 6 }} />
-                New Rack Location
-              </Button>
-            </div>
-          </div>
-
-          {racksQuery.isLoading ? (
-            <div aria-live="polite" className="directory-state">
-              Loading warehouse rack layout...
-            </div>
-          ) : racksQuery.isError ? (
-            <div className="directory-state directory-state--error" role="alert">
-              <FileText aria-hidden="true" size={24} />
-              <strong>Unable to load rack locations.</strong>
-              <Button onClick={() => racksQuery.refetch()} variant="secondary">
-                Retry
-              </Button>
-            </div>
-          ) : rackLocations.length === 0 ? (
-            <div className="directory-state">
-              <Grid aria-hidden="true" size={24} />
-              <strong>No rack locations found.</strong>
-              <p>Create a rack location or click "Seed Demo Layout" to populate standard warehouse bins.</p>
-            </div>
-          ) : (
-            <DataTable caption="Warehouse bin coordinates and rack layout">
-              <thead>
-                <tr>
-                  <th scope="col">Rack Code</th>
-                  <th scope="col">Location Name</th>
-                  <th scope="col">Zone</th>
-                  <th scope="col">Aisle</th>
-                  <th scope="col">Shelf</th>
-                  <th scope="col">Bin</th>
-                  <th scope="col">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rackLocations.map((rack) => (
-                  <tr key={rack.id}>
-                    <td>
-                      <span className="table-code">{rack.code}</span>
-                    </td>
-                    <td>
-                      <strong>{rack.name || rack.code}</strong>
-                    </td>
-                    <td>
-                      <span className="cell-muted">{rack.zone || 'â€”'}</span>
-                    </td>
-                    <td>
-                      <span className="cell-muted">{rack.aisle || 'â€”'}</span>
-                    </td>
-                    <td>
-                      <span className="cell-muted">{rack.shelf || 'â€”'}</span>
-                    </td>
-                    <td>
-                      <span className="cell-muted">{rack.bin || 'â€”'}</span>
-                    </td>
-                    <td>
-                      <StatusChip status={rack.active ? 'Active' : 'Inactive'} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </DataTable>
-          )}
-        </>
-      )}
+      {activeTab === 'racks' && <RackLocationsWorkspace />}
 
       {selectedDrug && (
         <div
@@ -808,213 +639,6 @@ export function PharmacyMastersPage() {
         </div>
       )}
 
-      {isAddRackOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="new-rack-title"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: 'var(--space-md)',
-          }}
-        >
-          <form
-            onSubmit={handleCreateRack}
-            className="panel-card"
-            style={{
-              width: '100%',
-              maxWidth: 520,
-              backgroundColor: 'var(--color-surface)',
-              borderRadius: 'var(--radius-lg)',
-              padding: 'var(--space-lg)',
-              border: '1px solid var(--color-border)',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-md)' }}>
-              <div>
-                <span className="panel-card__eyebrow">Warehouse Bin Management</span>
-                <h3 id="new-rack-title" className="panel-card__title" style={{ fontSize: '1.25rem', marginTop: 4 }}>
-                  Add Rack Location
-                </h3>
-              </div>
-              <button
-                aria-label="Close dialog"
-                className="icon-button"
-                onClick={() => setIsAddRackOpen(false)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
-                type="button"
-              >
-                <X aria-hidden="true" size={20} />
-              </button>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                  Warehouse *
-                </label>
-                <select
-                  className="select-field"
-                  onChange={(e) => setSelectedWarehouseId(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--color-border)',
-                    background: 'var(--color-surface)',
-                    color: 'var(--color-text-primary)',
-                  }}
-                  value={selectedWarehouseId || warehouses[0]?.id || ''}
-                >
-                  {warehouses.map((w) => (
-                    <option key={w.id} value={w.id}>
-                      {w.name} ({w.code})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                  Rack Code * (e.g. RACK-A-01-B2)
-                </label>
-                <input
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--color-border)',
-                    background: 'var(--color-surface)',
-                    color: 'var(--color-text-primary)',
-                  }}
-                  onChange={(e) => setNewRackCode(e.target.value)}
-                  placeholder="RACK-A-01"
-                  type="text"
-                  value={newRackCode}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                  Location Name / Label
-                </label>
-                <input
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--color-border)',
-                    background: 'var(--color-surface)',
-                    color: 'var(--color-text-primary)',
-                  }}
-                  onChange={(e) => setNewRackName(e.target.value)}
-                  placeholder="Zone A Tablets Rack"
-                  type="text"
-                  value={newRackName}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-sm)' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                    Zone
-                  </label>
-                  <input
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      borderRadius: 'var(--radius-md)',
-                      border: '1px solid var(--color-border)',
-                      background: 'var(--color-surface)',
-                      color: 'var(--color-text-primary)',
-                    }}
-                    onChange={(e) => setNewRackZone(e.target.value)}
-                    placeholder="Zone A"
-                    type="text"
-                    value={newRackZone}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                    Aisle
-                  </label>
-                  <input
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      borderRadius: 'var(--radius-md)',
-                      border: '1px solid var(--color-border)',
-                      background: 'var(--color-surface)',
-                      color: 'var(--color-text-primary)',
-                    }}
-                    onChange={(e) => setNewRackAisle(e.target.value)}
-                    placeholder="Aisle 1"
-                    type="text"
-                    value={newRackAisle}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-sm)' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                    Shelf
-                  </label>
-                  <input
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      borderRadius: 'var(--radius-md)',
-                      border: '1px solid var(--color-border)',
-                      background: 'var(--color-surface)',
-                      color: 'var(--color-text-primary)',
-                    }}
-                    onChange={(e) => setNewRackShelf(e.target.value)}
-                    placeholder="Shelf 2"
-                    type="text"
-                    value={newRackShelf}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                    Bin / Box
-                  </label>
-                  <input
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      borderRadius: 'var(--radius-md)',
-                      border: '1px solid var(--color-border)',
-                      background: 'var(--color-surface)',
-                      color: 'var(--color-text-primary)',
-                    }}
-                    onChange={(e) => setNewRackBin(e.target.value)}
-                    placeholder="Bin B"
-                    type="text"
-                    value={newRackBin}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-sm)', marginTop: 'var(--space-md)' }}>
-              <Button onClick={() => setIsAddRackOpen(false)} type="button" variant="secondary">
-                Cancel
-              </Button>
-              <Button disabled={createRackMutation.isPending} type="submit" variant="primary">
-                {createRackMutation.isPending ? 'Saving...' : 'Save Rack Location'}
-              </Button>
-            </div>
-          </form>
-        </div>
-      )}
     </section>
   )
 }

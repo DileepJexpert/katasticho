@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useId, type KeyboardEvent, type ReactNode } from 'react'
 import { Search, X, Loader2, Check } from 'lucide-react'
 import clsx from 'clsx'
+import { Button } from './button'
 
 export interface EntityPickerProps<T> {
   value: string | null
@@ -48,6 +49,8 @@ export function EntityPicker<T>({
   const [query, setQuery] = useState('')
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [searchError, setSearchError] = useState<string | null>(null)
+  const [retrySearch, setRetrySearch] = useState(0)
   const [results, setResults] = useState<T[]>([])
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
   const [currentEntity, setCurrentEntity] = useState<T | null>(selectedEntity || null)
@@ -86,6 +89,7 @@ export function EntityPicker<T>({
     }
 
     if (options) {
+      setSearchError(null)
       const nextResults = filterOptions(options, query, getOptionLabel, getOptionDescription)
       setResults(nextResults)
       setHighlightedIndex((index) => index >= nextResults.length ? -1 : index)
@@ -95,16 +99,22 @@ export function EntityPicker<T>({
 
     if (onSearch) {
       const requestId = ++searchRequestRef.current
+      setSearchError(null)
+      setResults([])
+      setHighlightedIndex(-1)
+      setIsLoading(true)
       debounceTimerRef.current = setTimeout(async () => {
-        setIsLoading(true)
         try {
           const items = await onSearch(query.trim())
           if (requestId === searchRequestRef.current) {
             setResults(items || [])
             setHighlightedIndex(-1)
           }
-        } catch {
-          if (requestId === searchRequestRef.current) setResults([])
+        } catch (error) {
+          if (requestId === searchRequestRef.current) {
+            setResults([])
+            setSearchError(error instanceof Error ? error.message : 'Records could not be loaded.')
+          }
         } finally {
           if (requestId === searchRequestRef.current) setIsLoading(false)
         }
@@ -115,11 +125,12 @@ export function EntityPicker<T>({
     }
 
     return () => {
+      searchRequestRef.current += 1
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current)
       }
     }
-  }, [query, isOpen, options, onSearch, getOptionLabel, getOptionDescription])
+  }, [query, isOpen, options, onSearch, getOptionLabel, getOptionDescription, retrySearch])
 
   function openPicker(highlight: 'first' | 'last' | 'none' = 'none') {
     setIsOpen(true)
@@ -170,6 +181,7 @@ export function EntityPicker<T>({
         handleSelect(results[highlightedIndex])
       }
     } else if (e.key === 'Escape') {
+      if (isOpen) { e.preventDefault(); e.stopPropagation() }
       setIsOpen(false)
     }
   }
@@ -249,10 +261,10 @@ export function EntityPicker<T>({
       {isOpen && (
         <div
           id={listboxId}
-          role="listbox"
+          role={searchError ? undefined : 'listbox'}
           className="entity-picker__options"
         >
-          {results.length === 0 ? (
+          {searchError ? <div className="entity-picker__empty" role="alert"><p>{searchError}</p><Button variant="secondary" onClick={() => setRetrySearch((attempt) => attempt + 1)}>Retry search</Button></div> : results.length === 0 ? (
             renderEmpty && !isLoading ? (
               renderEmpty(query.trim())
             ) : (

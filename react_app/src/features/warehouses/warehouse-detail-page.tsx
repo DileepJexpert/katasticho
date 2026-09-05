@@ -6,10 +6,16 @@ import { appRoutes } from '@/app/navigation'
 import { Button, DataTable, DocumentCard, Fact, FactList, FilterTabs, PageHeader, StatusChip } from '@/design-system'
 import { getWarehouse, listWarehouseZones, type Warehouse, type WarehouseZone } from '@/features/warehouses/warehouses-api'
 import { formatDateTime, formatStatusLabel } from '@/shared/format/format'
+import { useInventoryAccess } from '@/features/inventory/inventory-access'
+import { WarehouseFormModal, WarehouseDeleteModal } from './warehouse-form-modal'
+import { WarehouseZoneModal, WarehouseZoneDeleteModal } from './warehouse-zone-modal'
 
 type WarehouseTab = 'overview' | 'zones'
 
 export function WarehouseDetailPage() {
+  const access = useInventoryAccess()
+  const [action, setAction] = useState<'edit' | 'delete' | null>(null)
+  const [zoneAction, setZoneAction] = useState<{ type: 'create' } | { type: 'edit' | 'delete'; zone: WarehouseZone } | null>(null)
   const { warehouseId } = useParams()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<WarehouseTab>('overview')
@@ -21,7 +27,7 @@ export function WarehouseDetailPage() {
   const zonesQuery = useQuery({
     queryKey: ['warehouses', warehouseId, 'zones'],
     queryFn: () => listWarehouseZones(warehouseId!),
-    enabled: Boolean(warehouseId) && activeTab === 'zones',
+    enabled: Boolean(warehouseId) && activeTab === 'zones' && access.readZones,
   })
 
   if (!warehouseId) return <WarehouseState message="No warehouse ID was specified." />
@@ -46,7 +52,7 @@ export function WarehouseDetailPage() {
         eyebrow="Inventory / Facility review"
         title={warehouse.name}
         description={`${warehouse.code} · ${warehouse.city ?? warehouse.state ?? warehouse.country ?? 'No location'}`}
-        actions={<StatusChip status={warehouse.active ? 'Active' : 'Inactive'} />}
+        actions={<><StatusChip status={warehouse.active ? 'Active' : 'Inactive'} />{access.manage && <Button variant="secondary" onClick={() => setAction('edit')}>Edit warehouse</Button>}{access.administer && !warehouse.isDefault && <Button variant="destructive" onClick={() => setAction('delete')}>Remove warehouse</Button>}</>}
       />
 
       <div className="document-actions">
@@ -54,7 +60,7 @@ export function WarehouseDetailPage() {
           <ArrowLeft aria-hidden="true" size={16} />
           Back to warehouses
         </Button>
-        <span className="cell-muted">Read-only review. Warehouse and zone changes remain in Flutter during migration.</span>
+        {!access.manage && <span className="cell-muted">Your role has read-only warehouse access.</span>}
       </div>
 
       <FilterTabs
@@ -62,13 +68,20 @@ export function WarehouseDetailPage() {
         ariaLabel="Warehouse review sections"
         items={[
           { value: 'overview', label: 'Overview' },
-          { value: 'zones', label: 'Storage zones' },
+          ...(access.readZones ? [{ value: 'zones', label: 'Storage zones' }] : []),
         ]}
         onChange={(value) => setActiveTab(value as WarehouseTab)}
       />
 
       {activeTab === 'overview' && <WarehouseOverview warehouse={warehouse} />}
-      {activeTab === 'zones' && <ZonesTab isError={zonesQuery.isError} isLoading={zonesQuery.isLoading} zones={zonesQuery.data ?? []} />}
+      {activeTab === 'zones' && access.readZones && <>
+        <div className="document-actions"><Button variant="secondary" onClick={() => void zonesQuery.refetch()}>Refresh zones</Button>{access.administer && <Button onClick={() => setZoneAction({ type: 'create' })}>Add storage zone</Button>}</div>
+        <ZonesTab isError={zonesQuery.isError} isLoading={zonesQuery.isLoading} zones={zonesQuery.data ?? []} canManage={access.administer} onEdit={(zone) => setZoneAction({ type: 'edit', zone })} onDelete={(zone) => setZoneAction({ type: 'delete', zone })} />
+      </>}
+      {action === 'edit' && <WarehouseFormModal warehouse={warehouse} onClose={() => setAction(null)} onSaved={() => setAction(null)} />}
+      {action === 'delete' && <WarehouseDeleteModal warehouse={warehouse} onClose={() => setAction(null)} onDeleted={() => navigate(appRoutes.warehouses)} />}
+      {zoneAction && zoneAction.type !== 'delete' && <WarehouseZoneModal warehouseId={warehouse.id} zone={zoneAction.type === 'edit' ? zoneAction.zone : undefined} onClose={() => setZoneAction(null)} />}
+      {zoneAction?.type === 'delete' && <WarehouseZoneDeleteModal zone={zoneAction.zone} onClose={() => setZoneAction(null)} />}
     </section>
   )
 }
@@ -103,7 +116,7 @@ function WarehouseOverview({ warehouse }: { warehouse: Warehouse }) {
   )
 }
 
-function ZonesTab({ isError, isLoading, zones }: { isError: boolean; isLoading: boolean; zones: WarehouseZone[] }) {
+function ZonesTab({ isError, isLoading, zones, canManage, onEdit, onDelete }: { isError: boolean; isLoading: boolean; zones: WarehouseZone[]; canManage: boolean; onEdit: (zone: WarehouseZone) => void; onDelete: (zone: WarehouseZone) => void }) {
   if (isLoading) return <WarehouseState message="Loading storage zones..." />
   if (isError) return <div className="directory-state directory-state--error" role="alert">Storage zones could not be loaded.</div>
   if (!zones.length) return <div className="directory-state"><Layers aria-hidden="true" size={24} /><span>No storage zones are configured for this warehouse.</span></div>
@@ -119,6 +132,7 @@ function ZonesTab({ isError, isLoading, zones }: { isError: boolean; isLoading: 
             <th className="numeric-cell" scope="col">Utilisation</th>
             <th scope="col">Temperature</th>
             <th scope="col">Notes</th>
+            {canManage && <th scope="col">Actions</th>}
           </tr>
         </thead>
         <tbody>{zones.map((zone) => (
@@ -129,6 +143,7 @@ function ZonesTab({ isError, isLoading, zones }: { isError: boolean; isLoading: 
             <td className="numeric-cell">{zone.currentUtilization ?? '--'}</td>
             <td>{zone.temperatureControlled ? 'Temperature controlled' : 'Ambient'}</td>
             <td>{zone.notes ?? '--'}</td>
+            {canManage && <td><div className="document-actions"><Button variant="secondary" onClick={() => onEdit(zone)}>Edit {zone.code}</Button><Button variant="destructive" onClick={() => onDelete(zone)}>Remove {zone.code}</Button></div></td>}
           </tr>
         ))}</tbody>
       </DataTable>

@@ -5,7 +5,7 @@ import { OrgSwitcherModal } from './org-switcher-modal'
 import * as authApi from './auth-api'
 import { useSessionStore } from '@/shared/session/session-store'
 
-vi.mock('./auth-api', () => ({
+vi.mock('@/features/auth/auth-api', () => ({
   listMyOrganisations: vi.fn(),
   switchOrganisation: vi.fn(),
   loginBrowser: vi.fn(),
@@ -25,6 +25,9 @@ describe('OrgSwitcherModal', () => {
     vi.clearAllMocks()
     useSessionStore.setState({
       status: 'authenticated',
+      switchOrg: async (targetOrgId: string) => {
+        await authApi.switchOrganisation(targetOrgId)
+      },
       user: {
         id: 'user-1',
         orgId: 'org-1',

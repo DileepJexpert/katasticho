@@ -4,6 +4,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BatchesPage } from './batches-page'
 import * as batchesApi from './batches-api'
+import { useInventoryAccess } from './inventory-access'
+
+vi.mock('./inventory-access', () => ({ useInventoryAccess: vi.fn() }))
 
 vi.mock('./batches-api', () => ({
   getExpirySummary: vi.fn(),
@@ -81,6 +84,7 @@ function renderWithClient(ui: React.ReactElement) {
 describe('Batch and expiry watch', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(useInventoryAccess).mockReturnValue({ operate: true, manage: true, administer: true, readZones: true })
     vi.mocked(batchesApi.getExpirySummary).mockResolvedValue(mockSummary)
     vi.mocked(batchesApi.getNearExpiryBatches).mockResolvedValue(mockBatches)
   })

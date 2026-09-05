@@ -15,8 +15,8 @@ export function StockSummaryPage() {
   const [view, setView] = useState<StockView>('balances')
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('all')
-  const balances = useQuery({ queryKey: ['inventory', 'stock-summary'], queryFn: getStockSummary, enabled: view === 'balances' })
-  const lowStock = useQuery({ queryKey: ['inventory', 'low-stock-alert'], queryFn: getLowStockAlert, enabled: view === 'balances' })
+  const balances = useQuery({ queryKey: ['inventory', 'stock-summary'], queryFn: getStockSummary, enabled: canViewValuation && view === 'balances' })
+  const lowStock = useQuery({ queryKey: ['inventory', 'low-stock-alert'], queryFn: getLowStockAlert, enabled: canViewValuation && view === 'balances' })
   const report = balances.data
   const rows = (report?.items ?? []).filter((item) => {
     const qty = Number(item.quantityOnHand)
@@ -25,6 +25,7 @@ export function StockSummaryPage() {
     if (status === 'in' && qty <= 0) return false
     return `${item.itemName ?? ''} ${item.sku ?? ''}`.toLowerCase().includes(search.toLowerCase())
   })
+  if (!canViewValuation) return <section className="workspace-page"><PageHeader title="Stock summary & valuation" description="These inventory-report APIs are restricted to owners, admins, and accountants. Item-level stock quantities remain available in the Items directory." /></section>
   return <section className="workspace-page">
     <PageHeader eyebrow="Inventory / Stock control" title="Stock summary & valuation" description="Review balances, replenishment needs, and current inventory values."
       actions={<Button variant="secondary" aria-label="Refresh stock summary data" onClick={() => void client.invalidateQueries({ queryKey: ['inventory'] })}>Refresh</Button>} />

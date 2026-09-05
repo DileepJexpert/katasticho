@@ -47,6 +47,19 @@ export async function apiFetchRawJson<T>(path: string, request: ApiRequest = {})
   return sendRawJson<T>(path, request, request.retryUnauthorized ?? true)
 }
 
+/** Download an existing file endpoint with the same tenant and session handling. */
+export async function apiFetchBlob(path: string, accept = 'application/octet-stream'): Promise<Blob> {
+  const { method, response } = await requestResponse(path, { headers: { Accept: accept } }, true)
+  if (!response.ok) {
+    const payload = await parseEnvelope<unknown>(response)
+    traceResponse(method, path, response.status, payload)
+    throw new ApiError(payload.message ?? 'The file could not be downloaded.', response.status, payload.errors ?? [])
+  }
+  const blob = await response.blob()
+  traceResponse(method, path, response.status, { type: blob.type, size: blob.size })
+  return blob
+}
+
 async function send<T>(path: string, request: ApiRequest, canRetry: boolean): Promise<T> {
   const { method, response } = await requestResponse(path, request, canRetry)
   const payload = await parseEnvelope<T>(response)
@@ -77,7 +90,7 @@ async function requestResponse(path: string, request: ApiRequest, canRetry: bool
   const orgId = getOrganisationId()
   const method = request.method ?? 'GET'
 
-  headers.set('Accept', 'application/json')
+  if (!headers.has('Accept')) headers.set('Accept', 'application/json')
   const isFormData = typeof FormData !== 'undefined' && request.body instanceof FormData
   if (!isFormData && request.body !== undefined) headers.set('Content-Type', 'application/json')
   if (token) headers.set('Authorization', `Bearer ${token}`)

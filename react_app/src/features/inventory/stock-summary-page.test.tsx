@@ -2,11 +2,30 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { useSessionStore } from '@/shared/session/session-store'
 import { StockSummaryPage } from './stock-summary-page'
 import * as api from './stock-summary-api'
 
-const session = vi.hoisted(() => ({ role: 'ADMIN' }))
-vi.mock('@/shared/session/session-store', () => ({ useSessionStore: (select: (state: { user: { role: string } }) => unknown) => select({ user: session }) }))
+function setRole(role: string) {
+  useSessionStore.setState({
+    status: role ? 'authenticated' : 'anonymous',
+    user: role ? {
+      id: 'u-1',
+      orgId: 'o-1',
+      fullName: 'User',
+      email: 'user@test.com',
+      phone: null,
+      role,
+      orgName: 'Org',
+      industry: null,
+      businessType: null,
+      industryCode: null,
+      onboardingCompleted: true,
+      defaultLandingPage: null,
+    } : null,
+  })
+}
+
 vi.mock('./stock-summary-api', () => ({ getStockSummary: vi.fn(), getLowStockAlert: vi.fn(), getFifoValuation: vi.fn(), getStockValuation: vi.fn() }))
 const valuation: api.FifoValuationReport = {
   reportKey: 'fifo-valuation', title: 'FIFO valuation', description: 'Open cost lots', currency: 'INR', endDate: '2026-09-05',
@@ -21,7 +40,7 @@ function renderPage() {
 describe('Stock valuation contracts and states', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    session.role = 'ADMIN'
+    setRole('ADMIN')
     vi.mocked(api.getStockSummary).mockResolvedValue({ asOfDate: '2026-09-05', itemCount: 1, totalInventoryValue: 450, lowStockCount: 0, outOfStockCount: 0, items: [{ itemId: 'item-1', itemName: 'Turmeric', sku: 'MASALA', unit: 'PCS', quantityOnHand: 10, purchasePrice: 45, inventoryValue: 450, reorderLevel: 2, status: 'NORMAL' }] })
     vi.mocked(api.getLowStockAlert).mockResolvedValue({ generatedAt: '2026-09-05', itemCount: 0, estimatedPurchaseCost: 0, items: [] })
     vi.mocked(api.getFifoValuation).mockResolvedValue(valuation)
@@ -61,12 +80,14 @@ describe('Stock valuation contracts and states', () => {
     expect(screen.queryByText('No open FIFO cost lots')).not.toBeInTheDocument()
   })
   it('restricts accounting valuation requests to the server-authorized roles', async () => {
-    session.role = 'OPERATOR'
+    setRole('OPERATOR')
     renderPage()
-    await screen.findByText('Turmeric')
+    expect(screen.getByText(/inventory-report APIs are restricted/)).toBeInTheDocument()
     expect(screen.queryByRole('tab', { name: 'FIFO cost lots' })).not.toBeInTheDocument()
     expect(api.getFifoValuation).not.toHaveBeenCalled()
     expect(api.getStockValuation).not.toHaveBeenCalled()
+    expect(api.getStockSummary).not.toHaveBeenCalled()
+    expect(api.getLowStockAlert).not.toHaveBeenCalled()
   })
   it('uses the warehouse valuation endpoint when selected', async () => {
     const user = userEvent.setup()

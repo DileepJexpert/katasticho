@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { useSessionStore } from '@/shared/session/session-store'
 import { PriceListDetailPage } from './price-list-detail-page'
 import * as priceListsApi from './price-lists-api'
 
@@ -45,6 +46,23 @@ describe('PriceListDetailPage', () => {
   }
 
   it('shows contract-backed facts without unsupported pricing controls', async () => {
+    useSessionStore.setState({
+      status: 'authenticated',
+      user: {
+        id: 'u-1',
+        orgId: 'o-1',
+        fullName: 'Viewer',
+        email: 'v@test.com',
+        phone: null,
+        role: 'VIEWER',
+        orgName: 'Org',
+        industry: null,
+        businessType: null,
+        industryCode: null,
+        onboardingCompleted: true,
+        defaultLandingPage: null,
+      },
+    })
     renderPage()
 
     expect(await screen.findByRole('heading', { name: 'Wholesale customers' })).toBeInTheDocument()

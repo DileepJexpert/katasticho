@@ -1,19 +1,28 @@
 ﻿import { apiFetch } from '@/api/client/api-client'
 
 export type BarcodeLabelRequest = {
-  itemId: string
-  batchId?: string
-  labelFormat: 'THERMAL_50X25' | 'THERMAL_100X50' | 'A4_24UP' | string
-  quantity: number
-  includeMrp?: boolean
-  includeExpiry?: boolean
-  includeQrCode?: boolean
+  itemName: string
+  sku?: string
+  barcodeValue: string
+  barcodeType: 'CODE128' | 'EAN13' | 'QR'
+  batchNumber?: string
+  expiryDate?: string
+  mrp?: number
+  sellingPrice?: number
+  companyName?: string
+  fssaiLicNo?: string
+  labelWidthMm: number
+  labelHeightMm: number
+  dpi: number
+  copies: number
 }
 
 export type BarcodeLabelResponse = {
-  zplPayload: string
-  previewSvgUrl?: string
-  totalLabels: number
+  zplCode: string
+  eplCode: string
+  labelWidthDots: number
+  labelHeightDots: number
+  copies: number
 }
 
 export async function generateBarcodeLabel(req: BarcodeLabelRequest) {

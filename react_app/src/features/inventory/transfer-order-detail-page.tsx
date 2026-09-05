@@ -17,6 +17,8 @@ import {
   SummaryRow,
 } from '@/design-system'
 import { formatDate, formatDateTime, formatStatusLabel } from '@/shared/format/format'
+import { useInventoryAccess } from './inventory-access'
+import { invalidateInventoryQueries } from './inventory-cache'
 import {
   cancelTransferOrder,
   getTransferOrder,
@@ -32,6 +34,7 @@ function errorMessage(error: unknown, fallback: string) {
 }
 
 export function TransferOrderDetailPage() {
+  const access = useInventoryAccess()
   const { transferOrderId } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -44,6 +47,7 @@ export function TransferOrderDetailPage() {
   })
 
   function refreshTransfer() {
+    void invalidateInventoryQueries(queryClient)
     queryClient.invalidateQueries({ queryKey: ['transfer-orders', transferOrderId] })
     queryClient.invalidateQueries({ queryKey: ['transfer-orders'] })
   }
@@ -98,6 +102,7 @@ export function TransferOrderDetailPage() {
   }
 
   function confirmAction() {
+    if (mutationPending || (pendingAction === 'cancel' ? !access.manage : !access.operate)) return
     if (pendingAction === 'ship') shipMutation.mutate()
     if (pendingAction === 'receive') receiveMutation.mutate()
     if (pendingAction === 'cancel') cancelMutation.mutate()
@@ -109,9 +114,9 @@ export function TransferOrderDetailPage() {
         actions={
           <>
             <StatusChip status={formatStatusLabel(document.status)} />
-            {isDraft && <Button disabled={mutationPending} onClick={() => openAction('ship')} variant="primary"><Send aria-hidden="true" size={16} /> Dispatch transfer</Button>}
-            {isInTransit && <Button disabled={mutationPending} onClick={() => openAction('receive')} variant="primary"><CheckCircle2 aria-hidden="true" size={16} /> Receive transfer</Button>}
-            {(isDraft || isInTransit) && <Button disabled={mutationPending} onClick={() => openAction('cancel')} variant="destructive"><XCircle aria-hidden="true" size={16} /> Cancel</Button>}
+            {access.operate && isDraft && <Button disabled={mutationPending} onClick={() => openAction('ship')} variant="primary"><Send aria-hidden="true" size={16} /> Dispatch transfer</Button>}
+            {access.operate && isInTransit && <Button disabled={mutationPending} onClick={() => openAction('receive')} variant="primary"><CheckCircle2 aria-hidden="true" size={16} /> Receive transfer</Button>}
+            {access.manage && (isDraft || isInTransit) && <Button disabled={mutationPending} onClick={() => openAction('cancel')} variant="destructive"><XCircle aria-hidden="true" size={16} /> Cancel</Button>}
           </>
         }
         description={`${document.fromWarehouseName ?? document.fromWarehouseId} to ${document.toWarehouseName ?? document.toWarehouseId} · ${formatDate(document.transferDate)}`}

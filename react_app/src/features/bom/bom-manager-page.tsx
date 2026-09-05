@@ -4,6 +4,7 @@ import { Layers, Plus } from 'lucide-react'
 import {
   Button,
   DataTable,
+  EntityPicker,
   FormField,
   Modal,
   Money,
@@ -12,6 +13,7 @@ import {
   StatusChip,
   TextAreaInput,
 } from '@/design-system'
+import { listItems, type Item } from '@/features/items/items-api'
 import {
   diffBomVersions,
   getBomCostRollup,
@@ -25,7 +27,8 @@ import {
 export function BomManagerPage() {
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<'versions' | 'diff' | 'cost' | 'alternates' | 'coproducts'>('versions')
-  const [parentItemId, setParentItemId] = useState('d1000000-0000-0000-0000-000000000001')
+  const [selectedParentItem, setSelectedParentItem] = useState<Item | null>(null)
+  const [parentItemId, setParentItemId] = useState('')
   const [selectedVersion, setSelectedVersion] = useState(1)
   const [fromVer, setFromVer] = useState(1)
   const [toVer, setToVer] = useState(2)
@@ -88,7 +91,7 @@ export function BomManagerPage() {
         description="Multi-level Bill of Materials versioning, side-by-side engineering diffs, cost roll-ups, and co-products."
         actions={
           <div className="table-actions">
-            <Button onClick={() => setIsCreateVersionOpen(true)} variant="primary">
+            <Button disabled={!parentItemId} onClick={() => setIsCreateVersionOpen(true)} variant="primary">
               <Plus aria-hidden="true" size={16} />
               Create BOM Version
             </Button>
@@ -97,15 +100,25 @@ export function BomManagerPage() {
       />
 
       <div className="list-toolbar">
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          <label style={{ fontSize: '13px', fontWeight: 600 }}>Parent Item ID:</label>
-          <input
-            className="search-input"
-            onChange={(e) => setParentItemId(e.target.value)}
-            style={{ width: '320px' }}
-            value={parentItemId}
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', minWidth: '380px' }}>
+          <EntityPicker<Item>
+            ariaLabel="Parent Assembly / Finished Good"
+            getOptionDescription={(item) => `${item.sku || 'No SKU'} · ${item.unitOfMeasure || 'unit'}`}
+            getOptionId={(item) => item.id}
+            getOptionLabel={(item) => item.name}
+            onChange={(_id, item) => {
+              setSelectedParentItem(item ?? null)
+              setParentItemId(item?.id ?? '')
+            }}
+            onSearch={async (query) => {
+              const res = await listItems({ search: query, activeOnly: true, size: 25 })
+              return res.content
+            }}
+            placeholder="Search parent assembly or finished good..."
+            selectedEntity={selectedParentItem}
+            value={selectedParentItem?.id ?? null}
           />
-          <StatusChip status={`Latest: v${latestVer}`} />
+          {parentItemId && <StatusChip status={`Latest: v${latestVer}`} />}
         </div>
 
         <div className="list-tabs" role="tablist">
@@ -147,6 +160,14 @@ export function BomManagerPage() {
         </div>
       </div>
 
+      {!parentItemId ? (
+        <div className="directory-state">
+          <Layers size={32} />
+          <strong>Select a parent assembly or finished good above to manage its Bill of Materials.</strong>
+          <p className="cell-muted">View engineering component trees, version differences, cost rollups, and approved substitutes.</p>
+        </div>
+      ) : (
+        <>
       {activeTab === 'versions' && (
         <div className="document-layout">
           <section className="document-card" style={{ flex: 1 }}>
@@ -432,6 +453,8 @@ export function BomManagerPage() {
           )}
         </section>
       )}
+        </>
+      )}
 
       <Modal
         footer={
@@ -440,7 +463,7 @@ export function BomManagerPage() {
               Cancel
             </Button>
             <Button
-              disabled={createVersionMutation.isPending}
+              disabled={createVersionMutation.isPending || !parentItemId}
               onClick={() => createVersionMutation.mutate()}
               variant="primary"
             >
@@ -455,7 +478,7 @@ export function BomManagerPage() {
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
-            Creating version {latestVer + 1} for item {parentItemId}.
+            Creating version {latestVer + 1} for {selectedParentItem?.name || parentItemId}.
           </p>
           <FormField label="Change Notes / Engineering ECO">
             <TextAreaInput

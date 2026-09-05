@@ -3,27 +3,25 @@
 export type ConsignmentStock = {
   id: string
   itemId: string
-  itemName: string
-  itemSku?: string | null
   warehouseId: string
-  warehouseName: string
   supplierId: string
-  supplierName?: string
-  receivedQuantity: number | string
-  remainingQuantity: number | string
+  quantity: number | string
   unitCost: number | string
-  consignmentDate: string
+  consignmentDate: string | null
   agreementRef?: string | null
-  status: 'ACTIVE' | 'SETTLED' | string
+  status: 'ACTIVE' | 'CLOSED' | string
+  settlementMethod: string
 }
 
 export type ConsignmentSettlement = {
   id: string
   consignmentStockId: string
-  quantitySettled: number | string
-  settlementAmount: number | string
-  settledAt: string
-  billId?: string | null
+  settlementNumber: string
+  quantitySold: number | string
+  unitCost: number | string
+  totalAmount: number | string
+  settlementDate: string | null
+  status: 'DRAFT' | 'SETTLED' | string
 }
 
 export async function getConsignmentStock() {
@@ -56,4 +54,8 @@ export async function settleConsignment(id: string) {
   return apiFetch<ConsignmentSettlement>(`/api/v1/inventory/consignment/${id}/settle`, {
     method: 'POST',
   })
+}
+
+export function getUnsettledConsignmentSales(supplierId: string) {
+  return apiFetch<ConsignmentSettlement[]>(`/api/v1/inventory/consignment/unsettled/${supplierId}`)
 }

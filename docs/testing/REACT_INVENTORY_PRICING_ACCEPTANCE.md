@@ -4,6 +4,11 @@ Status: source implementation ready for review; automated execution, browser
 acceptance, and accounting reconciliation have NOT been performed in this pass.
 Scope: React only. Existing Java, database, security, and Flutter are unchanged.
 
+Inventory review follow-up (2026-09-05): see
+`REACT_INVENTORY_REVIEW_ACCEPTANCE.md` for corrected operational contracts,
+warehouse/zone writes, stock-count limitations, shared-control changes, and
+the additional acceptance cases. R-06 is still BUILDING.
+
 ## Price lists
 
 Path: Inventory -> Price Lists (`/price-lists`).
@@ -88,7 +93,9 @@ Path: Inventory -> Stock Summary (`/inventory/stock-summary`).
   totals. Switching views does not change the organisation costing setting.
 - [ ] An empty response shows no rows/lots; a failed request shows a retryable
   error. Neither reports the inventory as reconciled.
-- [ ] OPERATOR/VIEWER receive no accounting-valuation controls or requests.
+- [ ] OPERATOR/VIEWER receive no inventory-report controls or requests,
+  including stock-summary and low-stock-alert (both are also restricted by the
+  existing controller). Item-level stock quantities remain in Items.
 - [ ] Reconcile known receipt/dispatch/transfer transactions and GL inventory
   balances using the existing Flutter reports as the comparison client.
 

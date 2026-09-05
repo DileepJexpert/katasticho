@@ -1,19 +1,21 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Layers } from 'lucide-react'
-import { Button, DataTable, DirectoryToolbar, EmptyState, FilterTabs, Modal, PageHeader, SearchInput, StatusChip } from '@/design-system'
+import { Button, DataTable, DirectoryToolbar, EmptyState, Modal, PageHeader, SearchInput, StatusChip } from '@/design-system'
 import { getTaxGroups, type TaxGroupResponse } from '@/features/tax/tax-groups-api'
-
-type GroupFilter = 'ALL' | 'ACTIVE' | 'INACTIVE'
+import { useSessionStore } from '@/shared/session/session-store'
 
 export function TaxGroupsPage() {
-  const [filter, setFilter] = useState<GroupFilter>('ALL')
+  const role = useSessionStore((state) => state.user?.role) ?? ''
+  const canRead = ['OWNER', 'ADMIN', 'ACCOUNTANT', 'VIEWER'].includes(role)
+  const [page, setPage] = useState(0)
   const [search, setSearch] = useState('')
   const [selectedGroup, setSelectedGroup] = useState<TaxGroupResponse | null>(null)
 
   const taxGroupsQuery = useQuery({
     queryKey: ['tax-groups'],
     queryFn: () => getTaxGroups(),
+    enabled: canRead,
   })
 
   const groups = taxGroupsQuery.data ?? []
@@ -21,10 +23,6 @@ export function TaxGroupsPage() {
   const filteredGroups = useMemo(() => {
     const query = search.trim().toLowerCase()
     return groups.filter((group) => {
-      const matchesFilter =
-        filter === 'ALL' || (filter === 'ACTIVE' ? group.active : !group.active)
-      if (!matchesFilter) return false
-
       if (!query) return true
 
       const matchesName = group.name.toLowerCase().includes(query)
@@ -37,40 +35,36 @@ export function TaxGroupsPage() {
       )
       return matchesName || matchesDescription || matchesRates
     })
-  }, [groups, filter, search])
+  }, [groups, search])
+  const pages = Math.max(1, Math.ceil(filteredGroups.length / 25))
+  const currentPage = Math.min(page, pages - 1)
+
+  if (!canRead) return <section className="workspace-page"><PageHeader title="Tax groups" /><p role="alert">Your role cannot read tax-group definitions.</p></section>
 
   return (
     <section className="workspace-page">
       <PageHeader
         eyebrow="Tax & Compliance / Rates"
         title="Tax groups"
-        description="Read-only GST and tax rate group review. Tax rate and group management remains in Flutter during migration."
+        description="Review active tax groups and their configured component rates. The existing API has no tax-group create, update, or delete operation."
       />
+      <p className="cell-muted">This directory endpoint returns active groups only. Component sums are reference information; the backend determines transaction tax and posting.</p>
 
       <section className="list-panel" aria-label="Tax groups directory">
-        <DirectoryToolbar ariaLabel="Filter tax groups by status and search">
+        <DirectoryToolbar ariaLabel="Search active tax groups">
           <SearchInput
-            onChange={setSearch}
-            onClear={() => setSearch('')}
+            onChange={(value) => { setSearch(value); setPage(0) }}
+            onClear={() => { setSearch(''); setPage(0) }}
             placeholder="Search tax groups or rates..."
             value={search}
-          />
-          <FilterTabs
-            activeValue={filter}
-            ariaLabel="Filter tax groups"
-            items={[
-              { value: 'ALL', label: 'All groups', count: groups.length },
-              { value: 'ACTIVE', label: 'Active', count: groups.filter((g) => g.active).length },
-              { value: 'INACTIVE', label: 'Inactive', count: groups.filter((g) => !g.active).length },
-            ]}
-            onChange={(value) => setFilter(value as GroupFilter)}
           />
         </DirectoryToolbar>
 
         {taxGroupsQuery.isError ? (
           <div className="directory-state directory-state--error" role="alert">
             <strong>Tax groups could not be loaded.</strong>
-            <p>Check your connection and permissions, then refresh the page.</p>
+            <p>{taxGroupsQuery.error.message}</p>
+            <Button variant="secondary" onClick={() => void taxGroupsQuery.refetch()}>Retry tax groups</Button>
           </div>
         ) : taxGroupsQuery.isLoading ? (
           <div aria-live="polite" className="directory-state">Loading tax groups...</div>
@@ -81,13 +75,13 @@ export function TaxGroupsPage() {
                 <th scope="col">Tax group</th>
                 <th scope="col">Description</th>
                 <th scope="col">Component rates</th>
-                <th scope="col" className="numeric-cell">Total rate</th>
+                <th scope="col" className="numeric-cell">Component sum</th>
                 <th scope="col">Status</th>
                 <th scope="col">Action</th>
               </tr>
             </thead>
             <tbody>
-              {filteredGroups.map((group) => {
+              {filteredGroups.slice(currentPage * 25, currentPage * 25 + 25).map((group) => {
                 const totalPercentage = group.rates.reduce(
                   (sum, rate) => sum + (Number(rate.percentage) || 0),
                   0
@@ -127,18 +121,23 @@ export function TaxGroupsPage() {
         ) : (
           <EmptyState
             description={
-              filter === 'ALL' && !search
+              !search
                 ? 'Tax groups will appear here when configured for your organisation.'
                 : 'No tax groups match the selected filter or search query.'
             }
             icon={Layers}
             title={
-              filter === 'ALL' && !search
+              !search
                 ? 'No tax groups are available.'
                 : 'No matching tax groups.'
             }
           />
         )}
+        {!taxGroupsQuery.isError && !taxGroupsQuery.isPending && <div className="document-actions">
+          <Button variant="secondary" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Previous tax groups</Button>
+          <span>{filteredGroups.length} active groups{search ? ' matching this search' : ''}. Page {currentPage + 1} of {pages}</span>
+          <Button variant="secondary" disabled={currentPage + 1 >= pages} onClick={() => setPage(currentPage + 1)}>Next tax groups</Button>
+        </div>}
       </section>
 
       {selectedGroup && (

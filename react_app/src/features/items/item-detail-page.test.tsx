@@ -60,7 +60,7 @@ describe('ItemDetailPage', () => {
 
     expect(await screen.findByRole('heading', { name: 'Turmeric Masala 100g' })).toBeInTheDocument()
     expect(screen.getByText('MASALA-100G')).toBeInTheDocument()
-    expect(screen.getByText('Stock quantity adjustments remain in the audited stock ledger.')).toBeInTheDocument()
+    expect(screen.getByText('Review stock changes and source references in the stock ledger tab.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Edit item' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /adjust stock|reverse|add barcode|mark damaged/i })).not.toBeInTheDocument()
   })

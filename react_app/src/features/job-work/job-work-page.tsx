@@ -6,28 +6,35 @@ import { appRoutes } from '@/app/navigation'
 import {
   Button,
   DataTable,
+  EntityPicker,
   FormField,
   FormGrid,
   Modal,
   Money,
   NumberInput,
   PageHeader,
+  SelectInput,
   StatusChip,
-  TextInput,
 } from '@/design-system'
 import { formatDate, formatStatusLabel } from '@/shared/format/format'
 import { listJobWorkOrders, getJobWorkGstAlerts, createJobWorkOrder } from '@/features/job-work/job-work-api'
+import { listContacts, type Contact } from '@/features/contacts/contacts-api'
+import { listWarehouses } from '@/features/warehouses/warehouses-api'
+import { listItems, type Item } from '@/features/items/items-api'
 
 export function JobWorkPage() {
   const queryClient = useQueryClient()
   const [page] = useState(0)
   const [search, setSearch] = useState('')
   const [isCreateOpen, setIsCreateOpen] = useState(false)
+  const [selectedVendor, setSelectedVendor] = useState<Contact | null>(null)
   const [vendorId, setVendorId] = useState('')
   const [warehouseId, setWarehouseId] = useState('')
   const [charges, setCharges] = useState('1500')
+  const [selectedMaterialItem, setSelectedMaterialItem] = useState<Item | null>(null)
   const [materialItemId, setMaterialItemId] = useState('')
   const [materialQty, setMaterialQty] = useState('100')
+  const [selectedOutputItem, setSelectedOutputItem] = useState<Item | null>(null)
   const [outputItemId, setOutputItemId] = useState('')
   const [outputQty, setOutputQty] = useState('95')
 
@@ -41,18 +48,27 @@ export function JobWorkPage() {
     queryFn: () => getJobWorkGstAlerts(30),
   })
 
+  const warehousesQuery = useQuery({
+    queryKey: ['warehouses'],
+    queryFn: listWarehouses,
+  })
+
   const createMutation = useMutation({
     mutationFn: () => createJobWorkOrder({
       vendorId,
-      warehouseId: warehouseId || 'w1000000-0000-0000-0000-000000000001',
+      warehouseId,
       processingCharges: Number(charges),
       materials: [{ itemId: materialItemId, qty: Number(materialQty) }],
       outputs: [{ itemId: outputItemId, qty: Number(outputQty) }],
     }),
     onSuccess: () => {
       setIsCreateOpen(false)
+      setSelectedVendor(null)
       setVendorId('')
+      setWarehouseId('')
+      setSelectedMaterialItem(null)
       setMaterialItemId('')
+      setSelectedOutputItem(null)
       setOutputItemId('')
       queryClient.invalidateQueries({ queryKey: ['job-work'] })
     },
@@ -153,7 +169,7 @@ export function JobWorkPage() {
           <>
             <Button onClick={() => setIsCreateOpen(false)} variant="secondary">Cancel</Button>
             <Button
-              disabled={createMutation.isPending || !vendorId.trim() || !materialItemId.trim()}
+              disabled={createMutation.isPending || !vendorId.trim() || !warehouseId.trim() || !materialItemId.trim() || !outputItemId.trim()}
               onClick={() => createMutation.mutate()}
               variant="primary"
             >
@@ -168,30 +184,60 @@ export function JobWorkPage() {
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <FormGrid columns={2}>
-            <FormField label="Job Worker / Vendor ID" required>
-              <TextInput
-                onChange={(e) => setVendorId(e.target.value)}
-                placeholder="Supplier / Subcontractor UUID"
-                required
-                value={vendorId}
+            <FormField label="Job Worker / Vendor" required>
+              <EntityPicker<Contact>
+                ariaLabel="Job Worker / Vendor"
+                getOptionDescription={(contact) => `${contact.companyName || 'Individual'} · ${contact.gstin || 'Unregistered'}`}
+                getOptionId={(contact) => contact.id}
+                getOptionLabel={(contact) => contact.displayName}
+                onChange={(_id, contact) => {
+                  setSelectedVendor(contact ?? null)
+                  setVendorId(contact?.id ?? '')
+                }}
+                onSearch={async (query) => {
+                  const res = await listContacts({ filter: 'VENDOR', page: 0, search: query, size: 25 })
+                  return res.content
+                }}
+                placeholder="Search job worker / vendor..."
+                selectedEntity={selectedVendor}
+                value={selectedVendor?.id ?? null}
               />
             </FormField>
-            <FormField label="Dispatch Warehouse ID">
-              <TextInput
+            <FormField label="Dispatch Facility / Warehouse" required>
+              <SelectInput
+                aria-label="Dispatch Facility / Warehouse"
                 onChange={(e) => setWarehouseId(e.target.value)}
-                placeholder="Warehouse UUID (optional)"
+                required
                 value={warehouseId}
-              />
+              >
+                <option value="">Select dispatch warehouse</option>
+                {warehousesQuery.data?.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.name} ({w.code})
+                  </option>
+                ))}
+              </SelectInput>
             </FormField>
           </FormGrid>
 
           <FormGrid columns={2}>
-            <FormField label="Raw Material Item ID" required>
-              <TextInput
-                onChange={(e) => setMaterialItemId(e.target.value)}
-                placeholder="Input Item UUID"
-                required
-                value={materialItemId}
+            <FormField label="Raw Material Item" required>
+              <EntityPicker<Item>
+                ariaLabel="Raw Material Item"
+                getOptionDescription={(item) => `${item.sku || 'No SKU'} · ${item.unitOfMeasure || 'unit'}`}
+                getOptionId={(item) => item.id}
+                getOptionLabel={(item) => item.name}
+                onChange={(_id, item) => {
+                  setSelectedMaterialItem(item ?? null)
+                  setMaterialItemId(item?.id ?? '')
+                }}
+                onSearch={async (query) => {
+                  const res = await listItems({ search: query, activeOnly: true, size: 25 })
+                  return res.content
+                }}
+                placeholder="Search raw material item..."
+                selectedEntity={selectedMaterialItem}
+                value={selectedMaterialItem?.id ?? null}
               />
             </FormField>
             <FormField label="Sent Quantity" required>
@@ -205,12 +251,23 @@ export function JobWorkPage() {
           </FormGrid>
 
           <FormGrid columns={2}>
-            <FormField label="Expected Output Item ID" required>
-              <TextInput
-                onChange={(e) => setOutputItemId(e.target.value)}
-                placeholder="Output Processed Item UUID"
-                required
-                value={outputItemId}
+            <FormField label="Expected Output Item" required>
+              <EntityPicker<Item>
+                ariaLabel="Expected Output Item"
+                getOptionDescription={(item) => `${item.sku || 'No SKU'} · ${item.unitOfMeasure || 'unit'}`}
+                getOptionId={(item) => item.id}
+                getOptionLabel={(item) => item.name}
+                onChange={(_id, item) => {
+                  setSelectedOutputItem(item ?? null)
+                  setOutputItemId(item?.id ?? '')
+                }}
+                onSearch={async (query) => {
+                  const res = await listItems({ search: query, activeOnly: true, size: 25 })
+                  return res.content
+                }}
+                placeholder="Search expected processed item..."
+                selectedEntity={selectedOutputItem}
+                value={selectedOutputItem?.id ?? null}
               />
             </FormField>
             <FormField label="Expected Output Quantity" required>

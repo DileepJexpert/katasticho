@@ -24,6 +24,8 @@ import { NumberInput } from '@/design-system/number-input'
 import { SelectInput } from '@/design-system/select-input'
 import { TextAreaInput } from '@/design-system/textarea-input'
 import { TextInput } from '@/design-system/text-input'
+import { EntityPicker } from '@/design-system'
+import { listItems, type Item } from '@/features/items/items-api'
 import { DataTable } from '@/design-system/data-table'
 import { Money } from '@/design-system/money'
 import { PageHeader } from '@/design-system/page-header'
@@ -77,6 +79,7 @@ export function WorkOrderDetailPage() {
   const [overheadCost, setOverheadCost] = useState('200')
 
   const [isScrapOpen, setIsScrapOpen] = useState(false)
+  const [selectedScrapItem, setSelectedScrapItem] = useState<Item | null>(null)
   const [scrapItemId, setScrapItemId] = useState('')
   const [scrapQty, setScrapQty] = useState('1')
   const [scrapNotes, setScrapNotes] = useState('')
@@ -248,6 +251,8 @@ export function WorkOrderDetailPage() {
     }),
     onSuccess: () => {
       setIsScrapOpen(false)
+      setSelectedScrapItem(null)
+      setScrapItemId('')
       setScrapNotes('')
       queryClient.invalidateQueries({ queryKey: ['work-orders', id, 'scrap'] })
       queryClient.invalidateQueries({ queryKey: ['work-orders', id] })
@@ -960,11 +965,23 @@ export function WorkOrderDetailPage() {
         }
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <FormField label="Scrapped Item ID" required>
-            <TextInput
-              onChange={(e) => setScrapItemId(e.target.value)}
-              placeholder="Component Item UUID"
-              value={scrapItemId}
+          <FormField label="Scrapped Item" required>
+            <EntityPicker<Item>
+              ariaLabel="Scrapped Item"
+              getOptionDescription={(item) => `${item.sku || 'No SKU'} · ${item.unitOfMeasure || 'unit'}`}
+              getOptionId={(item) => item.id}
+              getOptionLabel={(item) => item.name}
+              onChange={(_id, item) => {
+                setSelectedScrapItem(item ?? null)
+                setScrapItemId(item?.id ?? '')
+              }}
+              onSearch={async (query) => {
+                const res = await listItems({ search: query, activeOnly: true, size: 25 })
+                return res.content
+              }}
+              placeholder="Search component to record scrap..."
+              selectedEntity={selectedScrapItem}
+              value={selectedScrapItem?.id ?? null}
             />
           </FormField>
           <FormField label="Scrap Quantity" required>

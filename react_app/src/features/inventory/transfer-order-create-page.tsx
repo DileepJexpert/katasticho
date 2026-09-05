@@ -20,11 +20,15 @@ import {
 import { listItems, type Item } from '@/features/items/items-api'
 import { listWarehouses } from '@/features/warehouses/warehouses-api'
 import { createTransferOrder, type CreateTransferOrderRequest } from './transfer-orders-api'
+import { useInventoryAccess } from './inventory-access'
+import { BatchAllocationPicker } from './batch-allocation-picker'
 
 type TransferLineDraft = {
+  id: string
   item: Item
   quantity: string
   notes: string
+  batchId?: string
 }
 
 function todayIso() {
@@ -37,6 +41,7 @@ function errorMessage(error: unknown, fallback: string) {
 }
 
 export function TransferOrderCreatePage() {
+  const access = useInventoryAccess()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [fromWarehouseId, setFromWarehouseId] = useState('')
@@ -68,6 +73,7 @@ export function TransferOrderCreatePage() {
   function updateWarehouse(kind: 'from' | 'to', id: string) {
     setFormError(null)
     if (kind === 'from') {
+      setLines((current) => current.map((line) => ({ ...line, batchId: undefined })))
       setFromWarehouseId(id)
       if (id === toWarehouseId) setToWarehouseId('')
       return
@@ -78,26 +84,28 @@ export function TransferOrderCreatePage() {
 
   function addItem(item: Item | null | undefined) {
     if (!item) return
-    if (lines.some((line) => line.item.id === item.id)) {
+    if (!item.trackInventory) { setFormError('Only inventory-tracked items can be transferred.'); return }
+    if (!item.trackBatches && lines.some((line) => line.item.id === item.id)) {
       setFormError(`${item.name} is already included in this transfer.`)
       setItemPickerKey((current) => current + 1)
       return
     }
 
-    setLines((previous) => [...previous, { item, quantity: '1', notes: '' }])
+    setLines((previous) => [...previous, { id: crypto.randomUUID(), item, quantity: '1', notes: '' }])
     setFormError(null)
     setItemPickerKey((current) => current + 1)
   }
 
-  function updateLine(itemId: string, updates: Partial<TransferLineDraft>) {
-    setLines((previous) => previous.map((line) => line.item.id === itemId ? { ...line, ...updates } : line))
+  function updateLine(lineId: string, updates: Partial<TransferLineDraft>) {
+    setLines((previous) => previous.map((line) => line.id === lineId ? { ...line, ...updates } : line))
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!access.operate || createMutation.isPending) return
     setFormError(null)
 
-    if (!fromWarehouseId || !toWarehouseId) {
+    if (!selectableWarehouses.some((warehouse) => warehouse.id === fromWarehouseId) || !selectableWarehouses.some((warehouse) => warehouse.id === toWarehouseId) || warehouses.isError) {
       setFormError('Select both the source and destination warehouses.')
       return
     }
@@ -122,6 +130,8 @@ export function TransferOrderCreatePage() {
       setFormError(`Enter a positive quantity for ${invalidLine.item.name}.`)
       return
     }
+    const missingBatch = lines.find((line) => line.item.trackBatches && !line.batchId)
+    if (missingBatch) { setFormError(`Select the source batch for ${missingBatch.item.name}. Add another line to transfer a different batch.`); return }
 
     createMutation.mutate({
       fromWarehouseId,
@@ -130,16 +140,18 @@ export function TransferOrderCreatePage() {
       notes: notes.trim() || undefined,
       lines: lines.map((line) => ({
         itemId: line.item.id,
+        batchId: line.batchId,
         quantity: Number(line.quantity),
         notes: line.notes.trim() || undefined,
       })),
     })
   }
 
+  if (!access.operate) return <section className="workspace-page"><p>Your role has read-only transfer access.</p></section>
   return (
     <section className="workspace-page">
       <PageHeader
-        actions={<Button onClick={() => navigate(appRoutes.transferOrders)} variant="secondary"><ArrowLeft aria-hidden="true" size={16} /> Back to transfers</Button>}
+        actions={<Button disabled={createMutation.isPending} onClick={() => navigate(appRoutes.transferOrders)} variant="secondary"><ArrowLeft aria-hidden="true" size={16} /> Back to transfers</Button>}
         description="Prepare the exact stock quantities to move. Dispatch validates source stock and receipt records the same quantities at the destination."
         eyebrow="Inventory / Warehouse Transfers"
         title="New Transfer Order"
@@ -152,7 +164,7 @@ export function TransferOrderCreatePage() {
           <FormGrid columns={3}>
             <FormField error={warehouses.isError ? 'Warehouses could not be loaded.' : undefined} label="Source warehouse" required>
               <SelectInput
-                disabled={warehouses.isLoading || warehouses.isError}
+                disabled={warehouses.isLoading || warehouses.isError || createMutation.isPending}
                 onChange={(event) => updateWarehouse('from', event.target.value)}
                 options={selectableWarehouses.map((warehouse) => ({ value: warehouse.id, label: `${warehouse.code} / ${warehouse.name}` }))}
                 placeholderOption={warehouses.isLoading ? 'Loading warehouses...' : 'Select source warehouse'}
@@ -161,7 +173,7 @@ export function TransferOrderCreatePage() {
             </FormField>
             <FormField label="Destination warehouse" required>
               <SelectInput
-                disabled={warehouses.isLoading || warehouses.isError}
+                disabled={warehouses.isLoading || warehouses.isError || createMutation.isPending}
                 onChange={(event) => updateWarehouse('to', event.target.value)}
                 options={selectableWarehouses.map((warehouse) => ({ value: warehouse.id, label: `${warehouse.code} / ${warehouse.name}`, disabled: warehouse.id === fromWarehouseId }))}
                 placeholderOption={warehouses.isLoading ? 'Loading warehouses...' : 'Select destination warehouse'}
@@ -169,22 +181,23 @@ export function TransferOrderCreatePage() {
               />
             </FormField>
             <FormField label="Transfer date" required>
-              <TextInput onChange={(event) => setTransferDate(event.target.value)} required type="date" value={transferDate} />
+              <TextInput disabled={createMutation.isPending} onChange={(event) => setTransferDate(event.target.value)} required type="date" value={transferDate} />
             </FormField>
             <FormField label="Transfer notes" optional span="full">
-              <TextAreaInput onChange={(event) => setNotes(event.target.value)} placeholder="e.g. Weekly branch replenishment" rows={2} value={notes} />
+              <TextAreaInput disabled={createMutation.isPending} onChange={(event) => setNotes(event.target.value)} placeholder="e.g. Weekly branch replenishment" rows={2} value={notes} />
             </FormField>
           </FormGrid>
         </FormCard>
 
         <FormCard
-          description="Add the requested quantities. This creates a DRAFT only; source stock is validated and deducted when an authorised user dispatches it."
+          description="Add the requested quantities. Batch-tracked items require a source batch; add the item again to split across batches. This creates a DRAFT only. Stock is validated and deducted at dispatch."
           stepNumber={2}
           title={`Transfer lines (${lines.length})`}
         >
           <FormField label="Search catalogue item">
             <EntityPicker<Item>
               ariaLabel="Search items to add to transfer"
+              disabled={createMutation.isPending}
               getOptionDescription={(item) => [item.sku, item.unitOfMeasure, item.trackBatches ? 'Batch tracked' : 'Standard'].filter(Boolean).join(' / ')}
               getOptionId={(item) => item.id}
               getOptionLabel={(item) => item.name}
@@ -208,7 +221,7 @@ export function TransferOrderCreatePage() {
               </thead>
               <tbody>
                 {lines.map((line) => (
-                  <tr key={line.item.id}>
+                  <tr key={line.id}>
                     <td>
                       <div className="item-primary">
                         <span aria-hidden="true" className="item-avatar"><ArrowLeftRight size={15} /></span>
@@ -218,14 +231,15 @@ export function TransferOrderCreatePage() {
                     <td className="numeric-cell">
                       <NumberInput
                         aria-label={`Quantity for ${line.item.name}`}
+                        disabled={createMutation.isPending}
                         min="0.001"
-                        onChange={(event) => updateLine(line.item.id, { quantity: event.target.value })}
+                        onChange={(event) => updateLine(line.id, { quantity: event.target.value })}
                         step="0.001"
                         value={line.quantity}
                       />
                     </td>
-                    <td><TextInput aria-label={`Line note for ${line.item.name}`} onChange={(event) => updateLine(line.item.id, { notes: event.target.value })} placeholder="Optional handling note" value={line.notes} /></td>
-                    <td><Button aria-label={`Remove ${line.item.name}`} onClick={() => setLines((previous) => previous.filter((entry) => entry.item.id !== line.item.id))} variant="ghost"><Trash2 aria-hidden="true" size={16} /></Button></td>
+                    <td><div className="cell-stack"><TextInput disabled={createMutation.isPending} aria-label={`Line note for ${line.item.name}`} onChange={(event) => updateLine(line.id, { notes: event.target.value })} placeholder="Optional handling note" value={line.notes} />{line.item.trackBatches && <BatchAllocationPicker itemId={line.item.id} value={line.batchId ?? null} warehouseId={fromWarehouseId} quantity={Number(line.quantity)} onChange={(batchId) => updateLine(line.id, { batchId })} disabled={!fromWarehouseId || createMutation.isPending} instruction="Choose the batch moving from the source warehouse. The transfer does not automatically split this line across batches." />}</div></td>
+                    <td><Button disabled={createMutation.isPending} aria-label={`Remove ${line.item.name}`} onClick={() => setLines((previous) => previous.filter((entry) => entry.id !== line.id))} variant="ghost"><Trash2 aria-hidden="true" size={16} /></Button></td>
                   </tr>
                 ))}
               </tbody>
@@ -236,7 +250,7 @@ export function TransferOrderCreatePage() {
         </FormCard>
 
         <div className="document-actions">
-          <Button onClick={() => navigate(appRoutes.transferOrders)} type="button" variant="secondary">Cancel</Button>
+          <Button disabled={createMutation.isPending} onClick={() => navigate(appRoutes.transferOrders)} type="button" variant="secondary">Cancel</Button>
           <Button loading={createMutation.isPending} type="submit" variant="primary">Create draft transfer</Button>
         </div>
       </form>

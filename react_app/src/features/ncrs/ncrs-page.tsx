@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ShieldAlert, Plus, Search, Layers } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -6,6 +6,7 @@ import { appRoutes } from '@/app/navigation'
 import {
   Button,
   DataTable,
+  EntityPicker,
   FormField,
   FormGrid,
   Modal,
@@ -17,6 +18,7 @@ import {
 } from '@/design-system'
 import { formatDate, formatStatusLabel } from '@/shared/format/format'
 import { listNcrs, createNcr } from '@/features/ncrs/ncrs-api'
+import { listItems, type Item } from '@/features/items/items-api'
 
 const statusTabs = [
   { key: 'all', label: 'All NCRs' },
@@ -34,6 +36,7 @@ export function NcrsPage() {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
+  const [selectedItem, setSelectedItem] = useState<Item | null>(null)
   const [itemId, setItemId] = useState('')
   const [severity, setSeverity] = useState('MAJOR')
   const [reason, setReason] = useState('')
@@ -53,6 +56,7 @@ export function NcrsPage() {
     }),
     onSuccess: () => {
       setIsCreateOpen(false)
+      setSelectedItem(null)
       setItemId('')
       setReason('')
       setDesc('')
@@ -181,12 +185,23 @@ export function NcrsPage() {
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <FormGrid columns={2}>
-            <FormField label="Defective Item ID" required>
-              <TextInput
-                onChange={(e) => setItemId(e.target.value)}
-                placeholder="Item UUID"
-                required
-                value={itemId}
+            <FormField label="Defective Item" required>
+              <EntityPicker<Item>
+                ariaLabel="Defective Item"
+                getOptionDescription={(item) => `${item.sku || 'No SKU'} · ${item.unitOfMeasure || 'unit'}`}
+                getOptionId={(item) => item.id}
+                getOptionLabel={(item) => item.name}
+                onChange={(_id, item) => {
+                  setSelectedItem(item ?? null)
+                  setItemId(item?.id ?? '')
+                }}
+                onSearch={async (query) => {
+                  const res = await listItems({ search: query, activeOnly: true, size: 25 })
+                  return res.content
+                }}
+                placeholder="Search defective item..."
+                selectedEntity={selectedItem}
+                value={selectedItem?.id ?? null}
               />
             </FormField>
             <FormField label="Defect Severity">

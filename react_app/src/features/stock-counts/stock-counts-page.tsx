@@ -22,6 +22,7 @@ import {
 import { listItems, type Item } from '@/features/items/items-api'
 import { listWarehouses } from '@/features/warehouses/warehouses-api'
 import { formatDate, formatQuantity, formatStatusLabel } from '@/shared/format/format'
+import { useInventoryAccess } from '@/features/inventory/inventory-access'
 import {
   createStockCount,
   listStockCounts,
@@ -45,6 +46,7 @@ function errorMessage(error: unknown, fallback: string) {
 }
 
 export function StockCountsPage() {
+  const access = useInventoryAccess()
   const [page, setPage] = useState(0)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const navigate = useNavigate()
@@ -63,7 +65,7 @@ export function StockCountsPage() {
         title="Physical Stock Counts"
         description="Record a warehouse count, review the server-calculated variance, then post one immutable stock adjustment per variance."
         actions={
-          <Button onClick={() => setShowCreateModal(true)} variant="primary">
+          access.operate && <Button onClick={() => setShowCreateModal(true)} variant="primary">
             <Plus size={16} /> New stock count
           </Button>
         }
@@ -114,7 +116,7 @@ export function StockCountsPage() {
           </>
         ) : (
           <EmptyState
-            action={<Button onClick={() => setShowCreateModal(true)} variant="secondary">Start a count</Button>}
+            action={access.operate ? <Button onClick={() => setShowCreateModal(true)} variant="secondary">Start a count</Button> : undefined}
             description="Choose a warehouse and enter the physical quantities for the items being audited."
             icon={ClipboardCheck}
             title="No stock counts recorded"
@@ -163,6 +165,7 @@ function CreateStockCountModal({
   onClose: () => void
   onSuccess: (id: string) => void
 }) {
+  const access = useInventoryAccess()
   const [warehouseId, setWarehouseId] = useState('')
   const [countDate, setCountDate] = useState(todayIso)
   const [notes, setNotes] = useState('')
@@ -202,6 +205,8 @@ function CreateStockCountModal({
 
   function addItem(item: Item | null | undefined) {
     if (!item) return
+    if (!item.trackInventory) { setFormError('Only inventory-tracked items can be physically counted.'); return }
+    if (item.trackBatches) { setFormError('Batch-tracked count adjustments are not supported by the existing stock-count API. It has no batch field, and the stock ledger requires a batch for a variance.'); return }
     if (lines.some((line) => line.item.id === item.id)) {
       setFormError(`${item.name} is already included in this count.`)
       setItemPickerKey((current) => current + 1)
@@ -218,8 +223,9 @@ function CreateStockCountModal({
   }
 
   function submit() {
+    if (!access.operate || createMutation.isPending) return
     setFormError(null)
-    if (!warehouseId) {
+    if (warehouses.isError || !(warehouses.data ?? []).some((warehouse) => warehouse.active && warehouse.id === warehouseId)) {
       setFormError('Select the warehouse being physically counted.')
       return
     }
@@ -257,7 +263,7 @@ function CreateStockCountModal({
     <Modal
       description="The server snapshots the warehouse balance and calculates each variance when this draft is created. A posted count cannot be edited."
       error={formError}
-      footer={<><Button disabled={createMutation.isPending} onClick={closeModal} variant="secondary">Cancel</Button><Button loading={createMutation.isPending} onClick={submit} variant="primary">Create draft count</Button></>}
+      footer={<><Button disabled={createMutation.isPending} onClick={closeModal} variant="secondary">Cancel</Button><Button disabled={!access.operate} loading={createMutation.isPending} onClick={submit} variant="primary">Create draft count</Button></>}
       isOpen={isOpen}
       onClose={closeModal}
       size="xl"
@@ -267,7 +273,7 @@ function CreateStockCountModal({
         <FormGrid columns={2}>
           <FormField error={warehouses.isError ? 'Warehouses could not be loaded.' : undefined} label="Warehouse" required>
             <SelectInput
-              disabled={warehouses.isLoading || warehouses.isError}
+              disabled={warehouses.isLoading || warehouses.isError || createMutation.isPending}
               onChange={(event) => setWarehouseId(event.target.value)}
               options={(warehouses.data ?? []).filter((warehouse) => warehouse.active).map((warehouse) => ({ value: warehouse.id, label: `${warehouse.code} / ${warehouse.name}${warehouse.isDefault ? ' (default)' : ''}` }))}
               placeholderOption={warehouses.isLoading ? 'Loading warehouses...' : 'Select warehouse'}
@@ -275,18 +281,19 @@ function CreateStockCountModal({
             />
           </FormField>
           <FormField label="Count date" required>
-            <TextInput onChange={(event) => setCountDate(event.target.value)} required type="date" value={countDate} />
+            <TextInput disabled={createMutation.isPending} onChange={(event) => setCountDate(event.target.value)} required type="date" value={countDate} />
           </FormField>
           <FormField label="Notes" optional span="full">
-            <TextAreaInput onChange={(event) => setNotes(event.target.value)} placeholder="e.g. Month-end warehouse verification" rows={2} value={notes} />
+            <TextAreaInput disabled={createMutation.isPending} onChange={(event) => setNotes(event.target.value)} placeholder="e.g. Month-end warehouse verification" rows={2} value={notes} />
           </FormField>
         </FormGrid>
       </FormCard>
 
-      <FormCard description="Add each item being counted. Enter the actual physical quantity, including zero where no stock was found." stepNumber={2} title={`Physical quantities (${lines.length})`}>
+      <FormCard description="Enter physical quantities for non-batch inventory items, including zero. This API cannot reconcile batches or serial numbers." stepNumber={2} title={`Physical quantities (${lines.length})`}>
         <FormField label="Add catalog item">
           <EntityPicker<Item>
             ariaLabel="Search items to add to stock count"
+            disabled={createMutation.isPending}
             getOptionDescription={(item) => [item.sku, item.unitOfMeasure, item.trackBatches ? 'Batch tracked' : 'Standard'].filter(Boolean).join(' / ')}
             getOptionId={(item) => item.id}
             getOptionLabel={(item) => item.name}
@@ -320,6 +327,7 @@ function CreateStockCountModal({
                   <td className="numeric-cell">
                     <NumberInput
                       aria-label={`Physical quantity for ${line.item.name}`}
+                      disabled={createMutation.isPending}
                       min="0"
                       onChange={(event) => updateLine(line.item.id, { countedQuantity: event.target.value })}
                       placeholder="0"
@@ -328,9 +336,9 @@ function CreateStockCountModal({
                     />
                   </td>
                   <td>
-                    <TextInput aria-label={`Count note for ${line.item.name}`} onChange={(event) => updateLine(line.item.id, { notes: event.target.value })} placeholder="Optional variance note" value={line.notes} />
+                    <TextInput disabled={createMutation.isPending} aria-label={`Count note for ${line.item.name}`} onChange={(event) => updateLine(line.item.id, { notes: event.target.value })} placeholder="Optional variance note" value={line.notes} />
                   </td>
-                  <td><Button aria-label={`Remove ${line.item.name}`} onClick={() => setLines((previous) => previous.filter((entry) => entry.item.id !== line.item.id))} variant="ghost"><Trash2 size={15} /></Button></td>
+                  <td><Button disabled={createMutation.isPending} aria-label={`Remove ${line.item.name}`} onClick={() => setLines((previous) => previous.filter((entry) => entry.item.id !== line.item.id))} variant="ghost"><Trash2 size={15} /></Button></td>
                 </tr>
               ))}
             </tbody>

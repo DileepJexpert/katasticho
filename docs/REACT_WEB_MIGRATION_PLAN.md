@@ -297,8 +297,9 @@ the ERP.
 - [ ] Items: server-paginated directory, detail review, and typed create/edit
   workflow for catalog identity, pricing, GST/HSN, primary and transaction
   units, batch controls, preferred vendor, and create-only opening stock. Stock
-  adjustments, reversals, imports, and barcode/serial mutations remain
-  Flutter-only. Item writes use the existing ItemController request contracts
+  adjustments, reversals, and barcode/serial mutations remain outside the
+  accepted React scope. CSV/XLSX preview, explicit import commit, server template
+  download, and per-row results now have React source wiring. Item writes use the existing ItemController request contracts
   and preserve its opening-stock audit rule. Manual acceptance is pending.
 - [x] Sales Orders: server-paginated, lifecycle-filtered directory, searchable
   customer/item creation, confirmation, cancellation, safe challan hand-off,
@@ -309,19 +310,27 @@ the ERP.
   detail/payment review use the existing contracts. Direct drafts resolve the
   organisation's configured sales-revenue account rather than relying on a
   fixed account code. Sharing and exports remain pending.
-- [x] Picklists pilot: server-paginated warehouse picklist directory and
-  read-only line review using the existing Picklist contracts. Creating,
-  starting, changing picked quantities, completing, and cancelling remain
-  Flutter-only.
-- [ ] Items: imports, serial operations, stock adjustments/reversals, and other
-  stock-execution actions. Item master create/edit and create-only opening stock
-  are complete; read-only pricing, tax/HSN, units, batch/expiry, packaging,
-  warehouse, and ledger review remain available.
+- [x] Picklists source workflow: paginated order selection, required order-line
+  UUIDs and shippable quantities, PENDING -> IN_PROGRESS -> COMPLETED/CANCELLED,
+  picked-quantity/batch updates, and role-aware confirmations now use the frozen
+  API. Completion can be partial and does not dispatch inventory. Runtime
+  acceptance remains pending.
+- [ ] Items: serial mutations, stock adjustments/reversals, and other
+  stock-execution actions. Item master create/edit, create-only opening stock,
+  and preview/commit imports have source wiring; serial history and warehouse
+  availability are read-only. The stock ledger now pages beyond 50 movements,
+  exposes audit/reversal references, and distinguishes request errors from no data.
 - [x] Shared masters: warehouse, price-list, Units of Measure (UoM), and tax-group
   read-only directories and detail reviews are complete. Price-list creation,
   tiers, customer assignments, and retirement now have React source wiring;
-  runtime acceptance remains pending under R-06. Warehouse/zone/putaway and
-  UoM/tax-group writes, branches, and users remain pending. Payment Terms and the
+  runtime acceptance remains pending under R-06. Warehouse and zone maintenance
+  now have source wiring with the existing role and default-warehouse rules.
+  Rack creation and putaway task create/confirm/cancel, plus UoM metadata CRUD,
+  now have source wiring. Rack edit/delete, rack-quantity accounting, serial
+  mutation integration and UoM conversion rules remain outside the supported
+  contract. Tax-group maintenance has no write endpoint; its active-only React
+  review now matches controller roles and paginates. Branches and users remain
+  outside this reviewed slice. Payment Terms and the
   Chart of Accounts have read-only reviews; their writes remain Flutter-only.
 
 #### Purchase-to-pay golden chain
@@ -386,12 +395,20 @@ operator.
 - [x] Stock Count source workflow: a warehouse and physical-count line list
   create an immutable DRAFT count; the detail view presents server-calculated
   system quantity and variance, then confirms the existing post or cancel
-  actions. Runtime inventory-ledger acceptance remains pending.
+  actions. Operators can create, but only OWNER/ADMIN/ACCOUNTANT can post/cancel.
+  The frozen count request has no batch field and the stock ledger requires one
+  for batch-tracked variances; React therefore blocks adding such items rather
+  than creating an unpostable draft. Serial reconciliation is not implemented.
+  Runtime inventory-ledger acceptance remains pending.
 - [x] Transfer Order source workflow: active warehouses and catalogue items
   create a DRAFT transfer; the detail view confirms dispatch, receipt, or
   cancellation against the existing DRAFT -> IN_TRANSIT -> RECEIVED/CANCELLED
   lifecycle. The frozen API receives every dispatched line in full, so partial
-  receipt is intentionally not presented as an available action.
+  receipt is intentionally not presented as an available action. Batch-tracked
+  items now require a source-warehouse batch UUID; separate lines can split an
+  item across batches. Changing the source clears prior batch selections.
+  Operators cannot cancel transfers. Stock actions invalidate dependent
+  balances, item, batch, trace, and shortbook caches.
 - [x] Batch and expiry source review: server-calculated expiry buckets and
   near-expiry stock provide a dense read-only watch register with search,
   horizon, and urgency filters. Batch genealogy and recall-impact views use
@@ -399,7 +416,50 @@ operator.
   returns remain in their controlled receipt and inventory workflows. The
   aggregate watch response cannot safely drive the existing single-warehouse
   expiry-return mutation or supplier credit/debit documentation, so React does
-  not expose that stock-changing action from this register.
+  not expose that stock-changing action from this register. Trace now supports
+  item/batch selection including inactive or exhausted historical batches;
+  viewer roles do not issue restricted expiry or trace requests.
+- [x] Replenishment source correction: Shortbook consumes its raw JSON array
+  and actual currentStock/backordered/suggestOrderQty fields. Draft POs use
+  selected supplier/warehouse UUIDs and item-master rates/tax groups, not fake
+  identifiers or invented shortbook prices. Missing rates block submission.
+- [x] Warehouse/zone source maintenance: create/edit facilities and defaults,
+  role-aware removal, and zone create/edit/remove through existing endpoints.
+  ACCOUNTANT/VIEWER cannot query the restricted zones API. Zone code is immutable;
+  clearing an existing capacity is not supported and is not simulated.
+- [x] Rack/putaway source workflow: shared warehouse-scoped rack directory and
+  create form serve Inventory and the Pharmacy tab. Putaway tasks can be created
+  standalone or from a RECEIVED goods receipt, with actual item/rack IDs and
+  receipt batch references. Confirm pending lines and cancel open tasks through
+  the existing endpoints. These are placement records, not a bin-quantity ledger
+  or stock transfer. Lifecycle concurrency and cumulative receipt allocation are
+  backend limitations, not solved by React action-state checks.
+- [x] UoM metadata source workflow: create, edit, activate/deactivate, and confirm
+  removal using the actual COUNT/WEIGHT/VOLUME/LENGTH/PACKAGING categories.
+  Conversion ratios are not exposed because no conversion-rule controller exists.
+- [x] Serial/stock audit source workflow: server-paged serial history, optional
+  warehouse-filtered availability, and paged item stock movements with full
+  source/batch/reversal references. Serial writes and generic stock reversals are
+  intentionally absent pending safe document/stock integration; batch adjustments
+  cannot identify a batch in the frozen DTO.
+- [x] Bulk item import source workflow: backend CSV template download, unchanged
+  multipart CSV/XLSX upload, preview and explicit commit confirmation, bounded
+  row-result tables, active-default-warehouse prerequisite, role gates, cache
+  refresh, and no automatic write retry after uncertain results. Per-row commits
+  can partially succeed; preview is not a reservation or complete data audit.
+- [x] Tax-group shared-master review: active-only directory, bounded paging,
+  component-rate details, retryable API errors, and OWNER/ADMIN/ACCOUNTANT/VIEWER
+  access match TaxGroupController. OPERATOR does not issue forbidden reads.
+  No tax-group write endpoint exists; React does not invent one or recalculate
+  transaction taxes. A component sum is labelled reference information only.
+- [x] Barcode source correction: exact label request and ZPL/EPL response fields,
+  real generated-code download, EAN13 check-digit and printer-text validation.
+  The simulated barcode and browser print of the entire page are removed. No
+  A4 layout, visual barcode rendering, or hardware certification is claimed.
+- [x] Consignment source correction: actual remaining quantity, real master
+  selectors, sale recording, supplier-scoped draft settlement retrieval, and
+  confirmed settlement-ID actions. These APIs maintain a separate register;
+  they do not create warehouse movements, bills, invoices, payments, or journals.
 - [x] Price-list maintenance source workflow: create lists (including replacing
   the organisation default), add/remove quantity tiers, assign/unassign customers,
   and retire lists. Writes are exposed to OWNER/ADMIN/ACCOUNTANT; other permitted
@@ -421,7 +481,9 @@ operator.
   to OWNER/ADMIN/ACCOUNTANT. Empty/error responses never imply reconciliation.
 - [ ] R-06 runtime acceptance: tests, build, responsive visual checks, and
   stock/GL reconciliation are deferred to the user. See
-  `docs/testing/REACT_INVENTORY_PRICING_ACCEPTANCE.md`. Java and Flutter remain unchanged.
+  `docs/testing/REACT_INVENTORY_PRICING_ACCEPTANCE.md` and the 2026-09-05 review
+  addendum `docs/testing/REACT_INVENTORY_REVIEW_ACCEPTANCE.md`. Regression test
+  sources were added but not executed in this review. Java and Flutter remain unchanged.
 - [ ] Sales/AP/AR: estimates, recurring documents, credit/debit notes, customer
   receipts/advances, vendor payments/credits, dunning, and document PDF/share.
 - [ ] Pricing and trade controls: price lists, customer pricing, schemes, rate
@@ -503,6 +565,29 @@ pass, monitoring is in place, and rollback has been rehearsed.
 
 ## 7. Feature Coverage Tracker
 
+### Reconciliation - 2026-09-05
+
+The table separates implementation from acceptance. `BUILDING` means React
+source exists but the full workflow has not been accepted; it does not mean
+every action is migrated. Recent implementation commits include `d6dd0d8d`
+(Field Sales/MR) and `6fd0a875` (HR/Payroll and pricing). Their commit messages
+are not independent proof of parity or test health. Existing React code for
+POS, tax, manufacturing, ecosystem, and administration is also not a blank slate.
+Review it before adding pages. Older narrative bullets and the Wave 0 ledger
+are discovery history where they conflict with this dated reconciliation.
+
+Current slice now has source wiring for rack/putaway, UoM metadata, serial
+review, paged stock audit, and CSV/XLSX item import. Packaging maintenance was
+also inspected: duplicate/cross-table barcode collisions block exposing its
+writes safely. Tax-group maintenance was checked next: no write endpoint exists,
+and its read-only React directory was corrected to the active-only/read-role
+contract. Next source review: remaining shared masters and inventory action
+parity. Unsafe serial/batch/reversal/packaging writes stay
+recorded as blockers, not React workarounds.
+Concurrent
+manufacturing/work-order changes are left to their current owner. Automated
+and manual acceptance remain pending; no Java or Flutter changes are allowed.
+
 Use this table as the live executive tracker. Expand a row into smaller issue
 checklists only after the wave starts. Status values are `NOT_STARTED`,
 `DISCOVERY`, `BUILDING`, `QA`, `PILOT`, `COMPLETE`, or `NATIVE_RETAINED`.
@@ -515,15 +600,15 @@ checklists only after the wave starts. Status values are `NOT_STARTED`,
 | R-03 | Contacts, supplier roles, item and shared masters | 2 | BUILDING | Contacts provide search, paging, role counts, detail, statement, and create flows. Items provide typed create/edit for commercial, GST/HSN, unit, batch-control, preferred-vendor, and opening-stock fields; imports and stock-execution mutations remain pending. |
 | R-04 | Purchase -> GRN -> bill -> vendor payment | 2 | BUILDING | Source wiring is complete for eligible-supplier PO/GRN creation, PO-linked GRN/bill hand-offs, stock receipt, bill post/delete/void, 3-way match/override, and atomic allocated vendor payment. React runtime, QA, and accounting acceptance are pending. |
 | R-05 | Sales -> challan -> invoice -> receipt | 2 | BUILDING | Source wiring is complete for searchable sales-order creation, confirmation/cancellation, order-locked challan drafting, dispatch/delivery, dispatched-quantity invoice conversion, direct-draft invoice safeguards, sending, and invoice-scoped partial receipt recording. Runtime, QA, stock/GST/AR, and journal acceptance remain pending. |
-| R-06 | Inventory and pricing operations | 3 | BUILDING | Stock Counts, Transfer Orders, batch/expiry and trace views, warehouse-scoped batch issue review, valuation views, price-list maintenance, customer pricing assignments, and trade scheme CRUD/preview have React source wiring. Frozen APIs are preserved. Price-list/tier metadata UPDATE is unavailable in the contract. Runtime, regression, responsive UI, and inventory/GL acceptance remain pending; see the R-06 acceptance checklist. |
+| R-06 | Inventory and pricing operations | 3 | BUILDING | Reviewed source covers picklists, Shortbook PO drafts, printer contracts, consignment register, warehouses/zones, batch-aware transfers, pricing and valuation. Added rack creation, putaway create/confirm/cancel, UoM metadata CRUD, read-only serial review, paged stock audit, and CSV/XLSX preview/commit import. Batch counts/adjustments, serial mutations, generic reversals and packaging writes have frozen-contract/integration blockers; putaway is not bin stock. Remaining inventory and shared-master parity still needs review. No Java/Flutter changes. Automated, responsive, hardware, and inventory/GL acceptance remain deferred; see the R-06 checklists. |
 | R-07 | Accounting, banking, reports, audit | 3 | BUILDING | Manual journal source wiring supports account-code posting, balanced draft/post workflows, post-dated scheduling, and reversal review. Typed Trial Balance, P&L, Balance Sheet, General Ledger, and AR/AP ageing views present server-calculated values through the existing report contracts. Runtime and reconciliation acceptance remain pending. |
-| R-08 | GST, statutory, and country tax workflows | 3 | NOT_STARTED | Country/role gates and compliance documents pass validation. |
-| R-09 | POS web administration and receipt operations | 3 | NOT_STARTED | React POS billing, returns, shifts, and receipt operations pass; Flutter hardware/offline fallback has an explicit certification and retirement path. |
-| R-10 | HR and Payroll | 4 | NOT_STARTED | Employee-to-posted-payroll lifecycle and statutory reports pass. |
-| R-11 | Field Sales/MR administration | 4 | NOT_STARTED | Planning, assignments, approvals, and reports pass; native execution assessed separately. |
-| R-12 | Pharma and Manufacturing | 4 | NOT_STARTED | Vertical QA pack workflows pass with real item/batch data. |
-| R-13 | Partner, supply chain, courier, franchise, loyalty | 5 | NOT_STARTED | Full create/detail/action loops are usable, not list-only shells. |
-| R-14 | Platform, CA console, portal, onboarding, AI | 5 | NOT_STARTED | Admin and external user journeys have permission and E2E coverage. |
+| R-08 | GST, statutory, and country tax workflows | 3 | BUILDING | React GST/tax/regional pages exist. Full contract, filing, country/role and compliance-document review and acceptance are pending. |
+| R-09 | POS web administration and receipt operations | 3 | BUILDING | React checkout, customer creation, discounts, shifts and receipt source workflows exist. Returns, tax/stock/GL acceptance and native printing/offline certification still require review. |
+| R-10 | HR and Payroll | 4 | BUILDING | Implementation commit 6fd0a875 adds HR/Payroll workflows. Independent contract/parity review, employee-to-posted-payroll testing and statutory reconciliation are pending. |
+| R-11 | Field Sales/MR administration | 4 | BUILDING | Implementation commit d6dd0d8d adds Field Sales/MR workflows. Independent planning/assignment/approval/role and end-to-end acceptance remain pending; native execution is assessed separately. |
+| R-12 | Pharma and Manufacturing | 4 | BUILDING | React pharmacy, BOM, work-order, QC, maintenance and related pages exist; manufacturing is under concurrent work. Review complete action loops and real item/batch effects before acceptance. |
+| R-13 | Partner, supply chain, courier, franchise, loyalty | 5 | BUILDING | Transport/franchise/loyalty React source exists; partner/supply-chain coverage and complete create/detail/action loops still need a source audit and acceptance. |
+| R-14 | Platform, CA console, portal, onboarding, AI | 5 | BUILDING | React settings/CA/AI source exists. Platform, external portal, onboarding, integration and permission coverage require reconciliation and end-to-end acceptance. |
 | R-15 | Cutover and Flutter web retirement | 6 | NOT_STARTED | Pilot accepted, rollback rehearsed, React default enabled. |
 
 ## 8. Quality Gates

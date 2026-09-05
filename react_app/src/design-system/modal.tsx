@@ -2,6 +2,14 @@ import { useEffect, useEffectEvent, useId, useRef, type ReactNode } from 'react'
 import { AlertCircle, X } from 'lucide-react'
 import clsx from 'clsx'
 
+let openModalCount = 0
+let bodyOverflowBeforeModals = ''
+
+function topDialog() {
+  const dialogs = document.querySelectorAll<HTMLElement>('.modal-dialog[aria-modal="true"]')
+  return dialogs.item(dialogs.length - 1)
+}
+
 export interface ModalProps {
   isOpen: boolean
   onClose: () => void
@@ -33,17 +41,21 @@ export function Modal({
     if (!isOpen) return
 
     previousActiveElement.current = document.activeElement as HTMLElement | null
+    const dialog = dialogRef.current
 
     function handleKeyDown(e: KeyboardEvent) {
+      // A nested picker owns keyboard interaction until it closes.
+      if (topDialog() !== dialog) return
       if (e.key === 'Escape') {
+        e.preventDefault()
         closeFromKeyboard()
         return
       }
 
       if (e.key === 'Tab' && dialogRef.current) {
-        const focusableElements = dialogRef.current.querySelectorAll<HTMLElement>(
+        const focusableElements = Array.from(dialogRef.current.querySelectorAll<HTMLElement>(
           'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-        )
+        )).filter((element) => element.closest('[role="dialog"]') === dialog)
         if (focusableElements.length === 0) return
 
         const firstElement = focusableElements[0]
@@ -51,12 +63,12 @@ export function Modal({
 
         if (firstElement && lastElement) {
           if (e.shiftKey) {
-            if (document.activeElement === firstElement) {
+            if (document.activeElement === firstElement || !dialog?.contains(document.activeElement)) {
               e.preventDefault()
               lastElement.focus()
             }
           } else {
-            if (document.activeElement === lastElement) {
+            if (document.activeElement === lastElement || !dialog?.contains(document.activeElement)) {
               e.preventDefault()
               firstElement.focus()
             }
@@ -66,19 +78,25 @@ export function Modal({
     }
 
     document.addEventListener('keydown', handleKeyDown)
-    const previousOverflow = document.body.style.overflow
+    if (openModalCount === 0) bodyOverflowBeforeModals = document.body.style.overflow
+    openModalCount += 1
     document.body.style.overflow = 'hidden'
 
-    // Initial focus: find first input or close button
-    const initialFocusable = dialogRef.current?.querySelector<HTMLElement>(
-      'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button.modal-close-btn'
-    )
-    initialFocusable?.focus()
+    // Initial focus: find first input or fallback to close button
+    const initialFocusable =
+      dialogRef.current?.querySelector<HTMLElement>(
+        'input:not([disabled]), select:not([disabled]), textarea:not([disabled])'
+      ) ??
+      dialogRef.current?.querySelector<HTMLElement>('button.modal-close-btn')
+    if (topDialog() === dialog) initialFocusable?.focus()
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
-      document.body.style.overflow = previousOverflow
-      previousActiveElement.current?.focus?.()
+      openModalCount -= 1
+      if (openModalCount === 0) document.body.style.overflow = bodyOverflowBeforeModals
+      const previous = previousActiveElement.current
+      const remainingDialog = topDialog()
+      if (previous?.isConnected && (!remainingDialog || previous.closest('[role="dialog"]') === remainingDialog)) previous.focus()
     }
   }, [isOpen])
 

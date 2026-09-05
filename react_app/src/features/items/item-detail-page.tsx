@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, ArrowLeft, Barcode, History, Layers, Package, Pencil, type LucideIcon } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Barcode, Layers, Package, Pencil, type LucideIcon } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
 import { Button, DataTable, DocumentCard, Fact, FactList, FilterTabs, Money, PageHeader, Quantity, StatusChip } from '@/design-system'
@@ -8,14 +8,14 @@ import {
   getItem,
   getItemBalances,
   getItemBatches,
-  getItemMovements,
   listPackagingBarcodes,
   type Item,
   type PackagingBarcode,
   type StockBalance,
   type StockBatch,
-  type StockMovement,
 } from '@/features/items/items-api'
+import { ItemStockLedger } from '@/features/inventory/item-stock-ledger'
+import { useInventoryAccess } from '@/features/inventory/inventory-access'
 import { formatDate, formatDateTime, formatPercent, formatStatusLabel } from '@/shared/format/format'
 
 type DetailTab = 'overview' | 'balances' | 'movements' | 'batches' | 'packaging'
@@ -23,6 +23,7 @@ type DetailTab = 'overview' | 'balances' | 'movements' | 'batches' | 'packaging'
 export function ItemDetailPage() {
   const { itemId } = useParams()
   const navigate = useNavigate()
+  const access = useInventoryAccess()
   const [activeTab, setActiveTab] = useState<DetailTab>('overview')
   const itemQuery = useQuery({
     queryKey: ['items', itemId],
@@ -33,11 +34,6 @@ export function ItemDetailPage() {
     queryKey: ['items', itemId, 'balances'],
     queryFn: () => getItemBalances(itemId!),
     enabled: Boolean(itemId) && activeTab === 'balances',
-  })
-  const movementsQuery = useQuery({
-    queryKey: ['items', itemId, 'movements'],
-    queryFn: () => getItemMovements(itemId!),
-    enabled: Boolean(itemId) && activeTab === 'movements',
   })
   const batchesQuery = useQuery({
     queryKey: ['items', itemId, 'batches'],
@@ -82,10 +78,10 @@ export function ItemDetailPage() {
         actions={
           <>
             <StatusChip status={item.active ? 'Active' : 'Inactive'} />
-            <Button onClick={() => navigate(appRoutes.itemEdit(item.id))} variant="secondary">
+            {access.operate && <Button onClick={() => navigate(appRoutes.itemEdit(item.id))} variant="secondary">
               <Pencil aria-hidden="true" size={16} />
               Edit item
-            </Button>
+            </Button>}
           </>
         }
       />
@@ -95,7 +91,8 @@ export function ItemDetailPage() {
           <ArrowLeft aria-hidden="true" size={16} />
           Back to items
         </Button>
-        <span className="cell-muted">Stock quantity adjustments remain in the audited stock ledger.</span>
+        <span className="cell-muted">Review stock changes and source references in the stock ledger tab.</span>
+        <Button variant="secondary" onClick={() => navigate(`${appRoutes.serialNumbers}?itemId=${encodeURIComponent(item.id)}`)}>Serial history</Button>
       </div>
 
       <FilterTabs
@@ -106,16 +103,20 @@ export function ItemDetailPage() {
       />
 
       {activeTab === 'overview' && <OverviewTab item={item} />}
-      {activeTab === 'balances' && <BalancesTab balances={balancesQuery.data ?? []} isLoading={balancesQuery.isLoading} />}
-      {activeTab === 'movements' && <MovementsTab isLoading={movementsQuery.isLoading} movements={movementsQuery.data ?? []} unit={item.unitOfMeasure} />}
-      {activeTab === 'batches' && <BatchesTab batches={batchesQuery.data ?? []} isLoading={batchesQuery.isLoading} />}
-      {activeTab === 'packaging' && <PackagingTab barcodes={barcodesQuery.data ?? []} isLoading={barcodesQuery.isLoading} />}
+      {activeTab === 'balances' && (balancesQuery.isError ? <ItemQueryError message={balancesQuery.error.message} retry={() => void balancesQuery.refetch()} /> : <BalancesTab balances={balancesQuery.data ?? []} isLoading={balancesQuery.isLoading} />)}
+      {activeTab === 'movements' && <ItemStockLedger key={item.id} itemId={item.id} unit={item.unitOfMeasure} />}
+      {activeTab === 'batches' && (batchesQuery.isError ? <ItemQueryError message={batchesQuery.error.message} retry={() => void batchesQuery.refetch()} /> : <BatchesTab batches={batchesQuery.data ?? []} isLoading={batchesQuery.isLoading} />)}
+      {activeTab === 'packaging' && (barcodesQuery.isError ? <ItemQueryError message={barcodesQuery.error.message} retry={() => void barcodesQuery.refetch()} /> : <PackagingTab barcodes={barcodesQuery.data ?? []} isLoading={barcodesQuery.isLoading} />)}
     </section>
   )
 }
 
 function ItemState({ message }: { message: string }) {
   return <section className="workspace-page"><div aria-live="polite" className="directory-state">{message}</div></section>
+}
+
+function ItemQueryError({ message, retry }: { message: string; retry: () => void }) {
+  return <div className="directory-state directory-state--error" role="alert">{message}<Button variant="secondary" onClick={retry}>Retry item section</Button></div>
 }
 
 function OverviewTab({ item }: { item: Item }) {
@@ -201,31 +202,6 @@ function BalancesTab({ balances, isLoading }: { balances: StockBalance[]; isLoad
             <td className="numeric-cell"><Quantity value={balance.reorderLevel} /></td>
             <td>{formatDateTime(balance.lastMovementAt)}</td>
             <td><StatusChip status={balance.lowStock ? 'Low stock' : 'In stock'} /></td>
-          </tr>
-        ))}</tbody>
-      </DataTable>
-    </DocumentCard>
-  )
-}
-
-function MovementsTab({ movements, isLoading, unit }: { movements: StockMovement[]; isLoading: boolean; unit: string | null }) {
-  if (isLoading) return <ItemState message="Loading stock ledger..." />
-  if (!movements.length) return <EmptyReview icon={History} message="No stock movements have been recorded for this item." />
-
-  return (
-    <DocumentCard title="Stock ledger" variant="lines">
-      <DataTable caption="Item stock ledger">
-        <thead><tr><th scope="col">Date</th><th scope="col">Movement</th><th scope="col">Warehouse</th><th scope="col">Reference</th><th scope="col">Batch</th><th className="numeric-cell" scope="col">Quantity</th><th className="numeric-cell" scope="col">Unit cost</th><th scope="col">State</th></tr></thead>
-        <tbody>{movements.map((movement) => (
-          <tr key={movement.id}>
-            <td>{formatDate(movement.movementDate)}</td>
-            <td>{formatStatusLabel(movement.movementType)}</td>
-            <td>{movement.warehouseName}</td>
-            <td><code>{movement.referenceNumber ?? movement.referenceType ?? '--'}</code></td>
-            <td><code>{movement.batchNumber ?? '--'}</code></td>
-            <td className="numeric-cell"><Quantity unit={unit} value={movement.quantity} /></td>
-            <td className="numeric-cell"><Money amount={movement.unitCost} /></td>
-            <td><StatusChip status={movement.reversed ? 'Reversed' : movement.reversal ? 'Reversal' : 'Posted'} /></td>
           </tr>
         ))}</tbody>
       </DataTable>

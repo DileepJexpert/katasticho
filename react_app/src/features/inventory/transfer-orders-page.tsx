@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useInventoryAccess } from './inventory-access'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeftRight, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
@@ -19,6 +20,7 @@ function errorMessage(error: unknown, fallback: string) {
 }
 
 export function TransferOrdersPage() {
+  const access = useInventoryAccess()
   const [page, setPage] = useState(0)
   const navigate = useNavigate()
   const transfers = useQuery({
@@ -30,7 +32,7 @@ export function TransferOrdersPage() {
   return (
     <section className="workspace-page">
       <PageHeader
-        actions={<Button onClick={() => navigate(appRoutes.transferOrderCreate)} variant="primary"><Plus aria-hidden="true" size={16} /> New transfer</Button>}
+        actions={access.operate && <Button onClick={() => navigate(appRoutes.transferOrderCreate)} variant="primary"><Plus aria-hidden="true" size={16} /> New transfer</Button>}
         description="Create controlled warehouse-to-warehouse movements. Stock leaves the source only on dispatch and arrives at the destination only on receipt."
         eyebrow="Inventory / Warehouse Transfers"
         title="Transfer Orders"
@@ -80,7 +82,7 @@ export function TransferOrdersPage() {
           </>
         ) : (
           <EmptyState
-            action={<Button onClick={() => navigate(appRoutes.transferOrderCreate)} variant="secondary">Create transfer</Button>}
+            action={access.operate ? <Button onClick={() => navigate(appRoutes.transferOrderCreate)} variant="secondary">Create transfer</Button> : undefined}
             description="Create a draft to move stock between two warehouses, then dispatch and receive it through the controlled lifecycle."
             icon={ArrowLeftRight}
             title="No transfer orders recorded"

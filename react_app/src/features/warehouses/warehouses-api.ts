@@ -43,3 +43,31 @@ export function getWarehouse(id: string) {
 export function listWarehouseZones(warehouseId: string) {
   return apiFetch<WarehouseZone[]>(`/api/v1/inventory/warehouse-zones/by-warehouse/${warehouseId}`)
 }
+
+export type WarehouseRequest = Omit<Warehouse, 'id' | 'createdAt'>
+export function createWarehouse(request: WarehouseRequest) {
+  return apiFetch<Warehouse>('/api/v1/warehouses', { method: 'POST', body: request })
+}
+export function updateWarehouse(id: string, request: WarehouseRequest) {
+  return apiFetch<Warehouse>(`/api/v1/warehouses/${id}`, { method: 'PUT', body: request })
+}
+export function deleteWarehouse(id: string) {
+  return apiFetch<void>(`/api/v1/warehouses/${id}`, { method: 'DELETE' })
+}
+
+export type WarehouseZoneUpdate = {
+  name: string
+  zoneType: string
+  capacity?: number
+  temperatureControlled: boolean
+  notes: string
+}
+export function createWarehouseZone(request: WarehouseZoneUpdate & { warehouseId: string; code: string }) {
+  return apiFetch<WarehouseZone>('/api/v1/inventory/warehouse-zones', { method: 'POST', body: request })
+}
+export function updateWarehouseZone(id: string, request: WarehouseZoneUpdate) {
+  return apiFetch<WarehouseZone>(`/api/v1/inventory/warehouse-zones/${id}`, { method: 'PUT', body: request })
+}
+export function deleteWarehouseZone(id: string) {
+  return apiFetch<void>(`/api/v1/inventory/warehouse-zones/${id}`, { method: 'DELETE' })
+}

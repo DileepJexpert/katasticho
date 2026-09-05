@@ -17,6 +17,17 @@ const mockCustomers: Customer[] = [
 ]
 
 describe('EntityPicker primitive', () => {
+  it('shows a retryable search failure instead of an empty catalogue', async () => {
+    const user = userEvent.setup()
+    const search = vi.fn().mockRejectedValueOnce(new Error('Catalogue unavailable')).mockResolvedValue(mockCustomers)
+    render(<EntityPicker<Customer> value={null} onChange={vi.fn()} onSearch={search} getOptionId={(item) => item.id} getOptionLabel={(item) => item.name} />)
+    await user.click(screen.getByRole('combobox'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Catalogue unavailable')
+    expect(screen.queryByText('No matching records found')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Retry search' }))
+    expect(await screen.findByRole('option', { name: 'Apollo Pharmacy' })).toBeInTheDocument()
+  })
+
   it('renders search input when no entity is selected', () => {
     render(
       <EntityPicker

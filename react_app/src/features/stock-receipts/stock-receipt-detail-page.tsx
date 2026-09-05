@@ -18,8 +18,10 @@ import {
 } from '@/design-system'
 import { cancelStockReceipt, getStockReceipt, receiveStockReceipt } from './stock-receipts-api'
 import { formatDate, formatStatusLabel } from '@/shared/format/format'
+import { useInventoryAccess } from '@/features/inventory/inventory-access'
 
 export function StockReceiptDetailPage() {
+  const inventoryAccess = useInventoryAccess()
   const { receiptId } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -71,6 +73,7 @@ export function StockReceiptDetailPage() {
       <PageHeader
         actions={<>
           <StatusChip status={formatStatusLabel(document.status)} />
+          {document.status === 'RECEIVED' && inventoryAccess.operate && <Button variant="secondary" onClick={() => navigate(`${appRoutes.putawayCreate}?receiptId=${encodeURIComponent(document.id)}`)}>Create putaway task</Button>}
           <Button onClick={() => navigate(appRoutes.stockReceipts)} variant="secondary">
             <ArrowLeft aria-hidden="true" size={16} />
             Back to receipts

@@ -5,12 +5,14 @@ import { Link, useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
 import { Button, DataTable, DirectoryToolbar, EmptyState, FilterTabs, Money, PageHeader, Quantity, SearchInput, StatusChip, TablePagination } from '@/design-system'
 import { getNegativeStockCount, listItems, type Item } from '@/features/items/items-api'
+import { useInventoryAccess } from '@/features/inventory/inventory-access'
 import { formatPercent, formatStatusLabel } from '@/shared/format/format'
 
 type ItemFilter = 'ALL' | 'NEGATIVE_STOCK' | 'ACTIVE_ONLY'
 
 export function ItemsPage() {
   const navigate = useNavigate()
+  const access = useInventoryAccess()
   const [filter, setFilter] = useState<ItemFilter>('ALL')
   const [page, setPage] = useState(0)
   const [search, setSearch] = useState('')
@@ -40,12 +42,13 @@ export function ItemsPage() {
         eyebrow="Inventory"
         title="Items"
         description="Manage your product catalog, pricing, tax, measurement units, and inventory controls."
-        actions={
+        actions={access.operate && <>
+          <Link className="button button--secondary" to={appRoutes.itemImport}>Import items</Link>
           <Button onClick={() => navigate(appRoutes.itemCreate)}>
             <Plus aria-hidden="true" size={16} />
             New item
           </Button>
-        }
+        </>}
       />
 
       <section className="list-panel" aria-label="Item directory">
@@ -102,7 +105,7 @@ export function ItemsPage() {
         ) : (
           <EmptyState
             action={
-              !negativeStockOnly && !deferredSearch ? (
+              access.operate && !negativeStockOnly && !deferredSearch ? (
                 <Button onClick={() => navigate(appRoutes.itemCreate)}>
                   <Plus aria-hidden="true" size={16} />
                   New item

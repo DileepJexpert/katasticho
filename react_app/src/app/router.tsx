@@ -88,6 +88,11 @@ import { TcsCompliancePage } from '@/features/tax/tcs-compliance-page'
 import { TaxAccountMappingsPage } from '@/features/tax/tax-account-mappings-page'
 import { TaxGroupsPage } from '@/features/tax/tax-groups-page'
 import { UomsPage } from '@/features/inventory/uoms-page'
+import { RackLocationsPage } from '@/features/inventory/rack-locations-page'
+import { PutawayTasksPage } from '@/features/inventory/putaway-tasks-page'
+import { PutawayCreatePage } from '@/features/inventory/putaway-create-page'
+import { PutawayDetailPage } from '@/features/inventory/putaway-detail-page'
+import { SerialNumbersPage } from '@/features/inventory/serial-numbers-page'
 import { FranchisePage } from '@/features/franchise/franchise-page'
 import { FranchiseNodeDetailPage } from '@/features/franchise/franchise-node-detail-page'
 import { KenyaCompliancePage } from '@/features/kenya/kenya-compliance-page'
@@ -97,6 +102,7 @@ import { UsersPage } from '@/features/settings/users-page'
 import { PaymentTermsPage } from '@/features/settings/payment-terms-page'
 import { PdfTemplateCustomizerPage } from '@/features/settings/pdf-template-customizer-page'
 import { ItemDetailPage } from '@/features/items/item-detail-page'
+import { ItemImportPage } from '@/features/items/item-import-page'
 import { ItemFormPage } from '@/features/items/item-form-page'
 import { ItemsPage } from '@/features/items/items-page'
 import { StockSummaryPage } from '@/features/inventory/stock-summary-page'
@@ -266,6 +272,10 @@ export const router = createBrowserRouter([
             element: <ItemFormPage />,
           },
           {
+            path: 'items/import',
+            element: <ItemImportPage />,
+          },
+          {
             path: 'items/:itemId/edit',
             element: <ItemFormPage />,
           },
@@ -368,6 +378,26 @@ export const router = createBrowserRouter([
           {
             path: 'inventory/uoms',
             element: <UomsPage />,
+          },
+          {
+            path: 'inventory/rack-locations',
+            element: <RackLocationsPage />,
+          },
+          {
+            path: 'inventory/putaway-tasks',
+            element: <PutawayTasksPage />,
+          },
+          {
+            path: 'inventory/putaway-tasks/new',
+            element: <PutawayCreatePage />,
+          },
+          {
+            path: 'inventory/putaway-tasks/:taskId',
+            element: <PutawayDetailPage />,
+          },
+          {
+            path: 'inventory/serial-numbers',
+            element: <SerialNumbersPage />,
           },
           {
             path: 'sales-orders',

@@ -11,11 +11,13 @@ import {
 import { Link } from 'react-router-dom'
 import { Button } from '@/design-system/button'
 import { DataTable } from '@/design-system/data-table'
+import { EntityPicker } from '@/design-system/entity-picker'
 import { Money } from '@/design-system/money'
 import { PageHeader } from '@/design-system/page-header'
 import { Quantity } from '@/design-system/quantity'
 import { StatusChip } from '@/design-system/status-chip'
 import { listContacts } from '@/features/contacts/contacts-api'
+import { listItems, type Item } from '@/features/items/items-api'
 import {
   createRecurringInvoice,
   listRecurringInvoices,
@@ -35,6 +37,7 @@ export function RecurringInvoicesPage() {
   // Form State
   const [profileName, setProfileName] = useState('')
   const [contactId, setContactId] = useState('')
+  const [itemId, setItemId] = useState('')
   const [frequency, setFrequency] = useState('MONTHLY')
   const [startDate, setStartDate] = useState(() => new Date().toISOString().split('T')[0] || '')
   const [endDate, setEndDate] = useState('')
@@ -51,6 +54,11 @@ export function RecurringInvoicesPage() {
   const contactsQuery = useQuery({
     queryKey: ['contacts-customer-select'],
     queryFn: () => listContacts({ filter: 'CUSTOMER', page: 0, search: '' }),
+  })
+
+  const itemsQuery = useQuery({
+    queryKey: ['items', 'picker'],
+    queryFn: () => listItems(),
   })
 
   const profiles: RecurringInvoice[] = query.data?.content ?? []
@@ -109,7 +117,7 @@ export function RecurringInvoicesPage() {
 
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!contactId) return
+    if (!contactId || !itemId) return
     createMutation.mutate({
       profileName,
       contactId,
@@ -120,7 +128,7 @@ export function RecurringInvoicesPage() {
       paymentTermsDays: parseInt(paymentTermsDays, 10) || 30,
       lineItems: [
         {
-          itemId: '00000000-0000-0000-0000-000000000000',
+          itemId,
           description: lineDesc,
           quantity: 1,
           rate: Number(lineAmount) || 0,
@@ -399,6 +407,26 @@ export function RecurringInvoicesPage() {
                 </div>
 
                 <div className="form-field form-field--full">
+                  <label>Select Item / Service *</label>
+                  <EntityPicker<Item>
+                    value={itemId || null}
+                    onChange={(id, item) => {
+                      setItemId(id || '')
+                      if (item) {
+                        if (item.name) setLineDesc(item.name)
+                        if (item.salePrice != null) setLineAmount(String(item.salePrice))
+                        else if (item.sellingPrice != null) setLineAmount(String(item.sellingPrice))
+                      }
+                    }}
+                    options={itemsQuery.data?.content || []}
+                    getOptionId={(it) => it.id}
+                    getOptionLabel={(it) => `${it.name}${it.sku ? ` (${it.sku})` : ''}`}
+                    getOptionDescription={(it) => it.category || undefined}
+                    placeholder="Search product or billing service..."
+                  />
+                </div>
+
+                <div className="form-field form-field--full">
                   <label htmlFor="lineDesc">Service / Line Item Description *</label>
                   <input
                     id="lineDesc"
@@ -427,7 +455,7 @@ export function RecurringInvoicesPage() {
                 <Button onClick={() => setIsCreateModalOpen(false)} type="button" variant="secondary">
                   Cancel
                 </Button>
-                <Button disabled={createMutation.isPending} type="submit" variant="primary">
+                <Button disabled={createMutation.isPending || !contactId || !itemId} type="submit" variant="primary">
                   {createMutation.isPending ? 'Creating...' : 'Create Recurring Profile'}
                 </Button>
               </footer>

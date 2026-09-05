@@ -1,25 +1,35 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Building2 } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { DataTable, EmptyState, PageHeader, StatusChip } from '@/design-system'
+import { Button, DataTable, DirectoryToolbar, EmptyState, PageHeader, SearchInput, StatusChip } from '@/design-system'
+import { useInventoryAccess } from '@/features/inventory/inventory-access'
+import { WarehouseFormModal } from './warehouse-form-modal'
 import { listWarehouses, type Warehouse } from '@/features/warehouses/warehouses-api'
 
 export function WarehousesPage() {
+  const [creating, setCreating] = useState(false)
+  const [search, setSearch] = useState('')
+  const access = useInventoryAccess()
+  const navigate = useNavigate()
   const warehouses = useQuery({
     queryKey: ['warehouses'],
     queryFn: listWarehouses,
   })
+  const rows = (warehouses.data ?? []).filter((warehouse) => `${warehouse.code} ${warehouse.name} ${warehouse.city ?? ''}`.toLowerCase().includes(search.toLowerCase()))
 
   return (
     <section className="workspace-page">
       <PageHeader
         eyebrow="Inventory / Facilities"
         title="Warehouses"
-        description="Read-only facility and storage-zone review. Warehouse maintenance remains in Flutter during migration."
+        description="Maintain facilities, addresses, and the organisation default warehouse."
+        actions={<><Button variant="secondary" onClick={() => void warehouses.refetch()}>Refresh</Button>{access.manage && <Button onClick={() => setCreating(true)}>Create warehouse</Button>}</>}
       />
 
       <section className="list-panel" aria-label="Warehouse directory">
+        <DirectoryToolbar><SearchInput ariaLabel="Search warehouses" value={search} onChange={setSearch} placeholder="Search code, name, or city" /></DirectoryToolbar>
         {warehouses.isError ? (
           <div className="directory-state directory-state--error" role="alert">
             <strong>Warehouses could not be loaded.</strong>
@@ -38,7 +48,7 @@ export function WarehousesPage() {
                 <th scope="col">Status</th>
               </tr>
             </thead>
-            <tbody>{warehouses.data.map((warehouse) => <WarehouseRow key={warehouse.id} warehouse={warehouse} />)}</tbody>
+            <tbody>{rows.map((warehouse) => <WarehouseRow key={warehouse.id} warehouse={warehouse} />)}{!rows.length && <tr><td colSpan={5}>No warehouses match your search.</td></tr>}</tbody>
           </DataTable>
         ) : (
           <EmptyState
@@ -48,6 +58,7 @@ export function WarehousesPage() {
           />
         )}
       </section>
+      {creating && <WarehouseFormModal onClose={() => setCreating(false)} onSaved={(id) => { setCreating(false); navigate(appRoutes.warehouseDetail(id)) }} />}
     </section>
   )
 }

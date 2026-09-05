@@ -1,266 +1,93 @@
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import {
-  Handshake,
-  Plus,
-  RotateCcw,
-  ShoppingCart,
-} from 'lucide-react'
-import {
-  Button,
-  DataTable,
-  FormField,
-  FormGrid,
-  Modal,
-  Money,
-  NumberInput,
-  PageHeader,
-  StatusChip,
-  TextInput,
-} from '@/design-system'
+import { Button, DataTable, FormField, FormGrid, Modal, Money, NumberInput, PageHeader, Quantity, StatusChip, TextInput } from '@/design-system'
 import { formatDate } from '@/shared/format/format'
-import {
-  getConsignmentStock,
-  receiveConsignment,
-  recordConsignmentSale,
-  settleConsignment,
-  type ConsignmentStock,
-} from '@/features/inventory/consignment-api'
+import { getItem, type Item } from '@/features/items/items-api'
+import { getSupplier, type Supplier } from '@/features/suppliers/suppliers-api'
+import { getWarehouse, type Warehouse } from '@/features/warehouses/warehouses-api'
+import { useInventoryAccess } from './inventory-access'
+import { InventoryItemPicker, InventorySupplierPicker, InventoryWarehousePicker } from './inventory-pickers'
+import { getConsignmentStock, getUnsettledConsignmentSales, receiveConsignment, recordConsignmentSale, settleConsignment, type ConsignmentStock, type ConsignmentSettlement } from './consignment-api'
 
 export function ConsignmentsPage() {
-  const queryClient = useQueryClient()
-  const [showReceiveModal, setShowReceiveModal] = useState(false)
-  const [selectedStockForSale, setSelectedStockForSale] = useState<ConsignmentStock | null>(null)
+  const access = useInventoryAccess()
+  const client = useQueryClient()
+  const [page, setPage] = useState(0)
+  const [receiving, setReceiving] = useState(false)
+  const [selling, setSelling] = useState<ConsignmentStock | null>(null)
+  const [supplierId, setSupplierId] = useState<string | null>(null)
+  const query = useQuery({ queryKey: ['consignments', 'stock'], queryFn: getConsignmentStock })
+  const refresh = () => { void client.invalidateQueries({ queryKey: ['consignments'] }) }
+  const rows = (query.data ?? []).slice(page * 25, page * 25 + 25)
+  return <section className="workspace-page">
+    <PageHeader eyebrow="Inventory / Supplier-owned goods" title="Consignment register" description="Track the separate consignment register and its sale settlements."
+      actions={<><Button variant="secondary" onClick={refresh}>Refresh</Button>{access.operate && <Button onClick={() => setReceiving(true)}>Receive consignment</Button>}</>} />
+    <p className="banner">These endpoints maintain a separate register. They do not post warehouse stock movements, create supplier bills, or record payment.</p>
+    {query.isError ? <div role="alert" className="directory-state directory-state--error">{query.error.message}<Button onClick={refresh}>Retry</Button></div> : query.isPending ? <p role="status">Loading consignments...</p> : <>
+      <DataTable caption="Consignment stock"><thead><tr><th>Item</th><th>Supplier</th><th>Warehouse</th><th className="numeric-cell">Available quantity</th><th className="numeric-cell">Unit cost</th><th>Date</th><th>Status</th><th>Actions</th></tr></thead><tbody>{rows.map((stock) => <ConsignmentRow key={stock.id} stock={stock} canOperate={access.operate} onSale={() => setSelling(stock)} onSettlements={() => setSupplierId(stock.supplierId)} />)}</tbody></DataTable>
+      {!rows.length && <p className="directory-state">No consignment records on this page.</p>}
+      <div className="document-actions"><Button variant="secondary" disabled={page === 0} onClick={() => setPage(page - 1)}>Previous</Button><span>Page {page + 1}</span><Button variant="secondary" disabled={(page + 1) * 25 >= query.data.length} onClick={() => setPage(page + 1)}>Next</Button></div>
+    </>}
+    {receiving && <ReceiveConsignmentModal onClose={() => setReceiving(false)} onSuccess={() => { setReceiving(false); refresh() }} />}
+    {selling && <RecordSaleModal stock={selling} onClose={() => setSelling(null)} onSuccess={() => { setSupplierId(selling.supplierId); setSelling(null); refresh() }} />}
+    {supplierId && <SettlementModal supplierId={supplierId} onClose={() => setSupplierId(null)} />}
+  </section>
+}
 
-  const consignmentQuery = useQuery({
-    queryKey: ['consignments'],
-    queryFn: getConsignmentStock,
-  })
-
-  const settleMutation = useMutation({
-    mutationFn: (id: string) => settleConsignment(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['consignments'] }),
-  })
-
-  const stocks = consignmentQuery.data ?? []
-
-  return (
-    <section className="workspace-page">
-      <PageHeader
-        eyebrow="Inventory / Vendor-Managed Inventory"
-        title="Consignment Stock & VMI Hub"
-        description="Manage supplier-owned consignment inventory, record consumer sales, and settle vendor liabilities upon consumption."
-        actions={
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <Button onClick={() => setShowReceiveModal(true)} variant="primary">
-              <Plus size={16} /> Receive Consignment
-            </Button>
-          </div>
-        }
-      />
-
-      {consignmentQuery.isLoading ? (
-        <div className="directory-state">Loading consignment stock inventory...</div>
-      ) : !stocks.length ? (
-        <div className="directory-state">
-          <Handshake size={32} />
-          <strong>No active consignment stock recorded.</strong>
-          <p>Receive goods on consignment to track supplier inventory without immediate AP liability.</p>
-        </div>
-      ) : (
-        <DataTable caption="Consignment Stock">
-          <thead>
-            <tr>
-              <th scope="col">Item</th>
-              <th scope="col">Supplier</th>
-              <th scope="col">Warehouse</th>
-              <th className="numeric-cell" scope="col">Received Qty</th>
-              <th className="numeric-cell" scope="col">Remaining Qty</th>
-              <th className="numeric-cell" scope="col">Unit Cost</th>
-              <th scope="col">Consignment Date</th>
-              <th scope="col">Status</th>
-              <th scope="col">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {stocks.map((stock) => (
-              <tr key={stock.id}>
-                <td>
-                  <div className="cell-stack">
-                    <strong>{stock.itemName}</strong>
-                    <code>{stock.itemSku ?? stock.itemId}</code>
-                  </div>
-                </td>
-                <td>{stock.supplierName ?? stock.supplierId}</td>
-                <td>{stock.warehouseName}</td>
-                <td className="numeric-cell"><strong>{stock.receivedQuantity}</strong></td>
-                <td className="numeric-cell">
-                  <strong style={{ color: Number(stock.remainingQuantity) > 0 ? 'var(--color-success, #2e7d32)' : 'inherit' }}>
-                    {stock.remainingQuantity}
-                  </strong>
-                </td>
-                <td className="numeric-cell"><Money amount={stock.unitCost} /></td>
-                <td>{formatDate(stock.consignmentDate)}</td>
-                <td><StatusChip status={stock.status} /></td>
-                <td>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    {stock.status === 'ACTIVE' && (
-                      <>
-                        <Button onClick={() => setSelectedStockForSale(stock)} variant="ghost">
-                          <ShoppingCart size={14} /> Record Sale
-                        </Button>
-                        <Button onClick={() => settleMutation.mutate(stock.id)} variant="ghost">
-                          <RotateCcw size={14} /> Settle
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </DataTable>
-      )}
-
-      {/* Receive Modal */}
-      {showReceiveModal && (
-        <ReceiveConsignmentModal
-          onClose={() => setShowReceiveModal(false)}
-          onSuccess={() => {
-            setShowReceiveModal(false)
-            queryClient.invalidateQueries({ queryKey: ['consignments'] })
-          }}
-        />
-      )}
-
-      {/* Record Sale Modal */}
-      {selectedStockForSale && (
-        <RecordSaleModal
-          onClose={() => setSelectedStockForSale(null)}
-          onSuccess={() => {
-            setSelectedStockForSale(null)
-            queryClient.invalidateQueries({ queryKey: ['consignments'] })
-          }}
-          stock={selectedStockForSale}
-        />
-      )}
-    </section>
-  )
+function ConsignmentRow({ stock, canOperate, onSale, onSettlements }: { stock: ConsignmentStock; canOperate: boolean; onSale: () => void; onSettlements: () => void }) {
+  const item = useQuery({ queryKey: ['items', stock.itemId, 'consignment-label'], queryFn: () => getItem(stock.itemId) })
+  const supplier = useQuery({ queryKey: ['suppliers', stock.supplierId], queryFn: () => getSupplier(stock.supplierId) })
+  const warehouse = useQuery({ queryKey: ['warehouses', stock.warehouseId], queryFn: () => getWarehouse(stock.warehouseId) })
+  return <tr><td><div className="cell-stack"><strong>{item.data?.name ?? (item.isError ? 'Item unavailable' : 'Loading item...')}</strong><code>{item.data?.sku ?? stock.itemId}</code></div></td>
+    <td>{supplier.data?.name ?? stock.supplierId}</td><td>{warehouse.data?.name ?? stock.warehouseId}</td><td className="numeric-cell"><Quantity value={stock.quantity} /></td><td className="numeric-cell"><Money amount={stock.unitCost} /></td><td>{formatDate(stock.consignmentDate)}</td><td><StatusChip status={stock.status} /></td>
+    <td><div className="document-actions">{canOperate && stock.status === 'ACTIVE' && <Button variant="secondary" disabled={Number(stock.quantity) <= 0} onClick={onSale}>Record sale</Button>}<Button variant="secondary" onClick={onSettlements}>Supplier settlements</Button></div></td></tr>
 }
 
 function ReceiveConsignmentModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
-  const [itemId, setItemId] = useState('')
-  const [supplierId, setSupplierId] = useState('')
-  const [warehouseId, setWarehouseId] = useState('WH-MAIN')
-  const [quantity, setQuantity] = useState(10)
-  const [unitCost, setUnitCost] = useState(100)
-  const [agreementRef, setAgreementRef] = useState('')
-
-  const mutation = useMutation({
-    mutationFn: () =>
-      receiveConsignment({
-        itemId,
-        supplierId,
-        warehouseId,
-        quantity,
-        unitCost,
-        agreementRef: agreementRef || undefined,
-      }),
-    onSuccess: () => onSuccess(),
-  })
-
-  return (
-    <Modal
-      footer={
-        <>
-          <Button onClick={onClose} variant="secondary">Cancel</Button>
-          <Button disabled={!itemId || !supplierId || quantity <= 0 || mutation.isPending} onClick={() => mutation.mutate()} variant="primary">
-            {mutation.isPending ? 'Receiving...' : 'Receive Stock'}
-          </Button>
-        </>
-      }
-      isOpen
-      onClose={onClose}
-      size="lg"
-      title="Receive Consignment Stock"
-    >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        <FormField label="Item ID / SKU" required>
-          <TextInput onChange={(e) => setItemId(e.target.value)} placeholder="e.g. ITEM-001" value={itemId} />
-        </FormField>
-        <FormField label="Supplier ID" required>
-          <TextInput onChange={(e) => setSupplierId(e.target.value)} placeholder="e.g. SUPP-001" value={supplierId} />
-        </FormField>
-        <FormField label="Destination Warehouse">
-          <TextInput onChange={(e) => setWarehouseId(e.target.value)} value={warehouseId} />
-        </FormField>
-        <FormGrid columns={2}>
-          <FormField label="Quantity" required>
-            <NumberInput min={1} onChange={(e) => setQuantity(Number(e.target.value))} value={quantity} />
-          </FormField>
-          <FormField label="Agreed Unit Cost (₹)" required>
-            <NumberInput min={0} onChange={(e) => setUnitCost(Number(e.target.value))} step="0.01" value={unitCost} />
-          </FormField>
-        </FormGrid>
-        <FormField label="Agreement Reference">
-          <TextInput onChange={(e) => setAgreementRef(e.target.value)} placeholder="e.g. VMI-AGR-2026" value={agreementRef} />
-        </FormField>
-      </div>
-    </Modal>
-  )
+  const access = useInventoryAccess()
+  const [item, setItem] = useState<Item | null>(null)
+  const [supplier, setSupplier] = useState<Supplier | null>(null)
+  const [warehouse, setWarehouse] = useState<Warehouse | null>(null)
+  const [quantity, setQuantity] = useState('')
+  const [cost, setCost] = useState('')
+  const [reference, setReference] = useState('')
+  const [date, setDate] = useState(() => { const now = new Date(); return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10) })
+  const valid = Boolean(item && supplier && warehouse && quantity.trim() && cost.trim() && Number.isFinite(Number(quantity)) && Number(quantity) > 0 && Number.isFinite(Number(cost)) && Number(cost) >= 0)
+  const mutation = useMutation({ mutationFn: () => receiveConsignment({ itemId: item!.id, supplierId: supplier!.id, warehouseId: warehouse!.id, quantity: Number(quantity), unitCost: Number(cost), consignmentDate: date || undefined, agreementRef: reference.trim() || undefined }), onSuccess })
+  function submit(event: FormEvent) { event.preventDefault(); if (valid && access.operate && !mutation.isPending) mutation.mutate() }
+  return <Modal isOpen title="Receive consignment" onClose={() => { if (!mutation.isPending) onClose() }} error={mutation.error?.message} footer={<><Button variant="secondary" disabled={mutation.isPending} onClick={onClose}>Cancel</Button><Button form="consignment-receive" type="submit" disabled={!valid || !access.operate} loading={mutation.isPending}>Record receipt</Button></>}>
+    <form id="consignment-receive" className="create-form-container" onSubmit={submit}>
+      <FormField label="Item" required><InventoryItemPicker value={item} onChange={setItem} disabled={mutation.isPending} /></FormField>
+      <FormField label="Supplier" required><InventorySupplierPicker value={supplier} onChange={setSupplier} disabled={mutation.isPending} /></FormField>
+      <FormField label="Warehouse" required><InventoryWarehousePicker value={warehouse} onChange={setWarehouse} disabled={mutation.isPending} /></FormField>
+      <FormGrid columns={2}><FormField label="Quantity" required><NumberInput value={quantity} onChange={(event) => setQuantity(event.target.value)} min={0} step="any" required disabled={mutation.isPending} /></FormField><FormField label="Agreed unit cost" required><NumberInput value={cost} onChange={(event) => setCost(event.target.value)} min={0} step="any" required disabled={mutation.isPending} /></FormField></FormGrid>
+      <FormField label="Agreement reference"><TextInput value={reference} maxLength={50} onChange={(event) => setReference(event.target.value)} disabled={mutation.isPending} /></FormField>
+      <FormField label="Consignment date"><TextInput type="date" value={date} onChange={(event) => setDate(event.target.value)} disabled={mutation.isPending} /></FormField>
+      <p>This updates the consignment register only, not the stock ledger.</p>
+    </form>
+  </Modal>
 }
 
-function RecordSaleModal({
-  stock,
-  onClose,
-  onSuccess,
-}: {
-  stock: ConsignmentStock
-  onClose: () => void
-  onSuccess: () => void
-}) {
-  const [quantitySold, setQuantitySold] = useState(1)
+function RecordSaleModal({ stock, onClose, onSuccess }: { stock: ConsignmentStock; onClose: () => void; onSuccess: () => void }) {
+  const access = useInventoryAccess()
+  const [quantity, setQuantity] = useState('')
+  const valid = quantity.trim() !== '' && Number.isFinite(Number(quantity)) && Number(quantity) > 0 && Number(quantity) <= Number(stock.quantity)
+  const mutation = useMutation({ mutationFn: () => recordConsignmentSale({ consignmentStockId: stock.id, quantitySold: Number(quantity) }), onSuccess })
+  return <Modal isOpen title="Record consignment sale" onClose={() => { if (!mutation.isPending) onClose() }} error={mutation.error?.message} footer={<><Button variant="secondary" disabled={mutation.isPending} onClick={onClose}>Cancel</Button><Button loading={mutation.isPending} disabled={!valid || !access.operate} onClick={() => { if (valid && !mutation.isPending && access.operate) mutation.mutate() }}>Confirm sale</Button></>}>
+    <div className="create-form-container"><p>Available: <Quantity value={stock.quantity} />. This reduces the consignment register and creates a DRAFT settlement. No supplier bill or sales invoice is created.</p><FormField label="Quantity sold" required><NumberInput value={quantity} onChange={(event) => setQuantity(event.target.value)} min={0} max={Number(stock.quantity)} step="any" disabled={mutation.isPending} /></FormField></div>
+  </Modal>
+}
 
-  const mutation = useMutation({
-    mutationFn: () =>
-      recordConsignmentSale({
-        consignmentStockId: stock.id,
-        quantitySold,
-      }),
-    onSuccess: () => onSuccess(),
-  })
-
-  return (
-    <Modal
-      footer={
-        <>
-          <Button onClick={onClose} variant="secondary">Cancel</Button>
-          <Button disabled={quantitySold <= 0 || quantitySold > Number(stock.remainingQuantity) || mutation.isPending} onClick={() => mutation.mutate()} variant="primary">
-            {mutation.isPending ? 'Recording...' : 'Confirm Sale'}
-          </Button>
-        </>
-      }
-      isOpen
-      onClose={onClose}
-      size="md"
-      title="Record Consignment Sale / Consumption"
-    >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        <p style={{ margin: 0 }}>
-          Recording sale for <strong>{stock.itemName}</strong> (Available remaining: {stock.remainingQuantity}).
-        </p>
-        <FormField label="Quantity Sold / Consumed" required>
-          <NumberInput
-            max={Number(stock.remainingQuantity)}
-            min={1}
-            onChange={(e) => setQuantitySold(Number(e.target.value))}
-            value={quantitySold}
-          />
-        </FormField>
-        <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
-          This will reduce available consignment stock and accrue a payable bill to supplier {stock.supplierName ?? stock.supplierId}.
-        </p>
-      </div>
-    </Modal>
-  )
+function SettlementModal({ supplierId, onClose }: { supplierId: string; onClose: () => void }) {
+  const access = useInventoryAccess()
+  const client = useQueryClient()
+  const [confirm, setConfirm] = useState<ConsignmentSettlement | null>(null)
+  const query = useQuery({ queryKey: ['consignments', 'unsettled', supplierId], queryFn: () => getUnsettledConsignmentSales(supplierId) })
+  const mutation = useMutation({ mutationFn: (id: string) => settleConsignment(id), onSuccess: () => { setConfirm(null); void client.invalidateQueries({ queryKey: ['consignments'] }) } })
+  return <Modal isOpen size="lg" title="Supplier settlements" onClose={() => { if (!mutation.isPending) onClose() }} error={mutation.error?.message ?? query.error?.message} footer={<Button variant="secondary" disabled={mutation.isPending} onClick={onClose}>Close</Button>}>
+    <p>Mark a settlement only after the supplier payable has been handled separately. This action changes settlement status only; it does not pay the supplier.</p>
+    {query.isPending ? <p role="status">Loading settlements...</p> : query.isError ? <Button onClick={() => void query.refetch()}>Retry settlements</Button> : <DataTable caption="Draft consignment settlements"><thead><tr><th>Settlement</th><th className="numeric-cell">Quantity sold</th><th className="numeric-cell">Amount</th><th>Action</th></tr></thead><tbody>{query.data.map((entry) => <tr key={entry.id}><td><code>{entry.settlementNumber}</code></td><td className="numeric-cell"><Quantity value={entry.quantitySold} /></td><td className="numeric-cell"><Money amount={entry.totalAmount} /></td><td>{access.manage && <Button variant="secondary" disabled={mutation.isPending} onClick={() => { mutation.reset(); setConfirm(entry) }}>Mark settled</Button>}</td></tr>)}</tbody></DataTable>}
+    {query.isSuccess && !query.data.length && <p>No draft settlements for this supplier.</p>}
+    {confirm && <div className="create-form-container"><p>Confirm settlement <code>{confirm.settlementNumber}</code> for <Money amount={confirm.totalAmount} />?</p><div className="document-actions"><Button variant="secondary" disabled={mutation.isPending} onClick={() => setConfirm(null)}>Back</Button><Button loading={mutation.isPending} onClick={() => { if (access.manage && !mutation.isPending) mutation.mutate(confirm.id) }}>Confirm settlement</Button></div></div>}
+  </Modal>
 }

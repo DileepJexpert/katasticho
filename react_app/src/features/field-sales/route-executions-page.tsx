@@ -9,7 +9,6 @@ import { Button } from '@/design-system/button'
 import { DataTable } from '@/design-system/data-table'
 import { EntityPicker } from '@/design-system/entity-picker'
 import { FormField } from '@/design-system/form-field'
-import { FormGrid } from '@/design-system/form-grid'
 import { Modal } from '@/design-system/modal'
 import { Money } from '@/design-system/money'
 import { PageHeader } from '@/design-system/page-header'
@@ -25,6 +24,7 @@ import {
   type RouteSummary,
   type Van,
 } from '@/features/field-sales/field-sales-api'
+import { listEmployees, type Employee } from '@/features/payroll/payroll-api'
 
 export function RouteExecutionsPage() {
   const [isStartOpen, setIsStartOpen] = useState(false)
@@ -38,7 +38,7 @@ export function RouteExecutionsPage() {
   const executions: RouteExecution[] = pageData?.content ?? []
 
   const startMutation = useMutation({
-    mutationFn: startExecution,
+    mutationFn: (payload: { routeId: string; salespersonId: string; vanId?: string; executionDate: string }) => startExecution(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['field-sales', 'executions'] })
       setIsStartOpen(false)
@@ -165,13 +165,18 @@ function StartExecutionModal({
     queryFn: () => listVans(0, 100),
   })
 
+  const employeesQuery = useQuery({
+    queryKey: ['employees', 'picker'],
+    queryFn: () => listEmployees(0, 100),
+  })
+
   return (
     <Modal
       description="Dispatch a van or field rep on a scheduled route run."
       footer={
         <>
           <Button onClick={onClose} type="button" variant="secondary">Cancel</Button>
-          <Button disabled={isPending || !routeId} form="start-exec-form" type="submit" variant="primary">
+          <Button disabled={isPending || !routeId || !salespersonId} form="start-exec-form" type="submit" variant="primary">
             {isPending ? 'Starting Run...' : 'Start Execution Run'}
           </Button>
         </>
@@ -185,9 +190,10 @@ function StartExecutionModal({
         id="start-exec-form"
         onSubmit={(e) => {
           e.preventDefault()
+          if (!routeId || !salespersonId) return
           onSubmit({
             routeId,
-            salespersonId: salespersonId || '00000000-0000-0000-0000-000000000001',
+            salespersonId,
             vanId: vanId || undefined,
             executionDate,
           })
@@ -207,6 +213,18 @@ function StartExecutionModal({
           />
         </FormField>
 
+        <FormField label="Assigned Salesperson" required>
+          <EntityPicker<Employee>
+            value={salespersonId || null}
+            onChange={(id) => setSalespersonId(id || '')}
+            options={employeesQuery.data?.content || []}
+            getOptionId={(e) => e.id}
+            getOptionLabel={(e) => `${e.fullName}${e.employeeCode ? ` (${e.employeeCode})` : ''}`}
+            getOptionDescription={(e) => e.designation || e.department || undefined}
+            placeholder="Search salesperson by name or code..."
+          />
+        </FormField>
+
         <FormField label="Assigned Van (Optional)">
           <EntityPicker<Van>
             value={vanId || null}
@@ -219,23 +237,14 @@ function StartExecutionModal({
           />
         </FormField>
 
-        <FormGrid columns={2}>
-          <FormField label="Execution Date" required>
-            <TextInput
-              onChange={(e) => setExecutionDate(e.target.value)}
-              required
-              type="date"
-              value={executionDate}
-            />
-          </FormField>
-          <FormField label="Salesperson ID / Ref">
-            <TextInput
-              onChange={(e) => setSalespersonId(e.target.value)}
-              placeholder="Current Rep (Auto-assigned)"
-              value={salespersonId}
-            />
-          </FormField>
-        </FormGrid>
+        <FormField label="Execution Date" required>
+          <TextInput
+            onChange={(e) => setExecutionDate(e.target.value)}
+            required
+            type="date"
+            value={executionDate}
+          />
+        </FormField>
       </form>
     </Modal>
   )

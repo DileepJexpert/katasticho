@@ -15,6 +15,9 @@ import {
   EmptyState,
   Fact,
   FactList,
+  FormField,
+  FormGrid,
+  EntityPicker,
   FilterTabs,
   PageHeader,
   Quantity,
@@ -26,9 +29,14 @@ import {
   getBatch,
   getBatchRecallReport,
   getBatchTraceHistory,
+  listBatchesByItem,
+  type BatchDetail,
   type BatchRecallReport,
   type BatchTraceRecord,
 } from '@/features/inventory/batches-api'
+import type { Item } from '@/features/items/items-api'
+import { InventoryItemPicker } from './inventory-pickers'
+import { useInventoryAccess } from './inventory-access'
 
 function errorMessage(error: unknown, fallback: string) {
   if (error instanceof Error && error.message) return error.message
@@ -36,6 +44,9 @@ function errorMessage(error: unknown, fallback: string) {
 }
 
 export function BatchTracePage() {
+  const access = useInventoryAccess()
+  const [item, setItem] = useState<Item | null>(null)
+  const batches = useQuery({ queryKey: ['batches', 'by-item', item?.id], queryFn: () => listBatchesByItem(item!.id), enabled: Boolean(item) && access.operate })
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const selectedBatchId = searchParams.get('batchId') ?? ''
@@ -50,23 +61,25 @@ export function BatchTracePage() {
   const batchQuery = useQuery({
     queryKey: ['batches', selectedBatchId],
     queryFn: () => getBatch(selectedBatchId),
-    enabled: isValidBatchId,
+    enabled: isValidBatchId && access.operate,
   })
   const historyQuery = useQuery({
     queryKey: ['batch-trace', 'history', selectedBatchId],
     queryFn: () => getBatchTraceHistory(selectedBatchId),
-    enabled: isValidBatchId && view === 'history',
+    enabled: isValidBatchId && view === 'history' && access.operate,
   })
   const recallQuery = useQuery({
     queryKey: ['batch-trace', 'recall', selectedBatchId],
     queryFn: () => getBatchRecallReport(selectedBatchId),
-    enabled: isValidBatchId && view === 'recall',
+    enabled: isValidBatchId && view === 'recall' && access.operate,
   })
 
   function handleSearch() {
     const batchId = batchIdInput.trim()
     setSearchParams(batchId ? { batchId } : {})
   }
+
+  if (!access.operate) return <section className="workspace-page"><PageHeader title="Batch traceability" description="The existing trace API is available to owners, admins, accountants, and operators." /></section>
 
   return (
     <section className="workspace-page">
@@ -78,6 +91,11 @@ export function BatchTracePage() {
       />
 
       <DocumentCard className="batch-trace-search" title="Select a batch">
+        <FormGrid columns={2}>
+          <FormField label="Find item"><InventoryItemPicker includeInactive value={item} onChange={setItem} /></FormField>
+          <FormField label="Batch"><EntityPicker<BatchDetail> ariaLabel="Select batch to trace" value={null} onChange={(id) => { if (id) { setBatchIdInput(id); setSearchParams({ batchId: id }) } }} options={batches.data ?? []} getOptionId={(batch) => batch.id} getOptionLabel={(batch) => batch.batchNumber} getOptionDescription={(batch) => `Expiry ${formatDate(batch.expiryDate)} / ${batch.active ? 'Active' : 'Inactive'}`} disabled={!item || batches.isPending || batches.isError} /></FormField>
+        </FormGrid>
+        {batches.isError && <div role="alert">{batches.error.message}<Button variant="secondary" onClick={() => void batches.refetch()}>Retry item batches</Button></div>}
         <form onSubmit={(event) => { event.preventDefault(); handleSearch() }}>
           <DirectoryToolbar
             ariaLabel="Batch trace selection"
@@ -92,7 +110,7 @@ export function BatchTracePage() {
             />
           </DirectoryToolbar>
         </form>
-        <p className="batch-trace-search__hint">Open a batch from the expiry watch register to use its server-issued batch identifier.</p>
+        <p className="batch-trace-search__hint">Choose an item and batch, open it from expiry watch, or paste a server-issued UUID for support. Item batch history also includes inactive or exhausted batches.</p>
       </DocumentCard>
 
       {!selectedBatchId ? (

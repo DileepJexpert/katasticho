@@ -21,6 +21,7 @@ import {
   DirectoryToolbar,
 } from '@/design-system'
 import { appRoutes } from '@/app/navigation'
+import { useInventoryAccess } from './inventory-access'
 import { formatDate, formatQuantity } from '@/shared/format/format'
 import {
   getExpirySummary,
@@ -42,6 +43,7 @@ function expiryTimeline(daysUntilExpiry: number) {
 }
 
 export function BatchesPage() {
+  const access = useInventoryAccess()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
@@ -52,11 +54,13 @@ export function BatchesPage() {
   const summaryQuery = useQuery({
     queryKey: ['batches', 'expiry-summary'],
     queryFn: () => getExpirySummary(),
+    enabled: access.operate,
   })
 
   const batchesQuery = useQuery({
     queryKey: ['batches', 'near-expiry', daysThreshold],
     queryFn: () => getNearExpiryBatches(daysThreshold),
+    enabled: access.operate,
   })
 
   function handleRefresh() {
@@ -87,6 +91,8 @@ export function BatchesPage() {
     WARNING: batches.filter((batch) => batch.urgency === 'WARNING').length,
     OK: batches.filter((batch) => batch.urgency === 'OK').length,
   }), [batches])
+
+  if (!access.operate) return <section className="workspace-page"><PageHeader title="Batch & Expiry Watch" description="The existing expiry-report API is available to owners, admins, accountants, and operators." /></section>
 
   return (
     <section className="workspace-page">

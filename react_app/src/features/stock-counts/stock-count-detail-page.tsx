@@ -17,6 +17,8 @@ import {
   SummaryRow,
 } from '@/design-system'
 import { formatDate, formatDateTime, formatQuantity, formatStatusLabel } from '@/shared/format/format'
+import { useInventoryAccess } from '@/features/inventory/inventory-access'
+import { invalidateInventoryQueries } from '@/features/inventory/inventory-cache'
 import {
   cancelStockCount,
   getStockCount,
@@ -30,6 +32,7 @@ function errorMessage(error: unknown, fallback: string) {
 }
 
 export function StockCountDetailPage() {
+  const access = useInventoryAccess()
   const { countId } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -43,6 +46,7 @@ export function StockCountDetailPage() {
   })
 
   function refreshCount() {
+    void invalidateInventoryQueries(queryClient)
     queryClient.invalidateQueries({ queryKey: ['stock-counts', countId] })
     queryClient.invalidateQueries({ queryKey: ['stock-counts'] })
   }
@@ -77,8 +81,7 @@ export function StockCountDetailPage() {
   }
 
   const document = count.data
-  const isDraft = document.status === 'DRAFT'
-  const netVariance = document.lines.reduce((total, line) => total + Number(line.variance), 0)
+  const isDraft = document.status === 'DRAFT' && access.manage
   const mutationPending = postMutation.isPending || cancelMutation.isPending
   const actionTitle = pendingAction === 'post' ? 'Post stock count adjustments?' : 'Cancel draft stock count?'
   const actionDescription = pendingAction === 'post'
@@ -86,6 +89,7 @@ export function StockCountDetailPage() {
     : 'Cancelling ends this draft without recording any inventory movement. This cannot be undone.'
 
   function openAction(action: Exclude<PendingAction, null>) {
+    if (!access.manage) return
     setActionError(null)
     setPendingAction(action)
   }
@@ -102,6 +106,7 @@ export function StockCountDetailPage() {
       <div className="document-actions">
         <Button onClick={() => navigate(appRoutes.stockCounts)} variant="secondary"><ArrowLeft aria-hidden="true" size={16} /> Back to stock counts</Button>
       </div>
+      {document.status === 'DRAFT' && <p className="banner">This count API records item-level quantities only. A variance on a batch-tracked item cannot be posted because the API has no batch field.</p>}
 
       <div className="document-layout">
         <DocumentCard title="Count information">
@@ -118,7 +123,7 @@ export function StockCountDetailPage() {
         <DocumentCard title="Variance summary" variant="summary">
           <SummaryRow label="Count lines" value={<Quantity value={document.lineCount} />} />
           <SummaryRow label="Lines with variance" value={<Quantity value={document.varianceCount} />} />
-          <SummaryRow isTotal label="Net quantity variance" value={<Quantity value={netVariance} />} />
+          <p className="cell-muted">Quantities are reviewed per item; different units are not combined into a net quantity.</p>
         </DocumentCard>
       </div>
 
@@ -158,7 +163,7 @@ export function StockCountDetailPage() {
       <Modal
         description={actionDescription}
         error={actionError}
-        footer={<><Button disabled={mutationPending} onClick={() => setPendingAction(null)} variant="secondary">Keep draft</Button><Button loading={mutationPending} onClick={() => pendingAction === 'post' ? postMutation.mutate() : cancelMutation.mutate()} variant={pendingAction === 'post' ? 'primary' : 'destructive'}>{pendingAction === 'post' ? 'Post adjustments' : 'Cancel draft'}</Button></>}
+        footer={<><Button disabled={mutationPending} onClick={() => setPendingAction(null)} variant="secondary">Keep draft</Button><Button disabled={!access.manage} loading={mutationPending} onClick={() => { if (access.manage && !mutationPending && pendingAction) { if (pendingAction === 'post') postMutation.mutate(); else cancelMutation.mutate() } }} variant={pendingAction === 'post' ? 'primary' : 'destructive'}>{pendingAction === 'post' ? 'Post adjustments' : 'Cancel draft'}</Button></>}
         isOpen={pendingAction !== null}
         onClose={() => !mutationPending && setPendingAction(null)}
         size="sm"

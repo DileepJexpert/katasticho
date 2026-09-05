@@ -1,4 +1,4 @@
-import { apiFetch } from '@/api/client/api-client'
+import { apiFetch, apiFetchRawJson } from '@/api/client/api-client'
 
 type NumberLike = number | string | null
 
@@ -218,16 +218,15 @@ export type PackagingBarcode = {
 
 export type ShortbookItem = {
   itemId: string
-  itemSku: string
+  sku: string | null
   itemName: string
-  totalOnHand: NumberLike
+  hsnCode: string | null
+  currentStock: NumberLike
   reorderLevel: NumberLike
   reorderQuantity: NumberLike
-  deficitQuantity: NumberLike
-  unitOfMeasure: string
-  purchasePrice: NumberLike
-  estimatedCost: NumberLike
-  primarySupplierName?: string | null
+  backordered: NumberLike
+  suggestOrderQty: NumberLike
+  reason: string
 }
 
 export type ListItemsOptions = {
@@ -286,5 +285,5 @@ export function listPackagingBarcodes(itemId: string) {
 }
 
 export function getShortbook() {
-  return apiFetch<ShortbookItem[]>('/api/v1/stock/shortbook')
+  return apiFetchRawJson<ShortbookItem[]>('/api/v1/stock/shortbook')
 }
