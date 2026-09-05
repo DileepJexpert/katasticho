@@ -1,25 +1,20 @@
-import { apiFetch } from '@/api/client/api-client'
+import { apiFetch, apiFetchBlob } from '@/api/client/api-client'
 import { type Invoice } from '@/features/invoices/invoices-api'
 
 export type EstimateStatus = 'DRAFT' | 'SENT' | 'ACCEPTED' | 'DECLINED' | 'INVOICED' | 'EXPIRED' | string
 
 export type EstimateLine = {
   id: string
-  itemId: string
-  itemName: string
-  itemSku: string | null
-  description: string | null
-  quantity: number
+  lineNumber: number
+  itemId: string | null
+  description: string
+  quantity: number | string
   unit: string | null
-  rate: number
-  taxGroupId: string | null
-  taxGroupName: string | null
-  taxRate: number | null
+  rate: number | string
+  taxRate: number | string | null
   hsnCode: string | null
-  discountPercentage: number | null
-  discountAmount: number | null
-  amount: number
-  batchId: string | null
+  discountPct: number | string | null
+  amount: number | string
 }
 
 export type Estimate = {
@@ -30,47 +25,48 @@ export type Estimate = {
   estimateDate: string
   expiryDate: string | null
   referenceNumber: string | null
-  subtotal: number
-  taxAmount: number
-  total: number
+  subtotal: number | string
+  discountAmount: number | string
+  taxAmount: number | string
+  total: number | string
+  currency: string
+  subject: string | null
   status: EstimateStatus
   notes: string | null
   terms: string | null
-  convertedInvoiceId: string | null
+  convertedToInvoiceId: string | null
+  convertedAt: string | null
+  sentAt: string | null
+  acceptedAt: string | null
+  declinedAt: string | null
   lines: EstimateLine[]
   createdAt: string
 }
 
 export type EstimateLineRequest = {
-  itemId: string
-  description?: string
+  itemId?: string
+  description: string
+  unit?: string
   quantity: number
   rate: number
-  taxGroupId?: string
+  taxRate: number
   hsnCode?: string
-  discountPercentage?: number
-  batchId?: string
+  discountPct: number
 }
 
 export type CreateEstimateRequest = {
   contactId: string
   estimateDate: string
   expiryDate?: string
+  currency?: string
+  subject?: string
   referenceNumber?: string
   notes?: string
   terms?: string
   lines: EstimateLineRequest[]
 }
 
-export type UpdateEstimateRequest = {
-  contactId: string
-  estimateDate: string
-  expiryDate?: string
-  referenceNumber?: string
-  notes?: string
-  terms?: string
-  lines: EstimateLineRequest[]
-}
+export type UpdateEstimateRequest = Partial<Omit<CreateEstimateRequest, 'currency'>>
 
 export type EstimatePage = {
   content: Estimate[]
@@ -82,17 +78,20 @@ export type EstimatePage = {
 }
 
 export type BulkOperationResult = {
+  succeeded: string[]
+  failed: { id: string; reason: string }[]
   successCount: number
   failCount: number
-  errors: string[]
 }
 
 export async function listEstimates(
   status?: string,
   contactId?: string,
   page = 0,
-  size = 50
+  size = 25
 ): Promise<EstimatePage> {
+  // The frozen service prioritises contactId and ignores status when both are sent.
+  if (contactId && status && status !== 'all') throw new Error('Choose a customer filter or a status filter, not both.')
   const params = new URLSearchParams()
   if (status && status !== 'all') params.set('status', status)
   if (contactId) params.set('contactId', contactId)
@@ -103,6 +102,10 @@ export async function listEstimates(
 
 export async function getEstimate(id: string): Promise<Estimate> {
   return apiFetch<Estimate>(`/api/v1/estimates/${id}`)
+}
+
+export function getEstimatePdf(id: string): Promise<Blob> {
+  return apiFetchBlob(`/api/v1/estimates/${encodeURIComponent(id)}/pdf`, 'application/pdf')
 }
 
 export async function createEstimate(req: CreateEstimateRequest): Promise<Estimate> {
@@ -149,8 +152,8 @@ export async function convertEstimateToInvoice(id: string): Promise<Invoice> {
   })
 }
 
-export async function getEstimateWhatsAppLink(id: string): Promise<{ shareUrl?: string; message?: string }> {
-  return apiFetch<{ shareUrl?: string; message?: string }>(`/api/v1/estimates/${id}/whatsapp-link`)
+export async function getEstimateWhatsAppLink(id: string): Promise<{ shareUrl: string; message: string; documentNumber: string; phone?: string }> {
+  return apiFetch(`/api/v1/estimates/${id}/whatsapp-link`)
 }
 
 export async function bulkSendEstimates(ids: string[]): Promise<BulkOperationResult> {
