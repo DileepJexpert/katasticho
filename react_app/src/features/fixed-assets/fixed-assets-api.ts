@@ -32,9 +32,9 @@ export type FixedAssetDepreciation = {
   fixedAssetId: string
   periodYear: number
   periodMonth: number
-  openingBookValue: number | string
+  openingWdv: number | string
   depreciationAmount: number | string
-  closingBookValue: number | string
+  closingWdv: number | string
   journalEntryId: string | null
   createdAt: string
 }
@@ -42,9 +42,9 @@ export type FixedAssetDepreciation = {
 export type SchedulePreviewEntry = {
   periodYear: number
   periodMonth: number
-  openingBookValue: number | string
-  depreciationAmount: number | string
-  closingBookValue: number | string
+  opening: number | string
+  depreciation: number | string
+  closing: number | string
 }
 
 export type FixedAssetDetailResponse = {
@@ -62,6 +62,7 @@ export type CreateFixedAssetRequest = {
   residualValue?: number
   bookMethod: 'SLM' | 'WDV' | string
   bookUsefulLifeMonths?: number
+  bookRatePct?: number
   assetAccountCode?: string
   accumulatedDepAccountCode?: string
   depExpenseAccountCode?: string
@@ -70,8 +71,9 @@ export type CreateFixedAssetRequest = {
 
 export type DisposeAssetRequest = {
   disposalDate: string
-  disposalProceeds: number
-  notes?: string
+  proceeds: number
+  proceedsAccountCode?: string
+  gainLossAccountCode?: string
 }
 
 export async function listFixedAssets() {
@@ -89,14 +91,13 @@ export async function createFixedAsset(req: CreateFixedAssetRequest) {
   })
 }
 
-export async function runDepreciation(id: string, year: number, month: number) {
-  return apiFetch<FixedAssetDepreciation>(`/api/v1/fixed-assets/${id}/depreciation?year=${year}&month=${month}`, {
-    method: 'POST',
-  })
+export async function runDepreciation(year: number, month: number) {
+  const result = await apiFetch<{ assetCount: number; totalDepreciation: number; journalEntryId: string | null }>(`/api/v1/fixed-assets/depreciation/run?year=${year}&month=${month}`, { method: 'POST' })
+  return { count: result.assetCount, total: result.totalDepreciation, journalEntryId: result.journalEntryId }
 }
 
 export async function disposeFixedAsset(id: string, req: DisposeAssetRequest) {
-  return apiFetch<FixedAsset>(`/api/v1/fixed-assets/${id}/dispose`, {
+  return apiFetch<{ journalEntryId: string; gainLoss: number; result: string }>(`/api/v1/fixed-assets/${id}/dispose`, {
     method: 'POST',
     body: req,
   })

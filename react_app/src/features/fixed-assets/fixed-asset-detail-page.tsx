@@ -8,6 +8,12 @@ import {
 } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
+import { MonthlyPostingDialog } from '@/features/accounting/monthly-posting-dialog'
+import { useSessionStore } from '@/shared/session/session-store'
+import { Modal } from '@/design-system/modal'
+import { TextField } from '@/design-system/text-field'
+import { EntityPicker } from '@/design-system/entity-picker'
+import { listAccounts, type Account } from '@/features/accounts/accounts-api'
 import { Button } from '@/design-system/button'
 import { DataTable } from '@/design-system/data-table'
 import { Money } from '@/design-system/money'
@@ -25,45 +31,45 @@ import {
 
 export function FixedAssetDetailPage() {
   const { assetId } = useParams<{ assetId: string }>()
+  const user = useSessionStore((s) => s.user)
+  return <FixedAssetDetailPageWorkspace key={`${user?.orgId}:${user?.role}:${assetId}`} />
+}
+
+function FixedAssetDetailPageWorkspace() {
+  const orgId = useSessionStore((s) => s.user?.orgId)
+  const { assetId } = useParams<{ assetId: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
-  const currentYear = new Date().getFullYear()
-  const currentMonth = new Date().getMonth() + 1
-
+  const role = useSessionStore((s) => s.user?.role)
+  const canPost = ['OWNER', 'ADMIN', 'ACCOUNTANT'].includes(role ?? '')
   const [isRunDepModalOpen, setIsRunDepModalOpen] = useState(false)
-  const [depYear, setDepYear] = useState(currentYear)
-  const [depMonth, setDepMonth] = useState(currentMonth)
 
   const [isDisposeModalOpen, setIsDisposeModalOpen] = useState(false)
   const [disposalDate, setDisposalDate] = useState(new Date().toISOString().split('T')[0] || '')
   const [proceedsAmount, setProceedsAmount] = useState('0')
-  const [disposalNotes, setDisposalNotes] = useState('')
+  const [proceedsAccount, setProceedsAccount] = useState<Account | null>(null)
+  const [gainLossAccount, setGainLossAccount] = useState<Account | null>(null)
+  const accountsQuery = useQuery({ queryKey: ['disposal-accounts', orgId], queryFn: listAccounts, enabled: canPost })
+  const accounts = (accountsQuery.data ?? []).filter((a) => a.isActive && !a.hasChildren)
+
 
   const assetQuery = useQuery({
-    queryKey: ['fixed-assets', assetId],
+    queryKey: ['fixed-assets', orgId, assetId],
     queryFn: () => getFixedAsset(assetId!),
     enabled: Boolean(assetId),
   })
 
   const previewQuery = useQuery({
-    queryKey: ['fixed-assets', assetId, 'schedule-preview'],
+    queryKey: ['fixed-assets', orgId, assetId, 'schedule-preview'],
     queryFn: () => getFixedAssetSchedulePreview(assetId!),
     enabled: Boolean(assetId),
-  })
-
-  const runDepMutation = useMutation({
-    mutationFn: () => runDepreciation(assetId!, depYear, depMonth),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['fixed-assets', assetId] })
-      setIsRunDepModalOpen(false)
-    },
   })
 
   const disposeMutation = useMutation({
     mutationFn: (req: DisposeAssetRequest) => disposeFixedAsset(assetId!, req),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['fixed-assets', assetId] })
+      queryClient.invalidateQueries({ queryKey: ['fixed-assets'] })
       setIsDisposeModalOpen(false)
     },
   })
@@ -112,11 +118,11 @@ export function FixedAssetDetailPage() {
               Back
             </Button>
 
-            {!isDisposed && (
+            {canPost && !isDisposed && (
               <>
                 <Button onClick={() => setIsRunDepModalOpen(true)} variant="primary">
                   <Play aria-hidden="true" size={14} style={{ marginRight: 6 }} />
-                  Run Depreciation
+                  Run organisation depreciation
                 </Button>
                 <Button onClick={() => setIsDisposeModalOpen(true)} variant="destructive">
                   <Trash2 aria-hidden="true" size={14} style={{ marginRight: 6 }} />
@@ -198,7 +204,7 @@ export function FixedAssetDetailPage() {
                   </td>
                   <td className="numeric-cell">
                     <strong style={{ color: 'var(--color-success)' }}>
-                      <Money amount={entry.closingBookValue} />
+                      <Money amount={entry.closingWdv} />
                     </strong>
                   </td>
                   <td>
@@ -238,11 +244,11 @@ export function FixedAssetDetailPage() {
                     <span className="table-code">{p.periodYear}-{String(p.periodMonth).padStart(2, '0')}</span>
                   </td>
                   <td className="numeric-cell">
-                    <Money amount={p.depreciationAmount} />
+                    <Money amount={p.depreciation} />
                   </td>
                   <td className="numeric-cell">
                     <strong style={{ color: 'var(--color-success)' }}>
-                      <Money amount={p.closingBookValue} />
+                      <Money amount={p.closing} />
                     </strong>
                   </td>
                 </tr>
@@ -252,202 +258,17 @@ export function FixedAssetDetailPage() {
         </div>
       )}
 
-      {/* MODAL: RUN DEPRECIATION */}
-      {isRunDepModalOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: 'var(--space-md)',
-          }}
-        >
-          <div
-            className="panel-card"
-            style={{
-              width: '100%',
-              maxWidth: 440,
-              backgroundColor: 'var(--color-surface)',
-              borderRadius: 'var(--radius-lg)',
-              padding: 'var(--space-lg)',
-              border: '1px solid var(--color-border)',
-            }}
-          >
-            <h3 style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: 'var(--space-xs)' }}>
-              Run Monthly Depreciation
-            </h3>
-            <p className="cell-muted" style={{ fontSize: '0.85rem', marginBottom: 'var(--space-md)' }}>
-              Post depreciation journal voucher for {asset.name} to the General Ledger.
-            </p>
+      {isRunDepModalOpen && <MonthlyPostingDialog title="Run organisation depreciation" scope="fixed assets" run={runDepreciation} onClose={() => setIsRunDepModalOpen(false)} />}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-sm)', marginBottom: 'var(--space-md)' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                  Year
-                </label>
-                <input
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--color-border)',
-                  }}
-                  onChange={(e) => setDepYear(Number(e.target.value))}
-                  type="number"
-                  value={depYear}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                  Month (1-12)
-                </label>
-                <input
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--color-border)',
-                  }}
-                  max={12}
-                  min={1}
-                  onChange={(e) => setDepMonth(Number(e.target.value))}
-                  type="number"
-                  value={depMonth}
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <Button onClick={() => setIsRunDepModalOpen(false)} variant="secondary">
-                Cancel
-              </Button>
-              <Button
-                disabled={runDepMutation.isPending}
-                onClick={() => runDepMutation.mutate()}
-                variant="primary"
-              >
-                {runDepMutation.isPending ? 'Posting...' : 'Post to Ledger'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: DISPOSE ASSET */}
-      {isDisposeModalOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: 'var(--space-md)',
-          }}
-        >
-          <div
-            className="panel-card"
-            style={{
-              width: '100%',
-              maxWidth: 480,
-              backgroundColor: 'var(--color-surface)',
-              borderRadius: 'var(--radius-lg)',
-              padding: 'var(--space-lg)',
-              border: '1px solid var(--color-border)',
-            }}
-          >
-            <h3 style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: 'var(--space-xs)' }}>
-              Dispose or Scrap Fixed Asset
-            </h3>
-            <p className="cell-muted" style={{ fontSize: '0.85rem', marginBottom: 'var(--space-md)' }}>
-              De-capitalize {asset.name} and record salvage recovery proceeds or write-off loss in General Ledger.
-            </p>
-
-            <div style={{ marginBottom: 'var(--space-sm)' }}>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                Disposal Date
-              </label>
-              <input
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--color-border)',
-                }}
-                onChange={(e) => setDisposalDate(e.target.value)}
-                type="date"
-                value={disposalDate}
-              />
-            </div>
-
-            <div style={{ marginBottom: 'var(--space-sm)' }}>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                Realized Sale / Salvage Proceeds (₹)
-              </label>
-              <input
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--color-border)',
-                }}
-                onChange={(e) => setProceedsAmount(e.target.value)}
-                placeholder="0.00"
-                type="number"
-                value={proceedsAmount}
-              />
-            </div>
-
-            <div style={{ marginBottom: 'var(--space-md)' }}>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                Disposal Rationale / Notes
-              </label>
-              <textarea
-                rows={2}
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--color-border)',
-                }}
-                onChange={(e) => setDisposalNotes(e.target.value)}
-                placeholder="e.g. Scrapped due to obsolescence or sold to third-party..."
-                value={disposalNotes}
-              />
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <Button onClick={() => setIsDisposeModalOpen(false)} variant="secondary">
-                Cancel
-              </Button>
-              <Button
-                disabled={disposeMutation.isPending}
-                onClick={() =>
-                  disposeMutation.mutate({
-                    disposalDate,
-                    disposalProceeds: Number(proceedsAmount) || 0,
-                    notes: disposalNotes,
-                  })
-                }
-                variant="destructive"
-              >
-                {disposeMutation.isPending ? 'Processing...' : 'Confirm Disposal'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal isOpen={isDisposeModalOpen} onClose={() => { if (!disposeMutation.isPending) setIsDisposeModalOpen(false) }} title="Dispose fixed asset" description="This removes the asset from the register and posts disposal proceeds and gain/loss to the general ledger." error={disposeMutation.error?.message || accountsQuery.error?.message}
+        footer={<><Button variant="secondary" disabled={disposeMutation.isPending} onClick={() => setIsDisposeModalOpen(false)}>Cancel</Button><Button variant="destructive"
+          disabled={!canPost || disposeMutation.isPending || !disposalDate || disposalDate < asset.acquisitionDate || !Number.isFinite(Number(proceedsAmount)) || Number(proceedsAmount) < 0 || !gainLossAccount || (Number(proceedsAmount) > 0 && !proceedsAccount)}
+          onClick={() => disposeMutation.mutate({ disposalDate, proceeds: Number(proceedsAmount), proceedsAccountCode: proceedsAccount?.code, gainLossAccountCode: gainLossAccount!.code })}>Confirm Disposal</Button></>}>
+        <TextField label="Disposal date" type="date" min={asset.acquisitionDate} value={disposalDate} onChange={(e) => setDisposalDate(e.target.value)} />
+        <TextField label="Disposal proceeds" type="number" min="0" step="0.01" value={proceedsAmount} onChange={(e) => setProceedsAmount(e.target.value)} />
+        <div className="field"><span>Proceeds account</span><EntityPicker<Account> ariaLabel="Proceeds account" options={accounts} getOptionId={(a) => a.id} getOptionLabel={(a) => a.code + ' - ' + a.name} value={proceedsAccount?.id ?? null} selectedEntity={proceedsAccount} onChange={(_id, a) => setProceedsAccount(a ?? null)} /></div>
+        <div className="field"><span>Gain/loss account</span><EntityPicker<Account> ariaLabel="Gain/loss account" options={accounts} getOptionId={(a) => a.id} getOptionLabel={(a) => a.code + ' - ' + a.name} value={gainLossAccount?.id ?? null} selectedEntity={gainLossAccount} onChange={(_id, a) => setGainLossAccount(a ?? null)} /></div>
+      </Modal>
     </section>
   )
 }

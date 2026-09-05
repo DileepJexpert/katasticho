@@ -1,4 +1,4 @@
-import { apiFetch } from '@/api/client/api-client'
+import { apiFetch, apiFetchBlob } from '@/api/client/api-client'
 
 export type AiSuggestion = {
   id: string
@@ -122,8 +122,7 @@ export type ItemScanResponse = {
 
 export type TrainingSummary = {
   totalExamples: number
-  goodExamples: number
-  taskBreakdown: Record<string, number>
+  note?: string
 }
 
 export async function listSuggestions(status?: string, page = 0, size = 50): Promise<{ content: AiSuggestion[]; totalElements: number }> {
@@ -237,8 +236,8 @@ export async function exportTrainingJsonl(taskType?: string, goodOnly = true): P
   const params = new URLSearchParams()
   if (taskType) params.set('taskType', taskType)
   params.set('goodOnly', String(goodOnly))
-  const data = await apiFetch<string | Record<string, unknown>>(`/api/v1/ai/training/export?${params.toString()}`)
-  return typeof data === 'string' ? data : JSON.stringify(data)
+  const data = await apiFetchBlob(`/api/v1/ai/training/export?${params.toString()}`, 'application/x-ndjson')
+  return data.text()
 }
 
 export async function getAiSettings(): Promise<AiModelSettings> {

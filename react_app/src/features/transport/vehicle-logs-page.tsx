@@ -1,8 +1,9 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2, Truck } from 'lucide-react'
 import { Button } from '@/design-system/button'
 import { DataTable } from '@/design-system/data-table'
+import { EntityPicker } from '@/design-system/entity-picker'
 import { Money } from '@/design-system/money'
 import { PageHeader } from '@/design-system/page-header'
 import { StatusChip } from '@/design-system/status-chip'
@@ -14,7 +15,7 @@ import {
   getVehicleTcoSummary,
   type VehicleLogRequest,
 } from '@/features/transport/transport-api'
-import { listContacts } from '@/features/contacts/contacts-api'
+import { listContacts, type Contact } from '@/features/contacts/contacts-api'
 
 const logTypes = [
   'FUEL',
@@ -42,11 +43,6 @@ export function VehicleLogsPage() {
     queryKey: ['vehicle-tco-summary', vehicleFilter],
     queryFn: () => getVehicleTcoSummary(vehicleFilter),
     enabled: Boolean(vehicleFilter.trim()),
-  })
-
-  const contactsQuery = useQuery({
-    queryKey: ['contacts-vendors'],
-    queryFn: () => listContacts({ filter: 'VENDOR', page: 0 }),
   })
 
   const createMutation = useMutation({
@@ -222,7 +218,6 @@ export function VehicleLogsPage() {
 
       {isModalOpen ? (
         <CreateVehicleLogModal
-          contacts={contactsQuery.data?.content ?? []}
           initialVehicle={vehicleFilter}
           isSubmitting={createMutation.isPending}
           onClose={() => setIsModalOpen(false)}
@@ -235,13 +230,11 @@ export function VehicleLogsPage() {
 
 function CreateVehicleLogModal({
   initialVehicle,
-  contacts,
   isSubmitting,
   onClose,
   onSubmit,
 }: {
   initialVehicle: string
-  contacts: Array<{ id: string; displayName: string }>
   isSubmitting: boolean
   onClose: () => void
   onSubmit: (data: VehicleLogRequest) => void
@@ -252,6 +245,7 @@ function CreateVehicleLogModal({
   const [odometerKm, setOdometerKm] = useState<number | undefined>(undefined)
   const [quantity, setQuantity] = useState<number | undefined>(undefined)
   const [amount, setAmount] = useState<number>(0)
+  const [selectedVendor, setSelectedVendor] = useState<Contact | null>(null)
   const [vendorContactId, setVendorContactId] = useState('')
   const [referenceNo, setReferenceNo] = useState('')
   const [notes, setNotes] = useState('')
@@ -354,16 +348,24 @@ function CreateVehicleLogModal({
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="vl-vendor">Service Station / Vendor</label>
-              <select
+              <EntityPicker<Contact>
+                ariaLabel="Service Station / Vendor"
+                getOptionDescription={(c) => `${c.phone || c.email || ''} ${c.billingCity ? `· ${c.billingCity}` : ''}`}
+                getOptionId={(c) => c.id}
+                getOptionLabel={(c) => c.displayName}
                 id="vl-vendor"
-                value={vendorContactId}
-                onChange={(e) => setVendorContactId(e.target.value)}
-              >
-                <option value="">Select vendor...</option>
-                {contacts.map((c) => (
-                  <option key={c.id} value={c.id}>{c.displayName}</option>
-                ))}
-              </select>
+                onChange={(_id, contact) => {
+                  setSelectedVendor(contact ?? null)
+                  setVendorContactId(contact?.id ?? '')
+                }}
+                onSearch={async (query) => {
+                  const res = await listContacts({ search: query, filter: 'VENDOR' })
+                  return res.content
+                }}
+                placeholder="Search vendor / station..."
+                selectedEntity={selectedVendor}
+                value={selectedVendor?.id ?? null}
+              />
             </div>
             <div className="form-group">
               <label htmlFor="vl-ref">Bill / Receipt Ref Number</label>

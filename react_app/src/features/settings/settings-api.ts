@@ -21,15 +21,19 @@ export type PendingInvite = {
 
 export type PdfTemplateSetting = {
   id?: string
-  documentType: 'INVOICE' | 'ESTIMATE' | 'PURCHASE_ORDER' | 'DELIVERY_CHALLAN' | string
+  documentType: string
+  templateTheme: string
   primaryColor: string
-  fontFamily: string
-  logoUrl?: string | null
-  showBankDetails: boolean
-  showQrCode: boolean
-  headerText?: string | null
-  footerText?: string | null
-  termsAndConditions?: string | null
+  headerLayout: string
+  showGstColumns: boolean
+  showHsnColumn: boolean
+  showPaymentQr: boolean
+  showTerms: boolean
+  termsAndConditions: string | null
+  showSignature: boolean
+  signatureLabel: string | null
+  watermarkText: string | null
+  active: boolean
 }
 
 // ── User Management Calls ──

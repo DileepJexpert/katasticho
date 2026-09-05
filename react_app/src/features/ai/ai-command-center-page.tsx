@@ -18,6 +18,7 @@ import {
   XCircle,
   Zap,
 } from 'lucide-react'
+import { useSessionStore } from '@/shared/session/session-store'
 import { Button } from '@/design-system/button'
 import { DataTable } from '@/design-system/data-table'
 import { Money } from '@/design-system/money'
@@ -46,6 +47,8 @@ type ActiveTab = 'copilot' | 'inbox' | 'ocr' | 'training'
 
 export function AiCommandCenterPage() {
   const queryClient = useQueryClient()
+  const user = useSessionStore((s) => s.user)
+  const canExportTraining = ['OWNER', 'ADMIN'].includes(user?.role ?? '')
   const [activeTab, setActiveTab] = useState<ActiveTab>('copilot')
 
   // Copilot Chat state
@@ -80,7 +83,8 @@ export function AiCommandCenterPage() {
   })
 
   const trainingQuery = useQuery({
-    queryKey: ['ai-training-summary'],
+    queryKey: ['ai-training-summary', user?.orgId],
+    enabled: canExportTraining,
     queryFn: getTrainingSummary,
   })
 
@@ -188,8 +192,7 @@ export function AiCommandCenterPage() {
     reader.readAsDataURL(file)
   }
 
-  const handleExportJsonl = async () => {
-    const jsonl = await exportTrainingJsonl()
+  const exportMutation = useMutation({ mutationFn: () => exportTrainingJsonl(), onSuccess: (jsonl) => {
     const blob = new Blob([jsonl], { type: 'application/x-ndjson' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -197,7 +200,7 @@ export function AiCommandCenterPage() {
     a.download = 'katasticho-lora-training.jsonl'
     a.click()
     URL.revokeObjectURL(url)
-  }
+  } })
 
   const summary = summaryQuery.data
   const suggestions = suggestionsQuery.data?.content ?? []
@@ -747,7 +750,8 @@ export function AiCommandCenterPage() {
       )}
 
       {/* TAB 4: MODEL TRAINING & LORA EXPORT */}
-      {activeTab === 'training' && (
+      {activeTab === 'training' && !canExportTraining && <p role="alert">Training data requires Owner or Admin access.</p>}
+      {activeTab === 'training' && canExportTraining && (
         <div className="panel-card" style={{ padding: 'var(--space-md)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-md)' }}>
             <div>
@@ -756,28 +760,17 @@ export function AiCommandCenterPage() {
                 Katasticho captures human accountant approvals and corrections into structured JSONL chat logs for domain fine-tuning.
               </p>
             </div>
-            <Button onClick={handleExportJsonl} variant="primary">
+            <Button disabled={!canExportTraining || exportMutation.isPending} onClick={() => exportMutation.mutate()} variant="primary">
               <Download size={14} style={{ marginRight: 6 }} />
               Export LoRA Fine-Tuning Dataset (.jsonl)
             </Button>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-md)', marginBottom: 'var(--space-lg)' }}>
-            <div className="summary-card">
-              <span className="summary-card__label">Total Validated Examples</span>
-              <strong className="summary-card__value"><Quantity value={training?.totalExamples ?? 0} /></strong>
-            </div>
-            <div className="summary-card">
-              <span className="summary-card__label">High Quality Corrections</span>
-              <strong className="summary-card__value" style={{ color: 'var(--color-success)' }}>
-                <Quantity value={training?.goodExamples ?? 0} />
-              </strong>
-            </div>
-            <div className="summary-card">
-              <span className="summary-card__label">Supported Tasks</span>
-              <strong className="summary-card__value"><Quantity value={Object.keys(training?.taskBreakdown ?? {}).length} /> Tasks</strong>
-            </div>
-          </div>
+          {exportMutation.isError && <p role="alert">{exportMutation.error.message}</p>}
+          {exportMutation.isPending && <p role="status">Preparing training download...</p>}
+          {trainingQuery.isError && <p role="alert">{trainingQuery.error.message}</p>}
+          {trainingQuery.isPending ? <p role="status">Loading training summary...</p> : training && <div className="summary-strip"><div className="summary-card"><span className="summary-card__label">Recorded training examples</span><strong className="summary-card__value"><Quantity value={training.totalExamples} /></strong></div></div>}
+          <p className="cell-muted">The export includes human-reviewed examples eligible for training. Quality and task breakdown counts are not provided by this API.</p>
         </div>
       )}
     </section>

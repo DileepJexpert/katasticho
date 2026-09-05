@@ -1,10 +1,11 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, RefreshCw, Truck } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
 import { Button } from '@/design-system/button'
 import { DataTable } from '@/design-system/data-table'
+import { EntityPicker } from '@/design-system/entity-picker'
 import { Money } from '@/design-system/money'
 import { PageHeader } from '@/design-system/page-header'
 import { StatusChip } from '@/design-system/status-chip'
@@ -16,7 +17,7 @@ import {
   type CourierShipment,
   type CreateCourierShipmentRequest,
 } from '@/features/transport/transport-api'
-import { listContacts } from '@/features/contacts/contacts-api'
+import { listContacts, type Contact } from '@/features/contacts/contacts-api'
 
 const statusOptions = [
   { label: 'All', value: null },
@@ -43,11 +44,6 @@ export function CourierShipmentsPage() {
   const shipmentsQuery = useQuery({
     queryKey: ['courier-shipments', filter],
     queryFn: () => listCourierShipments(filter),
-  })
-
-  const contactsQuery = useQuery({
-    queryKey: ['contacts-dropdown'],
-    queryFn: () => listContacts({ filter: 'ALL', page: 0 }),
   })
 
   const syncAllMutation = useMutation({
@@ -188,7 +184,6 @@ export function CourierShipmentsPage() {
 
       {isModalOpen ? (
         <CreateCourierShipmentModal
-          contacts={contactsQuery.data?.content ?? []}
           isSubmitting={createMutation.isPending}
           onClose={() => setIsModalOpen(false)}
           onSubmit={(data) => createMutation.mutate(data)}
@@ -241,17 +236,16 @@ function CourierShipmentRow({
 }
 
 function CreateCourierShipmentModal({
-  contacts,
   isSubmitting,
   onClose,
   onSubmit,
 }: {
-  contacts: Array<{ id: string; displayName: string }>
   isSubmitting: boolean
   onClose: () => void
   onSubmit: (data: CreateCourierShipmentRequest) => void
 }) {
-  const [contactId, setContactId] = useState(contacts[0]?.id ?? '')
+  const [selectedContact, setSelectedContact] = useState<Contact | null>(null)
+  const [contactId, setContactId] = useState('')
   const [courierPartner, setCourierPartner] = useState('BLUEDART')
   const [courierService, setCourierService] = useState('Surface Standard')
   const [awbNumber, setAwbNumber] = useState('')
@@ -295,17 +289,24 @@ function CreateCourierShipmentModal({
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label htmlFor="shipment-contact">Consignee / Customer *</label>
-            <select
+            <EntityPicker<Contact>
+              ariaLabel="Consignee / Customer"
+              getOptionDescription={(c) => `${c.phone || c.email || ''} ${c.billingCity ? `· ${c.billingCity}` : ''}`}
+              getOptionId={(c) => c.id}
+              getOptionLabel={(c) => c.displayName}
               id="shipment-contact"
-              required
-              value={contactId}
-              onChange={(e) => setContactId(e.target.value)}
-            >
-              <option value="">Select customer...</option>
-              {contacts.map((c) => (
-                <option key={c.id} value={c.id}>{c.displayName}</option>
-              ))}
-            </select>
+              onChange={(_id, contact) => {
+                setSelectedContact(contact ?? null)
+                setContactId(contact?.id ?? '')
+              }}
+              onSearch={async (query) => {
+                const res = await listContacts({ search: query, filter: 'CUSTOMER' })
+                return res.content
+              }}
+              placeholder="Search customer..."
+              selectedEntity={selectedContact}
+              value={selectedContact?.id ?? null}
+            />
           </div>
 
           <div className="form-row">

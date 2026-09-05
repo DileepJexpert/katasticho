@@ -1,10 +1,11 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { FileSpreadsheet, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
 import { Button } from '@/design-system/button'
 import { DataTable } from '@/design-system/data-table'
+import { EntityPicker } from '@/design-system/entity-picker'
 import { Money } from '@/design-system/money'
 import { PageHeader } from '@/design-system/page-header'
 import { StatusChip } from '@/design-system/status-chip'
@@ -14,7 +15,7 @@ import {
   createLorryReceipt,
   type CreateLorryReceiptRequest,
 } from '@/features/transport/transport-api'
-import { listContacts } from '@/features/contacts/contacts-api'
+import { listContacts, type Contact } from '@/features/contacts/contacts-api'
 
 const statusFilters = [
   { label: 'All', value: null },
@@ -37,11 +38,6 @@ export function LorryReceiptsPage() {
   const lrQuery = useQuery({
     queryKey: ['lorry-receipts', filter],
     queryFn: () => listLorryReceipts(filter),
-  })
-
-  const contactsQuery = useQuery({
-    queryKey: ['transporters-dropdown'],
-    queryFn: () => listContacts({ filter: 'ALL', page: 0 }),
   })
 
   const createMutation = useMutation({
@@ -199,7 +195,6 @@ export function LorryReceiptsPage() {
 
       {isModalOpen ? (
         <CreateLorryReceiptModal
-          contacts={contactsQuery.data?.content ?? []}
           isSubmitting={createMutation.isPending}
           onClose={() => setIsModalOpen(false)}
           onSubmit={(data) => createMutation.mutate(data)}
@@ -210,19 +205,19 @@ export function LorryReceiptsPage() {
 }
 
 function CreateLorryReceiptModal({
-  contacts,
   isSubmitting,
   onClose,
   onSubmit,
 }: {
-  contacts: Array<{ id: string; displayName: string }>
   isSubmitting: boolean
   onClose: () => void
   onSubmit: (data: CreateLorryReceiptRequest) => void
 }) {
-  const [lrDate, setLrDate] = useState(new Date().toISOString().slice(0, 10))
-  const [transporterContactId, setTransporterContactId] = useState(contacts[0]?.id ?? '')
+  const [selectedTransporter, setSelectedTransporter] = useState<Contact | null>(null)
+  const [transporterContactId, setTransporterContactId] = useState('')
+  const [selectedConsignee, setSelectedConsignee] = useState<Contact | null>(null)
   const [contactId, setContactId] = useState('')
+  const [lrDate, setLrDate] = useState(new Date().toISOString().slice(0, 10))
   const [ewayBillNo, setEwayBillNo] = useState('')
   const [vehicleNumber, setVehicleNumber] = useState('')
   const [driverName, setDriverName] = useState('')
@@ -277,30 +272,45 @@ function CreateLorryReceiptModal({
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="lr-transporter">Transporter / GTA Vendor *</label>
-              <select
+              <EntityPicker<Contact>
+                ariaLabel="Transporter / GTA Vendor"
+                getOptionDescription={(c) => `${c.phone || c.email || ''} ${c.billingCity ? `· ${c.billingCity}` : ''}`}
+                getOptionId={(c) => c.id}
+                getOptionLabel={(c) => c.displayName}
                 id="lr-transporter"
-                required
-                value={transporterContactId}
-                onChange={(e) => setTransporterContactId(e.target.value)}
-              >
-                <option value="">Select transporter...</option>
-                {contacts.map((c) => (
-                  <option key={c.id} value={c.id}>{c.displayName}</option>
-                ))}
-              </select>
+                onChange={(_id, contact) => {
+                  setSelectedTransporter(contact ?? null)
+                  setTransporterContactId(contact?.id ?? '')
+                }}
+                onSearch={async (query) => {
+                  const res = await listContacts({ search: query, filter: 'VENDOR' })
+                  return res.content
+                }}
+                placeholder="Search transporter vendor..."
+                selectedEntity={selectedTransporter}
+                value={selectedTransporter?.id ?? null}
+              />
             </div>
             <div className="form-group">
               <label htmlFor="lr-consignee">Consignee Customer (optional)</label>
-              <select
+              <EntityPicker<Contact>
+                ariaLabel="Consignee Customer"
+                getOptionDescription={(c) => `${c.phone || c.email || ''} ${c.billingCity ? `· ${c.billingCity}` : ''}`}
+                getOptionId={(c) => c.id}
+                getOptionLabel={(c) => c.displayName}
                 id="lr-consignee"
-                value={contactId}
-                onChange={(e) => setContactId(e.target.value)}
-              >
-                <option value="">Select customer...</option>
-                {contacts.map((c) => (
-                  <option key={c.id} value={c.id}>{c.displayName}</option>
-                ))}
-              </select>
+                onChange={(_id, contact) => {
+                  setSelectedConsignee(contact ?? null)
+                  setContactId(contact?.id ?? '')
+                }}
+                onSearch={async (query) => {
+                  const res = await listContacts({ search: query, filter: 'CUSTOMER' })
+                  return res.content
+                }}
+                placeholder="Search consignee customer..."
+                selectedEntity={selectedConsignee}
+                value={selectedConsignee?.id ?? null}
+              />
             </div>
             <div className="form-group">
               <label htmlFor="lr-date">LR Date *</label>

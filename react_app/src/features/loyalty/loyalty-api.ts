@@ -1,7 +1,7 @@
 ﻿import { apiFetch } from '@/api/client/api-client'
 
 export type WalletResponse = {
-  id: string
+  id: string | null
   contactId: string
   balance: number
   totalEarned: number
@@ -19,21 +19,9 @@ export type WalletTransactionResponse = {
   createdAt: string | null
 }
 
-export type EarnPointsRequest = {
-  contactId: string
-  amount: number
-  referenceType?: string
-  referenceId?: string
-  notes?: string
-}
+export type EarnPointsRequest = { contactId: string; saleTotal: number; receiptId: string }
 
-export type RedeemPointsRequest = {
-  contactId: string
-  points: number
-  referenceType?: string
-  referenceId?: string
-  notes?: string
-}
+export type RedeemPointsRequest = { contactId: string; redeemAmount: number; receiptId: string }
 
 export async function getWallet(contactId: string): Promise<WalletResponse> {
   return apiFetch<WalletResponse>(`/api/v1/wallet/contact/${contactId}`)

@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   CalendarClock,
@@ -7,11 +7,17 @@ import {
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
+import { FormGrid, FormField, SelectInput } from '@/design-system'
+import { Modal } from '@/design-system/modal'
+import { TextField } from '@/design-system/text-field'
+import { useSessionStore } from '@/shared/session/session-store'
 import { Button } from '@/design-system/button'
 import { DataTable } from '@/design-system/data-table'
+import { EntityPicker } from '@/design-system/entity-picker'
 import { Money } from '@/design-system/money'
 import { PageHeader } from '@/design-system/page-header'
 import { StatusChip } from '@/design-system/status-chip'
+import { listAccounts, type Account } from '@/features/accounts/accounts-api'
 import {
   createAmortizationSchedule,
   listAmortizationSchedules,
@@ -28,6 +34,14 @@ const typeTabs = [
 type TypeTab = (typeof typeTabs)[number]['key']
 
 export function AmortizationPage() {
+  const user = useSessionStore((s) => s.user)
+  return <AmortizationPageWorkspace key={`${user?.orgId}:${user?.id}:${user?.role}`} />
+}
+
+function AmortizationPageWorkspace() {
+  const orgId = useSessionStore((s) => s.user?.orgId)
+  const role = useSessionStore((s) => s.user?.role)
+  const canWrite = ['OWNER', 'ADMIN', 'ACCOUNTANT'].includes(role ?? '')
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<TypeTab>('all')
   const [search, setSearch] = useState('')
@@ -40,12 +54,22 @@ export function AmortizationPage() {
   const [totalPeriods, setTotalPeriods] = useState('12')
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0] || '')
   const [reference, setReference] = useState('')
+  const [debitAccount, setDebitAccount] = useState<Account | null>(null)
+  const [creditAccount, setCreditAccount] = useState<Account | null>(null)
 
   // Queries
   const schedulesQuery = useQuery({
-    queryKey: ['amortization-schedules'],
+    queryKey: ['amortization-schedules', orgId],
     queryFn: listAmortizationSchedules,
   })
+
+  const accountsQuery = useQuery({
+    queryKey: ['amortization-accounts', orgId],
+    queryFn: listAccounts,
+    enabled: canWrite,
+  })
+  const accounts = (accountsQuery.data ?? []).filter((a) => a.isActive && !a.hasChildren)
+  const valid = canWrite && description.trim() && Number.isFinite(Number(totalAmount)) && Number(totalAmount) > 0 && Number.isInteger(Number(totalPeriods)) && Number(totalPeriods) > 0 && /^\d{4}-\d{2}-\d{2}$/.test(startDate) && debitAccount && creditAccount && debitAccount.id !== creditAccount.id
 
   // Mutations
   const createMutation = useMutation({
@@ -56,6 +80,8 @@ export function AmortizationPage() {
       setDescription('')
       setTotalAmount('')
       setReference('')
+      setDebitAccount(null)
+      setCreditAccount(null)
     },
   })
 
@@ -84,18 +110,18 @@ export function AmortizationPage() {
   const totalRemaining = Math.max(0, totalScheduled - totalRecognized)
 
   const handleCreate = () => {
-    if (!description.trim() || !totalAmount || Number(totalAmount) <= 0) return
-    const parsedDate = new Date(startDate)
+    if (!valid || !debitAccount || !creditAccount) return
+    const [year, month] = startDate.split('-').map(Number)
     createMutation.mutate({
       description: description.trim(),
       scheduleType,
       totalAmount: Number(totalAmount),
-      numberOfPeriods: Number(totalPeriods) || 12,
-      startYear: parsedDate.getFullYear() || new Date().getFullYear(),
-      startMonth: parsedDate.getMonth() + 1 || 1,
+      numberOfPeriods: Number(totalPeriods),
+      startYear: year!,
+      startMonth: month!,
       reference: reference.trim() || undefined,
-      debitAccountCode: 'PREPAID',
-      creditAccountCode: 'BANK',
+      debitAccountCode: debitAccount.code,
+      creditAccountCode: creditAccount.code,
     })
   }
 
@@ -106,13 +132,14 @@ export function AmortizationPage() {
         title="Amortization & Prepaids"
         description="Recurring straight-line amortization for prepaid software/rent, deferred revenue recognition, and periodic accounting accruals."
         actions={
-          <Button onClick={() => setIsCreateModalOpen(true)} variant="primary">
+          <Button disabled={!canWrite} onClick={() => { createMutation.reset(); setIsCreateModalOpen(true) }} variant="primary">
             <Plus aria-hidden="true" size={14} style={{ marginRight: 6 }} />
             New Amortization Schedule
           </Button>
         }
       />
 
+      {schedulesQuery.isError && <div role="alert" className="banner banner--error">{schedulesQuery.error.message}<Button onClick={() => schedulesQuery.refetch()}>Retry</Button></div>}
       {/* KPI Summary Strip */}
       <div className="summary-strip">
         <div className="summary-card">
@@ -170,12 +197,12 @@ export function AmortizationPage() {
       </div>
 
       {/* Schedules Table */}
-      {filtered.length === 0 ? (
+      {schedulesQuery.isPending ? <p role="status">Loading schedules...</p> : schedulesQuery.isError ? null : filtered.length === 0 ? (
         <div className="directory-state" role="status">
           <CalendarClock aria-hidden="true" size={24} />
           <strong>No amortization schedules found.</strong>
           <p>Create a prepaid expense schedule to distribute annual contracts or subscriptions smoothly across fiscal months.</p>
-          <Button onClick={() => setIsCreateModalOpen(true)} variant="primary">
+          <Button disabled={!canWrite} onClick={() => { createMutation.reset(); setIsCreateModalOpen(true) }} variant="primary">
             New Amortization Schedule
           </Button>
         </div>
@@ -262,171 +289,22 @@ export function AmortizationPage() {
         </DataTable>
       )}
 
-      {/* MODAL: CREATE SCHEDULE */}
-      {isCreateModalOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: 'var(--space-md)',
-          }}
-        >
-          <div
-            className="panel-card"
-            style={{
-              width: '100%',
-              maxWidth: 540,
-              backgroundColor: 'var(--color-surface)',
-              borderRadius: 'var(--radius-lg)',
-              padding: 'var(--space-lg)',
-              border: '1px solid var(--color-border)',
-            }}
-          >
-            <h3 style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: 'var(--space-xs)' }}>
-              Create Amortization Schedule
-            </h3>
-            <p className="cell-muted" style={{ fontSize: '0.85rem', marginBottom: 'var(--space-md)' }}>
-              Establish a periodic recognition plan for deferred income or prepaid expenditure.
-            </p>
-
-            <div style={{ marginBottom: 'var(--space-sm)' }}>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                Description *
-              </label>
-              <input
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--color-border)',
-                }}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="e.g. AWS Annual Cloud Hosting Contract"
-                type="text"
-                value={description}
-              />
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-sm)', marginBottom: 'var(--space-sm)' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                  Schedule Type
-                </label>
-                <select
-                  className="select-field"
-                  onChange={(e) =>
-                    setScheduleType(e.target.value as 'PREPAID' | 'DEFERRED_INCOME' | 'ACCRUAL')
-                  }
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--color-border)',
-                  }}
-                  value={scheduleType}
-                >
-                  <option value="PREPAID">Prepaid Expense</option>
-                  <option value="DEFERRED_INCOME">Deferred Income / Revenue</option>
-                  <option value="ACCRUAL">Accounting Accrual</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                  Reference Number
-                </label>
-                <input
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--color-border)',
-                  }}
-                  onChange={(e) => setReference(e.target.value)}
-                  placeholder="PO-9912 or INV-1002"
-                  type="text"
-                  value={reference}
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--space-sm)', marginBottom: 'var(--space-md)' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                  Total Amount (₹) *
-                </label>
-                <input
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--color-border)',
-                  }}
-                  onChange={(e) => setTotalAmount(e.target.value)}
-                  placeholder="0.00"
-                  type="number"
-                  value={totalAmount}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                  Periods (Months)
-                </label>
-                <input
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--color-border)',
-                  }}
-                  onChange={(e) => setTotalPeriods(e.target.value)}
-                  placeholder="12"
-                  type="number"
-                  value={totalPeriods}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                  Start Date
-                </label>
-                <input
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--color-border)',
-                  }}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  type="date"
-                  value={startDate}
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <Button onClick={() => setIsCreateModalOpen(false)} variant="secondary">
-                Cancel
-              </Button>
-              <Button
-                disabled={!description.trim() || !totalAmount || createMutation.isPending}
-                onClick={handleCreate}
-                variant="primary"
-              >
-                {createMutation.isPending ? 'Creating...' : 'Create Schedule'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal isOpen={isCreateModalOpen} onClose={() => { if (!createMutation.isPending) setIsCreateModalOpen(false) }} title="Create Amortization Schedule"
+        description="Choose the accounts for each monthly recognition entry, not the original cash payment. No account defaults are silently applied."
+        error={createMutation.error?.message || accountsQuery.error?.message}
+        footer={<><Button variant="secondary" disabled={createMutation.isPending} onClick={() => setIsCreateModalOpen(false)}>Cancel</Button><Button disabled={!valid || createMutation.isPending} onClick={handleCreate}>Create Schedule</Button></>}>
+        <FormGrid>
+          <TextField label="Description" placeholder="e.g. AWS Annual Cloud Hosting Contract" value={description} onChange={(e) => setDescription(e.target.value)} required />
+          <FormField label="Schedule type"><SelectInput value={scheduleType} onChange={(e) => setScheduleType(e.target.value as typeof scheduleType)}><option value="PREPAID">Prepaid expense</option><option value="DEFERRED_INCOME">Deferred income</option><option value="ACCRUAL">Accrual</option></SelectInput></FormField>
+          <TextField label="Reference" placeholder="PO-9912 or INV-1002" value={reference} onChange={(e) => setReference(e.target.value)} />
+          <TextField label="Total amount" type="number" min="0.01" step="0.01" placeholder="0.00" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} required />
+          <TextField label="Number of months" type="number" min="1" step="1" value={totalPeriods} onChange={(e) => setTotalPeriods(e.target.value)} required />
+          <TextField label="Start date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
+          <div className="field"><span>Debit account</span><EntityPicker<Account> ariaLabel="Debit Account" options={accounts} getOptionId={(a) => a.id} getOptionLabel={(a) => a.code + ' - ' + a.name} value={debitAccount?.id ?? null} selectedEntity={debitAccount} onChange={(_id, a) => setDebitAccount(a ?? null)} /></div>
+          <div className="field"><span>Credit account</span><EntityPicker<Account> ariaLabel="Credit Account" options={accounts} getOptionId={(a) => a.id} getOptionLabel={(a) => a.code + ' - ' + a.name} value={creditAccount?.id ?? null} selectedEntity={creditAccount} onChange={(_id, a) => setCreditAccount(a ?? null)} /></div>
+        </FormGrid>
+        {debitAccount && creditAccount && debitAccount.id === creditAccount.id && <p role="alert">Debit and credit accounts must differ.</p>}
+      </Modal>
     </section>
   )
 }

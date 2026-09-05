@@ -1,5 +1,5 @@
 ﻿import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import {
   ArrowLeft,
   CalendarClock,
@@ -7,6 +7,8 @@ import {
 } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
+import { MonthlyPostingDialog } from '@/features/accounting/monthly-posting-dialog'
+import { useSessionStore } from '@/shared/session/session-store'
 import { Button } from '@/design-system/button'
 import { DataTable } from '@/design-system/data-table'
 import { Money } from '@/design-system/money'
@@ -19,28 +21,22 @@ import {
 
 export function AmortizationDetailPage() {
   const { scheduleId } = useParams<{ scheduleId: string }>()
+  const user = useSessionStore((s) => s.user)
+  return <AmortizationDetailPageWorkspace key={`${user?.orgId}:${user?.role}:${scheduleId}`} />
+}
+
+function AmortizationDetailPageWorkspace() {
+  const orgId = useSessionStore((s) => s.user?.orgId)
+  const { scheduleId } = useParams<{ scheduleId: string }>()
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
-
-  const currentYear = new Date().getFullYear()
-  const currentMonth = new Date().getMonth() + 1
-
+  const role = useSessionStore((s) => s.user?.role)
+  const canPost = ['OWNER', 'ADMIN', 'ACCOUNTANT'].includes(role ?? '')
   const [isPostModalOpen, setIsPostModalOpen] = useState(false)
-  const [postYear, setPostYear] = useState(currentYear)
-  const [postMonth, setPostMonth] = useState(currentMonth)
 
   const query = useQuery({
-    queryKey: ['amortization-schedules', scheduleId],
+    queryKey: ['amortization-schedules', orgId, scheduleId],
     queryFn: () => getAmortizationSchedule(scheduleId!),
     enabled: Boolean(scheduleId),
-  })
-
-  const postMutation = useMutation({
-    mutationFn: () => postAmortizationPeriod(scheduleId!, postYear, postMonth),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['amortization-schedules', scheduleId] })
-      setIsPostModalOpen(false)
-    },
   })
 
   if (!scheduleId || query.isLoading) {
@@ -70,7 +66,7 @@ export function AmortizationDetailPage() {
   const total = Number(schedule.totalAmount || 0)
   const recognized = Number(schedule.recognizedAmount || 0)
   const rem = remaining !== undefined ? Number(remaining) : Math.max(0, total - recognized)
-  const isCompleted = schedule.status === 'COMPLETED'
+  const isCompleted = schedule.status !== 'ACTIVE'
 
   return (
     <section className="workspace-page">
@@ -85,10 +81,10 @@ export function AmortizationDetailPage() {
               Back
             </Button>
 
-            {!isCompleted && (
+            {canPost && !isCompleted && (
               <Button onClick={() => setIsPostModalOpen(true)} variant="primary">
                 <Play aria-hidden="true" size={14} style={{ marginRight: 6 }} />
-                Post Amortization Period
+                Run organisation amortization
               </Button>
             )}
 
@@ -174,93 +170,7 @@ export function AmortizationDetailPage() {
         </DataTable>
       </div>
 
-      {/* MODAL: POST AMORTIZATION */}
-      {isPostModalOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: 'var(--space-md)',
-          }}
-        >
-          <div
-            className="panel-card"
-            style={{
-              width: '100%',
-              maxWidth: 440,
-              backgroundColor: 'var(--color-surface)',
-              borderRadius: 'var(--radius-lg)',
-              padding: 'var(--space-lg)',
-              border: '1px solid var(--color-border)',
-            }}
-          >
-            <h3 style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: 'var(--space-xs)' }}>
-              Post Period Recognition
-            </h3>
-            <p className="cell-muted" style={{ fontSize: '0.85rem', marginBottom: 'var(--space-md)' }}>
-              Execute monthly straight-line journal voucher posting of <Money amount={periodAmount} />.
-            </p>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-sm)', marginBottom: 'var(--space-md)' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                  Year
-                </label>
-                <input
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--color-border)',
-                  }}
-                  onChange={(e) => setPostYear(Number(e.target.value))}
-                  type="number"
-                  value={postYear}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                  Month (1-12)
-                </label>
-                <input
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--color-border)',
-                  }}
-                  max={12}
-                  min={1}
-                  onChange={(e) => setPostMonth(Number(e.target.value))}
-                  type="number"
-                  value={postMonth}
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <Button onClick={() => setIsPostModalOpen(false)} variant="secondary">
-                Cancel
-              </Button>
-              <Button
-                disabled={postMutation.isPending}
-                onClick={() => postMutation.mutate()}
-                variant="primary"
-              >
-                {postMutation.isPending ? 'Posting...' : 'Post Recognition'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      {isPostModalOpen && <MonthlyPostingDialog title="Run organisation amortization" scope="amortization schedules" run={postAmortizationPeriod} onClose={() => setIsPostModalOpen(false)} />}
     </section>
   )
 }

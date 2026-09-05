@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Building,
@@ -7,6 +7,9 @@ import {
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
+import { Modal, FormGrid, FormField, SelectInput } from '@/design-system'
+import { useSessionStore } from '@/shared/session/session-store'
+import { TextField } from '@/design-system/text-field'
 import { Button } from '@/design-system/button'
 import { DataTable } from '@/design-system/data-table'
 import { Money } from '@/design-system/money'
@@ -28,7 +31,14 @@ const statusTabs = [
 type StatusTab = (typeof statusTabs)[number]['key']
 
 export function FixedAssetsPage() {
+  const user = useSessionStore((s) => s.user)
+  return <FixedAssetsPageWorkspace key={`${user?.orgId}:${user?.id}:${user?.role}`} />
+}
+
+function FixedAssetsPageWorkspace() {
   const queryClient = useQueryClient()
+  const user = useSessionStore((s) => s.user)
+  const canWrite = ['OWNER', 'ADMIN', 'ACCOUNTANT'].includes(user?.role ?? '')
   const [activeTab, setActiveTab] = useState<StatusTab>('all')
   const [search, setSearch] = useState('')
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -40,12 +50,13 @@ export function FixedAssetsPage() {
   const [cost, setCost] = useState('')
   const [salvageValue, setSalvageValue] = useState('0')
   const [usefulLifeMonths, setUsefulLifeMonths] = useState('60')
+  const [bookRate, setBookRate] = useState('')
   const [bookMethod, setBookMethod] = useState<'SLM' | 'WDV'>('SLM')
   const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split('T')[0] || '')
 
   // Queries
   const assetsQuery = useQuery({
-    queryKey: ['fixed-assets'],
+    queryKey: ['fixed-assets', user?.orgId],
     queryFn: listFixedAssets,
   })
 
@@ -87,16 +98,19 @@ export function FixedAssetsPage() {
   )
   const netBookValue = Math.max(0, totalCost - totalDepreciation)
 
+  const valid = canWrite && assetCode.trim() && name.trim()
+    && /^\d{4}-\d{2}-\d{2}$/.test(purchaseDate)
+    && Number.isFinite(Number(cost)) && Number(cost) > 0
+    && Number.isFinite(Number(salvageValue)) && Number(salvageValue) >= 0 && Number(salvageValue) <= Number(cost)
+    && (bookMethod === 'SLM' ? Number.isInteger(Number(usefulLifeMonths)) && Number(usefulLifeMonths) > 0
+      : Number.isFinite(Number(bookRate)) && Number(bookRate) > 0 && Number(bookRate) <= 100)
   const handleCreateAsset = () => {
-    if (!assetCode.trim() || !name.trim() || !cost || Number(cost) <= 0) return
+    if (!valid) return
     createMutation.mutate({
-      assetCode: assetCode.trim(),
-      name: name.trim(),
-      category: category.trim(),
-      cost: Number(cost),
-      residualValue: Number(salvageValue) || 0,
-      bookUsefulLifeMonths: Number(usefulLifeMonths) || 60,
-      bookMethod,
+      assetCode: assetCode.trim(), name: name.trim(), category: category.trim(),
+      cost: Number(cost), residualValue: Number(salvageValue), bookMethod,
+      bookUsefulLifeMonths: bookMethod === 'SLM' ? Number(usefulLifeMonths) : undefined,
+      bookRatePct: bookMethod === 'WDV' ? Number(bookRate) : undefined,
       acquisitionDate: purchaseDate,
     })
   }
@@ -107,7 +121,7 @@ export function FixedAssetsPage() {
         eyebrow="Financial / Asset Management"
         title="Fixed Assets Register"
         description="Capitalized asset registry, straight-line & WDV Companies Act depreciation engine, and asset lifecycle disposals."
-        actions={
+        actions={canWrite &&
           <Button onClick={() => setIsCreateModalOpen(true)} variant="primary">
             <Plus aria-hidden="true" size={14} style={{ marginRight: 6 }} />
             Add Fixed Asset
@@ -115,6 +129,7 @@ export function FixedAssetsPage() {
         }
       />
 
+      {assetsQuery.isError && <p role="alert">{assetsQuery.error.message}</p>}
       {/* KPI Summary Strip */}
       <div className="summary-strip">
         <div className="summary-card">
@@ -172,14 +187,12 @@ export function FixedAssetsPage() {
       </div>
 
       {/* Assets Table */}
-      {filtered.length === 0 ? (
+      {assetsQuery.isPending ? <p role="status">Loading assets...</p> : assetsQuery.isError ? null : filtered.length === 0 ? (
         <div className="directory-state" role="status">
           <Building aria-hidden="true" size={24} />
           <strong>No fixed assets found.</strong>
           <p>Register capitalized equipment, vehicles, or leasehold improvements to run automated depreciation.</p>
-          <Button onClick={() => setIsCreateModalOpen(true)} variant="primary">
-            Add Fixed Asset
-          </Button>
+          {canWrite && <Button onClick={() => setIsCreateModalOpen(true)} variant="primary">Add Fixed Asset</Button>}
         </div>
       ) : (
         <DataTable caption="Fixed Assets Register Table">
@@ -245,214 +258,22 @@ export function FixedAssetsPage() {
         </DataTable>
       )}
 
-      {/* MODAL: CREATE FIXED ASSET */}
-      {isCreateModalOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: 'var(--space-md)',
-          }}
-        >
-          <div
-            className="panel-card"
-            style={{
-              width: '100%',
-              maxWidth: 580,
-              maxHeight: '90vh',
-              overflowY: 'auto',
-              backgroundColor: 'var(--color-surface)',
-              borderRadius: 'var(--radius-lg)',
-              padding: 'var(--space-lg)',
-              border: '1px solid var(--color-border)',
-            }}
-          >
-            <h3 style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: 'var(--space-xs)' }}>
-              Capitalize New Fixed Asset
-            </h3>
-            <p className="cell-muted" style={{ fontSize: '0.85rem', marginBottom: 'var(--space-md)' }}>
-              Enter asset acquisition details and depreciation parameters for automated monthly schedules.
-            </p>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: 'var(--space-sm)', marginBottom: 'var(--space-sm)' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                  Asset Tag / Code *
-                </label>
-                <input
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--color-border)',
-                    fontFamily: 'monospace',
-                  }}
-                  onChange={(e) => setAssetCode(e.target.value)}
-                  placeholder="FA-2026-001"
-                  type="text"
-                  value={assetCode}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                  Asset Name *
-                </label>
-                <input
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--color-border)',
-                  }}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Delivery Truck KA-01-AB-1234"
-                  type="text"
-                  value={name}
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-sm)', marginBottom: 'var(--space-sm)' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                  Category
-                </label>
-                <select
-                  className="select-field"
-                  onChange={(e) => setCategory(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--color-border)',
-                  }}
-                  value={category}
-                >
-                  <option value="Plant & Machinery">Plant & Machinery</option>
-                  <option value="Vehicles & Transport">Vehicles & Transport</option>
-                  <option value="Computers & IT Hardware">Computers & IT Hardware</option>
-                  <option value="Furniture & Fixtures">Furniture & Fixtures</option>
-                  <option value="Buildings & Leasehold">Buildings & Leasehold</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                  Purchase Date
-                </label>
-                <input
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--color-border)',
-                  }}
-                  onChange={(e) => setPurchaseDate(e.target.value)}
-                  type="date"
-                  value={purchaseDate}
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--space-sm)', marginBottom: 'var(--space-sm)' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                  Gross Cost (₹) *
-                </label>
-                <input
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--color-border)',
-                  }}
-                  onChange={(e) => setCost(e.target.value)}
-                  placeholder="0.00"
-                  type="number"
-                  value={cost}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                  Salvage Value (₹)
-                </label>
-                <input
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--color-border)',
-                  }}
-                  onChange={(e) => setSalvageValue(e.target.value)}
-                  placeholder="0.00"
-                  type="number"
-                  value={salvageValue}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                  Useful Life (Mo.)
-                </label>
-                <input
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--color-border)',
-                  }}
-                  onChange={(e) => setUsefulLifeMonths(e.target.value)}
-                  placeholder="60"
-                  type="number"
-                  value={usefulLifeMonths}
-                />
-              </div>
-            </div>
-
-            <div style={{ marginBottom: 'var(--space-sm)' }}>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>
-                Depreciation Calculation Method
-              </label>
-              <select
-                className="select-field"
-                onChange={(e) => setBookMethod(e.target.value as 'SLM' | 'WDV')}
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--color-border)',
-                }}
-                value={bookMethod}
-              >
-                <option value="SLM">Straight Line Method (SLM)</option>
-                <option value="WDV">Written Down Value (WDV / Reducing Balance)</option>
-              </select>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 'var(--space-md)' }}>
-              <Button onClick={() => setIsCreateModalOpen(false)} variant="secondary">
-                Cancel
-              </Button>
-              <Button
-                disabled={!assetCode.trim() || !name.trim() || !cost || createMutation.isPending}
-                onClick={handleCreateAsset}
-                variant="primary"
-              >
-                {createMutation.isPending ? 'Capitalizing...' : 'Save & Capitalize'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal isOpen={isCreateModalOpen && canWrite} title="Register New Fixed Asset" size="md"
+        error={createMutation.isError ? createMutation.error.message : undefined}
+        onClose={() => { if (!createMutation.isPending) setIsCreateModalOpen(false) }}
+        footer={<><Button disabled={createMutation.isPending} onClick={() => setIsCreateModalOpen(false)}>Cancel</Button><Button variant="primary" disabled={!valid || createMutation.isPending} onClick={handleCreateAsset}>{createMutation.isPending ? 'Saving...' : 'Save asset'}</Button></>}>
+        <p className="cell-muted">Registration does not post the acquisition journal. Record acquisition accounting separately; depreciation is posted by the organisation monthly run.</p>
+        <FormGrid>
+          <TextField label="Asset Tag / Code" required value={assetCode} placeholder="FA-2026-001" onChange={(e) => setAssetCode(e.target.value)} />
+          <TextField label="Asset Name" required value={name} placeholder="e.g. Delivery Truck KA-01-AB-1234" onChange={(e) => setName(e.target.value)} />
+          <TextField label="Category" value={category} onChange={(e) => setCategory(e.target.value)} />
+          <TextField label="Purchase Date" required type="date" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} />
+          <TextField id="fa-cost" label="Gross Cost (₹)" required type="number" min="0.01" step="0.01" value={cost} placeholder="0.00" onChange={(e) => setCost(e.target.value)} />
+          <TextField id="fa-salvage" label="Salvage Value (₹)" type="number" min="0" max={cost || undefined} step="0.01" value={salvageValue} placeholder="0.00" onChange={(e) => setSalvageValue(e.target.value)} />
+          <FormField label="Depreciation Calculation Method"><SelectInput value={bookMethod} onChange={(e) => setBookMethod(e.target.value as 'SLM' | 'WDV')}><option value="SLM">Straight Line Method (SLM)</option><option value="WDV">Written Down Value (WDV / Reducing Balance)</option></SelectInput></FormField>
+          {bookMethod === 'SLM' ? <TextField label="Useful Life (Mo.)" required type="number" min="1" step="1" placeholder="60" value={usefulLifeMonths} onChange={(e) => setUsefulLifeMonths(e.target.value)} /> : <TextField label="Annual WDV rate (%)" required type="number" min="0.01" max="100" step="0.01" value={bookRate} onChange={(e) => setBookRate(e.target.value)} />}
+        </FormGrid>
+      </Modal>
     </section>
   )
 }

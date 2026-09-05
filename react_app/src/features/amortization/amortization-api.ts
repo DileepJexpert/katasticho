@@ -64,8 +64,7 @@ export async function createAmortizationSchedule(req: CreateAmortizationSchedule
   })
 }
 
-export async function postAmortizationPeriod(id: string, year: number, month: number) {
-  return apiFetch<AmortizationEntry>(`/api/v1/amortization/${id}/post?year=${year}&month=${month}`, {
-    method: 'POST',
-  })
+export async function postAmortizationPeriod(year: number, month: number) {
+  const result = await apiFetch<{ scheduleCount: number; totalRecognized: number; journalEntryId: string | null }>(`/api/v1/amortization/run?year=${year}&month=${month}`, { method: 'POST' })
+  return { count: result.scheduleCount, total: result.totalRecognized, journalEntryId: result.journalEntryId }
 }

@@ -565,6 +565,139 @@ pass, monitoring is in place, and rollback has been rehearsed.
 
 ## 7. Feature Coverage Tracker
 
+### Parallel Ownership - 2026-09-05
+
+User-assigned work split: Antigravity owns the following enterprise-extension
+implementation sections. Codex owns the independent bug review after Antigravity
+finishes and the user explicitly confirms completion. This records ownership,
+not dispatch, completion, or test acceptance. Do not duplicate or overwrite the
+other agent's implementation while it is in progress.
+
+| Section | Owner | Scope | Tracker mapping |
+|---|---|---|---|
+| 5A Transport and Logistics | Antigravity | Courier shipments/tracking, COD remittances/reconciliation, lorry receipts, freight rate cards, vehicle trip and maintenance logs under `/transport/*`. | R-13 transport subset |
+| 5B Franchise and Loyalty | Antigravity | Franchise hierarchy/node details, supported royalty/inter-company workflows, loyalty programs, tiers and earn/redeem rules under `/franchise` and `/loyalty`. | R-13 franchise/loyalty subset |
+| 5C Financial Depth and Assets | Antigravity | Fixed assets and depreciation, amortization, budgets and cost-center variance under `/fixed-assets`, `/amortization`, `/budgets` and their related screens. | R-07 asset/budget subset; assignment label does not move the original roadmap wave |
+| 5D CA, AI and Platform Tools | Antigravity | CA workbench/alerts/dispatch review, AI suggestions/model registry/configuration, organization settings, UDFs and supported print-template configuration under `/ca/*`, `/ai/*`, `/settings/*`. | R-14 listed subsets; external portal/onboarding parity is not automatically included |
+| Inventory and item-domain shared masters | Codex | Remaining R-06 inventory action parity plus item/pricing/UoM review outside the reserved settings, transport, franchise, asset, CA and AI areas. | R-03/R-06 scoped continuation |
+| Sales estimates and quotations | Codex | Existing `/estimates` directory, create/detail/edit, role-aware document lifecycle, PDF/share handling and activity review. No shared shell or Antigravity-owned feature edits. | R-05 commercial pre-sales extension; source work started 2026-09-05 |
+
+Both workstreams must preserve Java, migrations, backend tests and Flutter.
+Use only existing APIs and inspect existing React code before adding screens.
+Missing or unsafe contracts, including unavailable royalty/billing operations,
+are documented blockers; do not simulate posting, settlement or calculations.
+
+"Zero raw UUID" means user-facing relationships use searchable name/code
+pickers; real IDs remain in API payloads, routes and audit references where
+needed. Use the shared dense design-system components and handle long lists,
+roles, tenant switching, pending actions and API errors consistently.
+
+"100% test coverage" is a requested target, not a current result. Record the
+measured line/branch/function/statement scope, executed commands and results
+before claiming it; test-source creation alone is not coverage evidence.
+Previously deferred automated/runtime acceptance remains pending until run.
+
+Router, navigation, API client, design-system primitives and this tracker are
+shared integration files. Coordinate changes before editing them concurrently;
+make additive, narrowly scoped patches and preserve the other workstream's
+changes. Antigravity ownership is not a blanket assignment of all R-07/R-13/R-14
+features, and all affected rows retain their current acceptance status.
+
+### Antigravity Handoff and Codex Bug Review
+
+**Current review status (2026-09-05):** The user confirmed Antigravity's handoff
+and authorised fixing the reviewed issues. The delivered React diff was checked
+against existing Spring contracts. The nine reported issues now have scoped
+React corrections and regression tests. This is not full 5A-5D acceptance:
+live testing and the backend-dependent workflows below remain open.
+
+| Section | Implementation owner | Follow-up reviewer | Review state |
+|---|---|---|---|
+| 5A Transport and Logistics | Antigravity | Codex | Reported contact-picker/fixture issues corrected; live lifecycle acceptance pending |
+| 5B Franchise and Loyalty | Antigravity | Codex | Node/policy/wallet contracts corrected; unavailable integration actions explicitly blocked |
+| 5C Financial Depth and Assets | Antigravity | Codex | Budget preservation, recognition accounts and monthly posting corrected; ledger acceptance pending |
+| 5D CA, AI and Platform Tools | Antigravity | Codex | Reported PDF-setting and AI-export issues corrected; broader CA/UDF/platform acceptance not claimed |
+
+Review and acceptance checklist (source review is distinct from live acceptance):
+
+- [x] Inspect the actual implementation commits and local diff, preserving
+  unrelated work; do not accept an agent summary as proof of correctness.
+- [ ] Review API paths, payloads, response parsing, lifecycle transitions,
+  permissions, tenant isolation, cache refresh, and repeat/failed submissions.
+- [ ] Check money, stock, reconciliation and posting behaviour against existing
+  backend contracts without changing Java or Flutter. Flag unsupported operations
+  and simulated results rather than treating them as completed parity.
+- [ ] Review searchable entity pickers, raw-UUID inputs, long-list pagination,
+  dense shared layouts, validation, loading/error/empty states and accessibility.
+- [ ] Inspect regression tests and any claimed coverage; distinguish source
+  inspection, executed automated checks and live acceptance. Existing execution
+  restrictions remain in force unless the user changes them.
+- [x] Report actionable bugs by severity with file/line references and missing
+  tests, then update each section's findings and acceptance status in this tracker.
+  Implementation completion alone must not mark a section accepted or COMPLETE.
+
+#### Review Corrections - 2026-09-05
+
+- Budget GET/PUT uses `accountCode`, `annualAmount` and `notes`. Replacement
+  saves preserve existing lines, including zero and no-longer-selectable accounts.
+  Actuals come from the fiscal-year variance report, never hard-coded zero.
+- Amortization requires explicit, distinct recognition accounts. The form no
+  longer substitutes Cash/TDS codes. Both depreciation and amortization use
+  the real organisation-wide monthly run endpoints with scope confirmation.
+- Fixed assets collect the WDV rate, distinguish registration from acquisition
+  accounting, parse actual preview/entry fields, and send the real disposal
+  proceeds/account fields. Financial forms reset on organisation/role changes.
+- Franchise node CRUD and policies use actual DTO fields. Store detail no
+  longer invokes unavailable branch-price APIs. Royalty processing, invoicing,
+  catalog sync and branch overrides remain unavailable because the existing
+  backend explicitly rejects them. No replacement posting flow was invented.
+- Loyalty supports explicit customer selection, wallet/history and read-only
+  redemption eligibility. Arbitrary bonus/standalone redemption actions were
+  removed: the existing mutation APIs require a real receipt, and a safe atomic
+  sale/wallet workflow is not supplied by this migration. Full loyalty write
+  parity remains blocked, not complete.
+- Transport customer/vendor selection uses server search instead of a static
+  first-page list. Invalid Contact/transport test fixtures match current types.
+- PDF settings send only supported fields, preserve false values and cleared
+  text, and isolate document/organisation drafts. No rendered-PDF preview is
+  claimed. PDF output parity must still be tested with the existing renderer.
+- AI training export uses the authenticated raw NDJSON download path and shows
+  pending/error states. Training data is Owner/Admin only; unsupported quality
+  metrics are not fabricated from missing response fields.
+
+Final automated validation: **357 React tests passed across 90 files** with
+two test workers; ESLint and the production build (including TypeScript) pass.
+The build retains the large-bundle warning. Default-worker runs encountered
+resource-sensitive UI timeouts; no unrelated tests or timeouts were weakened.
+No live app, Java tests or Flutter tests were run. These corrections are
+included in the 2026-09-05 Git checkpoint described below.
+
+Validation results and manual steps are recorded in
+`docs/testing/REACT_WAVE5_REVIEW_ACCEPTANCE.md`. Java, migrations, backend tests,
+Flutter, the shared shell and navigation remain unchanged. Existing Estimates
+work is preserved. These review fixes are not a 100% coverage or full-migration
+completion claim.
+
+#### Git Checkpoint Summary - 2026-09-05
+
+Branch: `codex/contact-roles-field-sales-planning`.
+The user requested a summary, tracker update and GitHub publication. This
+checkpoint is split into two reviewable commits, not a new migration wave:
+
+| Work package | Included changes | Acceptance status |
+|---|---|---|
+| Estimates and quotations | Shared create/edit form, correct DTOs and decimal totals, pagination, role-gated lifecycle actions, authenticated documents and paged activity | Automated checks passed; live workflow and documented conversion/PDF blockers remain open |
+| Wave 5 review corrections | Budget preservation and actuals, explicit recognition accounts, confirmed organisation-wide monthly posting, fixed-asset contracts, transport search, franchise/loyalty contracts, PDF settings and AI export | Nine reported issues corrected in React; live ledger/UI testing and unsupported backend integrations remain open |
+
+Both work packages include regression tests and their manual acceptance
+checklists. Final checks: **357 tests / 90 files passed with two workers**, lint
+passed, TypeScript and production build passed. The large-bundle warning and
+default-worker resource-sensitive timeouts remain recorded, not suppressed.
+No Java, database migration, backend test, Flutter, shared shell or navigation
+files are included. No application was started and no real transaction was
+posted during validation. Git commit history records the checkpoint revisions;
+this checkpoint does not promote the wider migration rows to COMPLETE.
+
 ### Reconciliation - 2026-09-05
 
 The table separates implementation from acceptance. `BUILDING` means React
@@ -581,12 +714,58 @@ review, paged stock audit, and CSV/XLSX item import. Packaging maintenance was
 also inspected: duplicate/cross-table barcode collisions block exposing its
 writes safely. Tax-group maintenance was checked next: no write endpoint exists,
 and its read-only React directory was corrected to the active-only/read-role
-contract. Next source review: remaining shared masters and inventory action
-parity. Unsafe serial/batch/reversal/packaging writes stay
+contract. Codex's next non-overlapping slice is now the existing sales estimates
+and quotations workflow (R-05), while remaining item-domain shared masters and
+inventory action parity stay open. Unsafe serial/batch/reversal/packaging writes stay
 recorded as blockers, not React workarounds.
-Concurrent
+The 5A-5D handoff has been confirmed and its reported React defects corrected;
+remaining acceptance and contract blockers are listed above. Concurrent
 manufacturing/work-order changes are left to their current owner. Automated
-and manual acceptance remain pending; no Java or Flutter changes are allowed.
+checks for this checkpoint passed as recorded above; broader and live manual
+acceptance remain pending. No Java or Flutter changes are allowed.
+
+### R-05 Estimates Slice - 2026-09-05
+
+**Status: BUILDING, source implemented for the scoped actions; not accepted.**
+This is separate from Antigravity's reserved 5A-5D work. Existing React estimate
+screens were inspected against the frozen EstimateController/DTOs/EstimateService
+and Flutter estimate screens before correction. No Java, Flutter, shared router,
+navigation, API-client, or design-system files were changed for this slice.
+
+- [x] Corrected request fields to `discountPct`, `taxRate`, `unit` and optional
+  `itemId`; removed unsupported invoice/batch/tax-group fields and the hard-coded
+  5% preview. Preview follows per-line two-decimal HALF_UP arithmetic; displayed
+  persisted totals remain the backend values. Discount is not subtracted twice.
+- [x] Shared dense create/edit form: customer/product server search, free-text
+  service lines, decimal quantities, subject/validity/currency/notes/terms.
+  Editing is DRAFT/SENT only; update does not send unsupported currency changes
+  or pretend that null clears an existing expiry date.
+- [x] Server pagination, page-local keyword labelling and mutually exclusive
+  customer/status filters; removed misleading first-page pipeline/win metrics.
+- [x] Explicit role gates and confirmations for send/resend, acceptance, decline
+  and draft deletion; server errors remain visible and no optimistic success is
+  fabricated. Query keys are organisation-scoped.
+- [x] Authenticated PDF download, server-generated WhatsApp message review
+  without fallback messages on error, correct converted-invoice links, and
+  independently paged activity/comments read view.
+- [x] Regression tests added for requests, decimal rounding, permissions,
+  form editing, paging, failures, PDF and currency safety, and executed in the
+  final full suite: 357 tests passed across 90 files with two workers.
+- [ ] Resolve separately authorised backend conversion defect: String-list
+  membership is tested against the ContactType enum. Conversion remains visibly
+  unavailable; no alternate create-invoice workaround exists in the UI.
+- [ ] Backend document acceptance: PDF prints a negative discount row below an
+  already-discounted subtotal. INR is hard-coded in PDF/share output. The React
+  screen warns about discounted PDFs and blocks non-INR external document output.
+- [ ] Bulk send/delete transaction review, comment create/delete parity, public
+  document-link/recipient delivery review, concurrency and all live acceptance
+  remain open. Source creation is not a full-parity or coverage claim.
+- [x] Run typecheck, lint, tests and production build; all passed in the final
+  checkpoint validation. Large-bundle/default-worker limitations are above.
+- [ ] Complete desktop/mobile/manual acceptance. The React app was not started.
+
+See `docs/testing/REACT_ESTIMATES_ACCEPTANCE.md` for the contract matrix,
+backend blockers and the safe manual acceptance sequence.
 
 Use this table as the live executive tracker. Expand a row into smaller issue
 checklists only after the wave starts. Status values are `NOT_STARTED`,
@@ -599,7 +778,7 @@ checklists only after the wave starts. Status values are `NOT_STARTED`,
 | R-02 | Design system and shared ERP primitives | 1 | BUILDING | Token CSS plus initial Button, TextField, StatusChip, Money, PageHeader, and DataTable primitives pass lint, tests, and production build. |
 | R-03 | Contacts, supplier roles, item and shared masters | 2 | BUILDING | Contacts provide search, paging, role counts, detail, statement, and create flows. Items provide typed create/edit for commercial, GST/HSN, unit, batch-control, preferred-vendor, and opening-stock fields; imports and stock-execution mutations remain pending. |
 | R-04 | Purchase -> GRN -> bill -> vendor payment | 2 | BUILDING | Source wiring is complete for eligible-supplier PO/GRN creation, PO-linked GRN/bill hand-offs, stock receipt, bill post/delete/void, 3-way match/override, and atomic allocated vendor payment. React runtime, QA, and accounting acceptance are pending. |
-| R-05 | Sales -> challan -> invoice -> receipt | 2 | BUILDING | Source wiring is complete for searchable sales-order creation, confirmation/cancellation, order-locked challan drafting, dispatch/delivery, dispatched-quantity invoice conversion, direct-draft invoice safeguards, sending, and invoice-scoped partial receipt recording. Runtime, QA, stock/GST/AR, and journal acceptance remain pending. |
+| R-05 | Sales -> challan -> invoice -> receipt | 2 | BUILDING | Source wiring covers searchable sales-order creation, confirmation/cancellation, challan drafting/dispatch/delivery, invoice creation/sending and partial receipts. Estimates extension now has corrected create/edit payloads, totals, server paging, lifecycle controls, PDF/share and activity review. Estimate conversion and document-format blockers plus bulk/comment-write parity remain open; see REACT_ESTIMATES_ACCEPTANCE.md. Runtime, QA, stock/GST/AR and journal acceptance remain pending. |
 | R-06 | Inventory and pricing operations | 3 | BUILDING | Reviewed source covers picklists, Shortbook PO drafts, printer contracts, consignment register, warehouses/zones, batch-aware transfers, pricing and valuation. Added rack creation, putaway create/confirm/cancel, UoM metadata CRUD, read-only serial review, paged stock audit, and CSV/XLSX preview/commit import. Batch counts/adjustments, serial mutations, generic reversals and packaging writes have frozen-contract/integration blockers; putaway is not bin stock. Remaining inventory and shared-master parity still needs review. No Java/Flutter changes. Automated, responsive, hardware, and inventory/GL acceptance remain deferred; see the R-06 checklists. |
 | R-07 | Accounting, banking, reports, audit | 3 | BUILDING | Manual journal source wiring supports account-code posting, balanced draft/post workflows, post-dated scheduling, and reversal review. Typed Trial Balance, P&L, Balance Sheet, General Ledger, and AR/AP ageing views present server-calculated values through the existing report contracts. Runtime and reconciliation acceptance remain pending. |
 | R-08 | GST, statutory, and country tax workflows | 3 | BUILDING | React GST/tax/regional pages exist. Full contract, filing, country/role and compliance-document review and acceptance are pending. |
