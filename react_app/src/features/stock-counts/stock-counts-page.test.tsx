@@ -10,15 +10,18 @@ vi.mock('./stock-counts-api', () => ({
   listStockCounts: vi.fn(),
   getStockCount: vi.fn(),
   createStockCount: vi.fn(),
-  updateStockCountLines: vi.fn(),
   postStockCount: vi.fn(),
   cancelStockCount: vi.fn(),
 }))
 
 vi.mock('@/features/warehouses/warehouses-api', () => ({
   listWarehouses: vi.fn().mockResolvedValue([
-    { id: 'wh-1', name: 'Central Warehouse', code: 'WH-01' },
+    { id: 'wh-1', name: 'Central Warehouse', code: 'WH-01', active: true, isDefault: true },
   ]),
+}))
+
+vi.mock('@/features/items/items-api', () => ({
+  listItems: vi.fn().mockResolvedValue({ content: [] }),
 }))
 
 const mockStockCounts: stockCountsApi.StockCount[] = [
@@ -27,31 +30,32 @@ const mockStockCounts: stockCountsApi.StockCount[] = [
     countNumber: 'SC-2026-0001',
     warehouseId: 'wh-1',
     warehouseName: 'Central Warehouse',
-    status: 'IN_PROGRESS',
+    countDate: '2026-09-04',
+    status: 'DRAFT',
     notes: 'Q3 Physical Inventory Audit',
     createdAt: '2026-09-04T10:00:00Z',
     postedAt: null,
+    lineCount: 2,
+    varianceCount: 1,
     lines: [
       {
         id: 'line-1',
         itemId: 'item-1',
         itemName: 'Amoxicillin 500mg',
-        itemSku: 'MED-AMX-500',
-        systemQuantity: 100,
+        sku: 'MED-AMX-500',
+        expectedQuantity: 100,
         countedQuantity: 98,
-        discrepancyQuantity: -2,
-        discrepancyValue: -230,
+        variance: -2,
         notes: 'Damaged packaging during transit',
       },
       {
         id: 'line-2',
         itemId: 'item-2',
         itemName: 'Paracetamol 650mg',
-        itemSku: 'MED-PCM-650',
-        systemQuantity: 50,
+        sku: 'MED-PCM-650',
+        expectedQuantity: 50,
         countedQuantity: 50,
-        discrepancyQuantity: 0,
-        discrepancyValue: 0,
+        variance: 0,
         notes: null,
       },
     ],
@@ -61,10 +65,13 @@ const mockStockCounts: stockCountsApi.StockCount[] = [
     countNumber: 'SC-2026-0002',
     warehouseId: 'wh-1',
     warehouseName: 'Central Warehouse',
+    countDate: '2026-08-31',
     status: 'POSTED',
     notes: 'Year-End Reconciliation',
     createdAt: '2026-08-31T09:00:00Z',
     postedAt: '2026-08-31T17:00:00Z',
+    lineCount: 0,
+    varianceCount: 0,
     lines: [],
   },
 ]
@@ -102,7 +109,7 @@ describe('Stock Counts & Audits Workspace', () => {
   it('renders the stock count audit register', async () => {
     renderWithClient(<StockCountsPage />)
 
-    expect(screen.getByText('Physical Stock Counts & Audits')).toBeInTheDocument()
+    expect(screen.getByText('Physical Stock Counts')).toBeInTheDocument()
     expect(await screen.findByText('SC-2026-0001')).toBeInTheDocument()
     expect(screen.getByText('SC-2026-0002')).toBeInTheDocument()
     expect(screen.getAllByText('Central Warehouse').length).toBeGreaterThan(0)
@@ -113,14 +120,14 @@ describe('Stock Counts & Audits Workspace', () => {
 
     await screen.findByText('SC-2026-0001')
 
-    const startBtn = screen.getByRole('button', { name: /start stock count/i })
+    const startBtn = screen.getByRole('button', { name: /new stock count/i })
     fireEvent.click(startBtn)
 
-    expect(screen.getByText('Start Physical Stock Count')).toBeInTheDocument()
+    expect(screen.getByText('New physical stock count')).toBeInTheDocument()
   })
 
   it('renders stock count detail view with variance matrix', async () => {
-    vi.mocked(stockCountsApi.getStockCount).mockResolvedValue(mockStockCounts[0])
+    vi.mocked(stockCountsApi.getStockCount).mockResolvedValue(mockStockCounts[0]!)
 
     renderWithClient(
       <Routes>
@@ -132,14 +139,14 @@ describe('Stock Counts & Audits Workspace', () => {
     expect(await screen.findByText('SC-2026-0001')).toBeInTheDocument()
     expect(screen.getByText('Amoxicillin 500mg')).toBeInTheDocument()
     expect(screen.getByText('Paracetamol 650mg')).toBeInTheDocument()
-    expect(screen.getByText('Post & Reconcile Journal')).toBeInTheDocument()
-    expect(screen.getByText('Cancel Audit')).toBeInTheDocument()
+    expect(screen.getByText('Post adjustments')).toBeInTheDocument()
+    expect(screen.getByText('Cancel draft')).toBeInTheDocument()
   })
 
-  it('allows posting and reconciling journal for in-progress count', async () => {
-    vi.mocked(stockCountsApi.getStockCount).mockResolvedValue(mockStockCounts[0])
+  it('requires confirmation before posting a draft count', async () => {
+    vi.mocked(stockCountsApi.getStockCount).mockResolvedValue(mockStockCounts[0]!)
     vi.mocked(stockCountsApi.postStockCount).mockResolvedValue({
-      ...mockStockCounts[0],
+      ...mockStockCounts[0]!,
       status: 'POSTED',
       postedAt: '2026-09-05T00:00:00Z',
     })
@@ -153,8 +160,11 @@ describe('Stock Counts & Audits Workspace', () => {
 
     await screen.findByText('SC-2026-0001')
 
-    const postBtn = screen.getByRole('button', { name: /post & reconcile journal/i })
+    const postBtn = screen.getByRole('button', { name: /post adjustments/i })
     fireEvent.click(postBtn)
+
+    expect(screen.getByText('Post stock count adjustments?')).toBeInTheDocument()
+    fireEvent.click(screen.getAllByRole('button', { name: /post adjustments/i })[1]!)
 
     await waitFor(() => {
       expect(stockCountsApi.postStockCount).toHaveBeenCalledWith('sc-1')

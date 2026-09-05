@@ -1,25 +1,35 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Tag } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { DataTable, EmptyState, PageHeader, StatusChip } from '@/design-system'
+import { Button, DataTable, DirectoryToolbar, EmptyState, PageHeader, SearchInput, StatusChip } from '@/design-system'
 import { listPriceLists, type PriceList } from '@/features/price-lists/price-lists-api'
+import { PriceListCreateModal } from './price-list-create-modal'
+import { useCanManagePricing } from './pricing-shared'
 
 export function PriceListsPage() {
+  const navigate = useNavigate()
+  const canManage = useCanManagePricing()
+  const [creating, setCreating] = useState(false)
+  const [search, setSearch] = useState('')
   const priceLists = useQuery({
     queryKey: ['price-lists'],
     queryFn: listPriceLists,
   })
+  const lists = (priceLists.data ?? []).filter((list) => `${list.name} ${list.description ?? ''}`.toLowerCase().includes(search.toLowerCase()))
 
   return (
     <section className="workspace-page">
       <PageHeader
         eyebrow="Sales / Pricing"
         title="Price lists"
-        description="Read-only tier-pricing review. Price-list maintenance remains in Flutter during migration."
+        description="Maintain quantity-based rates and customer pricing assignments."
+        actions={canManage ? <Button onClick={() => setCreating(true)}>New price list</Button> : undefined}
       />
 
       <section className="list-panel" aria-label="Price list directory">
+        <DirectoryToolbar actions={<Button variant="ghost" onClick={() => void priceLists.refetch()}>Refresh</Button>}><SearchInput ariaLabel="Search price lists" value={search} onChange={setSearch} placeholder="Search name or description" /></DirectoryToolbar>
         {priceLists.isError ? (
           <div className="directory-state directory-state--error" role="alert">
             <strong>Price lists could not be loaded.</strong>
@@ -27,7 +37,7 @@ export function PriceListsPage() {
           </div>
         ) : priceLists.isLoading ? (
           <div aria-live="polite" className="directory-state">Loading price lists...</div>
-        ) : priceLists.data?.length ? (
+        ) : lists.length ? (
           <DataTable caption="Price lists">
             <thead>
               <tr>
@@ -38,7 +48,7 @@ export function PriceListsPage() {
                 <th scope="col">Status</th>
               </tr>
             </thead>
-            <tbody>{priceLists.data.map((priceList) => <PriceListRow key={priceList.id} priceList={priceList} />)}</tbody>
+            <tbody>{lists.map((priceList) => <PriceListRow key={priceList.id} priceList={priceList} />)}</tbody>
           </DataTable>
         ) : (
           <EmptyState
@@ -48,6 +58,7 @@ export function PriceListsPage() {
           />
         )}
       </section>
+      {creating && <PriceListCreateModal onClose={() => setCreating(false)} onCreated={(id) => navigate(appRoutes.priceListDetail(id))} />}
     </section>
   )
 }

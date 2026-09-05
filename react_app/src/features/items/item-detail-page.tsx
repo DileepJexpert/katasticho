@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, ArrowLeft, Barcode, History, Layers, Package, type LucideIcon } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Barcode, History, Layers, Package, Pencil, type LucideIcon } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
 import { Button, DataTable, DocumentCard, Fact, FactList, FilterTabs, Money, PageHeader, Quantity, StatusChip } from '@/design-system'
@@ -79,7 +79,15 @@ export function ItemDetailPage() {
         eyebrow="Inventory / Item review"
         title={item.name}
         description={`${item.sku ?? 'No SKU'} · ${formatStatusLabel(item.itemType)} · ${item.unitOfMeasure ?? 'No unit'}`}
-        actions={<StatusChip status={item.active ? 'Active' : 'Inactive'} />}
+        actions={
+          <>
+            <StatusChip status={item.active ? 'Active' : 'Inactive'} />
+            <Button onClick={() => navigate(appRoutes.itemEdit(item.id))} variant="secondary">
+              <Pencil aria-hidden="true" size={16} />
+              Edit item
+            </Button>
+          </>
+        }
       />
 
       <div className="document-actions">
@@ -87,7 +95,7 @@ export function ItemDetailPage() {
           <ArrowLeft aria-hidden="true" size={16} />
           Back to items
         </Button>
-        <span className="cell-muted">Read-only review. Stock and master-data changes remain in Flutter during migration.</span>
+        <span className="cell-muted">Stock quantity adjustments remain in the audited stock ledger.</span>
       </div>
 
       <FilterTabs

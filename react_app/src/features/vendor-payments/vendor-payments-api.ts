@@ -39,10 +39,12 @@ export type VendorPaymentRequest = {
   paymentDate: string
   amount: number
   paymentMode: string
-  paidThroughId?: string
+  paidThroughId: string
   referenceNumber?: string
+  tdsAmount?: number
+  tdsSection?: string
   notes?: string
-  allocations?: {
+  allocations: {
     billId: string
     amountApplied: number
   }[]

@@ -57,18 +57,16 @@ export function PurchaseOrderDetailPage() {
 
   const grnMutation = useMutation({
     mutationFn: () => createGrnFromPo(orderId!),
-    onSuccess: () => {
-      setFeedback('Draft Goods Receipt Note (GRN) generated from this PO.')
-      navigate(appRoutes.stockReceipts)
+    onSuccess: (receipt) => {
+      navigate(appRoutes.stockReceiptDetail(receipt.id))
     },
     onError: (err: Error) => setFeedback(`GRN creation failed: ${err.message}`),
   })
 
   const billMutation = useMutation({
     mutationFn: () => createBillFromPo(orderId!),
-    onSuccess: () => {
-      setFeedback('Draft Vendor Bill created from this PO.')
-      navigate(appRoutes.bills)
+    onSuccess: (bill) => {
+      navigate(appRoutes.billDetail(bill.id))
     },
     onError: (err: Error) => setFeedback(`Bill creation failed: ${err.message}`),
   })
@@ -92,26 +90,20 @@ export function PurchaseOrderDetailPage() {
   return (
     <section className="workspace-page">
       <PageHeader
-        actions={
-          <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
-            <StatusChip status={formatStatusLabel(document.status)} />
-            <Button onClick={() => navigate(appRoutes.purchaseOrders)} variant="secondary">
-              <ArrowLeft aria-hidden="true" size={16} />
-              Back to POs
-            </Button>
-          </div>
-        }
+        actions={<>
+          <StatusChip status={formatStatusLabel(document.status)} />
+          <Button onClick={() => navigate(appRoutes.purchaseOrders)} variant="secondary">
+            <ArrowLeft aria-hidden="true" size={16} />
+            Back to POs
+          </Button>
+        </>}
         description={`${document.supplierName} · Ordered ${formatDate(document.orderDate)}`}
         eyebrow="Purchases / Procurement / Purchase order"
         title={document.poNumber}
       />
 
       {feedback && (
-        <div
-          className="banner banner--success"
-          role="status"
-          style={{ marginBottom: 'var(--space-4)' }}
-        >
+        <div className="banner banner--success" role="status">
           <span>{feedback}</span>
           <button className="banner-dismiss" onClick={() => setFeedback(null)} type="button">✕</button>
         </div>
@@ -144,7 +136,7 @@ export function PurchaseOrderDetailPage() {
               </Button>
             )}
 
-            {document.status === 'ISSUED' && (
+            {document.status === 'SENT' && (
               <>
                 <Button
                   disabled={grnMutation.isPending}
@@ -219,7 +211,7 @@ export function PurchaseOrderDetailPage() {
             </tbody>
           </DataTable>
         ) : (
-          <div className="directory-state" style={{ minHeight: 120 }}>
+          <div className="directory-state directory-state--compact">
             No line items recorded for this purchase order.
           </div>
         )}

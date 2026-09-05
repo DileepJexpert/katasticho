@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, FileCheck, Save, Trash2 } from 'lucide-react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { ArrowLeft, FileCheck, Plus, Save, Trash2 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
 import {
   Button,
   CheckboxInput,
   DataTable,
+  EntityPicker,
   FormCard,
   FormField,
   FormGrid,
@@ -17,414 +18,226 @@ import {
   TextAreaInput,
   TextInput,
 } from '@/design-system'
-import {
-  createBill,
-  type CreatePurchaseBillRequest,
-} from '@/features/bills/bills-api'
-import { listContacts } from '@/features/contacts/contacts-api'
-import { listItems } from '@/features/items/items-api'
+import { createBill, type CreatePurchaseBillRequest } from '@/features/bills/bills-api'
+import { listContacts, type Contact } from '@/features/contacts/contacts-api'
+import { listItems, type Item } from '@/features/items/items-api'
 
-interface BillLineFormItem {
+type BillLineFormItem = {
   id: string
   lineType: 'GOODS' | 'SERVICE'
   itemId?: string
   itemName: string
   description: string
-  hsnCode?: string
+  hsnCode: string
   quantity: number
   unitPrice: number
+  discountPercent: number
   gstRate: number
-  lineTax: number
-  lineTotal: number
 }
 
 export function BillCreatePage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-
-  const [contactId, setContactId] = useState('')
+  const [vendor, setVendor] = useState<Contact | null>(null)
   const [vendorBillNumber, setVendorBillNumber] = useState('')
   const [billDate, setBillDate] = useState(() => new Date().toISOString().split('T')[0] || '')
   const [dueDate, setDueDate] = useState(() => {
-    const d = new Date()
-    d.setDate(d.getDate() + 30)
-    return d.toISOString().split('T')[0] || ''
+    const date = new Date()
+    date.setDate(date.getDate() + 30)
+    return date.toISOString().split('T')[0] || ''
   })
   const [placeOfSupply, setPlaceOfSupply] = useState('')
   const [reverseCharge, setReverseCharge] = useState(false)
   const [notes, setNotes] = useState('')
   const [lines, setLines] = useState<BillLineFormItem[]>([])
-  const [feedback, setFeedback] = useState<{ type: 'error' | 'success'; message: string } | null>(null)
+  const [feedback, setFeedback] = useState<string | null>(null)
 
-  const vendorsQuery = useQuery({
-    queryKey: ['vendors-for-bill'],
-    queryFn: () => listContacts({ filter: 'VENDOR', page: 0 }),
-  })
-
-  const itemsQuery = useQuery({
-    queryKey: ['items-for-bill'],
-    queryFn: () => listItems({ page: 0 }),
-  })
-
-  const vendors = vendorsQuery.data?.content ?? []
-  const catalogItems = itemsQuery.data?.content ?? []
-
-  const handleAddItem = (itemId: string) => {
-    const item = catalogItems.find((i) => i.id === itemId)
+  const addCatalogItem = (item: Item | null | undefined) => {
     if (!item) return
-    const price = Number(item.purchasePrice || 0)
-    const gst = Number(item.gstRate || 18)
-    const tax = (price * gst) / 100
-    const newLine: BillLineFormItem = {
-      id: Math.random().toString(36).substring(2, 9),
-      lineType: 'GOODS',
-      itemId: item.id,
-      itemName: item.name,
-      description: item.name,
-      hsnCode: item.hsnCode || '',
-      quantity: 1,
-      unitPrice: price,
-      gstRate: gst,
-      lineTax: tax,
-      lineTotal: price + tax,
-    }
-    setLines((prev) => [...prev, newLine])
+    setLines((previous) => [
+      ...previous,
+      {
+        id: crypto.randomUUID(),
+        lineType: 'GOODS',
+        itemId: item.id,
+        itemName: item.name,
+        description: item.name,
+        hsnCode: item.hsnCode || '',
+        quantity: 1,
+        unitPrice: Number(item.purchasePrice || 0),
+        discountPercent: 0,
+        gstRate: Number(item.gstRate || 0),
+      },
+    ])
   }
 
-  const handleUpdateLine = (id: string, updates: Partial<BillLineFormItem>) => {
-    setLines((prev) =>
-      prev.map((l) => {
-        if (l.id !== id) return l
-        const updated = { ...l, ...updates }
-        const taxable = (updated.quantity || 0) * (updated.unitPrice || 0)
-        const tax = ((updated.gstRate || 0) / 100) * taxable
-        updated.lineTax = tax
-        updated.lineTotal = taxable + tax
-        return updated
-      })
-    )
+  const addServiceLine = () => {
+    setLines((previous) => [
+      ...previous,
+      {
+        id: crypto.randomUUID(),
+        lineType: 'SERVICE',
+        itemName: 'Service',
+        description: '',
+        hsnCode: '',
+        quantity: 1,
+        unitPrice: 0,
+        discountPercent: 0,
+        gstRate: 0,
+      },
+    ])
   }
 
-  const handleRemoveLine = (id: string) => {
-    setLines((prev) => prev.filter((l) => l.id !== id))
+  const updateLine = (id: string, updates: Partial<BillLineFormItem>) => {
+    setLines((previous) => previous.map((line) => line.id === id ? { ...line, ...updates } : line))
   }
 
-  const subtotal = useMemo(() => {
-    return lines.reduce((acc, l) => acc + (l.quantity || 0) * (l.unitPrice || 0), 0)
-  }, [lines])
-
-  const totalGst = useMemo(() => {
-    return lines.reduce((acc, l) => acc + (l.lineTax || 0), 0)
-  }, [lines])
-
-  const grandTotal = useMemo(() => {
-    return subtotal + totalGst
-  }, [subtotal, totalGst])
+  const summary = useMemo(() => lines.reduce((totals, line) => {
+    const gross = line.quantity * line.unitPrice
+    const taxable = gross * (1 - line.discountPercent / 100)
+    const tax = taxable * line.gstRate / 100
+    return { subtotal: totals.subtotal + taxable, tax: totals.tax + tax }
+  }, { subtotal: 0, tax: 0 }), [lines])
 
   const createMutation = useMutation({
-    mutationFn: (req: CreatePurchaseBillRequest) => createBill(req),
-    onSuccess: () => {
+    mutationFn: (request: CreatePurchaseBillRequest) => createBill(request),
+    onSuccess: (bill) => {
       queryClient.invalidateQueries({ queryKey: ['bills'] })
-      navigate(appRoutes.bills)
+      navigate(appRoutes.billDetail(bill.id))
     },
-    onError: (err: unknown) => {
-      const msg = err instanceof Error ? err.message : 'Failed to create vendor bill.'
-      setFeedback({ type: 'error', message: msg })
-    },
+    onError: (error: Error) => setFeedback(error.message),
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault()
     setFeedback(null)
-
-    if (!contactId) {
-      setFeedback({ type: 'error', message: 'Please select a vendor.' })
+    if (!vendor) {
+      setFeedback('Select a vendor contact before recording the bill.')
       return
     }
-
-    if (lines.length === 0) {
-      setFeedback({ type: 'error', message: 'Please add at least one line item to the bill.' })
+    if (!lines.length || lines.some((line) => !line.description.trim())) {
+      setFeedback('Add at least one line and enter a description for every line.')
       return
     }
-
     createMutation.mutate({
-      contactId,
+      contactId: vendor.id,
       vendorBillNumber: vendorBillNumber.trim() || undefined,
       billDate,
-      dueDate,
+      dueDate: dueDate || undefined,
       placeOfSupply: placeOfSupply.trim() || undefined,
       reverseCharge,
       notes: notes.trim() || undefined,
-      lines: lines.map((l) => ({
-        lineType: l.lineType,
-        description: l.description,
-        hsnCode: l.hsnCode || undefined,
-        itemId: l.itemId,
-        quantity: l.quantity,
-        unitPrice: l.unitPrice,
-        gstRate: l.gstRate,
+      lines: lines.map((line) => ({
+        lineType: line.lineType,
+        itemId: line.lineType === 'GOODS' ? line.itemId : undefined,
+        description: line.description.trim(),
+        hsnCode: line.hsnCode.trim() || undefined,
+        quantity: line.quantity,
+        unitPrice: line.unitPrice,
+        discountPercent: line.discountPercent,
+        gstRate: line.gstRate,
       })),
     })
   }
 
   return (
     <section className="workspace-page">
-      <Link className="form-back-link" to={appRoutes.bills}>
-        <ArrowLeft size={16} /> Back to Bills
-      </Link>
-
-      <PageHeader
-        eyebrow="Purchases / Payables"
-        title="New Vendor Bill"
-        description="Book vendor invoices against accounts payable, input tax credits, and purchase ledgers."
-      />
-
-      {feedback && (
-        <div
-          className={`banner ${feedback.type === 'success' ? 'banner--success' : 'banner--error'}`}
-          role="alert"
-          style={{ marginBottom: 'var(--space-4)' }}
-        >
-          <span>{feedback.message}</span>
-          <button className="banner-dismiss" onClick={() => setFeedback(null)} type="button">
-            ✕
-          </button>
-        </div>
-      )}
+      <Link className="form-back-link" to={appRoutes.bills}><ArrowLeft size={16} /> Back to bills</Link>
+      <PageHeader eyebrow="Purchases / Payables" title="New Vendor Bill" description="Record a vendor invoice. The server calculates tax, accounts payable, journals, and any stock impact when you post it." />
+      {feedback ? <div className="banner banner--error" role="alert">{feedback}</div> : null}
 
       <form className="create-form-container" onSubmit={handleSubmit}>
-        <FormCard
-          description="Identify the vendor, enter their invoice reference, and set payment timelines."
-          stepNumber={1}
-          title="Vendor & Invoice Reference"
-        >
+        <FormCard description="Use the vendor contact that owns the AP balance and capture the vendor's document reference." stepNumber={1} title="Vendor and invoice reference">
           <FormGrid columns={4}>
-            <FormField label="Vendor / Supplier" required>
-              <SelectInput
-                onChange={(e) => setContactId(e.target.value)}
-                options={vendors.map((v) => ({
-                  value: v.id,
-                  label: `${v.displayName} ${v.companyName ? '(' + v.companyName + ')' : ''}`,
-                }))}
-                placeholderOption="-- Select Vendor --"
-                required
-                value={contactId}
+            <FormField label="Vendor contact" required>
+              <EntityPicker
+                ariaLabel="Search vendor contacts"
+                getOptionBadge={(item) => item.contactType}
+                getOptionDescription={(item) => [item.companyName, item.gstin, item.phone].filter(Boolean).join(' / ')}
+                getOptionId={(item) => item.id}
+                getOptionLabel={(item) => item.displayName}
+                onChange={(_id, item) => setVendor(item ?? null)}
+                onSearch={async (search) => (await listContacts({ filter: 'VENDOR', page: 0, search, size: 20 })).content}
+                placeholder="Search vendor name, company, GSTIN, or phone"
+                selectedEntity={vendor}
+                value={vendor?.id ?? null}
               />
             </FormField>
-
-            <FormField label="Vendor Invoice #" required>
-              <TextInput
-                onChange={(e) => setVendorBillNumber(e.target.value)}
-                placeholder="e.g. INV-2026-908"
-                required
-                value={vendorBillNumber}
-              />
-            </FormField>
-
-            <FormField label="Bill Date" required>
-              <TextInput
-                onChange={(e) => setBillDate(e.target.value)}
-                required
-                type="date"
-                value={billDate}
-              />
-            </FormField>
-
-            <FormField label="Due Date" required>
-              <TextInput
-                onChange={(e) => setDueDate(e.target.value)}
-                required
-                type="date"
-                value={dueDate}
-              />
-            </FormField>
-
-            <FormField label="Place of Supply">
-              <TextInput
-                onChange={(e) => setPlaceOfSupply(e.target.value)}
-                placeholder="e.g. 29-Karnataka"
-                value={placeOfSupply}
-              />
-            </FormField>
-
-            <div style={{ display: 'flex', alignItems: 'center', height: '100%', paddingTop: 'var(--space-4)' }}>
-              <CheckboxInput
-                checked={reverseCharge}
-                description="Tax payable by recipient under RCM"
-                onChange={(e) => setReverseCharge(e.target.checked)}
-                title="Reverse Charge"
-              />
-            </div>
+            <FormField label="Vendor invoice number"><TextInput onChange={(event) => setVendorBillNumber(event.target.value)} placeholder="e.g. INV-2026-908" value={vendorBillNumber} /></FormField>
+            <FormField label="Bill date" required><TextInput onChange={(event) => setBillDate(event.target.value)} required type="date" value={billDate} /></FormField>
+            <FormField label="Due date"><TextInput onChange={(event) => setDueDate(event.target.value)} type="date" value={dueDate} /></FormField>
+            <FormField label="Place of supply"><TextInput onChange={(event) => setPlaceOfSupply(event.target.value)} placeholder="e.g. 09-Uttar Pradesh" value={placeOfSupply} /></FormField>
+            <FormField label="Reverse charge"><CheckboxInput checked={reverseCharge} description="Tax is payable by the recipient under RCM" onChange={(event) => setReverseCharge(event.target.checked)} title="RCM applies" /></FormField>
           </FormGrid>
         </FormCard>
 
-        <FormCard
-          description="Vendor products/services, received quantities, tax rates, and landed costs."
-          headerAction={
-            <div style={{ minWidth: 260 }}>
-              <SelectInput
-                onChange={(e) => {
-                  if (e.target.value) {
-                    handleAddItem(e.target.value)
-                    e.target.value = ''
-                  }
-                }}
-                options={catalogItems.map((item) => ({
-                  value: item.id,
-                  label: `${item.name} (${item.sku || 'No SKU'})`,
-                }))}
-                placeholderOption="+ Add Item to Bill..."
-                value=""
+        <FormCard description="Select catalog goods or add a service line. The preview is informational; the server remains the source of truth for tax and totals." stepNumber={2} title={`Bill lines (${lines.length})`}>
+          <FormGrid columns={2}>
+            <FormField label="Add catalog good">
+              <EntityPicker<Item>
+                ariaLabel="Search items to add to vendor bill"
+                getOptionDescription={(item) => [item.sku, item.hsnCode, item.unitOfMeasure].filter(Boolean).join(' / ')}
+                getOptionId={(item) => item.id}
+                getOptionLabel={(item) => item.name}
+                onChange={(_id, item) => addCatalogItem(item)}
+                onSearch={async (search) => (await listItems({ activeOnly: true, search, size: 20 })).content}
+                placeholder="Search item name, SKU, or HSN"
+                value={null}
               />
-            </div>
-          }
-          stepNumber={2}
-          title={`Bill Line Items (${lines.length})`}
-        >
-          {lines.length === 0 ? (
-            <div className="directory-state" style={{ padding: 'var(--space-6)' }}>
-              <FileCheck size={28} />
-              <p>No line items added yet. Select an item above to add it to this bill.</p>
-            </div>
-          ) : (
-            <>
-              <DataTable caption="Bill Lines">
-                <thead>
-                  <tr>
-                    <th scope="col">Description</th>
-                    <th scope="col">HSN</th>
-                    <th className="numeric-cell" scope="col">Qty</th>
-                    <th className="numeric-cell" scope="col">Unit Cost (₹)</th>
-                    <th className="numeric-cell" scope="col">GST %</th>
-                    <th className="numeric-cell" scope="col">Tax</th>
-                    <th className="numeric-cell" scope="col">Total</th>
-                    <th style={{ width: '40px' }} />
-                  </tr>
-                </thead>
-                <tbody>
-                  {lines.map((line) => (
-                    <tr key={line.id}>
-                      <td>
-                        <div className="cell-stack">
-                          <strong>{line.itemName}</strong>
-                          <TextInput
-                            onChange={(e) => handleUpdateLine(line.id, { description: e.target.value })}
-                            placeholder="Line description"
-                            style={{ marginTop: 'var(--space-1)', width: '100%' }}
-                            value={line.description}
-                          />
-                        </div>
-                      </td>
-                      <td>
-                        <TextInput
-                          onChange={(e) => handleUpdateLine(line.id, { hsnCode: e.target.value })}
-                          placeholder="HSN"
-                          style={{ width: 85 }}
-                          value={line.hsnCode}
-                        />
-                      </td>
-                      <td className="numeric-cell">
-                        <NumberInput
-                          min={1}
-                          onChange={(e) => handleUpdateLine(line.id, { quantity: parseFloat(e.target.value) || 0 })}
-                          step="1"
-                          style={{ width: 75 }}
-                          value={line.quantity}
-                        />
-                      </td>
-                      <td className="numeric-cell">
-                        <NumberInput
-                          currencyPrefix="₹"
-                          min={0}
-                          onChange={(e) => handleUpdateLine(line.id, { unitPrice: parseFloat(e.target.value) || 0 })}
-                          step="0.01"
-                          style={{ width: 105 }}
-                          value={line.unitPrice}
-                        />
-                      </td>
-                      <td className="numeric-cell">
-                        <NumberInput
-                          max={28}
-                          min={0}
-                          onChange={(e) => handleUpdateLine(line.id, { gstRate: parseFloat(e.target.value) || 0 })}
-                          step="any"
-                          style={{ width: 75 }}
-                          unitSuffix="%"
-                          value={line.gstRate}
-                        />
-                      </td>
-                      <td className="numeric-cell">
-                        <Money amount={line.lineTax} />
-                      </td>
-                      <td className="numeric-cell">
-                        <strong>
-                          <Money amount={line.lineTotal} />
-                        </strong>
-                      </td>
-                      <td>
-                        <Button
-                          aria-label="Remove item"
-                          onClick={() => handleRemoveLine(line.id)}
-                          type="button"
-                          variant="ghost"
-                        >
-                          <Trash2 color="var(--color-danger)" size={14} />
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </DataTable>
+            </FormField>
+            <FormField label="Non-stock service"><Button onClick={addServiceLine} type="button" variant="secondary"><Plus size={16} /> Add service line</Button></FormField>
+          </FormGrid>
 
-              <div className="form-summary-card">
-                <div className="form-summary-row">
-                  <span className="cell-muted">Taxable Subtotal:</span>
-                  <Money amount={subtotal} />
-                </div>
-                <div className="form-summary-row">
-                  <span className="cell-muted">Input GST (ITC):</span>
-                  <Money amount={totalGst} />
-                </div>
-                <div className="form-summary-row form-summary-row--total">
-                  <span>Bill Total:</span>
-                  <Money amount={grandTotal} />
-                </div>
-              </div>
-            </>
-          )}
+          {lines.length ? (
+            <DataTable caption="Vendor bill lines">
+              <thead>
+                <tr>
+                  <th scope="col">Description</th>
+                  <th scope="col">Type</th>
+                  <th scope="col">HSN</th>
+                  <th className="numeric-cell" scope="col">Qty</th>
+                  <th className="numeric-cell" scope="col">Unit cost</th>
+                  <th className="numeric-cell" scope="col">Discount</th>
+                  <th className="numeric-cell" scope="col">GST</th>
+                  <th className="numeric-cell" scope="col">Total preview</th>
+                  <th scope="col"><span className="visually-hidden">Remove</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {lines.map((line) => {
+                  const taxable = line.quantity * line.unitPrice * (1 - line.discountPercent / 100)
+                  const total = taxable * (1 + line.gstRate / 100)
+                  return (
+                    <tr key={line.id}>
+                      <td><div className="cell-stack"><strong>{line.itemName}</strong><TextInput aria-label={`Description for ${line.itemName}`} onChange={(event) => updateLine(line.id, { description: event.target.value })} placeholder="Line description" value={line.description} /></div></td>
+                      <td><SelectInput aria-label={`Line type for ${line.itemName}`} disabled={line.lineType === 'SERVICE'} onChange={(event) => updateLine(line.id, { lineType: event.target.value as BillLineFormItem['lineType'] })} options={[{ value: 'GOODS', label: 'Goods' }, { value: 'SERVICE', label: 'Service' }]} value={line.lineType} /></td>
+                      <td><TextInput aria-label={`HSN for ${line.itemName}`} onChange={(event) => updateLine(line.id, { hsnCode: event.target.value })} placeholder="HSN" value={line.hsnCode} /></td>
+                      <td className="numeric-cell"><NumberInput min={0.0001} onChange={(event) => updateLine(line.id, { quantity: Number(event.target.value) || 0 })} step="0.0001" value={line.quantity} /></td>
+                      <td className="numeric-cell"><NumberInput currencyPrefix="INR" min={0} onChange={(event) => updateLine(line.id, { unitPrice: Number(event.target.value) || 0 })} step="0.01" value={line.unitPrice} /></td>
+                      <td className="numeric-cell"><NumberInput max={100} min={0} onChange={(event) => updateLine(line.id, { discountPercent: Number(event.target.value) || 0 })} step="0.01" unitSuffix="%" value={line.discountPercent} /></td>
+                      <td className="numeric-cell"><NumberInput max={100} min={0} onChange={(event) => updateLine(line.id, { gstRate: Number(event.target.value) || 0 })} step="0.01" unitSuffix="%" value={line.gstRate} /></td>
+                      <td className="numeric-cell"><Money amount={total} /></td>
+                      <td><Button aria-label={`Remove ${line.itemName}`} onClick={() => setLines((previous) => previous.filter((entry) => entry.id !== line.id))} type="button" variant="ghost"><Trash2 size={14} /></Button></td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </DataTable>
+          ) : <div className="directory-state"><FileCheck size={28} /><p>Add a catalog good or service line to begin this bill.</p></div>}
+          <div className="form-summary-card">
+            <div className="form-summary-row"><span>Taxable subtotal preview</span><Money amount={summary.subtotal} /></div>
+            <div className="form-summary-row"><span>Input GST preview</span><Money amount={summary.tax} /></div>
+            <div className="form-summary-row form-summary-row--total"><span>Bill total preview</span><Money amount={summary.subtotal + summary.tax} /></div>
+          </div>
         </FormCard>
 
-        <FormCard
-          description="Internal verification notes and vendor references."
-          stepNumber={3}
-          title="Notes & References"
-        >
-          <FormField label="Internal / Vendor Notes">
-            <TextAreaInput
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Vendor notes, verification comments..."
-              rows={3}
-              value={notes}
-            />
-          </FormField>
+        <FormCard description="These notes are retained with the vendor bill after it is posted." stepNumber={3} title="Notes">
+          <FormField label="Internal and vendor notes"><TextAreaInput onChange={(event) => setNotes(event.target.value)} placeholder="Verification comments or supplier notes" rows={3} value={notes} /></FormField>
         </FormCard>
 
         <div className="form-actions-bar">
-          <Button
-            onClick={() => navigate(appRoutes.bills)}
-            type="button"
-            variant="secondary"
-          >
-            Cancel
-          </Button>
-          <Button
-            disabled={createMutation.isPending || !contactId || lines.length === 0}
-            type="submit"
-            variant="primary"
-          >
-            <Save size={16} />
-            {createMutation.isPending ? 'Saving...' : 'Record Vendor Bill'}
-          </Button>
+          <Button onClick={() => navigate(appRoutes.bills)} type="button" variant="secondary">Cancel</Button>
+          <Button disabled={createMutation.isPending || !vendor || !lines.length} type="submit" variant="primary"><Save size={16} />{createMutation.isPending ? 'Creating...' : 'Record vendor bill'}</Button>
         </div>
       </form>
     </section>

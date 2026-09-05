@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Save } from 'lucide-react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
 import {
   Button,
+  EntityPicker,
   FormCard,
   FormField,
   FormGrid,
@@ -15,264 +16,136 @@ import {
   TextAreaInput,
   TextInput,
 } from '@/design-system'
-import { listContacts } from '@/features/contacts/contacts-api'
-import { listInvoices } from '@/features/invoices/invoices-api'
-import { recordPayment, type RecordPaymentRequest } from '@/features/payments/payments-api'
+import {
+  getInvoice,
+  listInvoices,
+  recordInvoicePayment,
+  type Invoice,
+  type RecordInvoicePaymentRequest,
+} from '@/features/invoices/invoices-api'
 
-const PAYMENT_METHODS = [
-  { value: 'BANK_TRANSFER', label: 'Bank Transfer / NEFT / RTGS' },
+const paymentMethods = [
+  { value: 'BANK_TRANSFER', label: 'Bank transfer / NEFT / RTGS' },
   { value: 'UPI', label: 'UPI' },
   { value: 'CASH', label: 'Cash' },
   { value: 'CHEQUE', label: 'Cheque' },
   { value: 'CARD', label: 'Card' },
 ]
 
+function isPayable(invoice: Invoice) {
+  return ['SENT', 'PARTIALLY_PAID', 'OVERDUE'].includes(invoice.status) && Number(invoice.balanceDue) > 0
+}
+
 export function PaymentCreatePage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [searchParams] = useSearchParams()
   const initialInvoiceId = searchParams.get('invoiceId') || ''
-  const queryClient = useQueryClient()
-
-  const [contactId, setContactId] = useState('')
   const [invoiceId, setInvoiceId] = useState(initialInvoiceId)
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
   const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().split('T')[0] || '')
   const [amount, setAmount] = useState(0)
   const [paymentMethod, setPaymentMethod] = useState('BANK_TRANSFER')
   const [referenceNumber, setReferenceNumber] = useState('')
-  const [bankAccount, setBankAccount] = useState('')
   const [notes, setNotes] = useState('')
-  const [feedback, setFeedback] = useState<{ type: 'error' | 'success'; message: string } | null>(null)
-
-  const contactsQuery = useQuery({
-    queryKey: ['contacts-for-payments'],
-    queryFn: () => listContacts({ filter: 'CUSTOMER', page: 0 }),
+  const [feedback, setFeedback] = useState<string | null>(null)
+  const sourceInvoice = useQuery({
+    queryKey: ['invoices', initialInvoiceId, 'payment-source'],
+    queryFn: () => getInvoice(initialInvoiceId),
+    enabled: Boolean(initialInvoiceId),
   })
 
-  const invoicesQuery = useQuery({
-    queryKey: ['invoices-for-payments'],
-    queryFn: () => listInvoices({ page: 0, search: '', status: null }),
-  })
+  useEffect(() => {
+    if (!sourceInvoice.data || invoiceId !== initialInvoiceId || selectedInvoice?.id === sourceInvoice.data.id) return
+    setInvoiceId(sourceInvoice.data.id)
+    setSelectedInvoice(sourceInvoice.data)
+    setAmount(Number(sourceInvoice.data.balanceDue) || 0)
+  }, [initialInvoiceId, invoiceId, selectedInvoice?.id, sourceInvoice.data])
 
-  const customers = contactsQuery.data?.content ?? []
-  const allInvoices = invoicesQuery.data?.content ?? []
-
-  const eligibleInvoices = useMemo(() => {
-    return allInvoices.filter((inv) => {
-      const hasBalance = Number(inv.balanceDue) > 0 || inv.status !== 'PAID'
-      if (!hasBalance) return false
-      if (contactId) return inv.contactId === contactId
-      return true
-    })
-  }, [allInvoices, contactId])
-
-  const selectedInvoice = useMemo(() => {
-    return allInvoices.find((inv) => inv.id === invoiceId)
-  }, [allInvoices, invoiceId])
-
-  const handleSelectInvoice = (invId: string) => {
-    setInvoiceId(invId)
-    const inv = allInvoices.find((i) => i.id === invId)
-    if (inv) {
-      if (inv.contactId && !contactId) setContactId(inv.contactId)
-      const due = Number(inv.balanceDue) || Number(inv.totalAmount) || 0
-      setAmount(due)
-    }
+  const selectInvoice = (invoice: Invoice | null | undefined) => {
+    setSelectedInvoice(invoice ?? null)
+    setInvoiceId(invoice?.id ?? '')
+    setAmount(Number(invoice?.balanceDue) || 0)
   }
 
   const createMutation = useMutation({
-    mutationFn: (req: RecordPaymentRequest) => recordPayment(req),
-    onSuccess: () => {
+    mutationFn: (request: RecordInvoicePaymentRequest) => recordInvoicePayment(invoiceId, request),
+    onSuccess: (payment) => {
       queryClient.invalidateQueries({ queryKey: ['payments'] })
       queryClient.invalidateQueries({ queryKey: ['invoices'] })
-      navigate(appRoutes.payments)
+      queryClient.invalidateQueries({ queryKey: ['invoices', invoiceId] })
+      queryClient.invalidateQueries({ queryKey: ['invoices', invoiceId, 'payments'] })
+      navigate(appRoutes.paymentDetail(payment.id))
     },
-    onError: (err: unknown) => {
-      const msg = err instanceof Error ? err.message : 'Failed to record payment.'
-      setFeedback({ type: 'error', message: msg })
-    },
+    onError: (error: Error) => setFeedback(error.message),
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault()
     setFeedback(null)
-
-    if (!invoiceId) {
-      setFeedback({ type: 'error', message: 'Please select an invoice to record payment against.' })
+    if (!selectedInvoice || !invoiceId) {
+      setFeedback('Select a sent, partially paid, or overdue invoice before recording payment.')
       return
     }
-
-    if (!amount || amount <= 0) {
-      setFeedback({ type: 'error', message: 'Payment amount must be greater than 0.' })
+    if (!isPayable(selectedInvoice)) {
+      setFeedback('The selected invoice is not currently payable. Refresh the invoice and review its status.')
       return
     }
-
+    if (amount <= 0) {
+      setFeedback('Payment amount must be greater than zero.')
+      return
+    }
+    if (amount > Number(selectedInvoice.balanceDue)) {
+      setFeedback('Payment cannot exceed the current balance due. The server also validates this at submission time.')
+      return
+    }
     createMutation.mutate({
-      invoiceId,
-      contactId: contactId || undefined,
-      paymentDate,
       amount,
+      paymentDate,
       paymentMethod,
       referenceNumber: referenceNumber.trim() || undefined,
-      bankAccount: bankAccount.trim() || undefined,
       notes: notes.trim() || undefined,
     })
   }
 
   return (
     <section className="workspace-page">
-      <Link className="form-back-link" to={appRoutes.payments}>
-        <ArrowLeft size={16} /> Back to Customer Payments
-      </Link>
-
-      <PageHeader
-        eyebrow="Sales / Receivables"
-        title="Record Customer Payment"
-        description="Receive payment against outstanding customer invoices, update account balances, and record transaction references."
-      />
-
-      {feedback && (
-        <div
-          className={`banner ${feedback.type === 'success' ? 'banner--success' : 'banner--error'}`}
-          role="alert"
-          style={{ marginBottom: 'var(--space-4)' }}
-        >
-          <span>{feedback.message}</span>
-          <button className="banner-dismiss" onClick={() => setFeedback(null)} type="button">
-            ✕
-          </button>
-        </div>
-      )}
+      <Link className="form-back-link" to={appRoutes.payments}><ArrowLeft size={16} /> Back to customer payments</Link>
+      <PageHeader eyebrow="Sales / Receivables" title="Record customer payment" description="Apply a full or partial receipt to one sent invoice. The server protects against over-collection and posts the accounting entry." />
+      {feedback ? <div className="banner banner--error" role="alert">{feedback}</div> : null}
+      {sourceInvoice.isError ? <div className="banner banner--error" role="alert">The invoice requested by this link could not be loaded. Search for a payable invoice below.</div> : null}
 
       <form className="create-form-container" onSubmit={handleSubmit}>
-        <FormCard
-          description="Select customer and choose from unpaid invoices."
-          stepNumber={1}
-          title="Customer & Invoice Details"
-        >
-          <FormGrid columns={2}>
-            <FormField label="Filter by Customer">
-              <SelectInput
-                onChange={(e) => {
-                  setContactId(e.target.value)
-                  setInvoiceId('')
-                }}
-                options={customers.map((c) => ({
-                  value: c.id,
-                  label: c.displayName || c.name || '',
-                }))}
-                placeholderOption="-- All Customers --"
-                value={contactId}
-              />
-            </FormField>
-
-            <FormField label="Invoice to Pay" required>
-              <SelectInput
-                onChange={(e) => handleSelectInvoice(e.target.value)}
-                options={eligibleInvoices.map((inv) => ({
-                  value: inv.id,
-                  label: `${inv.invoiceNumber} - ${inv.contactName || 'Customer'} (Due: ₹${Number(inv.balanceDue || 0).toLocaleString('en-IN')})`,
-                }))}
-                placeholderOption="-- Select Unpaid Invoice --"
-                required
-                value={invoiceId}
-              />
-            </FormField>
-          </FormGrid>
-
-          {selectedInvoice && (
-            <div className="form-summary-card" style={{ marginTop: 'var(--space-3)', width: '100%', maxWidth: 360 }}>
-              <div className="form-summary-row">
-                <span className="cell-muted">Total Invoice Amount:</span>
-                <Money amount={selectedInvoice.totalAmount} />
-              </div>
-              <div className="form-summary-row form-summary-row--total">
-                <span>Balance Due:</span>
-                <Money amount={selectedInvoice.balanceDue} />
-              </div>
-            </div>
-          )}
+        <FormCard description="Search only payable sales invoices. Customer identity is derived from the selected invoice so it cannot drift from the receivable." stepNumber={1} title="Invoice to settle">
+          <FormField label="Customer invoice" required>
+            <EntityPicker
+              ariaLabel="Search payable customer invoices"
+              getOptionDescription={(invoice) => `${invoice.contactName ?? 'Unknown customer'} / ${invoice.status}`}
+              getOptionId={(invoice) => invoice.id}
+              getOptionLabel={(invoice) => invoice.invoiceNumber}
+              onChange={(_id, invoice) => selectInvoice(invoice)}
+              onSearch={async (search) => (await listInvoices({ page: 0, search, status: null })).content.filter(isPayable)}
+              placeholder="Search invoice number or customer"
+              selectedEntity={selectedInvoice}
+              value={invoiceId || null}
+            />
+          </FormField>
+          {selectedInvoice ? <div className="form-summary-card"><div className="form-summary-row"><span>Customer</span><strong>{selectedInvoice.contactName ?? '--'}</strong></div><div className="form-summary-row"><span>Invoice total</span><Money amount={selectedInvoice.totalAmount} currency={selectedInvoice.currency ?? 'INR'} /></div><div className="form-summary-row form-summary-row--total"><span>Balance due</span><Money amount={selectedInvoice.balanceDue} currency={selectedInvoice.currency ?? 'INR'} /></div></div> : null}
         </FormCard>
 
-        <FormCard
-          description="Enter the amount collected, payment channel, transaction ID, and banking details."
-          stepNumber={2}
-          title="Payment Transaction"
-        >
+        <FormCard description="Enter the actual collection. Use a lower amount for a part-payment; the outstanding balance remains open for the next receipt." stepNumber={2} title="Receipt details">
           <FormGrid columns={3}>
-            <FormField label="Amount Received" required>
-              <NumberInput
-                currencyPrefix="₹"
-                min={0.01}
-                onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
-                required
-                step="0.01"
-                value={amount}
-              />
-            </FormField>
-
-            <FormField label="Payment Date" required>
-              <TextInput
-                onChange={(e) => setPaymentDate(e.target.value)}
-                required
-                type="date"
-                value={paymentDate}
-              />
-            </FormField>
-
-            <FormField label="Payment Method" required>
-              <SelectInput
-                onChange={(e) => setPaymentMethod(e.target.value)}
-                options={PAYMENT_METHODS}
-                required
-                value={paymentMethod}
-              />
-            </FormField>
-
-            <FormField label="Reference / UTR / Cheque #">
-              <TextInput
-                onChange={(e) => setReferenceNumber(e.target.value)}
-                placeholder="e.g. UTR12345678"
-                value={referenceNumber}
-              />
-            </FormField>
-
-            <FormField label="Bank Account / Ledger">
-              <TextInput
-                onChange={(e) => setBankAccount(e.target.value)}
-                placeholder="e.g. HDFC Current Account"
-                value={bankAccount}
-              />
-            </FormField>
+            <FormField label="Amount received" required><NumberInput currencyPrefix="INR" max={selectedInvoice ? Number(selectedInvoice.balanceDue) : undefined} min={0.01} onChange={(event) => setAmount(Number(event.target.value) || 0)} required step="0.01" value={amount} /></FormField>
+            <FormField label="Payment date" required><TextInput onChange={(event) => setPaymentDate(event.target.value)} required type="date" value={paymentDate} /></FormField>
+            <FormField label="Payment method" required><SelectInput onChange={(event) => setPaymentMethod(event.target.value)} options={paymentMethods} required value={paymentMethod} /></FormField>
+            <FormField label="Reference, UTR, or cheque number" span={2}><TextInput onChange={(event) => setReferenceNumber(event.target.value)} placeholder="e.g. UTR123456789" value={referenceNumber} /></FormField>
+            <FormField label="Collection notes" span="full"><TextAreaInput onChange={(event) => setNotes(event.target.value)} placeholder="Customer collection or reconciliation remarks" rows={3} value={notes} /></FormField>
           </FormGrid>
-
-          <div style={{ marginTop: 'var(--space-4)' }}>
-            <FormField label="Payment Notes">
-              <TextAreaInput
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Collection remarks, customer receipt note..."
-                rows={2}
-                value={notes}
-              />
-            </FormField>
-          </div>
         </FormCard>
 
         <div className="form-actions-bar">
-          <Button
-            onClick={() => navigate(appRoutes.payments)}
-            type="button"
-            variant="secondary"
-          >
-            Cancel
-          </Button>
-          <Button
-            disabled={createMutation.isPending || !invoiceId || amount <= 0}
-            type="submit"
-            variant="primary"
-          >
-            <Save size={16} />
-            {createMutation.isPending ? 'Recording...' : 'Record Payment'}
-          </Button>
+          <Button onClick={() => navigate(appRoutes.payments)} type="button" variant="secondary">Cancel</Button>
+          <Button disabled={createMutation.isPending || !selectedInvoice || amount <= 0} type="submit" variant="primary"><Save size={16} />{createMutation.isPending ? 'Recording...' : 'Record payment'}</Button>
         </div>
       </form>
     </section>

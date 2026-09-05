@@ -94,69 +94,36 @@ export function SalesReceiptsPage() {
   }
 
   return (
-    <section className="workspace-page">
+    <section className="workspace-page pos-receipts-page">
       <PageHeader
         eyebrow="Sales & Retail Billing"
-        title="POS Sales Receipts"
-        description="Completed counter sales receipts, tender breakdowns, tax invoices, and sales return audit records."
+        title="Sales receipts"
+        description="Completed counter sales, tender details, GST receipts, and return audit records."
         actions={
-          <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
-            <Link className="btn btn--secondary" to="/pos/cash-registers">
-              <DollarSign aria-hidden="true" size={14} style={{ marginRight: 6 }} />
+          <div className="pos-receipts-page__actions">
+            <Link className="button button--secondary" to="/pos/cash-registers">
+              <DollarSign aria-hidden="true" size={15} />
               Cash Registers
             </Link>
-            <Link className="btn btn--primary" to="/pos">
-              <ShoppingBag aria-hidden="true" size={14} style={{ marginRight: 6 }} />
+            <Link className="button" to="/pos">
+              <ShoppingBag aria-hidden="true" size={15} />
               Open POS Counter
             </Link>
           </div>
         }
       />
 
-      <div className="summary-strip">
-        <div className="summary-card">
-          <span className="summary-card__label">Total Receipts</span>
-          <strong className="summary-card__value">
-            <Quantity value={filtered.length} />
-          </strong>
-          <span className="summary-card__hint">Completed transactions</span>
-        </div>
-        <div className="summary-card">
-          <span className="summary-card__label">Cash Receipts</span>
-          <strong className="summary-card__value">
-            <Money amount={cashSales} />
-          </strong>
-          <span className="summary-card__hint">Counter drawer cash</span>
-        </div>
-        <div className="summary-card">
-          <span className="summary-card__label">Digital / UPI</span>
-          <strong className="summary-card__value">
-            <Money amount={upiSales} />
-          </strong>
-          <span className="summary-card__hint">Direct UPI transfers</span>
-        </div>
-        <div className="summary-card">
-          <span className="summary-card__label">Card Payments</span>
-          <strong className="summary-card__value">
-            <Money amount={cardSales} />
-          </strong>
-          <span className="summary-card__hint">POS swipe / EDC</span>
-        </div>
-        <div className="summary-card summary-card--accent">
-          <span className="summary-card__label">Total POS Volume</span>
-          <strong className="summary-card__value">
-            <Money amount={totalSales} />
-          </strong>
-          <span className="summary-card__hint">Gross retail revenue</span>
-        </div>
-      </div>
+      <section aria-label="Sales receipt totals" className="pos-receipts-summary">
+        <div><span>Receipts</span><strong><Quantity value={filtered.length} /></strong></div>
+        <div><span>Cash</span><strong><Money amount={cashSales} /></strong></div>
+        <div><span>UPI</span><strong><Money amount={upiSales} /></strong></div>
+        <div><span>Card</span><strong><Money amount={cardSales} /></strong></div>
+        <div className="pos-receipts-summary__total"><span>POS volume</span><strong><Money amount={totalSales} /></strong></div>
+      </section>
 
-      <div
-        className="list-toolbar"
-        style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-sm)' }}
-      >
-        <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap', alignItems: 'center' }}>
-          <div className="search-field" style={{ maxWidth: 320 }}>
+      <section aria-label="Receipt filters" className="pos-receipts-toolbar">
+        <div className="pos-receipts-toolbar__filters">
+          <div className="directory-search pos-receipts-toolbar__search">
             <Search aria-hidden="true" size={16} />
             <input
               aria-label="Search receipts by receipt number or customer"
@@ -167,39 +134,25 @@ export function SalesReceiptsPage() {
             />
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span className="cell-muted" style={{ fontSize: '0.85rem' }}>
-              From:
-            </span>
+          <label className="pos-receipts-date-filter">
+            <span>From</span>
             <input
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              style={{
-                padding: '4px 8px',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--color-border)',
-              }}
             />
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span className="cell-muted" style={{ fontSize: '0.85rem' }}>
-              To:
-            </span>
+          </label>
+          <label className="pos-receipts-date-filter">
+            <span>To</span>
             <input
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              style={{
-                padding: '4px 8px',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--color-border)',
-              }}
             />
-          </div>
+          </label>
         </div>
 
-        <div className="filter-chip-group">
+        <div aria-label="Payment mode" className="filter-chips pos-receipts-toolbar__modes">
           {['all', 'CASH', 'UPI', 'CARD', 'CREDIT'].map((mode) => (
             <button
               key={mode}
@@ -211,14 +164,14 @@ export function SalesReceiptsPage() {
             </button>
           ))}
         </div>
-      </div>
+      </section>
 
       {query.isLoading ? (
         <div aria-live="polite" className="directory-state">
           Loading sales receipts...
         </div>
       ) : query.isError ? (
-        <div className="directory-state directory-state--error" role="alert">
+        <div className="pos-receipts-error" role="alert">
           <FileText aria-hidden="true" size={24} />
           <strong>Unable to load receipts.</strong>
           <Button onClick={() => query.refetch()} variant="secondary">
@@ -285,18 +238,12 @@ export function SalesReceiptsPage() {
                   <StatusChip status={receipt.status || 'POSTED'} />
                 </td>
                 <td className="numeric-cell">
-                  <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                  <div className="pos-receipts-row-actions">
                     <button
+                      aria-label={`Share ${receipt.receiptNumber} on WhatsApp`}
                       title="Share Receipt on WhatsApp"
                       onClick={() => handleShareWhatsApp(receipt)}
                       type="button"
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: 'var(--color-primary)',
-                        cursor: 'pointer',
-                        padding: 4,
-                      }}
                     >
                       <Share2 size={15} />
                     </button>

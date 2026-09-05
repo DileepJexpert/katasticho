@@ -6,13 +6,21 @@ import {
   Boxes,
   CreditCard,
   FileText,
-  Search,
   ShieldCheck,
   ShoppingBag,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { PageHeader } from '@/design-system/page-header'
+import {
+  Button,
+  DirectoryToolbar,
+  DocumentCard,
+  EmptyState,
+  FilterTabs,
+  PageHeader,
+  SearchInput,
+  StatusChip,
+} from '@/design-system'
 import { reportCatalog, type ReportCatalogItem } from '@/features/reports/reports-api'
 
 const categoryTabs = [
@@ -25,6 +33,15 @@ const categoryTabs = [
 ] as const
 
 type CategoryTab = (typeof categoryTabs)[number]['key']
+type ReportCategory = Exclude<CategoryTab, 'ALL'>
+
+const categoryDescriptions: Record<ReportCategory, string> = {
+  FINANCIAL: 'Core statements, ledgers, and financial control.',
+  SALES_AR: 'Sales, customer collections, and receivables visibility.',
+  PURCHASES_AP: 'Purchase costs, vendor liabilities, and payment control.',
+  INVENTORY: 'Stock movement, FIFO valuation, and aging analysis.',
+  TAX_COMPLIANCE: 'GST reporting and statutory compliance readiness.',
+}
 
 export function ReportsHubPage() {
   const [activeCategory, setActiveCategory] = useState<CategoryTab>('ALL')
@@ -39,6 +56,25 @@ export function ReportsHubPage() {
     })
   }, [activeCategory, searchTerm])
 
+  const categoryCounts = useMemo(() => {
+    return reportCatalog.reduce<Record<ReportCategory, number>>(
+      (counts, report) => {
+        counts[report.category] += 1
+        return counts
+      },
+      { FINANCIAL: 0, SALES_AR: 0, PURCHASES_AP: 0, INVENTORY: 0, TAX_COMPLIANCE: 0 }
+    )
+  }, [])
+
+  const categoryCoverage = useMemo(() => {
+    return (Object.keys(categoryCounts) as ReportCategory[]).map((category) => ({
+      category,
+      count: categoryCounts[category],
+      description: categoryDescriptions[category],
+      label: categoryTabs.find((tab) => tab.key === category)?.label ?? category,
+    }))
+  }, [categoryCounts])
+
   return (
     <section className="workspace-page">
       <PageHeader
@@ -46,12 +82,10 @@ export function ReportsHubPage() {
         title="Reports Hub"
         description="Statutory financial statements, operational ledgers, tax registers, and inventory valuation analytics."
         actions={
-          <div className="table-actions">
-            <Link className="secondary-button" to={appRoutes.savedReports} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>
-              <Bookmark aria-hidden="true" size={14} />
-              Saved Reports & Schedules
-            </Link>
-          </div>
+          <Link className="button button--secondary" to={appRoutes.savedReports}>
+            <Bookmark aria-hidden="true" size={15} />
+            Saved Reports & Schedules
+          </Link>
         }
       />
 
@@ -77,45 +111,100 @@ export function ReportsHubPage() {
         </div>
       </div>
 
-      <div className="list-toolbar">
-        <div aria-label="Filter reports by category" className="list-tabs" role="tablist">
-          {categoryTabs.map((tab) => (
-            <button
-              aria-selected={activeCategory === tab.key}
-              className={activeCategory === tab.key ? 'list-tab list-tab--active' : 'list-tab'}
-              key={tab.key}
-              onClick={() => setActiveCategory(tab.key)}
-              role="tab"
-              type="button"
+      <DocumentCard className="report-showcase">
+        <div className="report-showcase__intro">
+          <p className="report-showcase__eyebrow">Decision-ready reporting</p>
+          <h2>
+            <strong>{reportCatalog.length}</strong> reports for every financial control point.
+          </h2>
+          <p>
+            Give clients one connected reporting library for financial statements, collections, vendor liabilities, inventory value, and statutory compliance.
+          </p>
+        </div>
+        <dl className="report-showcase__stats">
+          <div>
+            <dt>Reporting disciplines</dt>
+            <dd>{categoryCoverage.length}</dd>
+          </div>
+          <div>
+            <dt>Financial statements</dt>
+            <dd>{categoryCounts.FINANCIAL}</dd>
+          </div>
+          <div>
+            <dt>Operational registers</dt>
+            <dd>{reportCatalog.length - categoryCounts.FINANCIAL}</dd>
+          </div>
+        </dl>
+      </DocumentCard>
+
+      <section aria-label="Report coverage by discipline" className="report-coverage-grid">
+        {categoryCoverage.map((coverage) => {
+          const Icon = getCategoryIcon(coverage.category)
+          const isActive = activeCategory === coverage.category
+          return (
+            <Button
+              aria-pressed={isActive}
+              className={isActive ? 'report-coverage-card report-coverage-card--active' : 'report-coverage-card'}
+              key={coverage.category}
+              onClick={() => {
+                setActiveCategory(coverage.category)
+                setSearchTerm('')
+              }}
+              variant="ghost"
             >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+              <span aria-hidden="true" className="report-coverage-card__icon">{Icon}</span>
+              <span className="report-coverage-card__body">
+                <strong>{coverage.label}</strong>
+                <small>{coverage.description}</small>
+              </span>
+              <span className="report-coverage-card__count">{coverage.count}</span>
+            </Button>
+          )
+        })}
+      </section>
 
-        <div className="search-field" style={{ maxWidth: 300 }}>
-          <Search aria-hidden="true" size={16} />
-          <input
-            aria-label="Search reports catalog"
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search report titles..."
-            type="search"
-            value={searchTerm}
-          />
-        </div>
-      </div>
+      <DirectoryToolbar ariaLabel="Report catalogue filters">
+        <FilterTabs
+          activeValue={activeCategory}
+          ariaLabel="Filter reports by category"
+          items={categoryTabs.map((tab) => ({
+            count: tab.key === 'ALL' ? reportCatalog.length : categoryCounts[tab.key],
+            label: tab.label,
+            value: tab.key,
+          }))}
+          onChange={setActiveCategory}
+        />
+        <SearchInput
+          ariaLabel="Search report catalogue"
+          onChange={setSearchTerm}
+          onClear={() => setSearchTerm('')}
+          placeholder="Search report titles..."
+          value={searchTerm}
+        />
+      </DirectoryToolbar>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-          gap: '1rem',
-        }}
-      >
-        {filteredReports.map((report) => (
-          <ReportCard item={report} key={report.key} />
-        ))}
-      </div>
+      {filteredReports.length === 0 ? (
+        <EmptyState
+          icon={FileText}
+          title="No reports match these filters"
+          description="Clear the search or choose another report category."
+        />
+      ) : (
+        <>
+          <div className="report-catalog-heading">
+            <div>
+              <p>Report library</p>
+              <h2>{filteredReports.length} of {reportCatalog.length} reports</h2>
+            </div>
+            <span>Open a report to review its current server-calculated data.</span>
+          </div>
+          <section aria-label="Available reports" className="report-catalog-grid">
+            {filteredReports.map((report) => (
+              <ReportCard item={report} key={report.key} />
+            ))}
+          </section>
+        </>
+      )}
     </section>
   )
 }
@@ -124,70 +213,23 @@ function ReportCard({ item }: { item: ReportCatalogItem }) {
   const icon = getCategoryIcon(item.category)
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between',
-        padding: '1.25rem',
-        borderRadius: '8px',
-        border: '1px solid var(--k-color-border-subtle)',
-        backgroundColor: 'var(--k-color-surface-card)',
-        gap: '1rem',
-      }}
-    >
-      <div>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: '0.5rem',
-          }}
-        >
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: 32,
-              height: 32,
-              borderRadius: '6px',
-              backgroundColor: 'var(--k-color-surface-sunken)',
-              color: 'var(--k-color-text-primary)',
-            }}
-          >
-            {icon}
-          </span>
-          <span className="status-badge" style={{ fontSize: '0.7rem' }}>
-            {formatCategoryLabel(item.category)}
-          </span>
+    <DocumentCard className="report-catalog-card">
+      <div className="report-catalog-card__content">
+        <div className="report-catalog-card__meta">
+          <span aria-hidden="true" className="report-catalog-card__icon">{icon}</span>
+          <StatusChip status={item.category}>{formatCategoryLabel(item.category)}</StatusChip>
         </div>
-
-        <h3 style={{ margin: '0 0 0.4rem 0', fontSize: '1rem', fontWeight: 600 }}>
-          <Link
-            className="table-row-link"
-            style={{ color: 'inherit', textDecoration: 'none' }}
-            to={appRoutes.reportViewer(item.key)}
-          >
+        <h2>
+          <Link className="table-row-link" to={appRoutes.reportViewer(item.key)}>
             {item.title}
           </Link>
-        </h3>
-        <p className="cell-muted" style={{ margin: 0, fontSize: '0.85rem', lineHeight: 1.4 }}>
-          {item.description}
-        </p>
+        </h2>
+        <p>{item.description}</p>
       </div>
-
-      <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '0.5rem', borderTop: '1px solid var(--k-color-border-subtle)' }}>
-        <Link
-          className="table-row-action"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 500 }}
-          to={appRoutes.reportViewer(item.key)}
-        >
-          Run report <ArrowRight aria-hidden="true" size={14} />
-        </Link>
-      </div>
-    </div>
+      <Link className="report-catalog-card__action" to={appRoutes.reportViewer(item.key)}>
+        Run report <ArrowRight aria-hidden="true" size={14} />
+      </Link>
+    </DocumentCard>
   )
 }
 

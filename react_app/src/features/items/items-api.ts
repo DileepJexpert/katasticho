@@ -2,6 +2,78 @@ import { apiFetch } from '@/api/client/api-client'
 
 type NumberLike = number | string | null
 
+/** Item types accepted by the frozen ItemController write contract. */
+export type ItemType = 'GOODS' | 'SERVICE' | 'COMPOSITE'
+
+export type UnitPriceEntry = {
+  uomAbbreviation: string
+  conversionFactor: number
+  customPrice?: number
+}
+
+type ItemWriteFields = {
+  name: string
+  description?: string
+  itemType: ItemType
+  category?: string
+  brand?: string
+  hsnCode?: string
+  unitOfMeasure?: string
+  purchasePrice?: number
+  salePrice?: number
+  mrp?: number
+  gstRate?: number
+  trackInventory?: boolean
+  trackBatches?: boolean
+  reorderLevel?: number
+  reorderQuantity?: number
+  barcode?: string
+  manufacturer?: string
+  preferredVendorId?: string
+  rackLocationId?: string
+  weight?: number
+  weightUnit?: string
+  length?: number
+  width?: number
+  height?: number
+  dimensionUnit?: string
+  drugSchedule?: string
+  composition?: string
+  dosageForm?: string
+  packSize?: string
+  storageCondition?: string
+  prescriptionRequired?: boolean
+  weightBasedBilling?: boolean
+  revenueAccountCode?: string
+  cogsAccountCode?: string
+  inventoryAccountCode?: string
+  purchaseUom?: string
+  purchaseUomConversion?: number
+  purchasePricePerUom?: number
+  secondaryUnits?: UnitPriceEntry[]
+}
+
+/**
+ * The existing create contract records opening stock as an auditable OPENING
+ * movement. These fields intentionally do not exist on updates.
+ */
+export type CreateItemRequest = ItemWriteFields & {
+  sku?: string
+  openingStock?: number
+  openingWarehouseId?: string
+  openingBatchNumber?: string
+  openingMfgDate?: string
+  openingExpiryDate?: string
+  groupId?: string
+  variantAttributes?: Record<string, string>
+}
+
+/** Stock adjustments stay outside the item master update contract. */
+export type UpdateItemRequest = ItemWriteFields & {
+  sku: string
+  active?: boolean
+}
+
 /** Read projection returned by the frozen ItemController contract. */
 export type Item = {
   id: string
@@ -178,6 +250,20 @@ export function getItem(id: string) {
   return apiFetch<Item>(`/api/v1/items/${id}`)
 }
 
+export function createItem(request: CreateItemRequest) {
+  return apiFetch<Item>('/api/v1/items', {
+    method: 'POST',
+    body: request,
+  })
+}
+
+export function updateItem(id: string, request: UpdateItemRequest) {
+  return apiFetch<Item>(`/api/v1/items/${id}`, {
+    method: 'PUT',
+    body: request,
+  })
+}
+
 export async function getNegativeStockCount() {
   const response = await apiFetch<{ count: NumberLike }>('/api/v1/items/negative-stock/count')
   return Number(response.count) || 0
@@ -201,54 +287,4 @@ export function listPackagingBarcodes(itemId: string) {
 
 export function getShortbook() {
   return apiFetch<ShortbookItem[]>('/api/v1/stock/shortbook')
-}
-
-export type BatchTraceRecord = {
-  id: string
-  batchId: string
-  batchNumber: string
-  step: string
-  sourceType: string
-  sourceId: string
-  sourceNumber?: string
-  targetType: string
-  targetId: string
-  targetNumber?: string
-  quantity: number | string
-  timestamp: string
-  contactName?: string
-  notes?: string
-}
-
-export type BatchRecallReport = {
-  rmBatchId: string
-  rmBatchNumber: string
-  finishedGoodsBatches: {
-    fgBatchId: string
-    fgBatchNumber: string
-    workOrderId: string
-    quantityProduced: number | string
-  }[]
-  customerShipments: {
-    invoiceId: string
-    invoiceNumber: string
-    invoiceDate: string
-    customerName: string
-    customerPhone?: string
-    customerEmail?: string
-    quantityShipped: number | string
-    deliveryChallanNumber?: string
-  }[]
-}
-
-export function getBatchTraceForward(batchId: string) {
-  return apiFetch<BatchTraceRecord[]>(`/api/v1/inventory/batch-trace/forward/${batchId}`)
-}
-
-export function getBatchTraceBackward(batchId: string) {
-  return apiFetch<BatchTraceRecord[]>(`/api/v1/inventory/batch-trace/backward/${batchId}`)
-}
-
-export function getBatchRecallReport(rmBatchId: string) {
-  return apiFetch<BatchRecallReport>(`/api/v1/inventory/batch-trace/recall/${rmBatchId}`)
 }

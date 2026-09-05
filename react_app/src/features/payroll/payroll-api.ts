@@ -1,4 +1,4 @@
-﻿import { apiFetch } from '@/api/client/api-client'
+import { apiFetch } from '@/api/client/api-client'
 
 export type Employee = {
   id: string
@@ -155,27 +155,52 @@ export type SaveSalaryStructureRequest = {
 }
 
 export type LaborPayPreview = {
-  employeeId: string
-  totalHours: number
-  pieceCount: number
-  hourlyPay: number
-  piecePay: number
-  totalLaborPay: number
+  employeeId?: string
+  totalHours?: number
+  pieceCount?: number
+  totalPieces?: number
+  hourlyPay?: number
+  piecePay?: number
+  totalLaborPay?: number
+  jobCardCount?: number
+  amount?: number
+  payType?: string
 }
 
 export type EmployeeTaxDeclaration = {
   id: string
+  orgId?: string
   employeeId: string
   fiscalYear: string
-  regime: 'NEW' | 'OLD' | string
-  section80cTotal: number | string
-  section80dMediclaim: number | string
-  hraRentPaidAnnual: number | string
-  homeLoanInterest80ee: number | string
-  otherDeductions: number | string
+  regime?: 'NEW' | 'OLD' | string
+  taxRegime?: 'OLD' | 'NEW' | string
+  section80cTotal?: number | string
+  section80dMediclaim?: number | string
+  hraRentPaidAnnual?: number | string
+  homeLoanInterest80ee?: number | string
+  otherDeductions?: number | string
+  hraRentPaid?: number | null
+  hraMetroCity?: boolean
+  landlordPan?: string | null
+  deduction80c?: number | null
+  deduction80ccd1b?: number | null
+  deduction80dSelf?: number | null
+  deduction80dParents?: number | null
+  deduction80e?: number | null
+  deduction80g?: number | null
+  deduction80tta?: number | null
+  deduction80ttb?: number | null
+  homeLoanInterest?: number | null
+  ltaClaim?: number | null
+  otherIncome?: number | null
   status: 'DRAFT' | 'SUBMITTED' | 'VERIFIED' | 'REJECTED' | string
+  submittedAt?: string | null
   verifiedAt?: string | null
+  verifiedBy?: string | null
   remarks?: string | null
+  notes?: string | null
+  createdAt?: string
+  updatedAt?: string
 }
 
 export type PayrollRun = {
@@ -300,14 +325,16 @@ export async function previewLaborPay(employeeId: string, start: string, end: st
   return apiFetch<LaborPayPreview>(`/api/v1/payroll/employees/${employeeId}/labor-pay-preview?periodStart=${start}&periodEnd=${end}`)
 }
 
-// â”€â”€ Tax Declaration APIs â”€â”€
+export const getLaborPayPreview = previewLaborPay
 
-export async function getTaxDeclaration(employeeId: string, fy: string) {
-  return apiFetch<EmployeeTaxDeclaration>(`/api/v1/payroll/tax-declarations/${employeeId}?fy=${fy}`)
+// ── Tax Declaration (Form 12BB) APIs ──
+
+export async function getMyTaxDeclaration(fy: string) {
+  return apiFetch<EmployeeTaxDeclaration | null>(`/api/v1/payroll/tax-declarations/me?fy=${encodeURIComponent(fy)}`)
 }
 
-export async function saveTaxDeclaration(employeeId: string, fy: string, data: Partial<EmployeeTaxDeclaration>) {
-  return apiFetch<EmployeeTaxDeclaration>(`/api/v1/payroll/tax-declarations/${employeeId}?fy=${fy}`, {
+export async function saveMyTaxDeclaration(fy: string, data: Partial<EmployeeTaxDeclaration>) {
+  return apiFetch<EmployeeTaxDeclaration>(`/api/v1/payroll/tax-declarations/me?fy=${encodeURIComponent(fy)}`, {
     method: 'PUT',
     body: JSON.stringify(data),
   })
@@ -319,14 +346,68 @@ export async function submitTaxDeclaration(id: string) {
   })
 }
 
-export async function verifyTaxDeclaration(id: string, status: 'VERIFIED' | 'REJECTED', remarks?: string) {
-  return apiFetch<EmployeeTaxDeclaration>(`/api/v1/payroll/tax-declarations/${id}/${status === 'VERIFIED' ? 'verify' : 'reject'}`, {
+export async function deleteTaxDeclarationDraft(id: string) {
+  return apiFetch<void>(`/api/v1/payroll/tax-declarations/${id}`, { method: 'DELETE' })
+}
+
+export async function listTaxDeclarations(fy: string) {
+  return apiFetch<EmployeeTaxDeclaration[]>(`/api/v1/payroll/tax-declarations?fy=${encodeURIComponent(fy)}`)
+}
+
+export async function verifyTaxDeclaration(id: string, status?: string, remarks?: string) {
+  return apiFetch<EmployeeTaxDeclaration>(`/api/v1/payroll/tax-declarations/${id}/verify`, {
     method: 'POST',
-    body: JSON.stringify({ remarks }),
+    body: status ? JSON.stringify({ status, remarks }) : undefined,
   })
 }
 
-// â”€â”€ Payroll Runs APIs â”€â”€
+export async function saveTaxDeclaration(employeeId: string, fy: string, data: Partial<EmployeeTaxDeclaration>) {
+  return apiFetch<EmployeeTaxDeclaration>(`/api/v1/payroll/tax-declarations/employees/${employeeId}?fy=${encodeURIComponent(fy)}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function getTaxDeclaration(employeeId: string, fy: string) {
+  return apiFetch<EmployeeTaxDeclaration>(`/api/v1/payroll/tax-declarations/employees/${employeeId}?fy=${encodeURIComponent(fy)}`)
+}
+
+export function getForm12BbPdfUrl(id: string): string {
+  return `/api/v1/payroll/tax-declarations/${id}/pdf`
+}
+
+// ── Kenya PAYE & Statutory Salary Calculator APIs ──
+
+export type KenyaPayeCalculationRequest = {
+  grossSalary: number
+  nonCashBenefits?: number
+  pensionContribution?: number
+}
+
+export type KenyaPayeCalculationResponse = {
+  grossSalary: number
+  nssfTier1: number
+  nssfTier2: number
+  totalNssf: number
+  taxablePay: number
+  grossPaye: number
+  personalRelief: number
+  insuranceRelief: number
+  netPaye: number
+  shifAmount: number
+  housingLevyAmount: number
+  totalDeductions: number
+  netPay: number
+}
+
+export async function calculateKenyaPaye(req: KenyaPayeCalculationRequest) {
+  return apiFetch<KenyaPayeCalculationResponse>('/api/v1/kenya/paye/calculate', {
+    method: 'POST',
+    body: JSON.stringify(req),
+  })
+}
+
+// ── Payroll Runs APIs ──
 
 export async function listPayrollRuns(page = 0, size = 20) {
   return apiFetch<PageResponse<PayrollRun>>(`/api/v1/payroll/runs?pageNo=${page}&pageSize=${size}`)

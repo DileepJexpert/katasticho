@@ -78,7 +78,8 @@ async function requestResponse(path: string, request: ApiRequest, canRetry: bool
   const method = request.method ?? 'GET'
 
   headers.set('Accept', 'application/json')
-  if (request.body !== undefined) headers.set('Content-Type', 'application/json')
+  const isFormData = typeof FormData !== 'undefined' && request.body instanceof FormData
+  if (!isFormData && request.body !== undefined) headers.set('Content-Type', 'application/json')
   if (token) headers.set('Authorization', `Bearer ${token}`)
   if (orgId) headers.set('X-Org-Id', orgId)
 
@@ -89,7 +90,9 @@ async function requestResponse(path: string, request: ApiRequest, canRetry: bool
     response = await fetch(path, {
       ...request,
       body:
-        request.body === undefined
+        isFormData
+          ? (request.body as BodyInit)
+          : request.body === undefined
           ? undefined
           : typeof request.body === 'string'
           ? request.body

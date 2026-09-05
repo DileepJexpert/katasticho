@@ -1,34 +1,24 @@
 import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import {
   BookOpen,
-  ChevronLeft,
-  ChevronRight,
   Plus,
-  Search,
 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
 import {
   Button,
   DataTable,
-  FormField,
-  FormGrid,
-  Modal,
+  FilterTabs,
   Money,
-  NumberInput,
   PageHeader,
-  SelectInput,
+  SearchInput,
   StatusChip,
+  TablePagination,
   TextInput,
 } from '@/design-system'
 import { formatDate } from '@/shared/format/format'
-import {
-  createJournal,
-  listJournals,
-  type CreateJournalLineRequest,
-} from '@/features/journals/journals-api'
-import { listAccounts } from '@/features/accounts/accounts-api'
+import { listJournals } from '@/features/journals/journals-api'
 
 const moduleFilters = [
   { label: 'All Modules', value: 'ALL' },
@@ -39,17 +29,16 @@ const moduleFilters = [
   { label: 'Banking', value: 'BANKING' },
   { label: 'Inventory', value: 'INVENTORY' },
 ] as const
+type JournalModuleFilter = (typeof moduleFilters)[number]['value']
 
 export function JournalsPage() {
-  const [selectedModule, setSelectedModule] = useState<string>('ALL')
+  const [selectedModule, setSelectedModule] = useState<JournalModuleFilter>('ALL')
   const [search, setSearch] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [page, setPage] = useState(0)
-  const [showCreateModal, setShowCreateModal] = useState(false)
 
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
 
   const journalsQuery = useQuery({
     queryKey: ['journals', { sourceModule: selectedModule, search, page, dateFrom, dateTo }],
@@ -63,11 +52,9 @@ export function JournalsPage() {
     <section className="workspace-page">
       <PageHeader
         actions={
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <Button onClick={() => setShowCreateModal(true)} variant="primary">
-              <Plus className="icon" /> New Journal Entry
-            </Button>
-          </div>
+          <Button onClick={() => navigate(appRoutes.journalCreate)} variant="primary">
+            <Plus className="icon" /> New Journal Entry
+          </Button>
         }
         description="Double-entry general ledger journal vouchers, automated domain postings, and reversing entries."
         eyebrow="Accounting / General Ledger"
@@ -76,42 +63,37 @@ export function JournalsPage() {
 
       <section className="list-panel" aria-label="Journals directory">
         <div className="list-toolbar list-toolbar--stacked">
-          <div aria-label="Filter by source module" className="filter-chips" role="tablist">
-            {moduleFilters.map((mod) => (
-              <button
-                aria-selected={selectedModule === mod.value}
-                className={`filter-chip ${selectedModule === mod.value ? 'filter-chip--active' : ''}`}
-                key={mod.value}
-                onClick={() => {
-                  setSelectedModule(mod.value)
-                  setPage(0)
-                }}
-                role="tab"
-                type="button"
-              >
-                <span>{mod.label}</span>
-              </button>
-            ))}
-          </div>
+          <FilterTabs
+            activeValue={selectedModule}
+            ariaLabel="Filter by source module"
+            items={moduleFilters}
+            onChange={(value) => {
+              setSelectedModule(value)
+              setPage(0)
+            }}
+          />
 
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-            <label className="directory-search" style={{ flex: 1, minWidth: '220px' }}>
-              <Search aria-hidden="true" size={18} />
-              <input
-                onChange={(e) => {
-                  setSearch(e.target.value)
-                  setPage(0)
-                }}
-                placeholder="Search by entry number, narration..."
-                type="search"
-                value={search}
-              />
+          <div className="journals-toolbar">
+            <SearchInput
+              ariaLabel="Search journal entries"
+              onChange={(value) => {
+                setSearch(value)
+                setPage(0)
+              }}
+              onClear={() => {
+                setSearch('')
+                setPage(0)
+              }}
+              placeholder="Search entry number or narration"
+              value={search}
+            />
+            <label className="journals-date-filter">
+              <span>From</span>
+              <TextInput onChange={(event) => { setDateFrom(event.target.value); setPage(0) }} type="date" value={dateFrom} />
             </label>
-            <label style={{ fontSize: '0.875rem' }}>
-              From: <input onChange={(e) => { setDateFrom(e.target.value); setPage(0) }} type="date" value={dateFrom} />
-            </label>
-            <label style={{ fontSize: '0.875rem' }}>
-              To: <input onChange={(e) => { setDateTo(e.target.value); setPage(0) }} type="date" value={dateTo} />
+            <label className="journals-date-filter">
+              <span>To</span>
+              <TextInput onChange={(event) => { setDateTo(event.target.value); setPage(0) }} type="date" value={dateTo} />
             </label>
           </div>
         </div>
@@ -150,7 +132,7 @@ export function JournalsPage() {
                       <div>
                         <span>{entry.description || '—'}</span>
                         {entry.isReversal && (
-                          <span style={{ marginLeft: '6px', fontSize: '0.75rem', color: 'var(--color-primary)' }}>
+                          <span className="journal-reversal-marker">
                             [Reversal]
                           </span>
                         )}
@@ -175,30 +157,13 @@ export function JournalsPage() {
               </tbody>
             </DataTable>
 
-            <footer className="table-footer">
-              <span>{journalPage?.totalElements ?? entries.length} journal entries found</span>
-              <div className="pagination-actions">
-                <button
-                  aria-label="Previous page"
-                  disabled={page === 0}
-                  onClick={() => setPage((p) => p - 1)}
-                  type="button"
-                >
-                  <ChevronLeft aria-hidden="true" size={16} />
-                </button>
-                <span>
-                  Page {page + 1} of {Math.max(journalPage?.totalPages ?? 1, 1)}
-                </span>
-                <button
-                  aria-label="Next page"
-                  disabled={journalPage?.last ?? true}
-                  onClick={() => setPage((p) => p + 1)}
-                  type="button"
-                >
-                  <ChevronRight aria-hidden="true" size={16} />
-                </button>
-              </div>
-            </footer>
+            <TablePagination
+              itemLabel="journal entry"
+              onPageChange={setPage}
+              page={page}
+              totalElements={journalPage?.totalElements ?? entries.length}
+              totalPages={journalPage?.totalPages ?? 1}
+            />
           </>
         ) : (
           <div className="directory-state">
@@ -209,184 +174,6 @@ export function JournalsPage() {
         )}
       </section>
 
-      {showCreateModal && (
-        <CreateJournalModal
-          onClose={() => setShowCreateModal(false)}
-          onSuccess={(newId) => {
-            setShowCreateModal(false)
-            queryClient.invalidateQueries({ queryKey: ['journals'] })
-            navigate(`${appRoutes.journals}/${newId}`)
-          }}
-        />
-      )}
     </section>
-  )
-}
-
-function CreateJournalModal({
-  onClose,
-  onSuccess,
-}: {
-  onClose: () => void
-  onSuccess: (newId: string) => void
-}) {
-  const [effectiveDate, setEffectiveDate] = useState(new Date().toISOString().slice(0, 10))
-  const [description, setDescription] = useState('')
-  const [reference, setReference] = useState('')
-  const [lines, setLines] = useState<CreateJournalLineRequest[]>([
-    { accountId: '', debit: 0, credit: 0, description: '' },
-    { accountId: '', debit: 0, credit: 0, description: '' },
-  ])
-
-  const accountsQuery = useQuery({
-    queryKey: ['accounts-dropdown'],
-    queryFn: listAccounts,
-  })
-
-  const accounts = accountsQuery.data ?? []
-
-  const totalDebit = lines.reduce((acc, curr) => acc + Number(curr.debit || 0), 0)
-  const totalCredit = lines.reduce((acc, curr) => acc + Number(curr.credit || 0), 0)
-  const isBalanced = Math.abs(totalDebit - totalCredit) < 0.001 && totalDebit > 0
-
-  const mutation = useMutation({
-    mutationFn: () =>
-      createJournal({
-        effectiveDate,
-        description,
-        reference: reference || undefined,
-        sourceModule: 'MANUAL',
-        lines: lines.map((l) => ({
-          accountId: l.accountId,
-          debit: Number(l.debit || 0),
-          credit: Number(l.credit || 0),
-          description: l.description || undefined,
-        })),
-      }),
-    onSuccess: (res) => onSuccess(res.id),
-  })
-
-  function addLine() {
-    setLines([...lines, { accountId: '', debit: 0, credit: 0, description: '' }])
-  }
-
-  function updateLine(idx: number, patch: Partial<CreateJournalLineRequest>) {
-    setLines((prev) =>
-      prev.map((l, i) => (i === idx ? { ...l, ...patch } : l))
-    )
-  }
-
-  function removeLine(idx: number) {
-    setLines(lines.filter((_, i) => i !== idx))
-  }
-
-  return (
-    <Modal
-      footer={
-        <>
-          <Button onClick={onClose} variant="secondary">Cancel</Button>
-          <Button
-            disabled={!description || !isBalanced || lines.some((l) => !l.accountId) || mutation.isPending}
-            onClick={() => mutation.mutate()}
-            variant="primary"
-          >
-            {mutation.isPending ? 'Posting...' : 'Post Journal Voucher'}
-          </Button>
-        </>
-      }
-      isOpen
-      onClose={onClose}
-      size="xl"
-      title="Create Double-Entry Journal Voucher"
-    >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        <FormGrid columns={2}>
-          <FormField label="Effective Date" required>
-            <TextInput onChange={(e) => setEffectiveDate(e.target.value)} required type="date" value={effectiveDate} />
-          </FormField>
-          <FormField label="Reference Number">
-            <TextInput onChange={(e) => setReference(e.target.value)} placeholder="e.g. JV-2026-001" value={reference} />
-          </FormField>
-        </FormGrid>
-
-        <FormField label="Narration / Notes" required>
-          <TextInput
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="e.g. Adjustment for prepaid rent / monthly accrual"
-            required
-            value={description}
-          />
-        </FormField>
-
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-            <h4 style={{ margin: 0, fontSize: '0.9375rem', fontWeight: 600 }}>Journal Lines ({lines.length})</h4>
-            <Button onClick={addLine} variant="secondary">
-              <Plus className="icon" /> Add Line
-            </Button>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {lines.map((line, idx) => (
-              <div key={idx} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1.5fr auto', gap: '0.5rem', alignItems: 'center' }}>
-                <SelectInput onChange={(e) => updateLine(idx, { accountId: e.target.value })} value={line.accountId}>
-                  <option value="">-- Choose Account --</option>
-                  {accounts.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.code} - {a.name} ({a.type})
-                    </option>
-                  ))}
-                </SelectInput>
-                <NumberInput
-                  min={0}
-                  onChange={(e) => updateLine(idx, { debit: Number(e.target.value), credit: 0 })}
-                  placeholder="Debit (₹)"
-                  step="0.01"
-                  value={line.debit === 0 ? '' : line.debit}
-                />
-                <NumberInput
-                  min={0}
-                  onChange={(e) => updateLine(idx, { credit: Number(e.target.value), debit: 0 })}
-                  placeholder="Credit (₹)"
-                  step="0.01"
-                  value={line.credit === 0 ? '' : line.credit}
-                />
-                <TextInput
-                  onChange={(e) => updateLine(idx, { description: e.target.value })}
-                  placeholder="Line memo"
-                  value={line.description ?? ''}
-                />
-                <Button disabled={lines.length <= 2} onClick={() => removeLine(idx)} variant="ghost">✕</Button>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div
-          style={{
-            padding: '0.75rem',
-            borderRadius: '6px',
-            backgroundColor: isBalanced ? 'rgba(15, 133, 118, 0.08)' : 'rgba(190, 58, 52, 0.08)',
-            border: `1px solid ${isBalanced ? 'var(--color-primary)' : 'var(--color-danger, #BE3A34)'}`,
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}
-        >
-          <div>
-            <strong>Total Debits:</strong> <Money amount={totalDebit} /> | <strong>Total Credits:</strong> <Money amount={totalCredit} />
-          </div>
-          <div>
-            {isBalanced ? (
-              <span style={{ color: 'var(--color-primary)', fontWeight: 'bold' }}>✓ Balanced</span>
-            ) : (
-              <span style={{ color: 'var(--color-danger, #BE3A34)', fontWeight: 'bold' }}>
-                Difference: <Money amount={Math.abs(totalDebit - totalCredit)} />
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-    </Modal>
   )
 }

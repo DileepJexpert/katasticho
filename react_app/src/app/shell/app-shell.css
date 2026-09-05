@@ -686,13 +686,6 @@
 .error-state strong { font-weight: var(--fw-semibold); }
 .error-state p { font-size: var(--text-sm); margin-top: var(--space-1); }
 .list-panel { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-.list-toolbar { align-items: center; border-bottom: 1px solid var(--border); display: flex; gap: var(--space-4); justify-content: space-between; padding: var(--space-3) var(--space-4); }
-.list-toolbar--stacked { align-items: flex-start; flex-direction: column; }
-.list-toolbar-note { color: var(--text-muted); font-size: var(--text-xs); max-width: 680px; }
-.role-tabs { display: flex; flex-wrap: wrap; gap: var(--space-1); }
-.role-tab { align-items: center; background: transparent; border: 0; border-radius: var(--radius); color: var(--text-secondary); display: inline-flex; font-size: var(--text-sm); font-weight: var(--fw-medium); gap: var(--space-1); height: var(--control-h); justify-content: center; padding: 0 var(--space-2); }
-.role-tab:hover { background: var(--bg-subtle); color: var(--text-primary); }
-.role-tab--active { background: var(--brand-50); color: var(--brand-900); }
 .role-tab span { color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .role-tab--active span { color: var(--brand-900); }
 .contact-primary { align-items: center; display: flex; gap: var(--space-2); min-width: 180px; }
@@ -823,7 +816,7 @@
   .nav-group-flyout {
     display: none !important;
   }
-  .page-header, .dashboard-note, .list-toolbar, .table-footer, .document-actions, .payment-entry { align-items: flex-start; flex-direction: column; }
+  .page-header, .dashboard-note, .table-footer, .document-actions, .payment-entry { align-items: flex-start; flex-direction: column; }
   .metric-grid, .document-layout, .document-facts { grid-template-columns: 1fr; }
   .payment-entry__amount { justify-items: start; }
 

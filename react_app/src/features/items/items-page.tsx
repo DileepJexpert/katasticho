@@ -1,15 +1,16 @@
 import { useDeferredValue, useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Boxes } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Boxes, Plus } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { DataTable, DirectoryToolbar, EmptyState, FilterTabs, Money, PageHeader, Quantity, SearchInput, StatusChip, TablePagination } from '@/design-system'
+import { Button, DataTable, DirectoryToolbar, EmptyState, FilterTabs, Money, PageHeader, Quantity, SearchInput, StatusChip, TablePagination } from '@/design-system'
 import { getNegativeStockCount, listItems, type Item } from '@/features/items/items-api'
 import { formatPercent, formatStatusLabel } from '@/shared/format/format'
 
 type ItemFilter = 'ALL' | 'NEGATIVE_STOCK' | 'ACTIVE_ONLY'
 
 export function ItemsPage() {
+  const navigate = useNavigate()
   const [filter, setFilter] = useState<ItemFilter>('ALL')
   const [page, setPage] = useState(0)
   const [search, setSearch] = useState('')
@@ -38,7 +39,13 @@ export function ItemsPage() {
       <PageHeader
         eyebrow="Inventory"
         title="Items"
-        description="Read-only product catalog and inventory review. Item maintenance remains in Flutter until the approved typed web contract is available."
+        description="Manage your product catalog, pricing, tax, measurement units, and inventory controls."
+        actions={
+          <Button onClick={() => navigate(appRoutes.itemCreate)}>
+            <Plus aria-hidden="true" size={16} />
+            New item
+          </Button>
+        }
       />
 
       <section className="list-panel" aria-label="Item directory">
@@ -94,6 +101,14 @@ export function ItemsPage() {
           </>
         ) : (
           <EmptyState
+            action={
+              !negativeStockOnly && !deferredSearch ? (
+                <Button onClick={() => navigate(appRoutes.itemCreate)}>
+                  <Plus aria-hidden="true" size={16} />
+                  New item
+                </Button>
+              ) : undefined
+            }
             description={negativeStockOnly ? 'Every inventory-tracked item is at zero or above.' : deferredSearch ? 'Try a different name, SKU, barcode, or HSN.' : 'No catalog items are available in this organisation.'}
             icon={Boxes}
             title={negativeStockOnly ? 'No items have negative stock.' : 'No items found.'}

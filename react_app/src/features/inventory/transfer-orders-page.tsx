@@ -1,250 +1,111 @@
-import { useState, useMemo } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import {
-  ArrowLeftRight,
-  ArrowRight,
-  CheckCircle2,
-  Clock,
-  Package,
-  Plus,
-  RefreshCw,
-  Search,
-  Truck,
-} from 'lucide-react'
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { ArrowLeftRight, Plus } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { appRoutes } from '@/app/navigation'
 import {
   Button,
   DataTable,
-  DocumentCard,
-  FilterTabs,
+  EmptyState,
   PageHeader,
-  Quantity,
   StatusChip,
+  TablePagination,
 } from '@/design-system'
-import {
-  listTransferOrders,
-  type TransferOrder,
-} from '@/features/inventory/transfer-orders-api'
+import { formatDate, formatQuantity, formatStatusLabel } from '@/shared/format/format'
+import { listTransferOrders, type TransferOrder } from './transfer-orders-api'
 
-type StatusFilter = 'ALL' | 'DRAFT' | 'SHIPPED' | 'RECEIVED' | 'CANCELLED'
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message ? error.message : fallback
+}
 
 export function TransferOrdersPage() {
+  const [page, setPage] = useState(0)
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
-
-  const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
-
-  const { data, isLoading } = useQuery({
-    queryKey: ['inventory', 'transfer-orders'],
-    queryFn: () => listTransferOrders(0, 100),
+  const transfers = useQuery({
+    queryKey: ['transfer-orders', { page }],
+    queryFn: () => listTransferOrders(page),
   })
-
-  function handleRefresh() {
-    queryClient.invalidateQueries({ queryKey: ['inventory', 'transfer-orders'] })
-  }
-
-  const transferOrders = useMemo(() => data?.content ?? [], [data])
-
-  const filteredOrders = useMemo(() => {
-    return transferOrders.filter((order: TransferOrder) => {
-      if (statusFilter !== 'ALL' && order.status !== statusFilter) {
-        return false
-      }
-      if (searchTerm.trim()) {
-        const term = searchTerm.trim().toLowerCase()
-        const numMatch = order.transferNumber.toLowerCase().includes(term)
-        const fromMatch = order.fromWarehouseName.toLowerCase().includes(term)
-        const toMatch = order.toWarehouseName.toLowerCase().includes(term)
-        if (!numMatch && !fromMatch && !toMatch) return false
-      }
-      return true
-    })
-  }, [transferOrders, statusFilter, searchTerm])
-
-  // Count summaries
-  const draftCount = transferOrders.filter((o) => o.status === 'DRAFT').length
-  const shippedCount = transferOrders.filter((o) => o.status === 'SHIPPED').length
-  const receivedCount = transferOrders.filter((o) => o.status === 'RECEIVED').length
+  const transferPage = transfers.data
 
   return (
     <section className="workspace-page">
       <PageHeader
-        actions={
-          <div className="flex items-center gap-2">
-            <Button
-              aria-label="Refresh transfer orders"
-              onClick={handleRefresh}
-              variant="secondary"
-            >
-              <RefreshCw size={15} aria-hidden="true" />
-              <span>Refresh</span>
-            </Button>
-            <Button onClick={() => navigate('/transfer-orders/new')} variant="primary">
-              <Plus size={15} aria-hidden="true" />
-              <span>New Transfer</span>
-            </Button>
-          </div>
-        }
-        eyebrow="Inventory & Logistics • Movement Control"
-        title="Stock Transfer Orders"
-        description="Multi-warehouse inventory transfers, in-transit dispatches, and receiving confirmations."
+        actions={<Button onClick={() => navigate(appRoutes.transferOrderCreate)} variant="primary"><Plus aria-hidden="true" size={16} /> New transfer</Button>}
+        description="Create controlled warehouse-to-warehouse movements. Stock leaves the source only on dispatch and arrives at the destination only on receipt."
+        eyebrow="Inventory / Warehouse Transfers"
+        title="Transfer Orders"
       />
 
-      <div className="dashboard-workspace">
-        {/* ── Metric Summary Strip ── */}
-        <section aria-label="Transfer order status metrics" className="metric-grid">
-          <article className="metric-card metric-card--brand">
-            <span className="metric-icon">
-              <ArrowLeftRight size={20} aria-hidden="true" />
-            </span>
-            <p>Total Transfers</p>
-            <strong className="metric-value">
-              <Quantity value={transferOrders.length} />
-            </strong>
-            <small>All historical inter-branch moves</small>
-          </article>
-
-          <article className="metric-card metric-card--warning">
-            <span className="metric-icon">
-              <Clock size={20} aria-hidden="true" />
-            </span>
-            <p>Pending Dispatch</p>
-            <strong className="metric-value">
-              <Quantity value={draftCount} />
-            </strong>
-            <small>Orders in draft awaiting shipment</small>
-          </article>
-
-          <article className="metric-card metric-card--brand">
-            <span className="metric-icon">
-              <Truck size={20} aria-hidden="true" />
-            </span>
-            <p>In Transit</p>
-            <strong className="metric-value">
-              <Quantity value={shippedCount} />
-            </strong>
-            <small>Dispatched, awaiting destination receipt</small>
-          </article>
-
-          <article className="metric-card metric-card--positive">
-            <span className="metric-icon">
-              <CheckCircle2 size={20} aria-hidden="true" />
-            </span>
-            <p>Completed Receipts</p>
-            <strong className="metric-value">
-              <Quantity value={receivedCount} />
-            </strong>
-            <small>Successfully received & stock updated</small>
-          </article>
-        </section>
-
-        {/* ── Filter & Search Toolbar ── */}
-        <section aria-label="Transfer order filters" className="dashboard-control-bar">
-          <div className="dashboard-filter-group">
-            <div className="search-input-wrapper">
-              <Search size={14} className="text-muted flex-none ml-2" aria-hidden="true" />
-              <input
-                aria-label="Search by transfer number or warehouse"
-                className="dashboard-branch-select"
-                placeholder="Search transfer # or warehouse..."
-                style={{ width: '250px', paddingLeft: '28px' }}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-
-            <FilterTabs
-              activeValue={statusFilter}
-              ariaLabel="Transfer order status filter"
-              items={[
-                { value: 'ALL', label: 'All Transfers' },
-                { value: 'DRAFT', label: 'Draft' },
-                { value: 'SHIPPED', label: 'In Transit' },
-                { value: 'RECEIVED', label: 'Received' },
-                { value: 'CANCELLED', label: 'Cancelled' },
-              ]}
-              onChange={(val) => setStatusFilter(val as StatusFilter)}
-            />
-          </div>
-
-          <div className="dashboard-filter-group">
-            <StatusChip status="Multi-Branch Transit" />
-          </div>
-        </section>
-
-        {/* ── Transfer Orders Data Table ── */}
-        <DocumentCard title="Transfer Order Register">
-          {isLoading ? (
-            <div className="p-4 text-secondary text-sm">Loading transfer orders...</div>
-          ) : filteredOrders.length > 0 ? (
-            <DataTable caption="Directory of stock transfer orders">
+      <section aria-label="Transfer order directory" className="list-panel">
+        {transfers.isError ? (
+          <EmptyState
+            action={<Button onClick={() => transfers.refetch()} variant="secondary">Retry</Button>}
+            className="directory-state--error"
+            description={errorMessage(transfers.error, 'Check your connection and permissions, then try again.')}
+            title="Transfer orders could not be loaded"
+          />
+        ) : transfers.isLoading ? (
+          <div aria-live="polite" className="directory-state">Loading transfer orders...</div>
+        ) : transferPage?.content.length ? (
+          <>
+            <DataTable caption="Warehouse transfer order register">
               <thead>
                 <tr>
                   <th scope="col">Transfer #</th>
-                  <th scope="col">Date</th>
-                  <th scope="col">Source (From)</th>
-                  <th scope="col">Destination (To)</th>
-                  <th className="numeric-cell" scope="col">Items</th>
+                  <th scope="col">Transfer date</th>
+                  <th scope="col">Source warehouse</th>
+                  <th scope="col">Destination warehouse</th>
+                  <th className="numeric-cell" scope="col">Lines</th>
                   <th scope="col">Status</th>
-                  <th className="numeric-cell" scope="col">Actions</th>
+                  <th scope="col"><span className="visually-hidden">Actions</span></th>
                 </tr>
               </thead>
               <tbody>
-                {filteredOrders.map((order) => (
-                  <tr key={order.id}>
-                    <td>
-                      <Link
-                        to={`/transfer-orders/${order.id}`}
-                        className="font-mono font-semibold text-brand hover:underline"
-                      >
-                        {order.transferNumber}
-                      </Link>
-                    </td>
-                    <td>
-                      <span className="font-mono text-xs">{order.transferDate}</span>
-                    </td>
-                    <td>
-                      <strong>{order.fromWarehouseName}</strong>
-                    </td>
-                    <td>
-                      <div className="flex items-center gap-1.5">
-                        <ArrowRight size={13} className="text-muted flex-none" />
-                        <strong>{order.toWarehouseName}</strong>
-                      </div>
-                    </td>
-                    <td className="numeric-cell">
-                      <span className="font-mono">{order.lineCount} item(s)</span>
-                    </td>
-                    <td>
-                      <StatusChip status={order.status} />
-                    </td>
-                    <td className="numeric-cell">
-                      <Button
-                        onClick={() => navigate(`/transfer-orders/${order.id}`)}
-                        variant="secondary"
-                      >
-                        <span>View</span>
-                      </Button>
-                    </td>
-                  </tr>
+                {transferPage.content.map((transfer) => (
+                  <TransferOrderRow
+                    key={transfer.id}
+                    onOpen={() => navigate(appRoutes.transferOrderDetail(transfer.id))}
+                    transfer={transfer}
+                  />
                 ))}
               </tbody>
             </DataTable>
-          ) : (
-            <div className="p-4">
-              <div className="compact-zero-state">
-                <Package size={16} className="text-muted flex-none" />
-                <span>
-                  {searchTerm || statusFilter !== 'ALL'
-                    ? 'No transfer orders match the applied filters.'
-                    : 'No stock transfer orders registered yet. Click "New Transfer" to start one.'}
-                </span>
-              </div>
-            </div>
-          )}
-        </DocumentCard>
-      </div>
+            <TablePagination
+              itemLabel="transfer order"
+              onPageChange={setPage}
+              page={transferPage.page}
+              totalElements={transferPage.totalElements}
+              totalPages={transferPage.totalPages}
+            />
+          </>
+        ) : (
+          <EmptyState
+            action={<Button onClick={() => navigate(appRoutes.transferOrderCreate)} variant="secondary">Create transfer</Button>}
+            description="Create a draft to move stock between two warehouses, then dispatch and receive it through the controlled lifecycle."
+            icon={ArrowLeftRight}
+            title="No transfer orders recorded"
+          />
+        )}
+      </section>
     </section>
+  )
+}
+
+function TransferOrderRow({ onOpen, transfer }: { onOpen: () => void; transfer: TransferOrder }) {
+  return (
+    <tr>
+      <td>
+        <div className="item-primary">
+          <span aria-hidden="true" className="item-avatar"><ArrowLeftRight size={15} /></span>
+          <strong>{transfer.transferNumber}</strong>
+        </div>
+      </td>
+      <td>{formatDate(transfer.transferDate)}</td>
+      <td>{transfer.fromWarehouseName ?? transfer.fromWarehouseId}</td>
+      <td>{transfer.toWarehouseName ?? transfer.toWarehouseId}</td>
+      <td className="numeric-cell">{formatQuantity(transfer.lineCount)}</td>
+      <td><StatusChip status={formatStatusLabel(transfer.status)} /></td>
+      <td><Button onClick={onOpen} variant="ghost">Open</Button></td>
+    </tr>
   )
 }

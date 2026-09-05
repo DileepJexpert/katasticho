@@ -13,12 +13,16 @@ import {
   type PriceListItem,
 } from '@/features/price-lists/price-lists-api'
 import { formatDateTime, formatStatusLabel } from '@/shared/format/format'
+import { PriceListActionModal, type PriceListAction } from './price-list-action-modal'
+import { useCanManagePricing } from './pricing-shared'
 
 type PriceListTab = 'overview' | 'tiers' | 'customers'
 
 export function PriceListDetailPage() {
   const { priceListId } = useParams()
   const navigate = useNavigate()
+  const canManage = useCanManagePricing()
+  const [action, setAction] = useState<PriceListAction | null>(null)
   const [activeTab, setActiveTab] = useState<PriceListTab>('overview')
   const priceListQuery = useQuery({
     queryKey: ['price-lists', priceListId],
@@ -66,7 +70,11 @@ export function PriceListDetailPage() {
           <ArrowLeft aria-hidden="true" size={16} />
           Back to price lists
         </Button>
-        <span className="cell-muted">Read-only review. Price-list and customer-assignment changes remain in Flutter during migration.</span>
+        {canManage ? <>
+          <Button onClick={() => setAction({ kind: 'tier' })} variant="secondary" disabled={!priceList.active}>Add item tier</Button>
+          <Button onClick={() => setAction({ kind: 'customer' })} variant="secondary" disabled={!priceList.active}>Assign customer</Button>
+          <Button onClick={() => setAction({ kind: 'delete' })} variant="ghost">Retire price list</Button>
+        </> : <span className="cell-muted">Your role has read-only access to pricing.</span>}
       </div>
 
       <FilterTabs
@@ -81,8 +89,9 @@ export function PriceListDetailPage() {
       />
 
       {activeTab === 'overview' && <PriceListOverview priceList={priceList} />}
-      {activeTab === 'tiers' && <TiersTab isError={tiersQuery.isError} isLoading={tiersQuery.isLoading} tiers={tiersQuery.data ?? []} />}
-      {activeTab === 'customers' && <CustomersTab customers={customersQuery.data ?? []} isError={customersQuery.isError} isLoading={customersQuery.isLoading} />}
+      {activeTab === 'tiers' && <TiersTab currency={priceList.currency ?? undefined} onRemove={canManage ? (tier) => setAction({ kind: 'remove-tier', tier }) : undefined} isError={tiersQuery.isError} isLoading={tiersQuery.isLoading} tiers={tiersQuery.data ?? []} />}
+      {activeTab === 'customers' && <CustomersTab onRemove={canManage ? (customer) => setAction({ kind: 'remove-customer', customer }) : undefined} customers={customersQuery.data ?? []} isError={customersQuery.isError} isLoading={customersQuery.isLoading} />}
+      {action && <PriceListActionModal list={priceList} action={action} onClose={() => setAction(null)} onDeleted={() => navigate(appRoutes.priceLists)} />}
     </section>
   )
 }
@@ -107,14 +116,14 @@ function PriceListOverview({ priceList }: { priceList: PriceList }) {
         <FactList>
           <Fact label="Customer rule" value="Pinned customer list is checked first" />
           <Fact label="Organisation rule" value="Default list is checked next" />
-          <Fact label="Fallback" value="Base item sale price applies when no eligible tier exists" />
+          <Fact label="Fallback" value="Document-supplied rate applies when no eligible tier exists" />
         </FactList>
       </DocumentCard>
     </div>
   )
 }
 
-function TiersTab({ isError, isLoading, tiers }: { isError: boolean; isLoading: boolean; tiers: PriceListItem[] }) {
+function TiersTab({ isError, isLoading, tiers, currency, onRemove }: { isError: boolean; isLoading: boolean; tiers: PriceListItem[]; currency?: string; onRemove?: (tier: PriceListItem) => void }) {
   if (isLoading) return <PriceListState message="Loading item tiers..." />
   if (isError) return <div className="directory-state directory-state--error" role="alert">Item tiers could not be loaded.</div>
   if (!tiers.length) return <EmptyPriceListTab icon={Tag} message="No item tiers are configured for this price list." />
@@ -127,13 +136,15 @@ function TiersTab({ isError, isLoading, tiers }: { isError: boolean; isLoading: 
             <th scope="col">Item</th>
             <th className="numeric-cell" scope="col">Minimum quantity</th>
             <th className="numeric-cell" scope="col">Unit price</th>
+            {onRemove && <th scope="col">Actions</th>}
           </tr>
         </thead>
         <tbody>{tiers.map((tier) => (
           <tr key={tier.id}>
             <td><div className="cell-stack"><strong>{tier.itemName ?? 'Unavailable item'}</strong><code>{tier.itemSku ?? tier.itemId}</code></div></td>
             <td className="numeric-cell"><Quantity value={tier.minQuantity} /></td>
-            <td className="numeric-cell"><Money amount={tier.price} /></td>
+            <td className="numeric-cell"><Money amount={tier.price} currency={currency} /></td>
+            {onRemove && <td><Button variant="ghost" onClick={() => onRemove(tier)}>Remove tier</Button></td>}
           </tr>
         ))}</tbody>
       </DataTable>
@@ -141,7 +152,7 @@ function TiersTab({ isError, isLoading, tiers }: { isError: boolean; isLoading: 
   )
 }
 
-function CustomersTab({ customers, isError, isLoading }: { customers: PriceListCustomer[]; isError: boolean; isLoading: boolean }) {
+function CustomersTab({ customers, isError, isLoading, onRemove }: { customers: PriceListCustomer[]; isError: boolean; isLoading: boolean; onRemove?: (customer: PriceListCustomer) => void }) {
   if (isLoading) return <PriceListState message="Loading assigned customers..." />
   if (isError) return <div className="directory-state directory-state--error" role="alert">Assigned customers could not be loaded.</div>
   if (!customers.length) return <EmptyPriceListTab icon={Users} message="No customers are assigned to this price list." />
@@ -154,6 +165,7 @@ function CustomersTab({ customers, isError, isLoading }: { customers: PriceListC
             <th scope="col">Customer</th>
             <th scope="col">Role</th>
             <th scope="col">Phone</th>
+            {onRemove && <th scope="col">Actions</th>}
           </tr>
         </thead>
         <tbody>{customers.map((customer) => (
@@ -161,6 +173,7 @@ function CustomersTab({ customers, isError, isLoading }: { customers: PriceListC
             <td><strong>{customer.displayName}</strong></td>
             <td>{formatStatusLabel(customer.contactType ?? 'Customer')}</td>
             <td>{customer.phone ?? '--'}</td>
+            {onRemove && <td><Button variant="ghost" onClick={() => onRemove(customer)}>Remove assignment</Button></td>}
           </tr>
         ))}</tbody>
       </DataTable>

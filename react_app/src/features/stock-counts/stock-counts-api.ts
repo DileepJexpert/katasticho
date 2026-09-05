@@ -1,15 +1,16 @@
-﻿import { apiFetch } from '@/api/client/api-client'
+import { apiFetch } from '@/api/client/api-client'
 
+type NumberLike = number | string
+
+/** Read projection returned by the frozen StockCountController contract. */
 export type StockCountLine = {
   id: string
   itemId: string
-  itemName: string
-  itemSku: string | null
-  batchNumber?: string | null
-  systemQuantity: number | string
-  countedQuantity: number | string
-  discrepancyQuantity: number | string
-  discrepancyValue?: number | string | null
+  itemName: string | null
+  sku: string | null
+  expectedQuantity: NumberLike
+  countedQuantity: NumberLike
+  variance: NumberLike
   notes: string | null
 }
 
@@ -18,11 +19,14 @@ export type StockCount = {
   countNumber: string
   warehouseId: string
   warehouseName: string | null
-  status: 'IN_PROGRESS' | 'POSTED' | 'CANCELLED' | string
+  countDate: string
+  status: 'DRAFT' | 'POSTED' | 'CANCELLED' | string
   notes: string | null
-  createdAt: string
   postedAt: string | null
+  lineCount: number
+  varianceCount: number
   lines: StockCountLine[]
+  createdAt: string
 }
 
 export type StockCountPage = {
@@ -36,44 +40,37 @@ export type StockCountPage = {
 
 export type CreateStockCountRequest = {
   warehouseId: string
+  countDate?: string
   notes?: string
-  lines?: {
+  lines: Array<{
     itemId: string
     countedQuantity: number
-    batchNumber?: string
     notes?: string
-  }[]
+  }>
 }
 
-export async function listStockCounts(page = 0) {
-  return apiFetch<StockCountPage>(`/api/v1/stock-counts?page=${page}&size=25&sort=createdAt,desc`)
+export function listStockCounts(page = 0) {
+  return apiFetch<StockCountPage>(`/api/v1/stock-counts?page=${page}&size=25&sort=countDate,desc`)
 }
 
-export async function getStockCount(id: string) {
+export function getStockCount(id: string) {
   return apiFetch<StockCount>(`/api/v1/stock-counts/${id}`)
 }
 
-export async function createStockCount(req: CreateStockCountRequest) {
+export function createStockCount(request: CreateStockCountRequest) {
   return apiFetch<StockCount>('/api/v1/stock-counts', {
     method: 'POST',
-    body: req,
+    body: request,
   })
 }
 
-export async function updateStockCountLines(id: string, lines: { lineId: string; countedQuantity: number; notes?: string }[]) {
-  return apiFetch<StockCount>(`/api/v1/stock-counts/${id}/lines`, {
-    method: 'PUT',
-    body: lines,
-  })
-}
-
-export async function postStockCount(id: string) {
+export function postStockCount(id: string) {
   return apiFetch<StockCount>(`/api/v1/stock-counts/${id}/post`, {
     method: 'POST',
   })
 }
 
-export async function cancelStockCount(id: string) {
+export function cancelStockCount(id: string) {
   return apiFetch<void>(`/api/v1/stock-counts/${id}/cancel`, {
     method: 'POST',
   })

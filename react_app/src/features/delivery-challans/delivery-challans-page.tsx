@@ -119,7 +119,7 @@ export function DeliveryChallansPage() {
                 <span>New Delivery Challan</span>
               </Button>
             }
-            description="Delivery challans generated from confirmed sales orders or created directly will appear here for dispatch tracking."
+            description="Create a confirmed sales order first, then use its fulfilment action to draft a delivery challan with the required order-line controls."
             icon={Truck}
             title="No delivery challans found"
           />

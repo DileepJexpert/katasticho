@@ -150,10 +150,9 @@ export function FiscalPeriodsPage() {
         description="Review accounting periods, period closure governance (OPEN, LOCKED, CLOSED), and financial year boundaries. Mutations remain in Flutter during migration."
       />
 
-      {/* Year Selector Tabs */}
-      <nav aria-label="Fiscal year selector" className="form-card">
-        <div className="directory-toolbar">
-          <span className="text-secondary font-medium">Financial year:</span>
+      <section aria-label="Fiscal year selector" className="list-panel">
+        <DirectoryToolbar ariaLabel="Select financial year">
+          <span className="list-toolbar-note">Financial year</span>
           <FilterTabs
             activeValue={String(activeYear)}
             ariaLabel="Select financial year"
@@ -164,8 +163,8 @@ export function FiscalPeriodsPage() {
             }))}
             onChange={(val) => setSelectedYear(Number(val))}
           />
-        </div>
-      </nav>
+        </DirectoryToolbar>
+      </section>
 
       {/* Year Summary KPI Cards */}
       <section

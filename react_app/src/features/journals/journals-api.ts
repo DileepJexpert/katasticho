@@ -43,19 +43,21 @@ export type JournalEntryPage = {
 }
 
 export type CreateJournalLineRequest = {
-  accountId: string
+  accountCode: string
   debit?: number
   credit?: number
   description?: string
-  currency?: string
+  costCentre?: string
 }
 
 export type CreateJournalRequest = {
   effectiveDate: string
   description: string
-  sourceModule?: string
-  reference?: string
+  sourceModule: string
+  sourceId?: string
   lines: CreateJournalLineRequest[]
+  autoPost: boolean
+  postDated: boolean
 }
 
 type ListJournalsOptions = {

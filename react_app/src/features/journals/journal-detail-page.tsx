@@ -51,7 +51,7 @@ export function JournalDetailPage() {
     <section className="workspace-page">
       <PageHeader
         actions={
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <div className="journal-detail-actions">
             <Button onClick={() => navigate(appRoutes.journals)} variant="secondary">
               <ArrowLeft className="icon" /> Back to Journals
             </Button>
@@ -80,7 +80,7 @@ export function JournalDetailPage() {
         title={document.entryNumber}
       />
 
-      <div className="document-layout" style={{ marginBottom: '1.5rem' }}>
+      <div className="document-layout journal-detail-layout">
         <section className="document-card">
           <h2>Voucher Overview</h2>
           <dl className="document-facts">

@@ -1,4 +1,6 @@
 import { apiFetch } from '@/api/client/api-client'
+import type { PurchaseBill } from '@/features/bills/bills-api'
+import type { StockReceipt } from '@/features/stock-receipts/stock-receipts-api'
 
 export type PurchaseOrderLine = {
   id: string
@@ -39,8 +41,9 @@ export type CreatePurchaseOrderRequest = {
   lines: {
     itemId: string
     quantity: number
-    unitPrice: number
+    unitPrice?: number
     description?: string
+    taxGroupId?: string
   }[]
 }
 
@@ -68,9 +71,9 @@ export function cancelPurchaseOrder(id: string) {
 }
 
 export function createGrnFromPo(id: string) {
-  return apiFetch<unknown>(`/api/v1/purchase-orders/${id}/create-grn`, { method: 'POST' })
+  return apiFetch<StockReceipt>(`/api/v1/purchase-orders/${id}/create-grn`, { method: 'POST' })
 }
 
 export function createBillFromPo(id: string) {
-  return apiFetch<unknown>(`/api/v1/purchase-orders/${id}/create-bill`, { method: 'POST' })
+  return apiFetch<PurchaseBill>(`/api/v1/purchase-orders/${id}/create-bill`, { method: 'POST' })
 }

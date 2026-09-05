@@ -55,12 +55,13 @@ describe('ItemDetailPage', () => {
     )
   }
 
-  it('renders verified item facts without operational controls', async () => {
+  it('renders item facts with the safe master-data edit action', async () => {
     renderPage()
 
     expect(await screen.findByRole('heading', { name: 'Turmeric Masala 100g' })).toBeInTheDocument()
     expect(screen.getByText('MASALA-100G')).toBeInTheDocument()
-    expect(screen.getByText('Read-only review. Stock and master-data changes remain in Flutter during migration.')).toBeInTheDocument()
+    expect(screen.getByText('Stock quantity adjustments remain in the audited stock ledger.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Edit item' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /adjust stock|reverse|add barcode|mark damaged/i })).not.toBeInTheDocument()
   })
 

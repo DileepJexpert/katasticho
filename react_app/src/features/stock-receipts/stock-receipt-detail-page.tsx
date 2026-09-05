@@ -69,26 +69,20 @@ export function StockReceiptDetailPage() {
   return (
     <section className="workspace-page">
       <PageHeader
-        actions={
-          <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
-            <StatusChip status={formatStatusLabel(document.status)} />
-            <Button onClick={() => navigate(appRoutes.stockReceipts)} variant="secondary">
-              <ArrowLeft aria-hidden="true" size={16} />
-              Back to receipts
-            </Button>
-          </div>
-        }
+        actions={<>
+          <StatusChip status={formatStatusLabel(document.status)} />
+          <Button onClick={() => navigate(appRoutes.stockReceipts)} variant="secondary">
+            <ArrowLeft aria-hidden="true" size={16} />
+            Back to receipts
+          </Button>
+        </>}
         description={`${document.supplierName} · Received ${formatDate(document.receiptDate)}`}
         eyebrow="Purchases / Inbound Logistics / Stock receipt"
         title={document.receiptNumber}
       />
 
       {feedback && (
-        <div
-          className="banner banner--success"
-          role="status"
-          style={{ marginBottom: 'var(--space-4)' }}
-        >
+        <div className="banner banner--success" role="status">
           <span>{feedback}</span>
           <button className="banner-dismiss" onClick={() => setFeedback(null)} type="button">✕</button>
         </div>
@@ -99,6 +93,7 @@ export function StockReceiptDetailPage() {
           <FactList columns={2}>
             <Fact label="Supplier" value={document.supplierName} />
             <Fact label="Warehouse" value={document.warehouseName} />
+            <Fact label="Source purchase order" mono value={document.purchaseOrderId ? 'Linked PO' : 'Direct receipt'} />
             <Fact label="Supplier Invoice #" mono value={document.supplierInvoiceNo ?? 'Not recorded'} />
             <Fact label="Supplier Invoice Date" value={formatDate(document.supplierInvoiceDate)} />
             <Fact label="GSTIN" mono value={document.supplierGstin ?? 'Not recorded'} />
@@ -109,6 +104,10 @@ export function StockReceiptDetailPage() {
         <DocumentCard title="Valuation Summary" variant="summary">
           <SummaryRow label="Material Value" value={<Money amount={document.subtotal} currency={currency} />} />
           <SummaryRow label="GST Input Tax" value={<Money amount={document.taxAmount} currency={currency} />} />
+          <SummaryRow label="Freight" value={<Money amount={document.freightAmount} currency={currency} />} />
+          <SummaryRow label="Duty" value={<Money amount={document.dutyAmount} currency={currency} />} />
+          <SummaryRow label="Insurance" value={<Money amount={document.insuranceAmount} currency={currency} />} />
+          <SummaryRow label="Other charges" value={<Money amount={document.otherCharges} currency={currency} />} />
           <SummaryRow isTotal label="Total Invoice Value" value={<Money amount={document.totalAmount} currency={currency} />} />
 
           <div className="document-card__actions">
@@ -145,7 +144,9 @@ export function StockReceiptDetailPage() {
               <th scope="col">Item / Batch</th>
               <th className="numeric-cell" scope="col">Quantity</th>
               <th className="numeric-cell" scope="col">Unit price</th>
+              <th className="numeric-cell" scope="col">Discount</th>
               <th className="numeric-cell" scope="col">Landed cost</th>
+              <th scope="col">Mfg</th>
               <th scope="col">Expiry</th>
               <th className="numeric-cell" scope="col">Line total</th>
             </tr>
@@ -162,7 +163,9 @@ export function StockReceiptDetailPage() {
                 </td>
                 <td className="numeric-cell"><Quantity value={line.quantity} /></td>
                 <td className="numeric-cell"><Money amount={line.unitPrice} currency={currency} /></td>
-                <td className="numeric-cell"><Money amount={line.landedCost} currency={currency} /></td>
+                <td className="numeric-cell">{line.discountPercent ?? 0}%</td>
+                <td className="numeric-cell"><Money amount={line.landedUnitCost} currency={currency} /></td>
+                <td>{line.manufacturingDate ? formatDate(line.manufacturingDate) : '--'}</td>
                 <td>{line.expiryDate ? formatDate(line.expiryDate) : '--'}</td>
                 <td className="numeric-cell"><strong><Money amount={line.lineTotal} currency={currency} /></strong></td>
               </tr>

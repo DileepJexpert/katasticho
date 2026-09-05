@@ -1,338 +1,334 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   AlertTriangle,
-  ArrowRight,
   Boxes,
-  Download,
-  Factory,
-  FileSpreadsheet,
   GitFork,
-  Search,
-  Truck,
-  Users,
 } from 'lucide-react'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { PageHeader } from '@/design-system/page-header'
-import { formatDateTime } from '@/shared/format/format'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { appRoutes } from '@/app/navigation'
 import {
+  Button,
+  DataTable,
+  DirectoryToolbar,
+  DocumentCard,
+  EmptyState,
+  Fact,
+  FactList,
+  FilterTabs,
+  PageHeader,
+  Quantity,
+  SearchInput,
+  StatusChip,
+} from '@/design-system'
+import { formatDate, formatDateTime } from '@/shared/format/format'
+import {
+  getBatch,
   getBatchRecallReport,
-  getBatchTraceBackward,
-  getBatchTraceForward,
+  getBatchTraceHistory,
   type BatchRecallReport,
   type BatchTraceRecord,
-} from '@/features/items/items-api'
+} from '@/features/inventory/batches-api'
+
+function errorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) return error.message
+  return fallback
+}
 
 export function BatchTracePage() {
-  const [batchId, setBatchId] = useState('')
-  const [searchedBatchId, setSearchedBatchId] = useState('')
-  const [traceDirection, setTraceDirection] = useState<'forward' | 'backward' | 'recall'>('forward')
+  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const selectedBatchId = searchParams.get('batchId') ?? ''
+  const [batchIdInput, setBatchIdInput] = useState(selectedBatchId)
+  const [view, setView] = useState<'history' | 'recall'>('history')
+  const isValidBatchId = isUuid(selectedBatchId)
 
-  const forwardQuery = useQuery({
-    queryKey: ['batch-trace', 'forward', searchedBatchId],
-    queryFn: () => getBatchTraceForward(searchedBatchId),
-    enabled: Boolean(searchedBatchId) && traceDirection === 'forward',
+  useEffect(() => {
+    setBatchIdInput(selectedBatchId)
+  }, [selectedBatchId])
+
+  const batchQuery = useQuery({
+    queryKey: ['batches', selectedBatchId],
+    queryFn: () => getBatch(selectedBatchId),
+    enabled: isValidBatchId,
   })
-
-  const backwardQuery = useQuery({
-    queryKey: ['batch-trace', 'backward', searchedBatchId],
-    queryFn: () => getBatchTraceBackward(searchedBatchId),
-    enabled: Boolean(searchedBatchId) && traceDirection === 'backward',
+  const historyQuery = useQuery({
+    queryKey: ['batch-trace', 'history', selectedBatchId],
+    queryFn: () => getBatchTraceHistory(selectedBatchId),
+    enabled: isValidBatchId && view === 'history',
   })
-
   const recallQuery = useQuery({
-    queryKey: ['batch-trace', 'recall', searchedBatchId],
-    queryFn: () => getBatchRecallReport(searchedBatchId),
-    enabled: Boolean(searchedBatchId) && traceDirection === 'recall',
+    queryKey: ['batch-trace', 'recall', selectedBatchId],
+    queryFn: () => getBatchRecallReport(selectedBatchId),
+    enabled: isValidBatchId && view === 'recall',
   })
 
-  function handleSearch(e: React.FormEvent) {
-    e.preventDefault()
-    if (batchId.trim()) {
-      setSearchedBatchId(batchId.trim())
-    }
+  function handleSearch() {
+    const batchId = batchIdInput.trim()
+    setSearchParams(batchId ? { batchId } : {})
   }
 
   return (
     <section className="workspace-page">
       <PageHeader
         eyebrow="Inventory / Traceability"
-        title="Batch Traceability & Product Recall Console"
-        description="End-to-end bidirectional batch genealogy across Inbound POs, QC, Work Order WIP, Delivery Challans, Sales Invoices, and Customers."
-        actions={
-          searchedBatchId && traceDirection === 'recall' && recallQuery.data ? (
-            <Button onClick={() => window.print()} variant="primary">
-              <Download size={16} /> Export Recall Dossier
-            </Button>
-          ) : undefined
-        }
+        title="Batch traceability"
+        description="Review immutable manufacturing batch relationships and the server-calculated recall impact for a specific batch."
+        actions={<Button onClick={() => navigate(appRoutes.batches)} variant="secondary">Back to expiry watch</Button>}
       />
 
-      {/* Search Bar */}
-      <section className="document-card" style={{ marginBottom: '1.5rem' }}>
-        <form onSubmit={handleSearch} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
-          <label className="field-group" style={{ flex: 1 }}>
-            <span>Batch Number or Batch UUID</span>
-            <input
-              onChange={(e) => setBatchId(e.target.value)}
-              placeholder="e.g. BATCH-2026-001 or UUID"
-              value={batchId}
+      <DocumentCard className="batch-trace-search" title="Select a batch">
+        <form onSubmit={(event) => { event.preventDefault(); handleSearch() }}>
+          <DirectoryToolbar
+            ariaLabel="Batch trace selection"
+            actions={<Button disabled={!batchIdInput.trim()} type="submit" variant="primary">Open trace</Button>}
+          >
+            <SearchInput
+              ariaLabel="Batch UUID"
+              onChange={setBatchIdInput}
+              onClear={() => setBatchIdInput('')}
+              placeholder="Paste a batch UUID"
+              value={batchIdInput}
             />
-          </label>
-          <Button disabled={!batchId.trim()} type="submit" variant="primary">
-            <Search size={16} /> Trace Batch
-          </Button>
+          </DirectoryToolbar>
         </form>
-      </section>
+        <p className="batch-trace-search__hint">Open a batch from the expiry watch register to use its server-issued batch identifier.</p>
+      </DocumentCard>
 
-      {/* Mode Tabs */}
-      <div className="role-tabs" role="tablist" style={{ marginBottom: '1.5rem' }}>
-        <button
-          className={traceDirection === 'forward' ? 'role-tab role-tab--active' : 'role-tab'}
-          onClick={() => setTraceDirection('forward')}
-          role="tab"
-          type="button"
-        >
-          <ArrowRight size={16} style={{ marginRight: '0.5rem' }} />
-          Forward Trace (Supplier &rarr; Customer)
-        </button>
-        <button
-          className={traceDirection === 'backward' ? 'role-tab role-tab--active' : 'role-tab'}
-          onClick={() => setTraceDirection('backward')}
-          role="tab"
-          type="button"
-        >
-          <GitFork size={16} style={{ marginRight: '0.5rem' }} />
-          Backward Trace (FG &rarr; Raw Materials)
-        </button>
-        <button
-          className={traceDirection === 'recall' ? 'role-tab role-tab--active' : 'role-tab'}
-          onClick={() => setTraceDirection('recall')}
-          role="tab"
-          type="button"
-        >
-          <AlertTriangle size={16} style={{ marginRight: '0.5rem' }} />
-          Product Recall Dossier
-        </button>
-      </div>
-
-      {!searchedBatchId ? (
-        <div className="directory-state">
-          <Boxes size={32} />
-          <strong>Enter a Batch Number or UUID to begin genealogical trace.</strong>
-          <p>Trace forward to see where ingredients went, or backward to isolate root-cause supplier batches.</p>
-        </div>
-      ) : traceDirection === 'forward' ? (
-        <ForwardTraceView
-          isLoading={forwardQuery.isLoading}
-          records={forwardQuery.data ?? []}
+      {!selectedBatchId ? (
+        <EmptyState
+          description="Open a batch from the expiry register, or paste its UUID to review manufacturing links and recall impact."
+          icon={Boxes}
+          title="Select a batch to start tracing"
         />
-      ) : traceDirection === 'backward' ? (
-        <BackwardTraceView
-          isLoading={backwardQuery.isLoading}
-          records={backwardQuery.data ?? []}
+      ) : !isValidBatchId ? (
+        <EmptyState
+          action={<Button onClick={() => navigate(appRoutes.batches)} variant="secondary">Open expiry watch</Button>}
+          className="directory-state--error"
+          description="The trace API accepts a server-issued batch UUID, not a batch number."
+          title="A valid batch identifier is required"
         />
       ) : (
-        <RecallReportView
-          isLoading={recallQuery.isLoading}
-          report={recallQuery.data}
-        />
+        <>
+          {batchQuery.data && (
+            <DocumentCard className="batch-trace-details" title="Batch details">
+              <FactList columns={4}>
+                <Fact label="Batch number" mono value={batchQuery.data.batchNumber} />
+                <Fact label="Expiry date" value={formatDate(batchQuery.data.expiryDate)} />
+                <Fact label="Manufactured" value={formatDate(batchQuery.data.manufacturingDate)} />
+                <Fact label="Status" value={<StatusChip status={batchQuery.data.active ? 'Active' : 'Inactive'} />} />
+              </FactList>
+            </DocumentCard>
+          )}
+
+          {batchQuery.isError && (
+            <EmptyState
+              action={<Button onClick={() => batchQuery.refetch()} variant="secondary">Retry</Button>}
+              className="directory-state--error"
+              description="The batch details could not be loaded. You can still review trace records if the identifier is valid."
+              title="Batch details unavailable"
+            />
+          )}
+
+          <FilterTabs
+            activeValue={view}
+            ariaLabel="Batch trace view"
+            items={[
+              { value: 'history', label: 'Relationships' },
+              { value: 'recall', label: 'Recall impact' },
+            ]}
+            onChange={(value) => setView(value as 'history' | 'recall')}
+          />
+
+          {view === 'history' ? (
+            <TraceHistoryView
+              batchId={selectedBatchId}
+              error={historyQuery.error}
+              isError={historyQuery.isError}
+              isLoading={historyQuery.isLoading}
+              onRetry={() => historyQuery.refetch()}
+              records={historyQuery.data}
+            />
+          ) : (
+            <RecallReportView
+              error={recallQuery.error}
+              isError={recallQuery.isError}
+              isLoading={recallQuery.isLoading}
+              onRetry={() => recallQuery.refetch()}
+              report={recallQuery.data}
+            />
+          )}
+        </>
       )}
     </section>
   )
 }
 
-function ForwardTraceView({ records, isLoading }: { records: BatchTraceRecord[]; isLoading: boolean }) {
-  if (isLoading) return <div className="directory-state">Computing forward genealogical trace...</div>
-  if (!records.length) {
-    return (
-      <div className="directory-state">
-        <Boxes size={24} />
-        <strong>No forward trace events found for this batch.</strong>
-      </div>
-    )
+function TraceHistoryView({
+  batchId,
+  records,
+  isLoading,
+  isError,
+  error,
+  onRetry,
+}: {
+  batchId: string
+  records: { backward: BatchTraceRecord[]; forward: BatchTraceRecord[] } | undefined
+  isLoading: boolean
+  isError: boolean
+  error: unknown
+  onRetry: () => void
+}) {
+  if (isLoading) return <div aria-live="polite" className="directory-state">Loading batch relationships...</div>
+  if (isError) {
+    return <EmptyState action={<Button onClick={onRetry} variant="secondary">Retry</Button>} className="directory-state--error" description={errorMessage(error, 'Check your connection and permissions, then retry.')} title="Batch relationships could not be loaded" />
+  }
+  const backwardRecords = records?.backward ?? []
+  const forwardRecords = records?.forward ?? []
+  if (!backwardRecords.length && !forwardRecords.length) {
+    return <EmptyState description="No manufacturing genealogy links have been recorded for this batch." icon={GitFork} title="No batch relationships recorded" />
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-      <DataTable caption="Forward Batch Genealogy Tree">
-        <thead>
-          <tr>
-            <th scope="col">Step / Stage</th>
-            <th scope="col">Source Document</th>
-            <th scope="col">Target Destination</th>
-            <th className="numeric-cell" scope="col">Quantity</th>
-            <th scope="col">Contact / Entity</th>
-            <th scope="col">Timestamp</th>
-            <th scope="col">Notes</th>
-          </tr>
-        </thead>
-        <tbody>
-          {records.map((rec) => (
-            <tr key={rec.id}>
-              <td>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  {getStepIcon(rec.step)}
-                  <strong>{rec.step}</strong>
-                </div>
-              </td>
-              <td>
-                <div className="cell-stack">
-                  <span>{rec.sourceType}</span>
-                  <code>{rec.sourceNumber ?? rec.sourceId}</code>
-                </div>
-              </td>
-              <td>
-                <div className="cell-stack">
-                  <span>{rec.targetType}</span>
-                  <code>{rec.targetNumber ?? rec.targetId}</code>
-                </div>
-              </td>
-              <td className="numeric-cell"><strong>{rec.quantity}</strong></td>
-              <td>{rec.contactName ?? '--'}</td>
-              <td>{formatDateTime(rec.timestamp)}</td>
-              <td>{rec.notes ?? '--'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </DataTable>
+    <div className="batch-trace-sections">
+      <TraceTable batchId={batchId} description="Raw-material batches recorded as inputs to this finished-goods batch." records={backwardRecords} title="Upstream inputs" />
+      <TraceTable batchId={batchId} description="Finished-goods batches that the selected raw-material batch contributed to." records={forwardRecords} title="Downstream outputs" />
     </div>
   )
 }
 
-function BackwardTraceView({ records, isLoading }: { records: BatchTraceRecord[]; isLoading: boolean }) {
-  if (isLoading) return <div className="directory-state">Computing backward genealogical trace...</div>
-  if (!records.length) {
-    return (
-      <div className="directory-state">
-        <Boxes size={24} />
-        <strong>No upstream parent batches found.</strong>
-      </div>
-    )
-  }
-
+function TraceTable({
+  batchId,
+  description,
+  records,
+  title,
+}: {
+  batchId: string
+  description: string
+  records: BatchTraceRecord[]
+  title: string
+}) {
   return (
-    <DataTable caption="Backward Root Cause Trace">
-      <thead>
-        <tr>
-          <th scope="col">Upstream Stage</th>
-          <th scope="col">Component Batch</th>
-          <th scope="col">Source Order / PO</th>
-          <th className="numeric-cell" scope="col">Quantity Consumed</th>
-          <th scope="col">Supplier / Work Center</th>
-          <th scope="col">Date Recorded</th>
-        </tr>
-      </thead>
-      <tbody>
-        {records.map((rec) => (
-          <tr key={rec.id}>
-            <td>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Factory size={16} />
-                <strong>{rec.step}</strong>
-              </div>
-            </td>
-            <td><code>{rec.batchNumber}</code></td>
-            <td><code>{rec.sourceNumber ?? rec.sourceId}</code></td>
-            <td className="numeric-cell"><strong>{rec.quantity}</strong></td>
-            <td>{rec.contactName ?? '--'}</td>
-            <td>{formatDateTime(rec.timestamp)}</td>
-          </tr>
-        ))}
-      </tbody>
-    </DataTable>
+    <DocumentCard title={title}>
+      <p className="document-card__description">{description}</p>
+      {records.length ? (
+        <DataTable caption={`${title} batch genealogy records`}>
+          <thead>
+            <tr>
+              <th scope="col">Trace type</th>
+              <th scope="col">Related batch</th>
+              <th scope="col">Work order</th>
+              <th scope="col">Inventory movement</th>
+              <th className="numeric-cell" scope="col">Quantity</th>
+              <th scope="col">Recorded</th>
+            </tr>
+          </thead>
+          <tbody>
+            {records.map((record) => (
+              <tr key={record.id}>
+                <td><StatusChip status={record.traceType} /></td>
+                <td><code>{relatedBatchId(record, batchId)}</code></td>
+                <td><code>{record.workOrderId ?? '--'}</code></td>
+                <td><code>{record.movementId ?? '--'}</code></td>
+                <td className="numeric-cell"><Quantity value={record.quantity} /></td>
+                <td>{formatDateTime(record.tracedAt)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </DataTable>
+      ) : (
+        <p className="document-card__empty">No records in this direction.</p>
+      )}
+    </DocumentCard>
   )
 }
 
-function RecallReportView({ report, isLoading }: { report?: BatchRecallReport; isLoading: boolean }) {
-  if (isLoading) return <div className="directory-state">Generating Product Recall Dossier...</div>
-  if (!report) {
-    return (
-      <div className="directory-state">
-        <AlertTriangle size={24} />
-        <strong>No recall records found for raw material batch.</strong>
-      </div>
-    )
+function RecallReportView({
+  report,
+  isLoading,
+  isError,
+  error,
+  onRetry,
+}: {
+  report: BatchRecallReport | undefined
+  isLoading: boolean
+  isError: boolean
+  error: unknown
+  onRetry: () => void
+}) {
+  if (isLoading) return <div aria-live="polite" className="directory-state">Calculating recall impact...</div>
+  if (isError) {
+    return <EmptyState action={<Button onClick={onRetry} variant="secondary">Retry</Button>} className="directory-state--error" description={errorMessage(error, 'Check your connection and permissions, then retry.')} title="Recall impact could not be loaded" />
   }
+  if (!report) return null
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      <section className="document-card" style={{ borderLeft: '4px solid var(--color-danger, #d32f2f)' }}>
-        <h3 style={{ color: 'var(--color-danger, #d32f2f)' }}>Regulatory Product Recall Notice</h3>
-        <p>
-          Raw Material Batch: <code>{report.rmBatchNumber || report.rmBatchId}</code>
-        </p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
-          <div className="fact-item">
-            <dt>Derived FG Batches</dt>
-            <dd><strong>{report.finishedGoodsBatches.length} batches</strong></dd>
-          </div>
-          <div className="fact-item">
-            <dt>Affected Invoices / Shipments</dt>
-            <dd><strong>{report.customerShipments.length} dispatches</strong></dd>
-          </div>
-        </div>
-      </section>
+    <div className="batch-trace-sections">
+      <DocumentCard className="batch-recall-summary" title="Recall impact summary">
+        <p className="batch-recall-summary__notice"><AlertTriangle aria-hidden="true" size={16} /> This is a read-only impact report. Quarantine, notification, and return actions follow their existing controlled workflows.</p>
+        <FactList columns={4}>
+          <Fact label="Raw-material batch" mono value={report.rmBatch.batchNumber ?? report.rmBatch.batchId} />
+          <Fact label="Expiry date" value={formatDate(report.rmBatch.expiryDate)} />
+          <Fact label="Affected finished goods" value={report.affectedFgBatchCount} />
+          <Fact label="Affected shipments" value={report.affectedShipmentCount} />
+        </FactList>
+      </DocumentCard>
 
-      <section className="document-card">
-        <h4>Finished Goods Batches Produced</h4>
-        <DataTable caption="Finished Goods Batches">
-          <thead>
-            <tr>
-              <th scope="col">FG Batch Number</th>
-              <th scope="col">Work Order</th>
-              <th className="numeric-cell" scope="col">Quantity Produced</th>
-            </tr>
-          </thead>
-          <tbody>
-            {report.finishedGoodsBatches.map((fg) => (
-              <tr key={fg.fgBatchId}>
-                <td><code>{fg.fgBatchNumber}</code></td>
-                <td><code>{fg.workOrderId}</code></td>
-                <td className="numeric-cell"><strong>{fg.quantityProduced}</strong></td>
+      <DocumentCard title="Affected finished-goods batches">
+        {report.affectedFgBatches.length ? (
+          <DataTable caption="Finished-goods batches affected by the selected raw-material batch">
+            <thead>
+              <tr>
+                <th scope="col">Batch</th>
+                <th scope="col">Item identifier</th>
               </tr>
-            ))}
-          </tbody>
-        </DataTable>
-      </section>
+            </thead>
+            <tbody>
+              {report.affectedFgBatches.map((batch) => (
+                <tr key={batch.fgBatchId}>
+                  <td><code>{batch.fgBatchNumber ?? batch.fgBatchId}</code></td>
+                  <td><code>{batch.fgItemId ?? '--'}</code></td>
+                </tr>
+              ))}
+            </tbody>
+          </DataTable>
+        ) : <p className="document-card__empty">No finished-goods batches are linked to this batch.</p>}
+      </DocumentCard>
 
-      <section className="document-card">
-        <h4>Customer Recall Contact List</h4>
-        <DataTable caption="Affected Customer Shipments">
-          <thead>
-            <tr>
-              <th scope="col">Customer</th>
-              <th scope="col">Invoice #</th>
-              <th scope="col">Invoice Date</th>
-              <th scope="col">Delivery Challan</th>
-              <th className="numeric-cell" scope="col">Quantity Shipped</th>
-              <th scope="col">Contact Phone</th>
-              <th scope="col">Contact Email</th>
-            </tr>
-          </thead>
-          <tbody>
-            {report.customerShipments.map((cs) => (
-              <tr key={cs.invoiceId}>
-                <td><strong>{cs.customerName}</strong></td>
-                <td><code>{cs.invoiceNumber}</code></td>
-                <td>{cs.invoiceDate}</td>
-                <td><code>{cs.deliveryChallanNumber ?? '--'}</code></td>
-                <td className="numeric-cell"><strong>{cs.quantityShipped}</strong></td>
-                <td>{cs.customerPhone ?? '--'}</td>
-                <td>{cs.customerEmail ?? '--'}</td>
+      <DocumentCard title="Affected shipments">
+        {report.affectedShipments.length ? (
+          <DataTable caption="Customer shipments affected by the selected raw-material batch">
+            <thead>
+              <tr>
+                <th scope="col">Customer</th>
+                <th scope="col">Invoice</th>
+                <th scope="col">Movement date</th>
+                <th className="numeric-cell" scope="col">Quantity</th>
               </tr>
-            ))}
-          </tbody>
-        </DataTable>
-      </section>
+            </thead>
+            <tbody>
+              {report.affectedShipments.map((shipment, index) => (
+                <tr key={`${shipment.invoiceId ?? 'unlinked'}-${shipment.fgBatchId}-${index}`}>
+                  <td>{shipment.customerName ?? '--'}</td>
+                  <td><code>{shipment.invoiceNumber ?? shipment.invoiceId ?? '--'}</code></td>
+                  <td>{formatDate(shipment.movementDate)}</td>
+                  <td className="numeric-cell"><Quantity value={shipment.quantity} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </DataTable>
+        ) : <p className="document-card__empty">No customer shipment movements are linked to this batch.</p>}
+      </DocumentCard>
     </div>
   )
 }
 
-function getStepIcon(step: string) {
-  if (step.includes('PURCHASE') || step.includes('RECEIPT')) return <Truck size={16} />
-  if (step.includes('WORK_ORDER') || step.includes('PRODUCTION')) return <Factory size={16} />
-  if (step.includes('INVOICE') || step.includes('SALE') || step.includes('DELIVERY')) return <Users size={16} />
-  return <FileSpreadsheet size={16} />
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+}
+
+function relatedBatchId(record: BatchTraceRecord, selectedBatchId: string) {
+  if (record.batchId === selectedBatchId) return record.sourceBatchId ?? '--'
+  if (record.sourceBatchId === selectedBatchId) return record.batchId
+  return record.sourceBatchId ?? record.batchId
 }

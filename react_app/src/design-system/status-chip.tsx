@@ -7,7 +7,7 @@ const statusTone = (status: string): StatusTone => {
   if (/negative stock|overdue|failed|rejected|error|void|cancelled/.test(normalized)) return 'negative'
   if (/low stock|out of stock|reorder|pending|due|partial|draft|backorder|wave|in progress/.test(normalized)) return 'warning'
   if (/paid|received|reconciled|approved|active|connected|posted|confirmed|shipped|invoiced|completed|fully picked|in stock/.test(normalized)) return 'positive'
-  if (/sent|info/.test(normalized)) return 'info'
+  if (/in transit|sent|info/.test(normalized)) return 'info'
   return 'neutral'
 }
 

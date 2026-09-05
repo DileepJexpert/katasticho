@@ -1,5 +1,6 @@
-import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft } from 'lucide-react'
+import { useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ArrowLeft, CheckCircle2, FileText, Send, Trash2 } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
 import {
@@ -14,116 +15,98 @@ import {
   StatusChip,
   SummaryRow,
 } from '@/design-system'
-import { getDeliveryChallan } from '@/features/delivery-challans/delivery-challans-api'
+import {
+  cancelDeliveryChallan,
+  dispatchDeliveryChallan,
+  getDeliveryChallan,
+  markDeliveryChallanDelivered,
+} from '@/features/delivery-challans/delivery-challans-api'
 import { formatDate, formatStatusLabel } from '@/shared/format/format'
 
 export function DeliveryChallanDetailPage() {
   const { challanId } = useParams()
   const navigate = useNavigate()
-  const challan = useQuery({
-    queryKey: ['delivery-challans', challanId],
-    queryFn: () => getDeliveryChallan(challanId!),
-    enabled: Boolean(challanId),
+  const queryClient = useQueryClient()
+  const [feedback, setFeedback] = useState<{ kind: 'error' | 'success'; message: string } | null>(null)
+  const challan = useQuery({ queryKey: ['delivery-challans', challanId], queryFn: () => getDeliveryChallan(challanId!), enabled: Boolean(challanId) })
+
+  const refreshChallan = () => {
+    queryClient.invalidateQueries({ queryKey: ['delivery-challans'] })
+    queryClient.invalidateQueries({ queryKey: ['delivery-challans', challanId] })
+  }
+  const dispatchMutation = useMutation({
+    mutationFn: () => dispatchDeliveryChallan(challanId!),
+    onSuccess: () => { setFeedback({ kind: 'success', message: 'Challan dispatched. The server recorded the warehouse stock movement.' }); refreshChallan() },
+    onError: (error: Error) => setFeedback({ kind: 'error', message: error.message }),
+  })
+  const deliveredMutation = useMutation({
+    mutationFn: () => markDeliveryChallanDelivered(challanId!),
+    onSuccess: () => { setFeedback({ kind: 'success', message: 'Challan marked as delivered.' }); refreshChallan() },
+    onError: (error: Error) => setFeedback({ kind: 'error', message: error.message }),
+  })
+  const cancelMutation = useMutation({
+    mutationFn: () => cancelDeliveryChallan(challanId!),
+    onSuccess: () => { setFeedback({ kind: 'success', message: 'Draft challan cancelled. No stock was moved.' }); refreshChallan() },
+    onError: (error: Error) => setFeedback({ kind: 'error', message: error.message }),
   })
 
   if (!challanId) return <DocumentError onBack={() => navigate(appRoutes.deliveryChallans)} />
-  if (challan.isLoading) {
-    return (
-      <section className="workspace-page">
-        <div aria-live="polite" className="directory-state">
-          Loading delivery challan...
-        </div>
-      </section>
-    )
-  }
-  if (challan.isError || !challan.data) {
-    return <DocumentError onBack={() => navigate(appRoutes.deliveryChallans)} />
-  }
+  if (challan.isLoading) return <section className="workspace-page"><div aria-live="polite" className="directory-state">Loading delivery challan...</div></section>
+  if (challan.isError || !challan.data) return <DocumentError onBack={() => navigate(appRoutes.deliveryChallans)} />
 
   const document = challan.data
 
   return (
     <section className="workspace-page">
       <PageHeader
-        actions={<StatusChip status={formatStatusLabel(document.status)} />}
-        description={`${document.contactName ?? 'Walk-in / Unknown'} · created ${formatDate(document.challanDate)}`}
+        actions={<><StatusChip status={formatStatusLabel(document.status)} /><Button onClick={() => navigate(appRoutes.deliveryChallans)} variant="secondary"><ArrowLeft size={16} /> Back to challans</Button></>}
+        description={`${document.contactName ?? 'Unknown customer'} / created ${formatDate(document.challanDate)}`}
         eyebrow="Sales / Fulfilment / Delivery challan"
         title={document.challanNumber}
       />
-
-      <div className="document-actions">
-        <Button onClick={() => navigate(appRoutes.deliveryChallans)} variant="secondary">
-          <ArrowLeft aria-hidden="true" size={16} />
-          Back to challans
-        </Button>
-      </div>
+      {feedback ? <div className={`banner ${feedback.kind === 'error' ? 'banner--error' : 'banner--success'}`} role="status">{feedback.message}</div> : null}
 
       <div className="document-layout">
-        <DocumentCard title="Logistics & Dispatch Information">
+        <DocumentCard title="Logistics and dispatch information">
           <FactList columns={2}>
             <Fact label="Customer" value={document.contactName ?? '--'} />
-            <Fact label="Challan Date" value={formatDate(document.challanDate)} />
-            <Fact label="Dispatch Date" value={formatDate(document.dispatchDate)} />
+            <Fact label="Challan date" value={formatDate(document.challanDate)} />
+            <Fact label="Dispatch date" value={formatDate(document.dispatchDate)} />
             <Fact label="Warehouse" value={document.warehouseName ?? '--'} />
-            <Fact label="Sales Order" mono value={document.salesOrderNumber ?? 'Direct challan'} />
-            <Fact label="Delivery Method" value={document.deliveryMethod ?? '--'} />
-            <Fact label="Vehicle Number" mono value={document.vehicleNumber ?? '--'} />
-            <Fact label="Tracking Number" mono value={document.trackingNumber ?? '--'} />
-            <Fact label="Shipping Address" value={document.shippingAddress ?? '--'} />
+            <Fact label="Sales order" mono value={document.salesOrderNumber ?? '--'} />
+            <Fact label="Delivery method" value={document.deliveryMethod ?? '--'} />
+            <Fact label="Vehicle number" mono value={document.vehicleNumber ?? '--'} />
+            <Fact label="Tracking number" mono value={document.trackingNumber ?? '--'} />
+            <Fact label="Shipping address" value={document.shippingAddress ?? '--'} />
           </FactList>
         </DocumentCard>
 
-        <DocumentCard title="Fulfilment Summary" variant="summary">
-          <SummaryRow label="Dispatch Status" value={<StatusChip status={formatStatusLabel(document.status)} />} />
-          <SummaryRow label="Invoicing Status" value={<StatusChip status={formatStatusLabel(document.salesOrderInvoicedStatus ?? 'Pending')} />} />
-          <SummaryRow label="Line Items" value={<strong>{document.lines.length}</strong>} />
+        <DocumentCard title="Dispatch actions" variant="summary">
+          <SummaryRow label="Dispatch status" value={<StatusChip status={formatStatusLabel(document.status)} />} />
+          <SummaryRow label="Invoicing status" value={<StatusChip status={formatStatusLabel(document.salesOrderInvoicedStatus ?? 'Pending')} />} />
+          <SummaryRow label="Line items" value={<strong>{document.lines.length}</strong>} />
+          <div className="document-card__actions">
+            {document.status === 'DRAFT' ? <Button disabled={dispatchMutation.isPending} onClick={() => dispatchMutation.mutate()} variant="primary"><Send size={16} />{dispatchMutation.isPending ? 'Dispatching...' : 'Dispatch challan'}</Button> : null}
+            {document.status === 'DISPATCHED' ? <Button disabled={deliveredMutation.isPending} onClick={() => deliveredMutation.mutate()} variant="secondary"><CheckCircle2 size={16} />{deliveredMutation.isPending ? 'Updating...' : 'Mark delivered'}</Button> : null}
+            {document.salesOrderId && ['DISPATCHED', 'DELIVERED'].includes(document.status) ? <Button onClick={() => navigate(appRoutes.salesOrderDetail(document.salesOrderId!))} variant="primary"><FileText size={16} /> Create invoice from order</Button> : null}
+            {document.status === 'DRAFT' ? <Button disabled={cancelMutation.isPending} onClick={() => cancelMutation.mutate()} variant="destructive"><Trash2 size={16} /> Cancel draft</Button> : null}
+          </div>
         </DocumentCard>
       </div>
 
-      <DocumentCard title="Dispatched Line Items" variant="lines">
+      <DocumentCard title="Dispatch line items" variant="lines">
         <DataTable caption="Delivery challan lines">
-          <thead>
-            <tr>
-              <th scope="col">#</th>
-              <th scope="col">Item</th>
-              <th scope="col">Batch number</th>
-              <th className="numeric-cell" scope="col">Dispatched quantity</th>
-            </tr>
-          </thead>
-          <tbody>
-            {document.lines.map((line) => (
-              <tr key={line.id}>
-                <td>{line.lineNumber}</td>
-                <td>
-                  <div className="cell-stack">
-                    <strong>{line.itemName ?? line.description ?? '--'}</strong>
-                    {line.description && line.itemName ? (
-                      <span className="cell-muted">{line.description}</span>
-                    ) : null}
-                  </div>
-                </td>
-                <td>
-                  {line.batchNumber ? (
-                    <code>{line.batchNumber}</code>
-                  ) : (
-                    <span className="cell-muted">Non-batch item</span>
-                  )}
-                </td>
-                <td className="numeric-cell">
-                  <Quantity unit={line.unit} value={line.quantity} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
+          <thead><tr><th scope="col">#</th><th scope="col">Item</th><th scope="col">Batch number</th><th className="numeric-cell" scope="col">Dispatch quantity</th></tr></thead>
+          <tbody>{document.lines.map((line) => <tr key={line.id}>
+            <td>{line.lineNumber}</td>
+            <td><div className="cell-stack"><strong>{line.itemName ?? line.description ?? '--'}</strong>{line.description && line.itemName ? <span className="cell-muted">{line.description}</span> : null}</div></td>
+            <td>{line.batchNumber ? <code>{line.batchNumber}</code> : <span className="cell-muted">Overall item stock</span>}</td>
+            <td className="numeric-cell"><Quantity unit={line.unit} value={line.quantity} /></td>
+          </tr>)}</tbody>
         </DataTable>
       </DocumentCard>
 
-      <DocumentCard title="Dispatch Notes" variant="notes">
-        <div className="document-notes">
-          <span>Notes & Remarks</span>
-          <p>{document.notes ?? 'No dispatch notes recorded for this delivery challan.'}</p>
-        </div>
-      </DocumentCard>
+      <DocumentCard title="Dispatch notes" variant="notes"><div className="document-notes"><span>Notes and remarks</span><p>{document.notes ?? 'No dispatch notes recorded for this delivery challan.'}</p></div></DocumentCard>
     </section>
   )
 }

@@ -8,6 +8,7 @@ describe('navigation', () => {
       industry: null,
       country: null,
       disabledIds: ['contacts'],
+      capabilities: ['BATCH_EXPIRY'],
     })
 
     expect(visible.map((item) => item.id)).toEqual([
@@ -41,6 +42,7 @@ describe('navigation', () => {
       'inventory.counts',
       'inventory.warehouses',
       'inventory.price_lists',
+      'inventory.schemes',
       'inventory.uoms',
       'inventory.batch_trace',
       'inventory.batches',
@@ -95,14 +97,19 @@ describe('navigation', () => {
       'settings.tax_accounts',
       'compliance.tax_groups',
       'payroll.employees',
-      'payroll.runs',
+      'hr.leave',
       'hr.attendance',
-      'hr.leaves',
+      'hr.biometric',
       'hr.shifts',
       'hr.timesheets',
-      'hr.tickets',
+      'hr.helpdesk',
+      'hr.documents',
+      'hr.analytics',
       'hr.offboarding',
-      'hr.biometrics',
+      'hr.my_profile',
+      'hr.tax_declaration',
+      'payroll.runs',
+      'payroll.labor_pay_preview',
       'payroll.settings',
       'transport.courier_shipments',
       'transport.cod_remittances',
@@ -213,5 +220,64 @@ describe('navigation', () => {
       country: null,
     })
     expect(ownerNav.some((i) => i.id === 'field_sales.assignments')).toBe(true)
+  })
+
+  it('shows batch expiry tools only to roles and organisations supported by the API', () => {
+    const enabledOperator = getVisibleNavigation({
+      role: 'OPERATOR',
+      industry: null,
+      country: null,
+      capabilities: ['BATCH_EXPIRY'],
+    })
+    expect(enabledOperator.some((i) => i.id === 'inventory.batches')).toBe(true)
+    expect(enabledOperator.some((i) => i.id === 'inventory.batch_trace')).toBe(true)
+
+    const enabledViewer = getVisibleNavigation({
+      role: 'VIEWER',
+      industry: null,
+      country: null,
+      capabilities: ['BATCH_EXPIRY'],
+    })
+    expect(enabledViewer.some((i) => i.id === 'inventory.batches')).toBe(false)
+    expect(enabledViewer.some((i) => i.id === 'inventory.batch_trace')).toBe(false)
+
+    const disabledAdmin = getVisibleNavigation({
+      role: 'ADMIN',
+      industry: null,
+      country: null,
+      capabilities: [],
+    })
+    expect(disabledAdmin.some((i) => i.id === 'inventory.batches')).toBe(false)
+    expect(disabledAdmin.some((i) => i.id === 'inventory.batch_trace')).toBe(false)
+  })
+
+  it('enforces role and country gating on HR & Payroll items', () => {
+    // OPERATOR cannot see payroll runs, labor pay preview, or settings
+    const operatorNav = getVisibleNavigation({
+      role: 'OPERATOR',
+      industry: null,
+      country: null,
+    })
+    expect(operatorNav.some((i) => i.id === 'payroll.runs')).toBe(false)
+    expect(operatorNav.some((i) => i.id === 'payroll.labor_pay_preview')).toBe(false)
+    expect(operatorNav.some((i) => i.id === 'payroll.settings')).toBe(false)
+    expect(operatorNav.some((i) => i.id === 'payroll.employees')).toBe(true)
+    expect(operatorNav.some((i) => i.id === 'hr.my_profile')).toBe(true)
+    expect(operatorNav.some((i) => i.id === 'hr.tax_declaration')).toBe(true)
+
+    // Kenya PAYE calculator only visible in Kenya for accountant/admin/owner
+    const indiaAdminNav = getVisibleNavigation({
+      role: 'ADMIN',
+      industry: null,
+      country: 'IN',
+    })
+    expect(indiaAdminNav.some((i) => i.id === 'payroll.kenya_paye')).toBe(false)
+
+    const kenyaAdminNav = getVisibleNavigation({
+      role: 'ADMIN',
+      industry: null,
+      country: 'KE',
+    })
+    expect(kenyaAdminNav.some((i) => i.id === 'payroll.kenya_paye')).toBe(true)
   })
 })

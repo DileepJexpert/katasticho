@@ -46,7 +46,7 @@ export interface LowStockAlertReport {
 export interface FifoSummaryMetric {
   key: string
   label: string
-  value: number
+  value: number | string
   format: string
 }
 
@@ -85,6 +85,10 @@ export async function getLowStockAlert(): Promise<LowStockAlertReport> {
 
 export async function getFifoValuation(): Promise<FifoValuationReport> {
   return apiFetch<FifoValuationReport>('/api/v1/reports/fifo-valuation')
+}
+
+export function getStockValuation() {
+  return apiFetch<FifoValuationReport>('/api/v1/reports/stock-summary')
 }
 
 export async function listWarehouses(): Promise<WarehouseOption[]> {

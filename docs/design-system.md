@@ -135,9 +135,9 @@ except very sparingly. Use sentence case for everything ("Add invoice", not
   --shadow-lg: 0 12px 32px rgba(16,24,40,0.12);  /* modals */
 
   /* Density */
-  --row-h:        40px;  /* table rows, list items */
-  --row-h-compact:36px;
-  --control-h:    36px;  /* inputs, buttons, selects */
+  --row-h:        36px;  /* table rows, list items */
+  --row-h-compact:32px;
+  --control-h:    34px;  /* inputs, buttons, selects */
 
   /* Motion — subtle */
   --ease: cubic-bezier(0.2, 0, 0, 1);
@@ -258,6 +258,39 @@ invoices yet. Create your first invoice to start tracking receivables." →
 
 **Toast** — `--bg-surface`, `--shadow-md`, semantic left-border accent.
 Past-tense confirmation matching the action ("Invoice published").
+
+### 7.1 React control and layout contract
+
+The React design system is the source of truth for every common control. Its
+implementation is in `react_app/src/design-system/components.css`; application
+shell CSS must not define button, tab, filter, search, modal, or toolbar rules.
+
+* **Toolbar:** use `DirectoryToolbar`. It has a 12px internal gap,
+  `--space-3`/`--space-4` padding, wraps safely on narrow screens, and stacks
+  only below 768px. Do not hand-style a toolbar with inline `display`, `gap`,
+  `justifyContent`, or breakpoint rules.
+* **Search:** use `SearchInput`, never raw `.search-field` markup. Search
+  controls have `--control-h`, a maximum width of `--directory-search-max`,
+  and shrink before they force other controls off-screen.
+* **Tabs and filters:** use `FilterTabs`. All tab, filter-chip, and legacy
+  adapters use `--control-h`, `--space-3` horizontal padding, `--space-1`
+  between controls, a teal active state, and wrapping at the container edge.
+* **Buttons and links:** use `Button` or a `Link` with the `button` plus
+  variant classes. Buttons, secondary action links, and row action links share
+  the same control height and `--space-2` icon/text gap. Never add ad-hoc icon
+  margins or custom button padding in a feature.
+* **Dialogs:** use `Modal`, `FormGrid`, `FormField`, `TextInput`, and
+  `SelectInput`. The legacy `modal-card` classes are a central compatibility
+  adapter only; no new screen may use them.
+* **Cards and lists:** use `DocumentCard`, `DataTable`, `StatusChip`, and
+  `EmptyState`. A feature may add a semantic layout class in the design-system
+  stylesheet, but it must use existing tokens and cannot apply inline layout
+  styles to raw elements.
+
+Before a new screen is accepted, verify it has no raw `style={{...}}` layout
+for common controls and that it composes the primitives above. Existing legacy
+pages are migrated module by module; the central adapters ensure their controls
+remain aligned during that transition.
 
 ## 8. Money & number formatting (enforce everywhere)
 

@@ -1,257 +1,135 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle, ExternalLink, ShieldAlert, Sliders } from 'lucide-react'
+import { CheckCircle2, ExternalLink, ShieldAlert, Sliders } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
-import { Quantity } from '@/design-system/quantity'
-import { StatusChip } from '@/design-system/status-chip'
-import { TextField } from '@/design-system/text-field'
+import { appRoutes } from '@/app/navigation'
+import {
+  Button,
+  CheckboxInput,
+  DataTable,
+  DocumentCard,
+  EmptyState,
+  FormCard,
+  FormField,
+  FormGrid,
+  Money,
+  NumberInput,
+  PageHeader,
+  Quantity,
+  StatusChip,
+} from '@/design-system'
 import { formatStatusLabel } from '@/shared/format/format'
 import {
   getThreeWayMatchSettings,
   listThreeWayMatchExceptions,
   updateThreeWayMatchSettings,
+  type ThreeWayMatchSettings,
 } from './three-way-match-api'
+
+type ToleranceField = Exclude<keyof ThreeWayMatchSettings, 'required'>
+
+function safeNumber(value: string) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function fractionToPercentage(value: string) {
+  return safeNumber(value) * 100
+}
 
 export function ThreeWayMatchPage() {
   const [tab, setTab] = useState<'exceptions' | 'settings'>('exceptions')
   const [page] = useState(0)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const [settingsForm, setSettingsForm] = useState<ThreeWayMatchSettings>({
+    required: 'true', qty_tolerance_pct: '0', price_tolerance_abs: '1', price_tolerance_pct: '0.005', bypass_threshold: '0',
+  })
+  const [feedback, setFeedback] = useState<{ message: string; tone: 'error' | 'success' } | null>(null)
 
   const exceptionsQuery = useQuery({
     queryKey: ['three-way-match', 'exceptions', page],
     queryFn: () => listThreeWayMatchExceptions(page),
     enabled: tab === 'exceptions',
   })
-
   const settingsQuery = useQuery({
     queryKey: ['three-way-match', 'settings'],
-    queryFn: () => getThreeWayMatchSettings(),
+    queryFn: getThreeWayMatchSettings,
     enabled: tab === 'settings',
   })
-
-  const [settingsForm, setSettingsForm] = useState({
-    required: 'true',
-    qty_tolerance_pct: '0',
-    price_tolerance_abs: '1',
-    price_tolerance_pct: '0.005',
-    bypass_threshold: '0',
-  })
-  const [settingsLoaded, setSettingsLoaded] = useState(false)
-  const [feedback, setFeedback] = useState<string | null>(null)
-
-  if (settingsQuery.data && !settingsLoaded) {
-    setSettingsForm({
-      required: settingsQuery.data.required ?? 'true',
-      qty_tolerance_pct: settingsQuery.data.qty_tolerance_pct ?? '0',
-      price_tolerance_abs: settingsQuery.data.price_tolerance_abs ?? '1',
-      price_tolerance_pct: settingsQuery.data.price_tolerance_pct ?? '0.005',
-      bypass_threshold: settingsQuery.data.bypass_threshold ?? '0',
-    })
-    setSettingsLoaded(true)
-  }
+  useEffect(() => {
+    if (settingsQuery.data) setSettingsForm(settingsQuery.data)
+  }, [settingsQuery.data])
 
   const saveSettingsMutation = useMutation({
     mutationFn: () => updateThreeWayMatchSettings(settingsForm),
     onSuccess: () => {
-      setFeedback('3-way match tolerance parameters saved successfully.')
+      setFeedback({ message: '3-way match tolerance rules saved.', tone: 'success' })
       queryClient.invalidateQueries({ queryKey: ['three-way-match', 'settings'] })
     },
-    onError: (err: Error) => {
-      setFeedback(`Failed to save settings: ${err.message}`)
-    },
+    onError: (error: Error) => setFeedback({ message: error.message, tone: 'error' }),
   })
-
-  const exceptions = exceptionsQuery.data?.content || []
+  const exceptions = exceptionsQuery.data?.content ?? []
+  const updateTolerance = (field: ToleranceField, value: number) => {
+    setSettingsForm((current) => ({ ...current, [field]: String(value) }))
+  }
 
   return (
     <section className="workspace-page">
       <PageHeader
-        eyebrow="Purchases / AP Controls / 3-Way Match Console"
-        title="3-Way Match Verification"
-        description="Audit reconciliation between Purchase Orders, Goods Receipt Notes, and Vendor Bills"
-        actions={
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <Button
-              onClick={() => { setTab('exceptions'); setFeedback(null); }}
-              variant={tab === 'exceptions' ? 'primary' : 'secondary'}
-            >
-              <ShieldAlert size={16} />
-              Exception Inbox ({exceptionsQuery.data?.totalElements ?? 0})
-            </Button>
-            <Button
-              onClick={() => { setTab('settings'); setFeedback(null); }}
-              variant={tab === 'settings' ? 'primary' : 'secondary'}
-            >
-              <Sliders size={16} />
-              Tolerance Rules
-            </Button>
-          </div>
-        }
+        actions={<>
+          <Button onClick={() => { setTab('exceptions'); setFeedback(null) }} variant={tab === 'exceptions' ? 'primary' : 'secondary'}><ShieldAlert size={16} /> Exception inbox ({exceptionsQuery.data?.totalElements ?? 0})</Button>
+          <Button onClick={() => { setTab('settings'); setFeedback(null) }} variant={tab === 'settings' ? 'primary' : 'secondary'}><Sliders size={16} /> Tolerance rules</Button>
+        </>}
+        description="Server-side reconciliation of purchase orders, received stock, and vendor bills before disbursement."
+        eyebrow="Purchases / AP Controls"
+        title="3-Way Match"
       />
-
-      {feedback ? (
-        <div className="alert-banner" style={{ background: '#0F857615', border: '1px solid #0F8576', padding: '12px 16px', borderRadius: '6px', color: '#0F8576' }}>
-          {feedback}
-        </div>
-      ) : null}
+      {feedback ? <div className={`banner banner--${feedback.tone}`} role={feedback.tone === 'error' ? 'alert' : 'status'}>{feedback.message}</div> : null}
 
       {tab === 'exceptions' ? (
         <>
-          <div className="summary-strip" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '16px' }}>
-            <div className="document-card">
-              <span style={{ fontSize: '12px', color: 'var(--k-color-text-secondary)' }}>Open Exceptions</span>
-              <strong style={{ fontSize: '24px', display: 'block', marginTop: '4px' }}>
-                {exceptionsQuery.data?.totalElements ?? 0}
-              </strong>
-            </div>
-            <div className="document-card">
-              <span style={{ fontSize: '12px', color: 'var(--k-color-text-secondary)' }}>Tolerance Mode</span>
-              <strong style={{ fontSize: '18px', display: 'block', marginTop: '4px', color: '#0F8576' }}>
-                Active Gate
-              </strong>
-            </div>
+          <div className="summary-strip">
+            <div className="summary-card"><span className="summary-card__label">Open exceptions</span><strong className="summary-card__value">{exceptionsQuery.data?.totalElements ?? 0}</strong><span className="summary-card__hint">Require review before payment</span></div>
+            <div className="summary-card summary-card--accent"><span className="summary-card__label">Payment control</span><strong className="summary-card__value">Active gate</strong><span className="summary-card__hint">The server enforces current settings</span></div>
           </div>
-
-          <section className="document-card">
-            <h2>Exceptions Requiring Resolution</h2>
-            {exceptionsQuery.isLoading ? (
-              <p className="document-loading">Loading 3-way match exceptions...</p>
-            ) : exceptions.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '32px' }}>
-                <CheckCircle size={32} color="#0F8576" style={{ margin: '0 auto 8px' }} />
-                <h3>No 3-Way Match Exceptions</h3>
-                <p style={{ fontSize: '13px', color: 'var(--k-color-text-secondary)' }}>
-                  All purchase bills are cleanly matched within configured price and quantity tolerances.
-                </p>
-              </div>
+          <DocumentCard title="Exceptions requiring resolution">
+            {exceptionsQuery.isLoading ? <p aria-live="polite" className="document-loading">Loading match exceptions...</p> : exceptions.length === 0 ? (
+              <EmptyState description="All evaluated vendor bills are within the configured price and quantity tolerances." icon={CheckCircle2} title="No 3-way match exceptions" />
             ) : (
-              <DataTable caption="3-Way Match Exceptions">
-                <thead>
-                  <tr>
-                    <th scope="col">Status</th>
-                    <th scope="col">Bill ID</th>
-                    <th className="numeric-cell" scope="col">Billed Qty</th>
-                    <th className="numeric-cell" scope="col">Received Qty</th>
-                    <th className="numeric-cell" scope="col">Qty Var</th>
-                    <th className="numeric-cell" scope="col">Bill Price</th>
-                    <th className="numeric-cell" scope="col">PO Price</th>
-                    <th className="numeric-cell" scope="col">Price Var</th>
-                    <th className="numeric-cell" scope="col">Total Var</th>
-                    <th scope="col">Action</th>
+              <DataTable caption="3-way match exceptions">
+                <thead><tr><th scope="col">Status</th><th scope="col">Bill</th><th className="numeric-cell" scope="col">Billed</th><th className="numeric-cell" scope="col">Received</th><th className="numeric-cell" scope="col">Qty variance</th><th className="numeric-cell" scope="col">Bill price</th><th className="numeric-cell" scope="col">PO price</th><th className="numeric-cell" scope="col">Price variance</th><th className="numeric-cell" scope="col">Total variance</th><th scope="col">Action</th></tr></thead>
+                <tbody>{exceptions.map((exception) => (
+                  <tr className="match-variance-row" key={exception.id}>
+                    <td><StatusChip status={formatStatusLabel(exception.status)} /></td>
+                    <td><code>{exception.billId.slice(0, 8)}...</code></td>
+                    <td className="numeric-cell"><Quantity value={exception.billedQty} /></td>
+                    <td className="numeric-cell"><Quantity value={exception.receivedQty ?? 0} /></td>
+                    <td className="numeric-cell match-variance"><Quantity value={exception.qtyVariance ?? 0} /></td>
+                    <td className="numeric-cell"><Money amount={exception.billUnitPrice} /></td>
+                    <td className="numeric-cell"><Money amount={exception.poUnitPrice ?? 0} /></td>
+                    <td className="numeric-cell match-variance"><Money amount={exception.priceVariance ?? 0} /></td>
+                    <td className="numeric-cell match-variance"><Money amount={exception.amountVariance ?? 0} /></td>
+                    <td><Button onClick={() => navigate(appRoutes.threeWayMatchWorkbench(exception.billId))} variant="secondary"><ExternalLink size={14} /> Inspect</Button></td>
                   </tr>
-                </thead>
-                <tbody>
-                  {exceptions.map((e) => (
-                    <tr key={e.id}>
-                      <td>
-                        <StatusChip status={formatStatusLabel(e.status)} />
-                      </td>
-                      <td>
-                        <code>{e.billId.slice(0, 8)}...</code>
-                      </td>
-                      <td className="numeric-cell">
-                        <Quantity value={e.billedQty} />
-                      </td>
-                      <td className="numeric-cell">
-                        <Quantity value={e.receivedQty ?? 0} />
-                      </td>
-                      <td className="numeric-cell" style={{ color: Number(e.qtyVariance) > 0 ? '#BE3A34' : 'inherit' }}>
-                        {e.qtyVariance ? Number(e.qtyVariance) : '0'}
-                      </td>
-                      <td className="numeric-cell">
-                        <Money amount={e.billUnitPrice} />
-                      </td>
-                      <td className="numeric-cell">
-                        <Money amount={e.poUnitPrice ?? 0} />
-                      </td>
-                      <td className="numeric-cell" style={{ color: Number(e.priceVariance) > 0 ? '#BE3A34' : 'inherit' }}>
-                        <Money amount={e.priceVariance ?? 0} />
-                      </td>
-                      <td className="numeric-cell" style={{ color: Number(e.amountVariance) > 0 ? '#BE3A34' : 'inherit', fontWeight: 600 }}>
-                        <Money amount={e.amountVariance ?? 0} />
-                      </td>
-                      <td>
-                        <Button
-                          onClick={() => navigate(`/bills/${e.billId}/three-way-match`)}
-                          variant="secondary"
-                        >
-                          <ExternalLink size={14} />
-                          Inspect Match
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
+                ))}</tbody>
               </DataTable>
             )}
-          </section>
+          </DocumentCard>
         </>
       ) : (
-        <section className="document-card" style={{ maxWidth: '640px' }}>
-          <h2>3-Way Match Tolerances & Policy</h2>
-          <p style={{ fontSize: '13px', color: 'var(--k-color-text-secondary)', marginBottom: '20px' }}>
-            Configure automatic approval thresholds for vendor bill posting and disbursement controls.
-          </p>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                <input
-                  checked={settingsForm.required === 'true'}
-                  onChange={(e) => setSettingsForm((f) => ({ ...f, required: e.target.checked ? 'true' : 'false' }))}
-                  type="checkbox"
-                />
-                <strong>Enforce 3-Way Match Before Payment</strong>
-              </label>
-              <span style={{ fontSize: '12px', color: 'var(--k-color-text-secondary)', display: 'block', marginTop: '4px' }}>
-                When checked, bills in EXCEPTION state are strictly blocked from vendor disbursement.
-              </span>
-            </div>
-
-            <TextField
-              label="Quantity Tolerance Percentage (%)"
-              onChange={(e) => setSettingsForm((f) => ({ ...f, qty_tolerance_pct: e.target.value }))}
-              placeholder="0"
-              value={settingsForm.qty_tolerance_pct}
-            />
-
-            <TextField
-              label="Price Tolerance Absolute (₹)"
-              onChange={(e) => setSettingsForm((f) => ({ ...f, price_tolerance_abs: e.target.value }))}
-              placeholder="1.0"
-              value={settingsForm.price_tolerance_abs}
-            />
-
-            <TextField
-              label="Price Tolerance Percentage (%)"
-              onChange={(e) => setSettingsForm((f) => ({ ...f, price_tolerance_pct: e.target.value }))}
-              placeholder="0.005"
-              value={settingsForm.price_tolerance_pct}
-            />
-
-            <TextField
-              label="Bypass Threshold Amount (₹)"
-              onChange={(e) => setSettingsForm((f) => ({ ...f, bypass_threshold: e.target.value }))}
-              placeholder="0"
-              value={settingsForm.bypass_threshold}
-            />
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
-              <Button
-                disabled={saveSettingsMutation.isPending}
-                onClick={() => saveSettingsMutation.mutate()}
-                variant="primary"
-              >
-                {saveSettingsMutation.isPending ? 'Saving...' : 'Save Tolerances'}
-              </Button>
-            </div>
-          </div>
-        </section>
+        <form className="create-form-container" onSubmit={(event) => { event.preventDefault(); saveSettingsMutation.mutate() }}>
+          <FormCard description="These organisation-wide tolerances are enforced by the server when a bill is matched or paid." stepNumber={1} title="Payment gate and tolerances">
+            <FormGrid columns={2}>
+              <FormField label="Payment gate" span="full"><CheckboxInput checked={settingsForm.required === 'true'} description="Exception bills must be corrected or formally overridden before payment." onChange={(event) => setSettingsForm((current) => ({ ...current, required: event.target.checked ? 'true' : 'false' }))} title="Enforce 3-way match before payment" /></FormField>
+              <FormField label="Quantity tolerance"><NumberInput min={0} onChange={(event) => updateTolerance('qty_tolerance_pct', Number(event.target.value) || 0)} step="0.01" unitSuffix="%" value={safeNumber(settingsForm.qty_tolerance_pct)} /></FormField>
+              <FormField label="Price tolerance"><NumberInput currencyPrefix="INR" min={0} onChange={(event) => updateTolerance('price_tolerance_abs', Number(event.target.value) || 0)} step="0.01" value={safeNumber(settingsForm.price_tolerance_abs)} /></FormField>
+              <FormField hint="Stored by the API as a fraction: 0.5% is sent as 0.005." label="Price tolerance percentage"><NumberInput min={0} onChange={(event) => updateTolerance('price_tolerance_pct', (Number(event.target.value) || 0) / 100)} step="0.01" unitSuffix="%" value={fractionToPercentage(settingsForm.price_tolerance_pct)} /></FormField>
+              <FormField label="Auto-bypass threshold"><NumberInput currencyPrefix="INR" min={0} onChange={(event) => updateTolerance('bypass_threshold', Number(event.target.value) || 0)} step="0.01" value={safeNumber(settingsForm.bypass_threshold)} /></FormField>
+            </FormGrid>
+          </FormCard>
+          <div className="form-actions-bar"><Button disabled={saveSettingsMutation.isPending} type="submit" variant="primary">{saveSettingsMutation.isPending ? 'Saving...' : 'Save tolerance rules'}</Button></div>
+        </form>
       )}
     </section>
   )

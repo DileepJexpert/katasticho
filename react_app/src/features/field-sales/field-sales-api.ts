@@ -1,4 +1,4 @@
-﻿import { apiFetch } from '@/api/client/api-client'
+import { apiFetch } from '@/api/client/api-client'
 
 export type Beat = {
   id: string
@@ -11,6 +11,10 @@ export type Beat = {
   isActive: boolean
   createdAt?: string
 }
+
+export type SalesBeat = Beat
+export type SalesRoute = RouteSummary
+export type SalesVan = Van
 
 export type BeatCustomer = {
   id: string
@@ -49,6 +53,7 @@ export type Route = {
   estimatedDistanceKm: number | string | null
   estimatedDurationMinutes: number | null
   active: boolean
+  beatCount?: number
   createdAt?: string
 }
 
@@ -65,6 +70,7 @@ export type Van = {
   id: string
   code: string
   vehicleNumber: string
+  plateNumber?: string
   name: string | null
   vehicleType: string | null
   sourceWarehouseId: string | null
@@ -118,16 +124,23 @@ export type FieldSalesAssignment = {
   salespersonName?: string
   routeId?: string | null
   routeName?: string | null
+  beatId?: string | null
+  beatName?: string | null
   vanId?: string | null
   vanCode?: string | null
+  vanPlateNumber?: string | null
   territory?: string | null
   effectiveFrom: string
   effectiveTo?: string | null
+  startDate?: string
+  endDate?: string | null
   isActive: boolean
+  active?: boolean
 }
 
 export type RouteExecution = {
   id: string
+  executionNumber?: string
   routeId: string
   routeName?: string
   salespersonId: string
@@ -139,9 +152,11 @@ export type RouteExecution = {
   startedAt?: string | null
   completedAt?: string | null
   totalVisits?: number
+  plannedVisits?: number
   completedVisits?: number
   totalOrdersCount?: number
   totalOrderValue?: number | string
+  totalOrdersValue?: number | string
   totalCollections?: number | string
   overrideReason?: string | null
 }
@@ -187,9 +202,11 @@ export type SalesmanTarget = {
   salespersonId: string
   salespersonName?: string
   periodType: 'MONTHLY' | 'QUARTERLY' | 'ANNUAL' | string
+  targetPeriod?: string
   periodStart: string
   periodEnd: string
   targetType: 'REVENUE' | 'VISITS' | 'NEW_ACCOUNTS' | string
+  metricType?: string
   targetValue: number | string
   achievedValue: number | string
   incentiveRate?: number | string
@@ -548,16 +565,26 @@ export async function listAssignments(includeInactive = false) {
 export async function createAssignment(data: {
   salespersonId: string
   routeId?: string | null
+  beatId?: string | null
   vanId?: string | null
   territory?: string | null
-  effectiveFrom: string
+  effectiveFrom?: string
   effectiveTo?: string | null
+  startDate?: string
+  endDate?: string | null
 }) {
+  const payload = {
+    ...data,
+    effectiveFrom: data.effectiveFrom || data.startDate || new Date().toISOString().slice(0, 10),
+    effectiveTo: data.effectiveTo !== undefined ? data.effectiveTo : data.endDate,
+  }
   return apiFetch<FieldSalesAssignment>('/api/v1/field-sales/assignments', {
     method: 'POST',
-    body: JSON.stringify(data),
+    body: JSON.stringify(payload),
   })
 }
+
+export const createFieldSalesAssignment = createAssignment
 
 export async function endAssignment(id: string, endDate?: string) {
   return apiFetch<FieldSalesAssignment>(`/api/v1/field-sales/assignments/${id}/end`, {
@@ -968,6 +995,11 @@ export interface SecondaryDashboardData {
   totalVisitsPlanned: number
   totalVisitsCompleted: number
   totalOrdersValue: number
+  totalBookedAmount?: number
+  totalOrdersBooked?: number
+  totalVisitsActual?: number
+  strikeRatePercent?: number
+  activeSalespersons?: number
   totalCollections: number
   averageOrderValue: number
   productiveVisitPct: number
@@ -983,6 +1015,7 @@ export async function getSecondaryDashboard(from: string, to: string) {
 
 export interface LiveLocationUser {
   userId: string
+  salespersonId?: string
   fullName?: string
   salespersonName?: string
   latitude: number

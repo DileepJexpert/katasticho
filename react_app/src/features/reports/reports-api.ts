@@ -1,5 +1,11 @@
 ﻿import { apiFetch } from '@/api/client/api-client'
 
+import {
+  getPayablesAgeingReport,
+  getReceivablesAgeingReport,
+  type AgeingReport,
+} from '@/features/reports/ageing-reports-api'
+
 export type ColumnDef = {
   key: string
   label: string
@@ -123,7 +129,7 @@ export const reportCatalog: ReportCatalogItem[] = [
     title: 'Accounts Receivable (AR) Aging',
     description: 'Customer outstanding balances grouped by 0-30, 31-60, 61-90, and 90+ days aging buckets.',
     category: 'SALES_AR',
-    endpoint: '/api/v1/reports/ar-aging',
+    endpoint: '/api/v1/ar/reports/ageing',
     hasAsOfDate: true,
   },
   {
@@ -146,7 +152,7 @@ export const reportCatalog: ReportCatalogItem[] = [
     title: 'Accounts Payable (AP) Aging',
     description: 'Vendor payment liabilities classified by overdue aging buckets.',
     category: 'PURCHASES_AP',
-    endpoint: '/api/v1/reports/ap-aging',
+    endpoint: '/api/v1/ap/reports/ageing',
     hasAsOfDate: true,
   },
   {
@@ -205,86 +211,67 @@ export type ReportSchedule = {
 
 // â”€â”€ Strongly-typed Domain Models â”€â”€
 
-export type TrialBalanceRow = {
+export type ReportAmount = number | string
+
+export type TrialBalanceLine = {
   accountId: string
   accountCode: string
   accountName: string
   accountType: string
-  debit: number | string
-  credit: number | string
-  netBalance: number | string
+  debit: ReportAmount
+  credit: ReportAmount
+  balance: ReportAmount
 }
 
 export type TrialBalanceResponse = {
   asOfDate: string
-  basis: string
-  totalDebit: number | string
-  totalCredit: number | string
+  currency: string
+  totalDebit: ReportAmount
+  totalCredit: ReportAmount
   isBalanced: boolean
-  rows: TrialBalanceRow[]
+  lines: TrialBalanceLine[]
 }
 
-export type ProfitLossSection = {
-  title: string
-  accounts: {
-    accountId: string
-    accountCode: string
-    accountName: string
-    amount: number | string
-  }[]
-  subtotal: number | string
+export type FinancialAccountLine = {
+  accountId: string
+  accountCode: string
+  accountName: string
+  amount: ReportAmount
 }
 
 export type ProfitLossResponse = {
   startDate: string
   endDate: string
-  basis: string
-  operatingRevenue: ProfitLossSection
-  costOfGoodsSold: ProfitLossSection
-  grossProfit: number | string
-  operatingExpenses: ProfitLossSection
-  operatingIncome: number | string
-  nonOperatingRevenue: ProfitLossSection
-  nonOperatingExpenses: ProfitLossSection
-  netProfit: number | string
-}
-
-export type BalanceSheetSection = {
-  title: string
-  accounts: {
-    accountId: string
-    accountCode: string
-    accountName: string
-    amount: number | string
-  }[]
-  subtotal: number | string
+  currency: string
+  totalRevenue: ReportAmount
+  totalExpenses: ReportAmount
+  netProfit: ReportAmount
+  revenueAccounts: FinancialAccountLine[]
+  expenseAccounts: FinancialAccountLine[]
 }
 
 export type BalanceSheetResponse = {
   asOfDate: string
-  basis: string
-  currentAssets: BalanceSheetSection
-  nonCurrentAssets: BalanceSheetSection
-  totalAssets: number | string
-  currentLiabilities: BalanceSheetSection
-  nonCurrentLiabilities: BalanceSheetSection
-  totalLiabilities: number | string
-  equity: BalanceSheetSection
-  retainedEarnings: number | string
-  totalEquity: number | string
-  totalLiabilitiesAndEquity: number | string
+  currency: string
+  totalAssets: ReportAmount
+  totalLiabilities: ReportAmount
+  totalEquity: ReportAmount
+  retainedEarnings: ReportAmount
   isBalanced: boolean
+  assetAccounts: FinancialAccountLine[]
+  liabilityAccounts: FinancialAccountLine[]
+  equityAccounts: FinancialAccountLine[]
 }
 
 export type GeneralLedgerEntry = {
-  transactionDate: string
+  journalEntryId: string
   entryNumber: string
-  journalId: string
+  effectiveDate: string
   description: string
-  sourceModule: string
-  debit: number | string
-  credit: number | string
-  runningBalance: number | string
+  sourceModule: string | null
+  debit: ReportAmount
+  credit: ReportAmount
+  runningBalance: ReportAmount
 }
 
 export type GeneralLedgerResponse = {
@@ -294,22 +281,12 @@ export type GeneralLedgerResponse = {
   accountType: string
   startDate: string
   endDate: string
-  openingBalance: number | string
-  totalDebit: number | string
-  totalCredit: number | string
-  closingBalance: number | string
+  currency: string
+  openingBalance: ReportAmount
+  closingBalance: ReportAmount
+  totalDebit: ReportAmount
+  totalCredit: ReportAmount
   entries: GeneralLedgerEntry[]
-}
-
-export type AgingBucket = {
-  contactId: string
-  contactName: string
-  currentDue: number | string
-  days1To30: number | string
-  days31To60: number | string
-  days61To90: number | string
-  days90Plus: number | string
-  totalOutstanding: number | string
 }
 
 // â”€â”€ API Invocation Functions â”€â”€
@@ -341,24 +318,30 @@ export async function listReportSchedules(savedReportId: string): Promise<Report
 }
 
 export async function getTrialBalance(asOfDate?: string, basis = 'ACCRUAL') {
-  const q = asOfDate ? `?asOfDate=${asOfDate}&basis=${basis}` : `?basis=${basis}`
+  const params = new URLSearchParams({ basis })
+  if (asOfDate) params.set('asOfDate', asOfDate)
+  const q = `?${params.toString()}`
   return apiFetch<TrialBalanceResponse>(`/api/v1/reports/trial-balance${q}`)
 }
 
 export async function getProfitLoss(startDate: string, endDate: string, basis = 'ACCRUAL') {
+  const params = new URLSearchParams({ startDate, endDate, basis })
   return apiFetch<ProfitLossResponse>(
-    `/api/v1/reports/profit-loss?startDate=${startDate}&endDate=${endDate}&basis=${basis}`
+    `/api/v1/reports/profit-loss?${params.toString()}`
   )
 }
 
 export async function getBalanceSheet(asOfDate?: string, basis = 'ACCRUAL') {
-  const q = asOfDate ? `?asOfDate=${asOfDate}&basis=${basis}` : `?basis=${basis}`
+  const params = new URLSearchParams({ basis })
+  if (asOfDate) params.set('asOfDate', asOfDate)
+  const q = `?${params.toString()}`
   return apiFetch<BalanceSheetResponse>(`/api/v1/reports/balance-sheet${q}`)
 }
 
 export async function getGeneralLedger(accountId: string, startDate: string, endDate: string) {
+  const params = new URLSearchParams({ startDate, endDate })
   return apiFetch<GeneralLedgerResponse>(
-    `/api/v1/reports/general-ledger/${accountId}?startDate=${startDate}&endDate=${endDate}`
+    `/api/v1/reports/general-ledger/${accountId}?${params.toString()}`
   )
 }
 
@@ -421,10 +404,10 @@ export async function getPurchaseRegister(startDate: string, endDate: string) {
   )
 }
 
-export async function getApAging() {
-  return apiFetch<AgingBucket[]>('/api/v1/reports/ap-aging')
+export function getApAging(asOfDate?: string): Promise<AgeingReport> {
+  return getPayablesAgeingReport(asOfDate)
 }
 
-export async function getArAging() {
-  return apiFetch<AgingBucket[]>('/api/v1/reports/ar-aging')
+export function getArAging(asOfDate?: string): Promise<AgeingReport> {
+  return getReceivablesAgeingReport(asOfDate)
 }

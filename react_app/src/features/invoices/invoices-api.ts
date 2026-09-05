@@ -87,8 +87,10 @@ export type CreateInvoiceLineRequest = {
   description: string
   quantity: number
   unitPrice: number
+  accountCode: string
   hsnCode?: string
   gstRate?: number
+  discountPercent?: number
   taxGroupId?: string
   itemId?: string
   batchId?: string
@@ -113,8 +115,23 @@ export function createInvoice(req: CreateInvoiceRequest) {
 }
 
 export function postInvoice(id: string) {
-  return apiFetch<Invoice>(`/api/v1/invoices/${id}/post`, {
+  return apiFetch<Invoice>(`/api/v1/invoices/${id}/send`, {
     method: 'POST',
   })
 }
 
+export type RecordInvoicePaymentRequest = {
+  amount: number
+  paymentMethod: string
+  paymentDate: string
+  paidThroughId?: string
+  referenceNumber?: string
+  notes?: string
+}
+
+export function recordInvoicePayment(invoiceId: string, request: RecordInvoicePaymentRequest) {
+  return apiFetch<InvoicePayment>(`/api/v1/invoices/${invoiceId}/payments`, {
+    method: 'POST',
+    body: request,
+  })
+}

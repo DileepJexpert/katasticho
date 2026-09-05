@@ -19,6 +19,7 @@ export type SalesOrderLine = {
   discountPct: number | string | null
   discountPercent?: number | string | null
   taxRate: number | string | null
+  taxGroupId?: string | null
   hsnCode: string | null
   amount: number | string | null
 }
@@ -44,7 +45,10 @@ export type SalesOrder = {
   placeOfSupply: string | null
   notes: string | null
   terms: string | null
+  billingAddress?: string | null
+  shippingAddress?: string | null
   warehouseName: string | null
+  warehouseId?: string | null
   lines: SalesOrderLine[]
   linkedInvoiceCount: number
   linkedChallanCount: number
@@ -79,14 +83,12 @@ export type CreateSalesOrderLineRequest = {
   itemId?: string
   description: string
   hsnCode?: string
-  quantity?: number
-  orderedQuantity?: number
-  rate?: number
-  unitPrice?: number
+  quantity: number
+  rate: number
   unit?: string
   discountPct?: number
-  discountPercent?: number
   taxGroupId?: string
+  gstRate?: number
 }
 
 export type CreateSalesOrderRequest = {
@@ -94,13 +96,18 @@ export type CreateSalesOrderRequest = {
   lines: CreateSalesOrderLineRequest[]
   orderDate?: string
   expectedShipmentDate?: string
-  expectedDeliveryDate?: string
   referenceNumber?: string
+  discountType?: string
+  discountAmount?: number
+  shippingCharge?: number
+  adjustment?: number
+  adjustmentDescription?: string
   deliveryMethod?: string
   placeOfSupply?: string
   notes?: string
   terms?: string
-  termsAndConditions?: string
+  billingAddress?: string
+  shippingAddress?: string
   warehouseId?: string
   allowBackorder?: boolean
 }
@@ -112,3 +119,38 @@ export function createSalesOrder(req: CreateSalesOrderRequest) {
   })
 }
 
+export function confirmSalesOrder(id: string) {
+  return apiFetch<SalesOrder>(`/api/v1/sales-orders/${id}/confirm`, {
+    method: 'POST',
+  })
+}
+
+export function cancelSalesOrder(id: string) {
+  return apiFetch<SalesOrder>(`/api/v1/sales-orders/${id}/cancel`, {
+    method: 'POST',
+  })
+}
+
+export type ConvertSalesOrderToInvoiceRequest = {
+  lines: Array<{
+    soLineId: string
+    quantity: number
+  }>
+}
+
+export type ConvertedInvoice = {
+  id: string
+  invoiceNumber: string
+  status: string
+}
+
+/**
+ * This conversion is the linked fulfilment path. The backend deliberately
+ * creates and posts an invoice without creating a second stock movement.
+ */
+export function convertSalesOrderToInvoice(id: string, request: ConvertSalesOrderToInvoiceRequest) {
+  return apiFetch<ConvertedInvoice>(`/api/v1/sales-orders/${id}/convert-to-invoice`, {
+    method: 'POST',
+    body: request,
+  })
+}

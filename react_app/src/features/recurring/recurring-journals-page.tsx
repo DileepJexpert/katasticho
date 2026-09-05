@@ -5,14 +5,23 @@ import {
   Play,
   Plus,
   Repeat,
-  Search,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { PageHeader } from '@/design-system/page-header'
-import { Quantity } from '@/design-system/quantity'
-import { StatusChip } from '@/design-system/status-chip'
+import {
+  Button,
+  DataTable,
+  DirectoryToolbar,
+  FilterTabs,
+  FormField,
+  FormGrid,
+  Modal,
+  PageHeader,
+  Quantity,
+  SearchInput,
+  SelectInput,
+  StatusChip,
+  TextInput,
+} from '@/design-system'
 import { listAccounts } from '@/features/accounts/accounts-api'
 import {
   createRecurringJournal,
@@ -22,6 +31,12 @@ import {
   type CreateRecurringJournalRequest,
   type RecurringJournal,
 } from '@/features/recurring/recurring-api'
+
+const recurringJournalStatusTabs = [
+  { label: 'All schedules', value: 'all' },
+  { label: 'Active', value: 'ACTIVE' },
+  { label: 'Stopped', value: 'STOPPED' },
+] as const
 
 export function RecurringJournalsPage() {
   const queryClient = useQueryClient()
@@ -180,34 +195,21 @@ export function RecurringJournalsPage() {
         </div>
       </div>
 
-      <div
-        className="list-toolbar"
-        style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-sm)' }}
-      >
-        <div className="search-field" style={{ maxWidth: 360 }}>
-          <Search size={16} />
-          <input
-            aria-label="Search recurring journals"
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search recurring journals..."
-            type="search"
-            value={searchTerm}
-          />
-        </div>
-
-        <div className="filter-chip-group">
-          {['all', 'ACTIVE', 'STOPPED'].map((st) => (
-            <button
-              key={st}
-              className={`filter-chip ${statusFilter === st ? 'filter-chip--active' : ''}`}
-              onClick={() => setStatusFilter(st)}
-              type="button"
-            >
-              {st === 'all' ? 'All Schedules' : st}
-            </button>
-          ))}
-        </div>
-      </div>
+      <DirectoryToolbar ariaLabel="Recurring journal filters">
+        <SearchInput
+          ariaLabel="Search recurring journals"
+          onChange={setSearchTerm}
+          onClear={() => setSearchTerm('')}
+          placeholder="Search recurring journals..."
+          value={searchTerm}
+        />
+        <FilterTabs
+          activeValue={statusFilter}
+          ariaLabel="Filter recurring journals by status"
+          items={recurringJournalStatusTabs}
+          onChange={setStatusFilter}
+        />
+      </DirectoryToolbar>
 
       {query.isLoading ? (
         <div className="directory-state">Loading recurring journals...</div>
@@ -287,125 +289,96 @@ export function RecurringJournalsPage() {
         </DataTable>
       )}
 
-      {/* Create Modal */}
-      {isCreateModalOpen && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true">
-          <div className="modal-card modal-card--wide">
-            <header className="modal-header">
-              <h2>New Recurring General Ledger Journal</h2>
-              <button className="modal-close" onClick={() => setIsCreateModalOpen(false)} type="button">
-                ×
-              </button>
-            </header>
-            <form onSubmit={handleCreateSubmit}>
-              <div className="modal-body form-grid">
-                <div className="form-field">
-                  <label htmlFor="jProfileName">Template Name *</label>
-                  <input
-                    id="jProfileName"
-                    type="text"
-                    required
-                    value={profileName}
-                    onChange={(e) => setProfileName(e.target.value)}
-                    placeholder="e.g. Monthly Depreciation Schedule"
-                  />
-                </div>
+      <Modal
+        error={feedback?.type === 'error' ? feedback.message : null}
+        footer={
+          <>
+            <Button onClick={() => setIsCreateModalOpen(false)} type="button" variant="secondary">
+              Cancel
+            </Button>
+            <Button disabled={createMutation.isPending} form="recurring-journal-create-form" loading={createMutation.isPending} type="submit" variant="primary">
+              Create Recurring Journal
+            </Button>
+          </>
+        }
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        size="lg"
+        title="New Recurring General Ledger Journal"
+      >
+        <form id="recurring-journal-create-form" onSubmit={handleCreateSubmit}>
+          <FormGrid columns={2}>
+            <FormField htmlFor="jProfileName" label="Template name" required span="full">
+              <TextInput
+                id="jProfileName"
+                onChange={(event) => setProfileName(event.target.value)}
+                placeholder="e.g. Monthly depreciation schedule"
+                required
+                value={profileName}
+              />
+            </FormField>
 
-                <div className="form-field">
-                  <label htmlFor="jFrequency">Frequency *</label>
-                  <select
-                    id="jFrequency"
-                    value={frequency}
-                    onChange={(e) => setFrequency(e.target.value)}
-                  >
-                    <option value="MONTHLY">Monthly</option>
-                    <option value="QUARTERLY">Quarterly</option>
-                    <option value="YEARLY">Yearly</option>
-                  </select>
-                </div>
+            <FormField htmlFor="jFrequency" label="Frequency" required>
+              <SelectInput id="jFrequency" onChange={(event) => setFrequency(event.target.value)} value={frequency}>
+                <option value="MONTHLY">Monthly</option>
+                <option value="QUARTERLY">Quarterly</option>
+                <option value="YEARLY">Yearly</option>
+              </SelectInput>
+            </FormField>
 
-                <div className="form-field">
-                  <label htmlFor="jStartDate">Start Date *</label>
-                  <input
-                    id="jStartDate"
-                    type="date"
-                    required
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                  />
-                </div>
+            <FormField htmlFor="jStartDate" label="Start date" required>
+              <TextInput
+                id="jStartDate"
+                onChange={(event) => setStartDate(event.target.value)}
+                required
+                type="date"
+                value={startDate}
+              />
+            </FormField>
 
-                <div className="form-field">
-                  <label htmlFor="jAmount">Balanced Amount (₹) *</label>
-                  <input
-                    id="jAmount"
-                    type="number"
-                    min="1"
-                    step="0.01"
-                    required
-                    value={journalAmount}
-                    onChange={(e) => setJournalAmount(e.target.value)}
-                  />
-                </div>
+            <FormField htmlFor="jAmount" label="Balanced amount (INR)" required span="full">
+              <TextInput
+                id="jAmount"
+                min="1"
+                onChange={(event) => setJournalAmount(event.target.value)}
+                required
+                step="0.01"
+                type="number"
+                value={journalAmount}
+              />
+            </FormField>
 
-                <div className="form-field">
-                  <label htmlFor="debitAccount">Debit (DR) Account *</label>
-                  <select
-                    id="debitAccount"
-                    required
-                    value={debitAccountCode}
-                    onChange={(e) => setDebitAccountCode(e.target.value)}
-                  >
-                    <option value="">Select DR account...</option>
-                    {accounts.map((a) => (
-                      <option key={a.code} value={a.code}>
-                        {a.code} - {a.name} ({a.type})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+            <FormField htmlFor="debitAccount" label="Debit (DR) account" required>
+              <SelectInput id="debitAccount" onChange={(event) => setDebitAccountCode(event.target.value)} placeholderOption="Select DR account..." required value={debitAccountCode}>
+                {accounts.map((account) => (
+                  <option key={account.code} value={account.code}>
+                    {account.code} - {account.name} ({account.type})
+                  </option>
+                ))}
+              </SelectInput>
+            </FormField>
 
-                <div className="form-field">
-                  <label htmlFor="creditAccount">Credit (CR) Account *</label>
-                  <select
-                    id="creditAccount"
-                    required
-                    value={creditAccountCode}
-                    onChange={(e) => setCreditAccountCode(e.target.value)}
-                  >
-                    <option value="">Select CR account...</option>
-                    {accounts.map((a) => (
-                      <option key={a.code} value={a.code}>
-                        {a.code} - {a.name} ({a.type})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+            <FormField htmlFor="creditAccount" label="Credit (CR) account" required>
+              <SelectInput id="creditAccount" onChange={(event) => setCreditAccountCode(event.target.value)} placeholderOption="Select CR account..." required value={creditAccountCode}>
+                {accounts.map((account) => (
+                  <option key={account.code} value={account.code}>
+                    {account.code} - {account.name} ({account.type})
+                  </option>
+                ))}
+              </SelectInput>
+            </FormField>
 
-                <div className="form-field form-field--full">
-                  <label htmlFor="jNarration">Narration *</label>
-                  <input
-                    id="jNarration"
-                    type="text"
-                    required
-                    value={narration}
-                    onChange={(e) => setNarration(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <footer className="modal-footer">
-                <Button onClick={() => setIsCreateModalOpen(false)} type="button" variant="secondary">
-                  Cancel
-                </Button>
-                <Button disabled={createMutation.isPending} type="submit" variant="primary">
-                  {createMutation.isPending ? 'Saving...' : 'Create Recurring Journal'}
-                </Button>
-              </footer>
-            </form>
-          </div>
-        </div>
-      )}
+            <FormField htmlFor="jNarration" label="Narration" required span="full">
+              <TextInput
+                id="jNarration"
+                onChange={(event) => setNarration(event.target.value)}
+                required
+                value={narration}
+              />
+            </FormField>
+          </FormGrid>
+        </form>
+      </Modal>
     </section>
   )
 }

@@ -1,9 +1,9 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { TransferOrdersPage } from './transfer-orders-page'
 import { TransferOrderDetailPage } from './transfer-order-detail-page'
+import { TransferOrdersPage } from './transfer-orders-page'
 import * as transferOrdersApi from './transfer-orders-api'
 
 vi.mock('./transfer-orders-api', () => ({
@@ -13,61 +13,42 @@ vi.mock('./transfer-orders-api', () => ({
   shipTransferOrder: vi.fn(),
   receiveTransferOrder: vi.fn(),
   cancelTransferOrder: vi.fn(),
-  listWarehouses: vi.fn(),
-  listCatalogItems: vi.fn(),
 }))
 
-const mockTransferOrders: transferOrdersApi.TransferOrder[] = [
-  {
-    id: 'to-1',
-    transferNumber: 'TR-2026-0001',
-    fromWarehouseId: 'wh-1',
-    fromWarehouseName: 'Central Logistics Hub',
-    toWarehouseId: 'wh-2',
-    toWarehouseName: 'North Distribution Depot',
-    transferDate: '2026-09-04',
-    status: 'DRAFT',
-    lineCount: 2,
-    createdAt: '2026-09-04T10:00:00Z',
-    lines: [
-      {
-        id: 'line-1',
-        itemId: 'item-1',
-        itemName: 'Amoxicillin 500mg',
-        sku: 'MED-AMX-500',
-        quantity: 100,
-        batchNumber: 'BAT-2026-A',
-      },
-    ],
-  },
-  {
-    id: 'to-2',
-    transferNumber: 'TR-2026-0002',
-    fromWarehouseId: 'wh-1',
-    fromWarehouseName: 'Central Logistics Hub',
-    toWarehouseId: 'wh-3',
-    toWarehouseName: 'Airport Transit Station',
-    transferDate: '2026-09-03',
-    status: 'SHIPPED',
-    lineCount: 1,
-    shippedAt: '2026-09-03T15:00:00Z',
-    createdAt: '2026-09-03T11:00:00Z',
-  },
-  {
-    id: 'to-3',
-    transferNumber: 'TR-2026-0003',
-    fromWarehouseId: 'wh-2',
-    fromWarehouseName: 'North Distribution Depot',
-    toWarehouseId: 'wh-1',
-    toWarehouseName: 'Central Logistics Hub',
-    transferDate: '2026-09-01',
-    status: 'RECEIVED',
-    lineCount: 3,
-    shippedAt: '2026-09-01T12:00:00Z',
-    receivedAt: '2026-09-02T09:00:00Z',
-    createdAt: '2026-09-01T08:00:00Z',
-  },
-]
+const draftTransfer: transferOrdersApi.TransferOrder = {
+  id: 'to-1',
+  transferNumber: 'TO-2026-000001',
+  fromWarehouseId: 'wh-1',
+  fromWarehouseName: 'Central Warehouse',
+  toWarehouseId: 'wh-2',
+  toWarehouseName: 'North Branch',
+  transferDate: '2026-09-05',
+  status: 'DRAFT',
+  notes: null,
+  shippedAt: null,
+  receivedAt: null,
+  lineCount: 1,
+  lines: [{
+    id: 'line-1',
+    itemId: 'item-1',
+    itemName: 'Turmeric Masala Test 100g',
+    sku: 'MASALA-TURMERIC-TEST-100G',
+    batchId: null,
+    batchNumber: null,
+    quantity: 10,
+    receivedQuantity: 0,
+    notes: null,
+  }],
+  createdAt: '2026-09-05T10:00:00Z',
+}
+
+const inTransitTransfer: transferOrdersApi.TransferOrder = {
+  ...draftTransfer,
+  id: 'to-2',
+  transferNumber: 'TO-2026-000002',
+  status: 'IN_TRANSIT',
+  shippedAt: '2026-09-05T11:00:00Z',
+}
 
 function renderWithClient(ui: React.ReactElement, initialRoute = '/') {
   const queryClient = new QueryClient({
@@ -79,123 +60,99 @@ function renderWithClient(ui: React.ReactElement, initialRoute = '/') {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[initialRoute]}>
-        {ui}
-      </MemoryRouter>
-    </QueryClientProvider>
+      <MemoryRouter initialEntries={[initialRoute]}>{ui}</MemoryRouter>
+    </QueryClientProvider>,
   )
 }
 
-describe('TransferOrders Workspace', () => {
+describe('Transfer orders', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(transferOrdersApi.listTransferOrders).mockResolvedValue({
-      content: mockTransferOrders,
-      totalElements: 3,
+      content: [draftTransfer, inTransitTransfer],
+      page: 0,
+      size: 25,
+      totalElements: 2,
       totalPages: 1,
-      pageNumber: 0,
-      pageSize: 50,
+      last: true,
     })
-    vi.mocked(transferOrdersApi.listWarehouses).mockResolvedValue([
-      { id: 'wh-1', name: 'Central Logistics Hub', code: 'WH-CENTRAL' },
-      { id: 'wh-2', name: 'North Distribution Depot', code: 'WH-NORTH' },
-    ])
-    vi.mocked(transferOrdersApi.listCatalogItems).mockResolvedValue([
-      { id: 'item-1', name: 'Amoxicillin 500mg', sku: 'MED-AMX-500', unit: 'Box' },
-    ])
   })
 
-  it('renders the transfer orders register with summary metrics', async () => {
+  it('renders server lifecycle states in the transfer register', async () => {
     renderWithClient(<TransferOrdersPage />)
 
-    expect(screen.getByText('Stock Transfer Orders')).toBeInTheDocument()
-    expect(await screen.findByText('TR-2026-0001')).toBeInTheDocument()
-    expect(screen.getByText('TR-2026-0002')).toBeInTheDocument()
-    expect(screen.getByText('TR-2026-0003')).toBeInTheDocument()
-
-    // Status chips check
-    expect(screen.getByText('Multi-Branch Transit')).toBeInTheDocument()
+    expect(screen.getByText('Transfer Orders')).toBeInTheDocument()
+    expect(await screen.findByText('TO-2026-000001')).toBeInTheDocument()
+    expect(screen.getByText('TO-2026-000002')).toBeInTheDocument()
+    expect(screen.getByText('In Transit')).toBeInTheDocument()
   })
 
-  it('filters orders by search term', async () => {
-    renderWithClient(<TransferOrdersPage />)
-
-    await screen.findByText('TR-2026-0001')
-
-    const searchInput = screen.getByPlaceholderText('Search transfer # or warehouse...')
-    fireEvent.change(searchInput, { target: { value: 'TR-2026-0002' } })
-
-    expect(screen.queryByText('TR-2026-0001')).not.toBeInTheDocument()
-    expect(screen.getByText('TR-2026-0002')).toBeInTheDocument()
-  })
-
-  it('filters orders by status tabs', async () => {
-    renderWithClient(<TransferOrdersPage />)
-
-    await screen.findByText('TR-2026-0001')
-
-    const inTransitTab = screen.getByRole('tab', { name: 'In Transit' })
-    fireEvent.click(inTransitTab)
-
-    expect(screen.queryByText('TR-2026-0001')).not.toBeInTheDocument()
-    expect(screen.getByText('TR-2026-0002')).toBeInTheDocument()
-    expect(screen.queryByText('TR-2026-0003')).not.toBeInTheDocument()
-  })
-
-  it('renders detail view and allows dispatching a draft order', async () => {
-    vi.mocked(transferOrdersApi.getTransferOrder).mockResolvedValue(mockTransferOrders[0])
+  it('requires confirmation before dispatching a draft transfer', async () => {
+    vi.mocked(transferOrdersApi.getTransferOrder).mockResolvedValue(draftTransfer)
     vi.mocked(transferOrdersApi.shipTransferOrder).mockResolvedValue({
-      ...mockTransferOrders[0],
-      status: 'SHIPPED',
-      shippedAt: '2026-09-05T00:00:00Z',
+      ...draftTransfer,
+      status: 'IN_TRANSIT',
+      shippedAt: '2026-09-05T11:00:00Z',
     })
 
     renderWithClient(
-      <Routes>
-        <Route path="/transfer-orders/:transferOrderId" element={<TransferOrderDetailPage />} />
-      </Routes>,
-      '/transfer-orders/to-1'
+      <Routes><Route element={<TransferOrderDetailPage />} path="/transfer-orders/:transferOrderId" /></Routes>,
+      '/transfer-orders/to-1',
     )
 
-    const matches = await screen.findAllByText('TR-2026-0001')
-    expect(matches.length).toBeGreaterThan(0)
-    expect(screen.getByText('Origin warehouse')).toBeInTheDocument()
+    expect(await screen.findByText('TO-2026-000001')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Dispatch transfer' }))
 
-    const dispatchBtn = screen.getByRole('button', { name: /dispatch shipment/i })
-    expect(dispatchBtn).toBeInTheDocument()
+    const dialog = screen.getByRole('dialog', { name: 'Dispatch this transfer?' })
+    expect(dialog).toBeInTheDocument()
+    expect(transferOrdersApi.shipTransferOrder).not.toHaveBeenCalled()
 
-    fireEvent.click(dispatchBtn)
-
-    await waitFor(() => {
-      expect(transferOrdersApi.shipTransferOrder).toHaveBeenCalledWith('to-1')
-    })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Dispatch transfer' }))
+    await waitFor(() => expect(transferOrdersApi.shipTransferOrder).toHaveBeenCalledWith('to-1'))
   })
 
-  it('renders detail view and allows receiving an in-transit order', async () => {
-    vi.mocked(transferOrdersApi.getTransferOrder).mockResolvedValue(mockTransferOrders[1])
+  it('requires confirmation before receiving an in-transit transfer', async () => {
+    vi.mocked(transferOrdersApi.getTransferOrder).mockResolvedValue(inTransitTransfer)
     vi.mocked(transferOrdersApi.receiveTransferOrder).mockResolvedValue({
-      ...mockTransferOrders[1],
+      ...inTransitTransfer,
       status: 'RECEIVED',
-      receivedAt: '2026-09-05T01:00:00Z',
+      receivedAt: '2026-09-05T12:00:00Z',
+      lines: inTransitTransfer.lines.map((line) => ({ ...line, receivedQuantity: 10 })),
     })
 
     renderWithClient(
-      <Routes>
-        <Route path="/transfer-orders/:transferOrderId" element={<TransferOrderDetailPage />} />
-      </Routes>,
-      '/transfer-orders/to-2'
+      <Routes><Route element={<TransferOrderDetailPage />} path="/transfer-orders/:transferOrderId" /></Routes>,
+      '/transfer-orders/to-2',
     )
 
-    const matches = await screen.findAllByText('TR-2026-0002')
-    expect(matches.length).toBeGreaterThan(0)
+    expect(await screen.findByText('TO-2026-000002')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Receive transfer' }))
 
-    const receiveBtn = screen.getByRole('button', { name: /confirm receipt/i })
-    expect(receiveBtn).toBeInTheDocument()
+    const dialog = screen.getByRole('dialog', { name: 'Receive this transfer?' })
+    expect(dialog).toBeInTheDocument()
+    expect(transferOrdersApi.receiveTransferOrder).not.toHaveBeenCalled()
 
-    fireEvent.click(receiveBtn)
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Receive transfer' }))
+    await waitFor(() => expect(transferOrdersApi.receiveTransferOrder).toHaveBeenCalledWith('to-2'))
+  })
 
-    await waitFor(() => {
-      expect(transferOrdersApi.receiveTransferOrder).toHaveBeenCalledWith('to-2')
-    })
+  it('requires confirmation before cancelling an in-transit transfer', async () => {
+    vi.mocked(transferOrdersApi.getTransferOrder).mockResolvedValue(inTransitTransfer)
+    vi.mocked(transferOrdersApi.cancelTransferOrder).mockResolvedValue(undefined)
+
+    renderWithClient(
+      <Routes><Route element={<TransferOrderDetailPage />} path="/transfer-orders/:transferOrderId" /></Routes>,
+      '/transfer-orders/to-2',
+    )
+
+    expect(await screen.findByText('TO-2026-000002')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    const dialog = screen.getByRole('dialog', { name: 'Cancel in-transit transfer?' })
+    expect(dialog).toBeInTheDocument()
+    expect(transferOrdersApi.cancelTransferOrder).not.toHaveBeenCalled()
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel transfer' }))
+    await waitFor(() => expect(transferOrdersApi.cancelTransferOrder).toHaveBeenCalledWith('to-2'))
   })
 })

@@ -71,9 +71,15 @@ import { OffboardingDetailPage } from '@/features/hr/offboarding-detail-page'
 import { OffboardingPage } from '@/features/hr/offboarding-page'
 import { ShiftsPage } from '@/features/hr/shifts-page'
 import { TimesheetsPage } from '@/features/hr/timesheets-page'
+import { EmployeeDocumentsPage } from '@/features/hr/employee-documents-page'
+import { HrAnalyticsPage } from '@/features/hr/hr-analytics-page'
+import { MyProfilePage } from '@/features/hr/my-profile-page'
 import { EmployeeDetailPage } from '@/features/payroll/employee-detail-page'
 import { EmployeesPage } from '@/features/payroll/employees-page'
 import { PayrollSettingsPage } from '@/features/payroll/payroll-settings-page'
+import { TaxDeclarationPage } from '@/features/payroll/tax-declaration-page'
+import { LaborPayPreviewPage } from '@/features/payroll/labor-pay-preview-page'
+import { KenyaPayeCalculatorPage } from '@/features/payroll/kenya-paye-calculator-page'
 import { FixedAssetDetailPage } from '@/features/fixed-assets/fixed-asset-detail-page'
 import { FixedAssetsPage } from '@/features/fixed-assets/fixed-assets-page'
 import { GstCompliancePage } from '@/features/gst/gst-compliance-page'
@@ -94,6 +100,7 @@ import { ItemDetailPage } from '@/features/items/item-detail-page'
 import { ItemFormPage } from '@/features/items/item-form-page'
 import { ItemsPage } from '@/features/items/items-page'
 import { StockSummaryPage } from '@/features/inventory/stock-summary-page'
+import { SchemesPage } from '@/features/pricing/schemes-page'
 import { BatchTracePage } from '@/features/inventory/batch-trace-page'
 import { ShortbookPage } from '@/features/inventory/shortbook-page'
 import { ConsignmentsPage } from '@/features/inventory/consignments-page'
@@ -349,6 +356,10 @@ export const router = createBrowserRouter([
           {
             path: 'price-lists',
             element: <PriceListsPage />,
+          },
+          {
+            path: 'schemes',
+            element: <SchemesPage />,
           },
           {
             path: 'price-lists/:priceListId',
@@ -891,6 +902,14 @@ export const router = createBrowserRouter([
             element: <EmployeeDetailPage />,
           },
           {
+            path: 'payroll/employees',
+            element: <EmployeesPage />,
+          },
+          {
+            path: 'payroll/employees/:employeeId',
+            element: <EmployeeDetailPage />,
+          },
+          {
             path: 'payroll-runs',
             element: <PayrollRunsPage />,
           },
@@ -899,11 +918,39 @@ export const router = createBrowserRouter([
             element: <PayrollRunDetailPage />,
           },
           {
+            path: 'payroll/runs',
+            element: <PayrollRunsPage />,
+          },
+          {
+            path: 'payroll/runs/:runId',
+            element: <PayrollRunDetailPage />,
+          },
+          {
             path: 'settings/payroll',
             element: <PayrollSettingsPage />,
           },
           {
+            path: 'payroll/settings',
+            element: <PayrollSettingsPage />,
+          },
+          {
+            path: 'payroll/tax-declaration',
+            element: <TaxDeclarationPage />,
+          },
+          {
+            path: 'payroll/labor-pay-preview',
+            element: <LaborPayPreviewPage />,
+          },
+          {
+            path: 'payroll/kenya-paye',
+            element: <KenyaPayeCalculatorPage />,
+          },
+          {
             path: 'attendance',
+            element: <AttendancePage />,
+          },
+          {
+            path: 'hr/attendance',
             element: <AttendancePage />,
           },
           {
@@ -911,11 +958,23 @@ export const router = createBrowserRouter([
             element: <LeavesPage />,
           },
           {
+            path: 'hr/leave',
+            element: <LeavesPage />,
+          },
+          {
             path: 'shifts',
             element: <ShiftsPage />,
           },
           {
+            path: 'hr/shifts',
+            element: <ShiftsPage />,
+          },
+          {
             path: 'timesheets',
+            element: <TimesheetsPage />,
+          },
+          {
+            path: 'hr/timesheets',
             element: <TimesheetsPage />,
           },
           {
@@ -927,6 +986,22 @@ export const router = createBrowserRouter([
             element: <HrTicketDetailPage />,
           },
           {
+            path: 'hr/helpdesk',
+            element: <HrTicketsPage />,
+          },
+          {
+            path: 'hr/helpdesk/:ticketId',
+            element: <HrTicketDetailPage />,
+          },
+          {
+            path: 'hr/documents',
+            element: <EmployeeDocumentsPage />,
+          },
+          {
+            path: 'hr/analytics',
+            element: <HrAnalyticsPage />,
+          },
+          {
             path: 'offboarding',
             element: <OffboardingPage />,
           },
@@ -935,7 +1010,23 @@ export const router = createBrowserRouter([
             element: <OffboardingDetailPage />,
           },
           {
+            path: 'hr/offboarding',
+            element: <OffboardingPage />,
+          },
+          {
+            path: 'hr/offboarding/:offboardingId',
+            element: <OffboardingDetailPage />,
+          },
+          {
+            path: 'hr/my-profile',
+            element: <MyProfilePage />,
+          },
+          {
             path: 'biometric-devices',
+            element: <BiometricDevicesPage />,
+          },
+          {
+            path: 'hr/biometric',
             element: <BiometricDevicesPage />,
           },
           {

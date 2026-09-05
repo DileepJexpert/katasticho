@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Banknote,
+  BadgePercent,
   CheckCircle2,
   CreditCard,
   Lock,
@@ -15,6 +16,7 @@ import {
   Trash2,
   Unlock,
   UserRound,
+  UserPlus,
   WalletCards,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -28,7 +30,8 @@ import { PageHeader } from '@/design-system/page-header'
 import { StatusChip } from '@/design-system/status-chip'
 import { TextAreaInput } from '@/design-system/textarea-input'
 import { TextInput } from '@/design-system/text-input'
-import { listContacts, type Contact } from '@/features/contacts/contacts-api'
+import { createContact, listContacts, type Contact } from '@/features/contacts/contacts-api'
+import { BatchAllocationPicker } from '@/features/inventory/batch-allocation-picker'
 import {
   addRegisterExpense,
   closeRegister,
@@ -50,10 +53,25 @@ type CartItem = {
   mrp: number | null
   quantity: number
   unit: string | null
+  taxGroupId?: string | null
   hsnCode: string | null
   batchId: string | null
   batchNumber: string | null
+  trackBatches: boolean
   rackLocationCode: string | null
+  discountPct: number
+}
+
+function effectiveRate(item: CartItem): number {
+  return Math.round(item.rate * (1 - item.discountPct / 100) * 10_000) / 10_000
+}
+
+function lineTotal(item: CartItem): number {
+  return Math.round(effectiveRate(item) * item.quantity * 100) / 100
+}
+
+function lineDiscount(item: CartItem): number {
+  return Math.round((item.rate * item.quantity - lineTotal(item)) * 100) / 100
 }
 
 async function searchCustomers(query: string): Promise<Contact[]> {
@@ -80,6 +98,7 @@ export function PosCheckoutPage() {
   const [itemQuery, setItemQuery] = useState('')
   const [cart, setCart] = useState<CartItem[]>([])
   const [selectedContactId, setSelectedContactId] = useState('')
+  const [selectedContact, setSelectedContact] = useState<Contact | null>(null)
   const [paymentMode, setPaymentMode] = useState<'CASH' | 'UPI' | 'CARD' | 'CREDIT'>('CASH')
   const [tenderedAmount, setTenderedAmount] = useState('')
   const [upiRef, setUpiRef] = useState('')
@@ -92,6 +111,11 @@ export function PosCheckoutPage() {
   const [isExpenseOpen, setIsExpenseOpen] = useState(false)
   const [expenseAmount, setExpenseAmount] = useState('')
   const [expenseReason, setExpenseReason] = useState('')
+  const [isQuickCustomerOpen, setIsQuickCustomerOpen] = useState(false)
+  const [newCustomerName, setNewCustomerName] = useState('')
+  const [newCustomerPhone, setNewCustomerPhone] = useState('')
+  const [isCartDiscountOpen, setIsCartDiscountOpen] = useState(false)
+  const [cartDiscountInput, setCartDiscountInput] = useState('')
 
   const registerQuery = useQuery({
     queryKey: ['pos-today-register'],
@@ -127,6 +151,20 @@ export function PosCheckoutPage() {
       setExpenseReason('')
     },
   })
+  const createCustomerMutation = useMutation({
+    mutationFn: () => createContact({
+      contactType: 'CUSTOMER',
+      displayName: newCustomerName.trim(),
+      phone: newCustomerPhone.trim() || undefined,
+    }),
+    onSuccess: (customer) => {
+      setSelectedContact(customer)
+      setSelectedContactId(customer.id)
+      setIsQuickCustomerOpen(false)
+      setNewCustomerName('')
+      setNewCustomerPhone('')
+    },
+  })
   const saleCheckoutMutation = useMutation({
     mutationFn: (request: CreateSalesReceiptRequest) => createSalesReceipt(request),
     onSuccess: (receipt) => {
@@ -142,7 +180,11 @@ export function PosCheckoutPage() {
   const register = registerQuery.data
   const searchResults = itemSearchQuery.data ?? []
   const cartValue = useMemo(
-    () => cart.reduce((sum, item) => sum + item.rate * item.quantity, 0),
+    () => cart.reduce((sum, item) => sum + lineTotal(item), 0),
+    [cart]
+  )
+  const discountValue = useMemo(
+    () => cart.reduce((sum, item) => sum + lineDiscount(item), 0),
     [cart]
   )
   const lineCount = useMemo(
@@ -176,10 +218,13 @@ export function PosCheckoutPage() {
         mrp: product.mrp,
         quantity: 1,
         unit: product.unit || 'pcs',
+        taxGroupId: product.taxGroupId,
         hsnCode: product.hsnCode,
         batchId: product.batchId,
         batchNumber: product.batchNumber,
+        trackBatches: product.trackBatches,
         rackLocationCode: product.rackLocationCode,
+        discountPct: 0,
       }]
     })
     setItemQuery('')
@@ -189,6 +234,25 @@ export function PosCheckoutPage() {
     setCart((currentCart) => currentCart.map((item) =>
       item.id === id ? { ...item, quantity: Math.max(1, item.quantity + delta) } : item
     ))
+  }
+
+  const updateDiscount = (id: string, value: number) => {
+    const discountPct = Math.min(100, Math.max(0, Number.isFinite(value) ? value : 0))
+    setCart((currentCart) => currentCart.map((item) =>
+      item.id === id ? { ...item, discountPct } : item
+    ))
+  }
+
+  const openQuickCustomer = (name = '') => {
+    setNewCustomerName(name)
+    setNewCustomerPhone('')
+    setIsQuickCustomerOpen(true)
+  }
+
+  const applyCartDiscount = () => {
+    const discountPct = Math.min(100, Math.max(0, Number(cartDiscountInput) || 0))
+    setCart((currentCart) => currentCart.map((item) => ({ ...item, discountPct })))
+    setIsCartDiscountOpen(false)
   }
 
   const handleCheckout = () => {
@@ -205,10 +269,12 @@ export function PosCheckoutPage() {
       lines: cart.map((item) => ({
         itemId: item.itemId,
         quantity: item.quantity,
-        rate: item.rate,
+        rate: effectiveRate(item),
         unit: item.unit || undefined,
+        taxGroupId: item.taxGroupId || undefined,
         hsnCode: item.hsnCode || undefined,
         batchId: item.batchId || undefined,
+        taxInclusive: true,
       })),
     })
   }
@@ -320,7 +386,21 @@ export function PosCheckoutPage() {
                 <h2 id="pos-cart-title">Current sale</h2>
                 <span>{lineCount} {lineCount === 1 ? 'item' : 'items'}</span>
               </div>
-              {cart.length > 0 && <Money amount={cartValue} />}
+              {cart.length > 0 && (
+                <div className="pos-cart__header-actions">
+                  <Button
+                    className="pos-cart__discount-all"
+                    onClick={() => {
+                      setCartDiscountInput('')
+                      setIsCartDiscountOpen(true)
+                    }}
+                    variant="ghost"
+                  >
+                    <BadgePercent aria-hidden="true" size={15} />Discount
+                  </Button>
+                  <Money amount={cartValue} />
+                </div>
+              )}
             </header>
             {cart.length === 0 ? (
               <div className="pos-cart-empty">
@@ -335,14 +415,27 @@ export function PosCheckoutPage() {
                     <div className="pos-cart-row__copy">
                       <strong>{item.name}</strong>
                       <span>{[item.sku, item.rackLocationCode && `Rack ${item.rackLocationCode}`, item.batchNumber && `Batch ${item.batchNumber}`].filter(Boolean).join(' / ')}</span>
+                      {item.trackBatches && <BatchAllocationPicker itemId={item.itemId} value={item.batchId} quantity={item.quantity} automatic disabled={saleCheckoutMutation.isPending} onChange={(batchId, batch) => setCart((current) => current.map((line) => line.id === item.id ? { ...line, batchId: batchId ?? null, batchNumber: batch?.batchNumber ?? null } : line))} />}
                     </div>
                     <div className="pos-cart-row__unit-price"><span>Rate</span><Money amount={item.rate} /></div>
+                    <div className="pos-cart-row__discount">
+                      <span>Disc.</span>
+                      <NumberInput
+                        aria-label={`${item.name} discount percentage`}
+                        max="100"
+                        min="0"
+                        onChange={(event) => updateDiscount(item.id, Number(event.target.value))}
+                        step="0.1"
+                        unitSuffix="%"
+                        value={item.discountPct}
+                      />
+                    </div>
                     <div aria-label={`${item.name} quantity`} className="pos-quantity-stepper">
                       <button aria-label={`Decrease ${item.name} quantity`} onClick={() => updateQuantity(item.id, -1)} type="button"><Minus aria-hidden="true" size={14} /></button>
                       <span>{item.quantity}</span>
                       <button aria-label={`Increase ${item.name} quantity`} onClick={() => updateQuantity(item.id, 1)} type="button"><Plus aria-hidden="true" size={14} /></button>
                     </div>
-                    <strong className="pos-cart-row__total"><Money amount={item.rate * item.quantity} /></strong>
+                    <strong className="pos-cart-row__total"><Money amount={lineTotal(item)} /></strong>
                     <button
                       aria-label={`Remove ${item.name} from sale`}
                       className="pos-cart-row__remove"
@@ -363,17 +456,34 @@ export function PosCheckoutPage() {
               <p>Assign a customer and settle this sale.</p>
             </div>
           </header>
-          <FormField label="Customer" hint="Leave unselected for a walk-in cash customer.">
-            <EntityPicker<Contact>
-              ariaLabel="Search customers"
-              getOptionDescription={describeCustomer}
-              getOptionId={(customer) => customer.id}
-              getOptionLabel={(customer) => customer.displayName}
-              onChange={(id) => setSelectedContactId(id || '')}
-              onSearch={searchCustomers}
-              placeholder="Search customer or account"
-              value={selectedContactId || null}
-            />
+          <FormField label="Customer">
+            <div className="pos-customer-picker">
+              <EntityPicker<Contact>
+                ariaLabel="Search customers"
+                getOptionDescription={describeCustomer}
+                getOptionId={(customer) => customer.id}
+                getOptionLabel={(customer) => customer.displayName}
+                onChange={(id, customer) => {
+                  setSelectedContactId(id || '')
+                  setSelectedContact(customer || null)
+                }}
+                onSearch={searchCustomers}
+                placeholder="Search customer or account"
+                renderEmpty={(query) => (
+                  <div className="entity-picker__empty entity-picker__empty--action">
+                    <span>{query ? `No customer found for "${query}".` : 'No matching customers found.'}</span>
+                    <button onClick={() => openQuickCustomer(query)} type="button">
+                      <UserPlus aria-hidden="true" size={14} />Add customer
+                    </button>
+                  </div>
+                )}
+                selectedEntity={selectedContact}
+                value={selectedContactId || null}
+              />
+              <Button aria-label="Add a new customer" className="pos-new-customer" onClick={() => openQuickCustomer()} title="Add new customer" variant="secondary">
+                <UserPlus aria-hidden="true" size={16} />
+              </Button>
+            </div>
           </FormField>
 
           <section aria-label="Payment method" className="pos-payment-methods">
@@ -408,6 +518,7 @@ export function PosCheckoutPage() {
           </FormField>
           <section aria-label="Checkout summary" className="pos-summary">
             <div className="pos-summary__row"><span>Cart value</span><strong><Money amount={cartValue} /></strong></div>
+            {discountValue > 0 && <div className="pos-summary__row pos-summary__row--discount"><span>Discount</span><strong><Money amount={-discountValue} /></strong></div>}
             <p>Applicable tax is calculated and confirmed by the tax engine when the receipt is posted.</p>
             <div className="pos-summary__total"><span>Amount to collect</span><strong><Money amount={cartValue} /></strong></div>
           </section>
@@ -439,6 +550,30 @@ export function PosCheckoutPage() {
             </div>
           </div>
         )}
+      </Modal>
+
+      <Modal
+        error={getErrorMessage(createCustomerMutation.error)}
+        footer={<><Button onClick={() => setIsQuickCustomerOpen(false)} variant="secondary">Cancel</Button><Button disabled={!newCustomerName.trim()} loading={createCustomerMutation.isPending} onClick={() => createCustomerMutation.mutate()}>Save and select</Button></>}
+        isOpen={isQuickCustomerOpen}
+        onClose={() => setIsQuickCustomerOpen(false)}
+        size="sm"
+        title="New customer"
+        description="Add the minimum details now; complete the profile later from Contacts."
+      >
+        <FormField label="Customer name" required><TextInput autoComplete="name" onChange={(event) => setNewCustomerName(event.target.value)} placeholder="e.g. Ravi Kumar" value={newCustomerName} /></FormField>
+        <FormField label="Phone" optional><TextInput autoComplete="tel" inputMode="tel" onChange={(event) => setNewCustomerPhone(event.target.value)} placeholder="e.g. 9876543210" value={newCustomerPhone} /></FormField>
+      </Modal>
+
+      <Modal
+        footer={<><Button onClick={() => setIsCartDiscountOpen(false)} variant="secondary">Cancel</Button><Button onClick={applyCartDiscount}>Apply to all items</Button></>}
+        isOpen={isCartDiscountOpen}
+        onClose={() => setIsCartDiscountOpen(false)}
+        size="sm"
+        title="Cart discount"
+        description="Apply the same discount percentage to every current line."
+      >
+        <FormField label="Discount percentage"><NumberInput max="100" min="0" onChange={(event) => setCartDiscountInput(event.target.value)} placeholder="0" step="0.1" unitSuffix="%" value={cartDiscountInput} /></FormField>
       </Modal>
 
       <Modal

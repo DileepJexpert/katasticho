@@ -517,3 +517,157 @@ export async function triggerDeviceSync(id: string) {
 export async function listPunchLogs(page = 0, size = 50) {
   return apiFetch<{ content: BiometricPunchLog[]; totalElements: number }>(`/api/v1/attendance/biometric/logs?page=${page}&size=${size}`)
 }
+
+// ── Employee Documents APIs ──
+
+export async function getMyDocuments() {
+  return apiFetch<EmployeeDocument[]>('/api/v1/hr/documents/me')
+}
+
+export async function getExpiringDocuments(days = 30) {
+  return apiFetch<EmployeeDocument[]>(`/api/v1/hr/documents/expiring?days=${days}`)
+}
+
+export async function uploadMyDocument(formData: FormData) {
+  return apiFetch<EmployeeDocument>('/api/v1/hr/documents/me', {
+    method: 'POST',
+    body: formData,
+  })
+}
+
+export async function deleteEmployeeDocument(id: string) {
+  return apiFetch<void>(`/api/v1/hr/documents/${id}`, { method: 'DELETE' })
+}
+
+// ── HR Analytics Dashboard APIs ──
+
+export type HrAnalyticsDashboard = {
+  headcount: number
+  byDepartment: Record<string, number>
+  onLeaveToday: number
+  pendingLeaves: number
+  pendingRegularizations: number
+  pendingTimesheets: number
+  openTickets: number
+  documentsExpiringIn30Days: number
+}
+
+export async function getHrAnalyticsDashboard() {
+  return apiFetch<HrAnalyticsDashboard>('/api/v1/hr/analytics/dashboard')
+}
+
+// ── My Profile & Self-Service APIs ──
+
+export type MyProfileData = {
+  employee: {
+    id: string
+    orgId: string
+    userId?: string | null
+    employeeCode?: string | null
+    fullName: string
+    designation?: string | null
+    department?: string | null
+    email?: string | null
+    phone?: string | null
+    dateOfBirth?: string | null
+    gender?: string | null
+    maritalStatus?: string | null
+    bloodGroup?: string | null
+    nationality?: string | null
+    personalEmail?: string | null
+    currentAddressLine1?: string | null
+    currentAddressLine2?: string | null
+    currentCity?: string | null
+    currentState?: string | null
+    currentPincode?: string | null
+    permanentAddressLine1?: string | null
+    permanentAddressLine2?: string | null
+    permanentCity?: string | null
+    permanentState?: string | null
+    permanentPincode?: string | null
+    emergencyContactName?: string | null
+    emergencyContactRelationship?: string | null
+    emergencyContactPhone?: string | null
+    photoAttachmentId?: string | null
+    dateOfJoining?: string | null
+    employmentStatus?: string | null
+    pan?: string | null
+    uan?: string | null
+    esiNumber?: string | null
+    aadhaarLast4?: string | null
+  }
+  family: EmployeeFamily[]
+  education: EmployeeEducation[]
+  experience: EmployeeExperience[]
+}
+
+export async function getMyProfile() {
+  return apiFetch<MyProfileData>('/api/v1/hr/employees/me')
+}
+
+export async function claimMyProfile() {
+  return apiFetch<MyProfileData['employee']>('/api/v1/hr/employees/me/claim', {
+    method: 'POST',
+  })
+}
+
+export async function updateMyProfile(data: Partial<MyProfileData['employee']>) {
+  return apiFetch<MyProfileData['employee']>('/api/v1/hr/employees/me', {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function addMyFamily(data: Partial<EmployeeFamily>) {
+  return apiFetch<EmployeeFamily>('/api/v1/hr/employees/me/family', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function updateMyFamily(id: string, data: Partial<EmployeeFamily>) {
+  return apiFetch<EmployeeFamily>(`/api/v1/hr/employees/me/family/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function deleteMyFamily(id: string) {
+  return apiFetch<void>(`/api/v1/hr/employees/me/family/${id}`, { method: 'DELETE' })
+}
+
+export async function addMyEducation(data: Partial<EmployeeEducation>) {
+  return apiFetch<EmployeeEducation>('/api/v1/hr/employees/me/education', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function updateMyEducation(id: string, data: Partial<EmployeeEducation>) {
+  return apiFetch<EmployeeEducation>(`/api/v1/hr/employees/me/education/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function deleteMyEducation(id: string) {
+  return apiFetch<void>(`/api/v1/hr/employees/me/education/${id}`, { method: 'DELETE' })
+}
+
+export async function addMyExperience(data: Partial<EmployeeExperience>) {
+  return apiFetch<EmployeeExperience>('/api/v1/hr/employees/me/experience', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function updateMyExperience(id: string, data: Partial<EmployeeExperience>) {
+  return apiFetch<EmployeeExperience>(`/api/v1/hr/employees/me/experience/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function deleteMyExperience(id: string) {
+  return apiFetch<void>(`/api/v1/hr/employees/me/experience/${id}`, { method: 'DELETE' })
+}

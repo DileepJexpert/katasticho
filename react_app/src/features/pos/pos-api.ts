@@ -111,6 +111,8 @@ export type CreateSalesReceiptLine = {
   taxGroupId?: string
   hsnCode?: string
   batchId?: string
+  /** POS shelf prices are GST-inclusive, matching the established Flutter flow. */
+  taxInclusive?: boolean
 }
 
 export type CreateSalesReceiptRequest = {

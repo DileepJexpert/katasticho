@@ -21,7 +21,11 @@ const salesOrderFilters = [
   { label: 'All', value: '' },
   { label: 'Draft', value: 'DRAFT' },
   { label: 'Confirmed', value: 'CONFIRMED' },
-  { label: 'Closed', value: 'CLOSED' },
+  { label: 'Backorder', value: 'BACKORDER' },
+  { label: 'Partially shipped', value: 'PARTIALLY_SHIPPED' },
+  { label: 'Shipped', value: 'SHIPPED' },
+  { label: 'Partially invoiced', value: 'PARTIALLY_INVOICED' },
+  { label: 'Invoiced', value: 'INVOICED' },
   { label: 'Cancelled', value: 'CANCELLED' },
 ] as const
 

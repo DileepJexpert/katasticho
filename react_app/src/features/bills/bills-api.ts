@@ -70,6 +70,7 @@ export type PurchaseBillPage = {
 
 export type ListBillsOptions = {
   page?: number
+  size?: number
   search?: string
   status?: string | null
   vendorId?: string | null
@@ -85,16 +86,24 @@ export type CreatePurchaseBillRequest = {
   reverseCharge?: boolean
   lines: {
     itemId?: string | null
+    lineType?: 'GOODS' | 'SERVICE'
+    accountId?: string | null
+    accountCode?: string
     description: string
     quantity: number
     unitPrice: number
+    discountPercent?: number
     gstRate?: number
     hsnCode?: string
+    taxGroupId?: string | null
+    unitUomId?: string | null
+    unitConversionFactor?: number
+    purchaseOrderLineId?: string | null
   }[]
 }
 
-export async function listBills({ page = 0, search = '', status = null, vendorId }: ListBillsOptions = {}) {
-  const params = new URLSearchParams({ page: String(page), size: '25', sort: 'billDate,desc' })
+export async function listBills({ page = 0, size = 25, search = '', status = null, vendorId }: ListBillsOptions = {}) {
+  const params = new URLSearchParams({ page: String(page), size: String(size), sort: 'billDate,desc' })
   if (search && search.trim()) params.set('search', search.trim())
   if (status) params.set('status', status)
   if (vendorId) params.set('contact_id', vendorId)

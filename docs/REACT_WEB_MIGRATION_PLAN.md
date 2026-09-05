@@ -1,6 +1,6 @@
 # Katasticho React Web Migration Plan
 
-**Status:** Active implementation - Wave 2 master-data writes and purchase-to-pay source wiring are built; manual acceptance remains pending
+**Status:** Active implementation - Wave 2 master-data writes plus both golden-chain source wiring are built; live acceptance is deferred while Wave 3 source implementation continues
 **Purpose:** The single planning and tracking document for replacing the Flutter
 web/admin client with a production-quality React web ERP while keeping the
 Spring Boot backend, database, accounting rules, and business workflows safe.
@@ -300,14 +300,15 @@ the ERP.
   adjustments, reversals, imports, and barcode/serial mutations remain
   Flutter-only. Item writes use the existing ItemController request contracts
   and preserve its opening-stock audit rule. Manual acceptance is pending.
-- [x] Sales Orders pilot: server-paginated, status-filtered directory and
-  read-only document review using the existing Sales Order list/detail
-  contracts. Creation, confirmation, cancellation, dispatch, invoicing, and
-  document download remain pending in React.
-- [x] Invoices pilot: server-paginated, searchable receivables directory and
-  read-only invoice/payment review using the existing Invoice contracts.
-  Sending, cancellation, payment recording, sharing, and exports remain
-  pending in React.
+- [x] Sales Orders: server-paginated, lifecycle-filtered directory, searchable
+  customer/item creation, confirmation, cancellation, safe challan hand-off,
+  and only-dispatched-quantity invoice conversion use the existing contracts.
+  Document download remains pending in React.
+- [x] Invoices: server-paginated, searchable receivables directory, direct
+  invoice drafts, sending, invoice-scoped partial receipt recording, and
+  detail/payment review use the existing contracts. Direct drafts resolve the
+  organisation's configured sales-revenue account rather than relying on a
+  fixed account code. Sharing and exports remain pending.
 - [x] Picklists pilot: server-paginated warehouse picklist directory and
   read-only line review using the existing Picklist contracts. Creating,
   starting, changing picked quantities, completing, and cancelling remain
@@ -317,10 +318,11 @@ the ERP.
   are complete; read-only pricing, tax/HSN, units, batch/expiry, packaging,
   warehouse, and ledger review remain available.
 - [x] Shared masters: warehouse, price-list, Units of Measure (UoM), and tax-group
-  read-only directories and detail reviews are complete. Warehouse/zone/putaway,
-  price-list/customer-tier, and UoM/tax-group writes, branches, and users remain
-  pending. Payment Terms and the Chart of Accounts have read-only reviews; their
-  writes remain Flutter-only.
+  read-only directories and detail reviews are complete. Price-list creation,
+  tiers, customer assignments, and retirement now have React source wiring;
+  runtime acceptance remains pending under R-06. Warehouse/zone/putaway and
+  UoM/tax-group writes, branches, and users remain pending. Payment Terms and the
+  Chart of Accounts have read-only reviews; their writes remain Flutter-only.
 
 #### Purchase-to-pay golden chain
 
@@ -341,8 +343,10 @@ the ERP.
 
 #### Order-to-cash golden chain
 
-- [ ] Sales order -> delivery challan -> dispatch -> invoice -> partial and
-  final customer receipt.
+- [x] React source wiring: sales order -> delivery challan -> dispatch ->
+  linked invoice -> partial and final customer receipt. The sales-order
+  conversion endpoint is used for dispatched-order invoices so React never
+  invokes the direct-invoice stock path for the same goods.
 - [ ] Verify stock decreases once, output GST is correct, AR is correct, and
   all journals balance.
 
@@ -350,6 +354,15 @@ the ERP.
 `02_PURCHASE_test_cases.md`, `03_INVENTORY_test_cases.md`, and the accounting
 verification cases succeeds in Playwright and manual QA. React and Flutter show
 the same backend document state during parallel testing.
+
+The focused execution order and evidence table are in
+`docs/testing/REACT_WAVE_2_MANUAL_ACCEPTANCE.md`.
+
+**Manual-acceptance decision (2026-09-04):** Product testing is deferred. This
+does not mark Wave 2 passed: the item, purchase-to-pay, and order-to-cash
+evidence remains required before React replaces Flutter for those workflows.
+React source implementation may continue in later waves, provided the deferred
+acceptance status is preserved in this tracker.
 
 ### Wave 3 - Core accounting, inventory, commercial operations, and reports
 
@@ -360,12 +373,55 @@ operator.
   verified read-only Bank Accounts directory review (with balance cards, masked
   account numbers, IFSC, and GL bindings), and verified read-only Fiscal Periods &
   Financial Years review (with period timeline, year selector, and governance status
-  chips) are complete with unit test suites. Account writes, bank reconciliation mutations,
-  period close/lock mutations, journals, guided transactions, vouchers, audit trail,
-  fixed assets, and amortisation remain Flutter-only.
+  chips) are complete with unit test suites. Manual journal creation now supports
+  searchable posting accounts, draft, immediate-post confirmation, and post-dated
+  server scheduling. Typed, read-only Trial Balance, Profit & Loss, Balance Sheet,
+  and General Ledger views use the existing server-calculated accounting responses;
+  their runtime reconciliation acceptance remains pending. Account writes, bank reconciliation mutations, period close/lock
+  mutations, guided transactions, vouchers, audit trail, fixed assets, and amortisation
+  remain Flutter-only. Manual-journal runtime and accounting acceptance are pending.
 - [ ] Inventory: stock views, warehouse/rack management, batch/serial/expiry,
   stock count, transfer orders, picklists, putaway, valuation, reorder, and
   consignment where approved.
+- [x] Stock Count source workflow: a warehouse and physical-count line list
+  create an immutable DRAFT count; the detail view presents server-calculated
+  system quantity and variance, then confirms the existing post or cancel
+  actions. Runtime inventory-ledger acceptance remains pending.
+- [x] Transfer Order source workflow: active warehouses and catalogue items
+  create a DRAFT transfer; the detail view confirms dispatch, receipt, or
+  cancellation against the existing DRAFT -> IN_TRANSIT -> RECEIVED/CANCELLED
+  lifecycle. The frozen API receives every dispatched line in full, so partial
+  receipt is intentionally not presented as an available action.
+- [x] Batch and expiry source review: server-calculated expiry buckets and
+  near-expiry stock provide a dense read-only watch register with search,
+  horizon, and urgency filters. Batch genealogy and recall-impact views use
+  only the existing immutable trace endpoints; batch creation, quarantine, and
+  returns remain in their controlled receipt and inventory workflows. The
+  aggregate watch response cannot safely drive the existing single-warehouse
+  expiry-return mutation or supplier credit/debit documentation, so React does
+  not expose that stock-changing action from this register.
+- [x] Price-list maintenance source workflow: create lists (including replacing
+  the organisation default), add/remove quantity tiers, assign/unassign customers,
+  and retire lists. Writes are exposed to OWNER/ADMIN/ACCOUNTANT; other permitted
+  roles retain read access. The frozen controller has no price-list metadata or
+  tier UPDATE endpoint, so React does not simulate an edit with delete/recreate.
+- [x] Trade scheme source workflow: searchable register, create/edit/delete,
+  all four scheme types, half-scheme settings, funding supplier, funding split,
+  dates, and active state. Preview first loads applicable schemes, then presents
+  the existing evaluation response without reproducing pricing arithmetic.
+- [x] FEFO review source workflow: a shared batch picker reads availability for
+  the actual issuing warehouse in challans and the default warehouse in direct
+  invoices/POS. The picker preserves server expiry order and disables selecting
+  a single batch with insufficient quantity. Direct invoices/POS can request
+  their existing automatic selection; challans explicitly select their batch.
+- [x] Inventory valuation source review: separates purchase-price reference
+  balances from `/reports/stock-summary` (organisation costing by warehouse)
+  and `/reports/fifo-valuation` (remaining cost lots). The accounting views use
+  server currency/number/date column formats and server metrics, and are visible
+  to OWNER/ADMIN/ACCOUNTANT. Empty/error responses never imply reconciliation.
+- [ ] R-06 runtime acceptance: tests, build, responsive visual checks, and
+  stock/GL reconciliation are deferred to the user. See
+  `docs/testing/REACT_INVENTORY_PRICING_ACCEPTANCE.md`. Java and Flutter remain unchanged.
 - [ ] Sales/AP/AR: estimates, recurring documents, credit/debit notes, customer
   receipts/advances, vendor payments/credits, dunning, and document PDF/share.
 - [ ] Pricing and trade controls: price lists, customer pricing, schemes, rate
@@ -375,7 +431,9 @@ operator.
   split, receivables, payables, monthly gross profit, SO distribution alerts, top selling
   products, revenue trend intervals 7d/30d/90d, cash flow, near-expiry batch watch, and
   recent activity) with resilient query isolation and component tests. Financial statements
-  (trial balance, P&L, balance sheet, ledgers, ageing) and report exports remain pending.
+  and report exports remain pending. Trial balance, P&L, balance sheet,
+  general-ledger, and AR/AP ageing source views are built but require runtime
+  reconciliation acceptance.
 - [ ] GST, TDS/TCS, e-invoice/e-way bill, GSTR flows, and country-specific VAT
   screens according to capability/country gates.
 
@@ -456,9 +514,9 @@ checklists only after the wave starts. Status values are `NOT_STARTED`,
 | R-02 | Design system and shared ERP primitives | 1 | BUILDING | Token CSS plus initial Button, TextField, StatusChip, Money, PageHeader, and DataTable primitives pass lint, tests, and production build. |
 | R-03 | Contacts, supplier roles, item and shared masters | 2 | BUILDING | Contacts provide search, paging, role counts, detail, statement, and create flows. Items provide typed create/edit for commercial, GST/HSN, unit, batch-control, preferred-vendor, and opening-stock fields; imports and stock-execution mutations remain pending. |
 | R-04 | Purchase -> GRN -> bill -> vendor payment | 2 | BUILDING | Source wiring is complete for eligible-supplier PO/GRN creation, PO-linked GRN/bill hand-offs, stock receipt, bill post/delete/void, 3-way match/override, and atomic allocated vendor payment. React runtime, QA, and accounting acceptance are pending. |
-| R-05 | Sales -> challan -> invoice -> receipt | 2 | NOT_STARTED | Stock/AR/GST/journal golden path passes, including partial payment. |
-| R-06 | Inventory and pricing operations | 3 | NOT_STARTED | Counts, transfers, batches, FEFO, valuation, and prices pass QA. |
-| R-07 | Accounting, banking, reports, audit | 3 | NOT_STARTED | Statements reconcile to source documents and journals. |
+| R-05 | Sales -> challan -> invoice -> receipt | 2 | BUILDING | Source wiring is complete for searchable sales-order creation, confirmation/cancellation, order-locked challan drafting, dispatch/delivery, dispatched-quantity invoice conversion, direct-draft invoice safeguards, sending, and invoice-scoped partial receipt recording. Runtime, QA, stock/GST/AR, and journal acceptance remain pending. |
+| R-06 | Inventory and pricing operations | 3 | BUILDING | Stock Counts, Transfer Orders, batch/expiry and trace views, warehouse-scoped batch issue review, valuation views, price-list maintenance, customer pricing assignments, and trade scheme CRUD/preview have React source wiring. Frozen APIs are preserved. Price-list/tier metadata UPDATE is unavailable in the contract. Runtime, regression, responsive UI, and inventory/GL acceptance remain pending; see the R-06 acceptance checklist. |
+| R-07 | Accounting, banking, reports, audit | 3 | BUILDING | Manual journal source wiring supports account-code posting, balanced draft/post workflows, post-dated scheduling, and reversal review. Typed Trial Balance, P&L, Balance Sheet, General Ledger, and AR/AP ageing views present server-calculated values through the existing report contracts. Runtime and reconciliation acceptance remain pending. |
 | R-08 | GST, statutory, and country tax workflows | 3 | NOT_STARTED | Country/role gates and compliance documents pass validation. |
 | R-09 | POS web administration and receipt operations | 3 | NOT_STARTED | React POS billing, returns, shifts, and receipt operations pass; Flutter hardware/offline fallback has an explicit certification and retirement path. |
 | R-10 | HR and Payroll | 4 | NOT_STARTED | Employee-to-posted-payroll lifecycle and statutory reports pass. |

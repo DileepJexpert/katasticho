@@ -1,5 +1,6 @@
-import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft } from 'lucide-react'
+import { useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ArrowLeft, DollarSign, Send } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
 import {
@@ -15,12 +16,13 @@ import {
   StatusChip,
   SummaryRow,
 } from '@/design-system'
-import { getInvoice, getInvoicePayments } from '@/features/invoices/invoices-api'
+import { getInvoice, getInvoicePayments, postInvoice } from '@/features/invoices/invoices-api'
 import { formatDate, formatStatusLabel } from '@/shared/format/format'
 
 export function InvoiceDetailPage() {
   const { invoiceId } = useParams()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const invoice = useQuery({
     queryKey: ['invoices', invoiceId],
     queryFn: () => getInvoice(invoiceId!),
@@ -30,6 +32,16 @@ export function InvoiceDetailPage() {
     queryKey: ['invoices', invoiceId, 'payments'],
     queryFn: () => getInvoicePayments(invoiceId!),
     enabled: Boolean(invoiceId),
+  })
+  const [feedback, setFeedback] = useState<{ kind: 'error' | 'success'; message: string } | null>(null)
+  const postMutation = useMutation({
+    mutationFn: () => postInvoice(invoiceId!),
+    onSuccess: () => {
+      setFeedback({ kind: 'success', message: 'Invoice sent and the server posted its receivable, revenue, and tax journal.' })
+      queryClient.invalidateQueries({ queryKey: ['invoices'] })
+      queryClient.invalidateQueries({ queryKey: ['invoices', invoiceId] })
+    },
+    onError: (error: Error) => setFeedback({ kind: 'error', message: error.message }),
   })
 
   if (!invoiceId) return <DocumentError onBack={() => navigate(appRoutes.invoices)} />
@@ -52,18 +64,12 @@ export function InvoiceDetailPage() {
   return (
     <section className="workspace-page">
       <PageHeader
-        actions={<StatusChip status={formatStatusLabel(document.status)} />}
+        actions={<><StatusChip status={formatStatusLabel(document.status)} /><Button onClick={() => navigate(appRoutes.invoices)} variant="secondary"><ArrowLeft size={16} /> Back to invoices</Button></>}
         description={`${document.contactName ?? 'Unknown customer'} · invoiced ${formatDate(document.invoiceDate)}`}
         eyebrow="Sales / Receivables / Invoice"
         title={document.invoiceNumber}
       />
-
-      <div className="document-actions">
-        <Button onClick={() => navigate(appRoutes.invoices)} variant="secondary">
-          <ArrowLeft aria-hidden="true" size={16} />
-          Back to invoices
-        </Button>
-      </div>
+      {feedback ? <div className={`banner ${feedback.kind === 'error' ? 'banner--error' : 'banner--success'}`} role="status">{feedback.message}</div> : null}
 
       <div className="document-layout">
         <DocumentCard title="Invoice Information">
@@ -81,6 +87,10 @@ export function InvoiceDetailPage() {
           <SummaryRow label="Total Amount" value={<Money amount={document.totalAmount} currency={currency} />} />
           <SummaryRow label="Amount Paid" value={<Money amount={document.amountPaid} currency={currency} />} />
           <SummaryRow isTotal label="Balance Due" value={<Money amount={document.balanceDue} currency={currency} />} />
+          <div className="document-card__actions">
+            {document.status === 'DRAFT' ? <Button disabled={postMutation.isPending} onClick={() => postMutation.mutate()} variant="primary"><Send size={16} />{postMutation.isPending ? 'Sending...' : 'Send invoice'}</Button> : null}
+            {['SENT', 'PARTIALLY_PAID', 'OVERDUE'].includes(document.status) && Number(document.balanceDue) > 0 ? <Button onClick={() => navigate(`${appRoutes.paymentCreate}?invoiceId=${encodeURIComponent(document.id)}`)} variant="primary"><DollarSign size={16} /> Record payment</Button> : null}
+          </div>
         </DocumentCard>
       </div>
 

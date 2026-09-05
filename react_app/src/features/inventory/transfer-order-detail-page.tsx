@@ -1,375 +1,228 @@
 import { useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import {
-  ArrowLeft,
-  Calendar,
-  CheckCircle2,
-  Clock,
-  Package,
-  RefreshCw,
-  Truck,
-  Warehouse,
-  XCircle,
-} from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ArrowLeft, ArrowLeftRight, CheckCircle2, Send, XCircle } from 'lucide-react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { appRoutes } from '@/app/navigation'
 import {
   Button,
   DataTable,
   DocumentCard,
+  DocumentError,
+  Fact,
+  FactList,
+  Modal,
   PageHeader,
   Quantity,
   StatusChip,
+  SummaryRow,
 } from '@/design-system'
+import { formatDate, formatDateTime, formatStatusLabel } from '@/shared/format/format'
 import {
-  getTransferOrder,
-  shipTransferOrder,
-  receiveTransferOrder,
   cancelTransferOrder,
-} from '@/features/inventory/transfer-orders-api'
+  getTransferOrder,
+  receiveTransferOrder,
+  shipTransferOrder,
+  type TransferOrder,
+} from './transfer-orders-api'
+
+type PendingAction = 'ship' | 'receive' | 'cancel' | null
+
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message ? error.message : fallback
+}
 
 export function TransferOrderDetailPage() {
-  const { transferOrderId } = useParams<{ transferOrderId: string }>()
+  const { transferOrderId } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-
+  const [pendingAction, setPendingAction] = useState<PendingAction>(null)
   const [actionError, setActionError] = useState<string | null>(null)
-  const [actionSuccess, setActionSuccess] = useState<string | null>(null)
-
-  const {
-    data: order,
-    isLoading,
-    isError,
-    error,
-    refetch,
-  } = useQuery({
-    queryKey: ['inventory', 'transfer-order', transferOrderId],
+  const transfer = useQuery({
+    queryKey: ['transfer-orders', transferOrderId],
     queryFn: () => getTransferOrder(transferOrderId!),
     enabled: Boolean(transferOrderId),
   })
 
+  function refreshTransfer() {
+    queryClient.invalidateQueries({ queryKey: ['transfer-orders', transferOrderId] })
+    queryClient.invalidateQueries({ queryKey: ['transfer-orders'] })
+  }
+
   const shipMutation = useMutation({
     mutationFn: () => shipTransferOrder(transferOrderId!),
     onSuccess: () => {
-      setActionSuccess('Transfer order dispatched successfully.')
+      setPendingAction(null)
       setActionError(null)
-      queryClient.invalidateQueries({ queryKey: ['inventory', 'transfer-order', transferOrderId] })
-      queryClient.invalidateQueries({ queryKey: ['inventory', 'transfer-orders'] })
+      refreshTransfer()
     },
-    onError: (err: Error) => {
-      setActionError(err.message || 'Failed to dispatch transfer order.')
-      setActionSuccess(null)
-    },
+    onError: (error) => setActionError(errorMessage(error, 'The transfer order could not be dispatched.')),
   })
-
   const receiveMutation = useMutation({
     mutationFn: () => receiveTransferOrder(transferOrderId!),
     onSuccess: () => {
-      setActionSuccess('Transfer order goods received and inventory updated.')
+      setPendingAction(null)
       setActionError(null)
-      queryClient.invalidateQueries({ queryKey: ['inventory', 'transfer-order', transferOrderId] })
-      queryClient.invalidateQueries({ queryKey: ['inventory', 'transfer-orders'] })
+      refreshTransfer()
     },
-    onError: (err: Error) => {
-      setActionError(err.message || 'Failed to receive transfer order.')
-      setActionSuccess(null)
-    },
+    onError: (error) => setActionError(errorMessage(error, 'The transfer order could not be received.')),
   })
-
   const cancelMutation = useMutation({
     mutationFn: () => cancelTransferOrder(transferOrderId!),
     onSuccess: () => {
-      setActionSuccess('Transfer order cancelled.')
+      setPendingAction(null)
       setActionError(null)
-      queryClient.invalidateQueries({ queryKey: ['inventory', 'transfer-order', transferOrderId] })
-      queryClient.invalidateQueries({ queryKey: ['inventory', 'transfer-orders'] })
+      refreshTransfer()
     },
-    onError: (err: Error) => {
-      setActionError(err.message || 'Failed to cancel transfer order.')
-      setActionSuccess(null)
-    },
+    onError: (error) => setActionError(errorMessage(error, 'The transfer order could not be cancelled.')),
   })
 
-  if (isLoading) {
-    return (
-      <section className="workspace-page">
-        <PageHeader
-          eyebrow="Inventory & Logistics"
-          title="Stock Transfer Order"
-          description="Loading transfer order details..."
-        />
-        <div className="p-8 text-secondary">Loading transfer order...</div>
-      </section>
-    )
+  if (!transferOrderId) {
+    return <DocumentError backLabel="Back to transfers" message="A transfer order identifier is required." onBack={() => navigate(appRoutes.transferOrders)} title="Transfer order not found" />
+  }
+  if (transfer.isLoading) {
+    return <section className="workspace-page"><div aria-live="polite" className="directory-state">Loading transfer order...</div></section>
+  }
+  if (transfer.isError || !transfer.data) {
+    return <DocumentError backLabel="Back to transfers" message={errorMessage(transfer.error, 'The requested transfer order could not be loaded.')} onBack={() => navigate(appRoutes.transferOrders)} title="Transfer order not found" />
   }
 
-  if (isError || !order) {
-    return (
-      <section className="workspace-page">
-        <PageHeader
-          actions={
-            <Button onClick={() => navigate('/transfer-orders')} variant="secondary">
-              <ArrowLeft size={15} aria-hidden="true" />
-              <span>Back to Transfers</span>
-            </Button>
-          }
-          eyebrow="Inventory & Logistics"
-          title="Transfer Not Found"
-          description={(error as Error)?.message || 'The requested transfer order could not be located.'}
-        />
-        <div className="p-8 text-danger">Transfer order not found.</div>
-      </section>
-    )
+  const document = transfer.data
+  const isDraft = document.status === 'DRAFT'
+  const isInTransit = document.status === 'IN_TRANSIT'
+  const mutationPending = shipMutation.isPending || receiveMutation.isPending || cancelMutation.isPending
+  const action = actionContent(document, pendingAction)
+
+  function openAction(nextAction: Exclude<PendingAction, null>) {
+    setActionError(null)
+    setPendingAction(nextAction)
   }
 
-  const isDraft = order.status === 'DRAFT'
-  const isShipped = order.status === 'SHIPPED'
-  const isReceived = order.status === 'RECEIVED'
-  const isCancelled = order.status === 'CANCELLED'
+  function confirmAction() {
+    if (pendingAction === 'ship') shipMutation.mutate()
+    if (pendingAction === 'receive') receiveMutation.mutate()
+    if (pendingAction === 'cancel') cancelMutation.mutate()
+  }
 
   return (
     <section className="workspace-page">
       <PageHeader
         actions={
-          <div className="flex items-center gap-2">
-            <Button onClick={() => navigate('/transfer-orders')} variant="secondary">
-              <ArrowLeft size={15} aria-hidden="true" />
-              <span>All Transfers</span>
-            </Button>
-
-            <Button onClick={() => refetch()} variant="secondary" aria-label="Refresh order">
-              <RefreshCw size={15} aria-hidden="true" />
-            </Button>
-
-            {isDraft && (
-              <>
-                <Button
-                  disabled={shipMutation.isPending || cancelMutation.isPending}
-                  onClick={() => shipMutation.mutate()}
-                  variant="primary"
-                >
-                  <Truck size={15} aria-hidden="true" />
-                  <span>{shipMutation.isPending ? 'Dispatching...' : 'Dispatch Shipment'}</span>
-                </Button>
-                <Button
-                  disabled={cancelMutation.isPending || shipMutation.isPending}
-                  onClick={() => cancelMutation.mutate()}
-                  variant="secondary"
-                >
-                  <XCircle size={15} aria-hidden="true" />
-                  <span>{cancelMutation.isPending ? 'Cancelling...' : 'Cancel'}</span>
-                </Button>
-              </>
-            )}
-
-            {isShipped && (
-              <>
-                <Button
-                  disabled={receiveMutation.isPending || cancelMutation.isPending}
-                  onClick={() => receiveMutation.mutate()}
-                  variant="primary"
-                >
-                  <CheckCircle2 size={15} aria-hidden="true" />
-                  <span>{receiveMutation.isPending ? 'Receiving...' : 'Confirm Receipt'}</span>
-                </Button>
-                <Button
-                  disabled={cancelMutation.isPending || receiveMutation.isPending}
-                  onClick={() => cancelMutation.mutate()}
-                  variant="secondary"
-                >
-                  <XCircle size={15} aria-hidden="true" />
-                  <span>{cancelMutation.isPending ? 'Cancelling...' : 'Cancel'}</span>
-                </Button>
-              </>
-            )}
-          </div>
+          <>
+            <StatusChip status={formatStatusLabel(document.status)} />
+            {isDraft && <Button disabled={mutationPending} onClick={() => openAction('ship')} variant="primary"><Send aria-hidden="true" size={16} /> Dispatch transfer</Button>}
+            {isInTransit && <Button disabled={mutationPending} onClick={() => openAction('receive')} variant="primary"><CheckCircle2 aria-hidden="true" size={16} /> Receive transfer</Button>}
+            {(isDraft || isInTransit) && <Button disabled={mutationPending} onClick={() => openAction('cancel')} variant="destructive"><XCircle aria-hidden="true" size={16} /> Cancel</Button>}
+          </>
         }
-        eyebrow="Inventory & Logistics • Transfer Execution"
-        title={order.transferNumber}
-        description={`Internal inventory transfer between ${order.fromWarehouseName} and ${order.toWarehouseName}.`}
+        description={`${document.fromWarehouseName ?? document.fromWarehouseId} to ${document.toWarehouseName ?? document.toWarehouseId} · ${formatDate(document.transferDate)}`}
+        eyebrow="Inventory / Warehouse Transfers"
+        title={document.transferNumber}
       />
 
-      <div className="dashboard-workspace">
-        {/* Feedback alerts */}
-        {actionSuccess && (
-          <div
-            className="p-3 text-sm rounded bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-2"
-            role="status"
-          >
-            <CheckCircle2 size={16} className="text-emerald-600 flex-none" />
-            <span>{actionSuccess}</span>
-          </div>
-        )}
+      <div className="document-actions">
+        <Button onClick={() => navigate(appRoutes.transferOrders)} variant="secondary"><ArrowLeft aria-hidden="true" size={16} /> Back to transfers</Button>
+      </div>
 
-        {actionError && (
-          <div
-            className="p-3 text-sm rounded bg-rose-50 text-rose-800 border border-rose-200 flex items-center gap-2"
-            role="alert"
-          >
-            <XCircle size={16} className="text-rose-600 flex-none" />
-            <span>{actionError}</span>
-          </div>
-        )}
-
-        {/* ── Transfer Route & Milestone Strip ── */}
-        <div className="metric-grid">
-          <article className="metric-card">
-            <span className="metric-icon">
-              <Warehouse size={18} aria-hidden="true" />
-            </span>
-            <div className="metric-content">
-              <span className="metric-label">Source Location (From)</span>
-              <span className="text-base font-semibold text-primary">{order.fromWarehouseName}</span>
-              <span className="metric-footnote">Origin warehouse</span>
-            </div>
-          </article>
-
-          <article className="metric-card">
-            <span className="metric-icon">
-              <Truck size={18} aria-hidden="true" />
-            </span>
-            <div className="metric-content">
-              <span className="metric-label">Destination Location (To)</span>
-              <span className="text-base font-semibold text-primary">{order.toWarehouseName}</span>
-              <span className="metric-footnote">Target warehouse</span>
-            </div>
-          </article>
-
-          <article className="metric-card">
-            <span className="metric-icon">
-              <Calendar size={18} aria-hidden="true" />
-            </span>
-            <div className="metric-content">
-              <span className="metric-label">Transfer Date</span>
-              <span className="text-base font-semibold font-mono text-primary">{order.transferDate}</span>
-              <span className="metric-footnote">Scheduled order date</span>
-            </div>
-          </article>
-
-          <article className="metric-card metric-card--brand">
-            <span className="metric-icon">
-              {isReceived ? (
-                <CheckCircle2 size={18} aria-hidden="true" />
-              ) : isShipped ? (
-                <Truck size={18} aria-hidden="true" />
-              ) : isCancelled ? (
-                <XCircle size={18} aria-hidden="true" />
-              ) : (
-                <Clock size={18} aria-hidden="true" />
-              )}
-            </span>
-            <div className="metric-content">
-              <span className="metric-label">Fulfillment Status</span>
-              <div className="mt-1">
-                <StatusChip status={order.status} />
-              </div>
-              <span className="metric-footnote">
-                {isDraft && 'Pending dispatch'}
-                {isShipped && 'In transit between sites'}
-                {isReceived && 'Received & stocked'}
-                {isCancelled && 'Cancelled order'}
-              </span>
-            </div>
-          </article>
-        </div>
-
-        {/* ── Order Metadata & Transit Log ── */}
-        <DocumentCard title="Order Specifications & Audit">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-            <div>
-              <span className="text-xs font-semibold text-muted uppercase tracking-wider block mb-1">
-                Transfer Reference
-              </span>
-              <span className="font-mono font-bold text-primary">{order.transferNumber}</span>
-            </div>
-
-            <div>
-              <span className="text-xs font-semibold text-muted uppercase tracking-wider block mb-1">
-                Shipped Timestamp
-              </span>
-              <span className="font-mono text-primary">
-                {order.shippedAt ? new Date(order.shippedAt).toLocaleString('en-IN') : '—'}
-              </span>
-            </div>
-
-            <div>
-              <span className="text-xs font-semibold text-muted uppercase tracking-wider block mb-1">
-                Received Timestamp
-              </span>
-              <span className="font-mono text-primary">
-                {order.receivedAt ? new Date(order.receivedAt).toLocaleString('en-IN') : '—'}
-              </span>
-            </div>
-
-            {order.notes && (
-              <div className="md:col-span-3 pt-2 border-t border-subtle">
-                <span className="text-xs font-semibold text-muted uppercase tracking-wider block mb-1">
-                  Transfer Instructions & Remarks
-                </span>
-                <p className="text-secondary text-sm">{order.notes}</p>
-              </div>
-            )}
-          </div>
+      <div className="document-layout">
+        <DocumentCard title="Transfer information">
+          <FactList columns={2}>
+            <Fact label="Source warehouse" value={document.fromWarehouseName ?? document.fromWarehouseId} />
+            <Fact label="Destination warehouse" value={document.toWarehouseName ?? document.toWarehouseId} />
+            <Fact label="Transfer date" value={formatDate(document.transferDate)} />
+            <Fact label="Status" value={formatStatusLabel(document.status)} />
+            <Fact label="Dispatched" value={formatDateTime(document.shippedAt)} />
+            <Fact label="Received" value={formatDateTime(document.receivedAt)} />
+            <Fact className="field-group--span-full" label="Notes" value={document.notes ?? 'Not recorded'} />
+          </FactList>
         </DocumentCard>
 
-        {/* ── Transfer Line Items Table ── */}
-        <DocumentCard title={`Manifest Items (${order.lines?.length ?? order.lineCount ?? 0})`}>
-          {order.lines && order.lines.length > 0 ? (
-            <DataTable caption="Transfer order line items and quantities">
-              <thead>
-                <tr>
-                  <th scope="col" style={{ width: '40px' }}>#</th>
-                  <th scope="col">Item Details</th>
-                  <th scope="col">SKU</th>
-                  <th scope="col">Batch Number</th>
-                  <th className="numeric-cell" scope="col">Transferred Qty</th>
-                  {order.lines.some((l) => l.receivedQuantity !== undefined) && (
-                    <th className="numeric-cell" scope="col">Received Qty</th>
-                  )}
-                  <th scope="col">Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {order.lines.map((line, index) => (
-                  <tr key={line.id || index}>
-                    <td className="text-muted font-mono text-xs">{index + 1}</td>
-                    <td>
-                      <strong>{line.itemName || 'Catalog Item'}</strong>
-                    </td>
-                    <td>
-                      <span className="font-mono text-xs text-muted">{line.sku || '—'}</span>
-                    </td>
-                    <td>
-                      {line.batchNumber ? (
-                        <span className="font-mono text-xs font-semibold text-brand">
-                          {line.batchNumber}
-                        </span>
-                      ) : (
-                        <span className="text-muted text-xs">Standard Lot</span>
-                      )}
-                    </td>
-                    <td className="numeric-cell">
-                      <Quantity amount={line.quantity} />
-                    </td>
-                    {order.lines?.some((l) => l.receivedQuantity !== undefined) && (
-                      <td className="numeric-cell">
-                        <Quantity amount={line.receivedQuantity ?? 0} />
-                      </td>
-                    )}
-                    <td>
-                      <span className="text-xs text-secondary">{line.notes || '—'}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </DataTable>
-          ) : (
-            <div className="p-6 text-center text-secondary text-sm">
-              <Package size={28} className="mx-auto mb-2 text-muted opacity-40" />
-              <span>No item lines recorded on this transfer order.</span>
-            </div>
-          )}
+        <DocumentCard title="Movement summary" variant="summary">
+          <SummaryRow label="Transfer lines" value={<Quantity value={document.lineCount} />} />
+          <SummaryRow isTotal label="Lifecycle" value={lifecycleText(document.status)} />
         </DocumentCard>
       </div>
+
+      <DocumentCard title="Transfer lines" variant="lines">
+        <DataTable caption="Transfer order item lines">
+          <thead>
+            <tr>
+              <th scope="col">Item</th>
+              <th scope="col">Batch</th>
+              <th className="numeric-cell" scope="col">Transfer quantity</th>
+              {document.status === 'RECEIVED' && <th className="numeric-cell" scope="col">Received quantity</th>}
+              <th scope="col">Line note</th>
+            </tr>
+          </thead>
+          <tbody>
+            {document.lines.map((line) => (
+              <tr key={line.id}>
+                <td>
+                  <div className="item-primary">
+                    <span aria-hidden="true" className="item-avatar"><ArrowLeftRight size={15} /></span>
+                    <div className="cell-stack"><strong>{line.itemName ?? line.itemId}</strong><code>{line.sku ?? line.itemId}</code></div>
+                  </div>
+                </td>
+                <td><code>{line.batchNumber ?? '--'}</code></td>
+                <td className="numeric-cell"><Quantity value={line.quantity} /></td>
+                {document.status === 'RECEIVED' && <td className="numeric-cell"><Quantity value={line.receivedQuantity} /></td>}
+                <td>{line.notes ?? '--'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </DataTable>
+      </DocumentCard>
+
+      <Modal
+        description={action.description}
+        error={actionError}
+        footer={<><Button disabled={mutationPending} onClick={() => setPendingAction(null)} variant="secondary">Keep transfer unchanged</Button><Button loading={mutationPending} onClick={confirmAction} variant={pendingAction === 'cancel' ? 'destructive' : 'primary'}>{action.confirmLabel}</Button></>}
+        isOpen={pendingAction !== null}
+        onClose={() => !mutationPending && setPendingAction(null)}
+        size="sm"
+        title={action.title}
+      >
+        <p>{action.detail}</p>
+      </Modal>
     </section>
   )
+}
+
+function lifecycleText(status: TransferOrder['status']) {
+  if (status === 'DRAFT') return 'Awaiting dispatch'
+  if (status === 'IN_TRANSIT') return 'Stock left source; awaiting receipt'
+  if (status === 'RECEIVED') return 'Received into destination stock'
+  return 'Cancelled'
+}
+
+function actionContent(document: TransferOrder, action: PendingAction) {
+  if (action === 'ship') {
+    return {
+      title: 'Dispatch this transfer?',
+      description: 'Dispatch validates available source stock and records immutable transfer-out movements.',
+      detail: `${document.lineCount} line${document.lineCount === 1 ? '' : 's'} will leave ${document.fromWarehouseName ?? 'the source warehouse'} and the order will move to In Transit.`,
+      confirmLabel: 'Dispatch transfer',
+    }
+  }
+  if (action === 'receive') {
+    return {
+      title: 'Receive this transfer?',
+      description: 'Receipt records the dispatched quantities at the destination using the original transfer cost.',
+      detail: `${document.lineCount} line${document.lineCount === 1 ? '' : 's'} will be added to ${document.toWarehouseName ?? 'the destination warehouse'}. The received quantities cannot be edited through this workflow.`,
+      confirmLabel: 'Receive transfer',
+    }
+  }
+  if (document.status === 'IN_TRANSIT') {
+    return {
+      title: 'Cancel in-transit transfer?',
+      description: 'Cancellation reverses the existing transfer-out movements and returns stock to the source warehouse.',
+      detail: 'This is the correction path for an in-transit transfer. A received transfer cannot be cancelled.',
+      confirmLabel: 'Cancel transfer',
+    }
+  }
+  return {
+    title: 'Cancel draft transfer?',
+    description: 'Cancelling a draft ends the transfer before any inventory movement has been recorded.',
+    detail: 'No source or destination stock will change.',
+    confirmLabel: 'Cancel transfer',
+  }
 }

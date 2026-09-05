@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type ReactNode } from 'react'
+import { useEffect, useEffectEvent, useId, useRef, type ReactNode } from 'react'
 import { AlertCircle, X } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -27,6 +27,7 @@ export function Modal({
   const descId = useId()
   const dialogRef = useRef<HTMLDivElement>(null)
   const previousActiveElement = useRef<HTMLElement | null>(null)
+  const closeFromKeyboard = useEffectEvent(() => onClose())
 
   useEffect(() => {
     if (!isOpen) return
@@ -35,7 +36,7 @@ export function Modal({
 
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') {
-        onClose()
+        closeFromKeyboard()
         return
       }
 
@@ -65,6 +66,7 @@ export function Modal({
     }
 
     document.addEventListener('keydown', handleKeyDown)
+    const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
 
     // Initial focus: find first input or close button
@@ -75,10 +77,10 @@ export function Modal({
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
-      document.body.style.overflow = ''
+      document.body.style.overflow = previousOverflow
       previousActiveElement.current?.focus?.()
     }
-  }, [isOpen, onClose])
+  }, [isOpen])
 
   if (!isOpen) return null
 

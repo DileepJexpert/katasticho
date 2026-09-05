@@ -273,10 +273,10 @@ export function TeamAssignmentsPage() {
                       </span>
                     </td>
                     <td>
-                      <StatusChip status={a.active ? 'ACTIVE' : 'INACTIVE'} />
+                      <StatusChip status={(a.isActive ?? a.active) ? 'ACTIVE' : 'INACTIVE'} />
                     </td>
                     <td className="numeric-cell">
-                      {a.active && (
+                      {(a.isActive ?? a.active) && (
                         <Button
                           disabled={endMutation.isPending}
                           onClick={() => endMutation.mutate(a.id)}

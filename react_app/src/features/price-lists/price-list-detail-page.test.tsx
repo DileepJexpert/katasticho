@@ -48,8 +48,8 @@ describe('PriceListDetailPage', () => {
     renderPage()
 
     expect(await screen.findByRole('heading', { name: 'Wholesale customers' })).toBeInTheDocument()
-    expect(screen.getByText('Read-only review. Price-list and customer-assignment changes remain in Flutter during migration.')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /create|add item|assign customer|remove/i })).not.toBeInTheDocument()
+    expect(screen.getByText('Your role has read-only access to pricing.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /add item tier|assign customer|retire price list/i })).not.toBeInTheDocument()
   })
 
   it('loads item tiers only after the tab is selected', async () => {

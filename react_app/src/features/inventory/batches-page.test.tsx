@@ -78,7 +78,7 @@ function renderWithClient(ui: React.ReactElement) {
   )
 }
 
-describe('Batches & Expiry Watch Workspace', () => {
+describe('Batch and expiry watch', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(batchesApi.getExpirySummary).mockResolvedValue(mockSummary)
@@ -91,14 +91,10 @@ describe('Batches & Expiry Watch Workspace', () => {
     expect(screen.getByText('Batch & Expiry Watch')).toBeInTheDocument()
     expect(await screen.findByText('BAT-AMX-001')).toBeInTheDocument()
 
-    // Metric values check
-    expect(screen.getByText('Expired Stock')).toBeInTheDocument()
-    expect(screen.getByText('Critical (≤ 7 Days)')).toBeInTheDocument()
-    expect(screen.getByText('Expiring (≤ 30 Days)')).toBeInTheDocument()
-    expect(screen.getByText('Watchlist (≤ 90 Days)')).toBeInTheDocument()
-
-    // Advisory banner check
-    expect(screen.getByText(/3 batches require immediate management/i)).toBeInTheDocument()
+    expect(screen.getAllByText('Expired').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByText('Critical (0-7 days)')).toBeInTheDocument()
+    expect(screen.getByText('Watch (8-30 days)')).toBeInTheDocument()
+    expect(screen.getByText('Monitor (31-90 days)')).toBeInTheDocument()
   })
 
   it('renders the batches table with item information and actions', async () => {
@@ -116,7 +112,7 @@ describe('Batches & Expiry Watch Workspace', () => {
 
     await screen.findByText('BAT-AMX-001')
 
-    const searchInput = screen.getByPlaceholderText('Search batch # or item name...')
+    const searchInput = screen.getByPlaceholderText('Search batch or item')
     fireEvent.change(searchInput, { target: { value: 'Paracetamol' } })
 
     expect(screen.queryByText('Amoxicillin 500mg')).not.toBeInTheDocument()
@@ -128,7 +124,7 @@ describe('Batches & Expiry Watch Workspace', () => {
 
     await screen.findByText('BAT-AMX-001')
 
-    const expiredTab = screen.getByRole('tab', { name: 'Expired' })
+    const expiredTab = screen.getByRole('tab', { name: /Expired/ })
     fireEvent.click(expiredTab)
 
     expect(screen.getByText('BAT-AMX-001')).toBeInTheDocument()

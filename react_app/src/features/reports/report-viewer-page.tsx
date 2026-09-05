@@ -22,9 +22,28 @@ import {
   reportCatalog,
   type ColumnDef,
 } from '@/features/reports/reports-api'
+import {
+  FinancialReportViewerPage,
+  isFinancialReportKey,
+} from '@/features/reports/financial-report-viewer-page'
+import { AgeingReportPage } from '@/features/reports/ageing-report-page'
 
 export function ReportViewerPage() {
   const { reportKey } = useParams<{ reportKey: string }>()
+  if (reportKey === 'ar-aging') {
+    return <AgeingReportPage kind="AR" />
+  }
+  if (reportKey === 'ap-aging') {
+    return <AgeingReportPage kind="AP" />
+  }
+  if (isFinancialReportKey(reportKey)) {
+    return <FinancialReportViewerPage reportKey={reportKey} />
+  }
+
+  return <OperationalReportViewerPage reportKey={reportKey} />
+}
+
+function OperationalReportViewerPage({ reportKey }: { reportKey?: string }) {
   const navigate = useNavigate()
 
   const catalogEntry = useMemo(

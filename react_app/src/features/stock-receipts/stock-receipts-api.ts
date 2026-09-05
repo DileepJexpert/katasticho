@@ -94,8 +94,12 @@ export function cancelStockReceipt(id: string, reason?: string) {
 export type CreateStockReceiptLineRequest = {
   itemId: string
   description?: string
+  hsnCode?: string
   quantity: number
+  unitOfMeasure?: string
   unitPrice: number
+  discountPercent?: number
+  gstRate?: number
   batchNumber?: string
   expiryDate?: string
   manufacturingDate?: string
@@ -109,6 +113,10 @@ export type CreateStockReceiptRequest = {
   supplierInvoiceNo?: string
   supplierInvoiceDate?: string
   notes?: string
+  freightAmount?: number
+  dutyAmount?: number
+  insuranceAmount?: number
+  otherCharges?: number
   purchaseOrderId?: string
   lines: CreateStockReceiptLineRequest[]
 }

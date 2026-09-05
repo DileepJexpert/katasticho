@@ -47,3 +47,25 @@ export function listPriceListItems(id: string) {
 export function listPriceListCustomers(id: string) {
   return apiFetch<PriceListCustomer[]>(`/api/v1/price-lists/${id}/customers`)
 }
+
+export type CreatePriceListRequest = { name: string; description: string | null; currency: string; isDefault: boolean }
+export type PriceListTierRequest = { itemId: string; minQuantity: number; price: number }
+
+export function createPriceList(request: CreatePriceListRequest) {
+  return apiFetch<PriceList>('/api/v1/price-lists', { method: 'POST', body: request })
+}
+export function deletePriceList(id: string) {
+  return apiFetch<void>(`/api/v1/price-lists/${id}`, { method: 'DELETE' })
+}
+export function addPriceListTier(id: string, request: PriceListTierRequest) {
+  return apiFetch<PriceListItem>(`/api/v1/price-lists/${id}/items`, { method: 'POST', body: request })
+}
+export function deletePriceListTier(tierId: string) {
+  return apiFetch<void>(`/api/v1/price-lists/items/${tierId}`, { method: 'DELETE' })
+}
+export function assignPriceListCustomer(id: string, contactId: string) {
+  return apiFetch<PriceListCustomer>(`/api/v1/price-lists/${id}/customers/${contactId}`, { method: 'POST' })
+}
+export function unassignPriceListCustomer(id: string, contactId: string) {
+  return apiFetch<void>(`/api/v1/price-lists/${id}/customers/${contactId}`, { method: 'DELETE' })
+}

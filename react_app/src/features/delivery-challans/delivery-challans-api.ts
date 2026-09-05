@@ -66,9 +66,6 @@ export function getDeliveryChallan(id: string) {
 
 export type CreateDeliveryChallanLineRequest = {
   soLineId: string
-  salesOrderLineId?: string
-  itemId?: string
-  description?: string
   quantity: number
   batchId?: string
 }
@@ -80,9 +77,6 @@ export type CreateDeliveryChallanRequest = {
   deliveryMethod?: string
   vehicleNumber?: string
   trackingNumber?: string
-  lrNumber?: string
-  driverName?: string
-  driverPhone?: string
   notes?: string
   shippingAddress?: string
 }
@@ -100,3 +94,14 @@ export function dispatchDeliveryChallan(id: string) {
   })
 }
 
+export function markDeliveryChallanDelivered(id: string) {
+  return apiFetch<DeliveryChallan>(`/api/v1/delivery-challans/${id}/deliver`, {
+    method: 'POST',
+  })
+}
+
+export function cancelDeliveryChallan(id: string) {
+  return apiFetch<void>(`/api/v1/delivery-challans/${id}/cancel`, {
+    method: 'POST',
+  })
+}

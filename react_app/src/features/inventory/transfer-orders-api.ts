@@ -1,110 +1,94 @@
 import { apiFetch } from '@/api/client/api-client'
 
-export interface TransferOrderLine {
-  id?: string
+type NumberLike = number | string
+
+/** Transfer-order values returned by the frozen inventory transfer contract. */
+export type TransferOrderStatus = 'DRAFT' | 'IN_TRANSIT' | 'RECEIVED' | 'CANCELLED'
+
+export type TransferOrderLine = {
+  id: string
   itemId: string
-  itemName?: string
-  sku?: string
-  batchId?: string | null
-  batchNumber?: string | null
-  quantity: number
-  receivedQuantity?: number
-  notes?: string | null
+  itemName: string | null
+  sku: string | null
+  batchId: string | null
+  batchNumber: string | null
+  quantity: NumberLike
+  receivedQuantity: NumberLike
+  notes: string | null
 }
 
-export interface TransferOrder {
+export type TransferOrder = {
   id: string
   transferNumber: string
   fromWarehouseId: string
-  fromWarehouseName: string
+  fromWarehouseName: string | null
   toWarehouseId: string
-  toWarehouseName: string
+  toWarehouseName: string | null
   transferDate: string
-  status: 'DRAFT' | 'SHIPPED' | 'RECEIVED' | 'CANCELLED' | string
-  notes?: string | null
-  shippedAt?: string | null
-  receivedAt?: string | null
+  status: TransferOrderStatus
+  notes: string | null
+  shippedAt: string | null
+  receivedAt: string | null
   lineCount: number
-  lines?: TransferOrderLine[]
+  lines: TransferOrderLine[]
   createdAt: string
 }
 
-export interface PagedTransferOrders {
+export type TransferOrderPage = {
   content: TransferOrder[]
+  page: number
+  size: number
   totalElements: number
   totalPages: number
-  pageNumber: number
-  pageSize: number
+  last: boolean
 }
 
-export interface CreateTransferOrderRequest {
+export type CreateTransferOrderRequest = {
   fromWarehouseId: string
   toWarehouseId: string
   transferDate?: string
   notes?: string
-  lines: {
+  lines: Array<{
     itemId: string
-    batchId?: string | null
     quantity: number
     notes?: string
-  }[]
+  }>
 }
 
-export interface WarehouseOption {
-  id: string
-  name: string
-  code: string
-  isDefault?: boolean
+export function listTransferOrders(page = 0, size = 25) {
+  const params = new URLSearchParams({
+    page: String(page),
+    size: String(size),
+    sort: 'transferDate,desc',
+  })
+  return apiFetch<TransferOrderPage>(`/api/v1/transfer-orders?${params.toString()}`)
 }
 
-export interface ItemCatalogOption {
-  id: string
-  name: string
-  sku: string
-  unit?: string
-}
-
-export async function listTransferOrders(page = 0, size = 50): Promise<PagedTransferOrders> {
-  return apiFetch<PagedTransferOrders>(`/api/v1/transfer-orders?page=${page}&size=${size}`)
-}
-
-export async function getTransferOrder(id: string): Promise<TransferOrder> {
+export function getTransferOrder(id: string) {
   return apiFetch<TransferOrder>(`/api/v1/transfer-orders/${id}`)
 }
 
-export async function createTransferOrder(request: CreateTransferOrderRequest): Promise<TransferOrder> {
+export function createTransferOrder(request: CreateTransferOrderRequest) {
   return apiFetch<TransferOrder>('/api/v1/transfer-orders', {
     method: 'POST',
     body: request,
   })
 }
 
-export async function shipTransferOrder(id: string): Promise<TransferOrder> {
+export function shipTransferOrder(id: string) {
   return apiFetch<TransferOrder>(`/api/v1/transfer-orders/${id}/ship`, {
     method: 'POST',
   })
 }
 
-export async function receiveTransferOrder(id: string): Promise<TransferOrder> {
+export function receiveTransferOrder(id: string) {
   return apiFetch<TransferOrder>(`/api/v1/transfer-orders/${id}/receive`, {
     method: 'POST',
   })
 }
 
-export async function cancelTransferOrder(id: string): Promise<void> {
+export function cancelTransferOrder(id: string) {
   return apiFetch<void>(`/api/v1/transfer-orders/${id}/cancel`, {
     method: 'POST',
   })
-}
-
-export async function listWarehouses(): Promise<WarehouseOption[]> {
-  return apiFetch<WarehouseOption[]>('/api/v1/warehouses')
-}
-
-export async function listCatalogItems(): Promise<ItemCatalogOption[]> {
-  interface PagedItems {
-    content: ItemCatalogOption[]
-  }
-  const res = await apiFetch<PagedItems>('/api/v1/items?size=100')
-  return res.content ?? []
 }

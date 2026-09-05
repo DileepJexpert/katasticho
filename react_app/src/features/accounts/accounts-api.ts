@@ -38,8 +38,26 @@ export type AccountTransaction = {
   baseCredit: NumberLike
 }
 
+/**
+ * Per-organisation account bindings used by posting workflows. The server
+ * resolves the seeded fallback when an organisation has not overridden one.
+ */
+export type DefaultAccount = {
+  purpose: string
+  label: string
+  defaultCode: string
+  accountId: string | null
+  accountCode: string | null
+  accountName: string | null
+  overridden: boolean
+}
+
 export function listAccounts() {
   return apiFetch<Account[]>('/api/v1/accounts')
+}
+
+export function listDefaultAccounts() {
+  return apiFetch<DefaultAccount[]>('/api/v1/settings/default-accounts')
 }
 
 export function getAccount(id: string) {

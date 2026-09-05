@@ -111,7 +111,7 @@ describe('LiveTrackingPage', () => {
 
     const trailButtons = screen.getAllByRole('button', { name: /View Trail/i })
     expect(trailButtons.length).toBeGreaterThan(0)
-    fireEvent.click(trailButtons[0])
+    fireEvent.click(trailButtons[0]!)
 
     expect(await screen.findByText('Execution Location Trail')).toBeInTheDocument()
     expect(fieldSalesApi.getLocationTrail).toHaveBeenCalledWith('exec-1')
