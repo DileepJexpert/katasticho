@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query'
 import {
   FileText,
   Download,
-  Search,
   Calendar,
   Layers,
   Users,
@@ -11,26 +10,26 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import { Button, DataTable, FormField, Money, PageHeader, SearchInput, SelectInput, StatusChip, TextInput } from '@/design-system'
 import { formatDate } from '@/shared/format/format'
 import {
   getTdsRegister,
   getForm26q,
-  getForm26qCsvUrl,
-  getForm26qFvuUrl,
+  downloadForm26qCsv,
+  downloadForm26qFvu,
   getForm24q,
-  getForm24qCsvUrl,
+  downloadForm24qCsv,
   type TdsRegisterEntry,
 } from '@/features/tax/tds-tcs-api'
+import { downloadBlob } from '@/shared/files/download-blob'
+import { ComplianceMetric, ComplianceMetricGrid, CompliancePanel, CompliancePeriodToolbar } from '@/features/tax/tax-compliance-primitives'
 
 type TabKey = 'register' | 'form26q' | 'form24q'
 
 export function TdsCompliancePage() {
   const [activeTab, setActiveTab] = useState<TabKey>('register')
+  const [downloadError, setDownloadError] = useState<string | null>(null)
+  const [downloading, setDownloading] = useState<string | null>(null)
 
   // Date range for register
   const today = new Date()
@@ -82,6 +81,18 @@ export function TdsCompliancePage() {
   const form26qData = form26qQuery.data
   const form24qData = form24qQuery.data
 
+  async function downloadExport(key: string, filename: string, load: () => Promise<Blob>) {
+    setDownloadError(null)
+    setDownloading(key)
+    try {
+      downloadBlob(await load(), filename)
+    } catch (error) {
+      setDownloadError(error instanceof Error ? error.message : 'The export could not be downloaded.')
+    } finally {
+      setDownloading(null)
+    }
+  }
+
   return (
     <section className="workspace-page">
       <PageHeader
@@ -105,6 +116,8 @@ export function TdsCompliancePage() {
           </div>
         }
       />
+
+      {downloadError && <div className="feedback-alert feedback-alert--error" role="alert">{downloadError}</div>}
 
       <div className="list-tabs" role="tablist">
         <button
@@ -141,70 +154,34 @@ export function TdsCompliancePage() {
 
       {activeTab === 'register' && (
         <>
-          {/* Summary KPIs */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginTop: '16px', marginBottom: '16px' }}>
-            <div style={{ background: 'var(--bg-subtle)', padding: '12px 16px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Total TDS Withheld</span>
-              <div style={{ fontSize: '20px', fontWeight: 600, color: 'var(--color-primary)', marginTop: '4px' }}>
-                <Money amount={totalTdsWithheld} />
-              </div>
-            </div>
-            <div style={{ background: 'var(--bg-subtle)', padding: '12px 16px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Taxable Bill Value</span>
-              <div style={{ fontSize: '20px', fontWeight: 600, marginTop: '4px' }}>
-                <Money amount={totalTaxable} />
-              </div>
-            </div>
-            <div style={{ background: 'var(--bg-subtle)', padding: '12px 16px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Bills with TDS</span>
-              <div style={{ fontSize: '20px', fontWeight: 600, marginTop: '4px' }}>
-                {filteredRegister.length} bills
-              </div>
-            </div>
-          </div>
+          <ComplianceMetricGrid>
+            <ComplianceMetric label="Total TDS withheld" tone="brand" value={<Money amount={totalTdsWithheld} />} />
+            <ComplianceMetric label="Taxable bill value" value={<Money amount={totalTaxable} />} />
+            <ComplianceMetric label="Bills with TDS" value={`${filteredRegister.length} bills`} />
+          </ComplianceMetricGrid>
 
           {/* Filters */}
           <div className="list-toolbar">
-            <label className="directory-search">
-              <Search aria-hidden="true" size={18} />
-              <span className="sr-only">Search TDS register</span>
-              <input
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by vendor, bill #, PAN..."
-                type="search"
-                value={search}
-              />
-            </label>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>From:</span>
-              <input
-                className="search-input"
-                onChange={(e) => setFromDate(e.target.value)}
-                style={{ width: '130px' }}
-                type="date"
-                value={fromDate}
-              />
-              <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>To:</span>
-              <input
-                className="search-input"
-                onChange={(e) => setToDate(e.target.value)}
-                style={{ width: '130px' }}
-                type="date"
-                value={toDate}
-              />
-              <select
-                className="search-input"
-                onChange={(e) => setSectionFilter(e.target.value)}
-                style={{ width: '140px' }}
-                value={sectionFilter}
-              >
-                <option value="ALL">All Sections</option>
-                <option value="194C">194C (Contractor)</option>
-                <option value="194J">194J (Professional)</option>
-                <option value="194Q">194Q (Goods)</option>
-                <option value="194I">194I (Rent)</option>
-                <option value="194H">194H (Commission)</option>
-              </select>
+            <SearchInput
+              ariaLabel="Search TDS register"
+              onChange={setSearch}
+              onClear={() => setSearch('')}
+              placeholder="Search vendor, bill number, or PAN"
+              value={search}
+            />
+            <div className="compliance-register-filters">
+              <FormField label="From"><TextInput onChange={(e) => setFromDate(e.target.value)} type="date" value={fromDate} /></FormField>
+              <FormField label="To"><TextInput onChange={(e) => setToDate(e.target.value)} type="date" value={toDate} /></FormField>
+              <FormField className="field-group--section" label="Section">
+                <SelectInput onChange={(e) => setSectionFilter(e.target.value)} value={sectionFilter}>
+                  <option value="ALL">All sections</option>
+                  <option value="194C">194C: Contractor</option>
+                  <option value="194J">194J: Professional</option>
+                  <option value="194Q">194Q: Goods</option>
+                  <option value="194I">194I: Rent</option>
+                  <option value="194H">194H: Commission</option>
+                </SelectInput>
+              </FormField>
             </div>
           </div>
 
@@ -255,78 +232,46 @@ export function TdsCompliancePage() {
       )}
 
       {activeTab === 'form26q' && (
-        <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {/* Controls */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-subtle)', padding: '12px 16px', borderRadius: '6px' }}>
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-              <Calendar size={16} />
-              <span style={{ fontSize: '13px', fontWeight: 600 }}>Financial Year:</span>
-              <select
-                className="search-input"
-                onChange={(e) => setFy(Number(e.target.value))}
-                style={{ width: '130px' }}
-                value={fy}
-              >
-                <option value={currentFy}>FY {currentFy}-{currentFy + 1 - 2000}</option>
-                <option value={currentFy - 1}>FY {currentFy - 1}-{currentFy - 2000}</option>
-                <option value={currentFy - 2}>FY {currentFy - 2}-{currentFy - 1 - 2000}</option>
-              </select>
-              <span style={{ fontSize: '13px', fontWeight: 600, marginLeft: '8px' }}>Quarter:</span>
-              <select
-                className="search-input"
-                onChange={(e) => setQuarter(Number(e.target.value))}
-                style={{ width: '100px' }}
-                value={quarter}
-              >
-                <option value={1}>Q1 (Apr-Jun)</option>
-                <option value={2}>Q2 (Jul-Sep)</option>
-                <option value={3}>Q3 (Oct-Dec)</option>
-                <option value={4}>Q4 (Jan-Mar)</option>
-              </select>
-            </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <a href={getForm26qCsvUrl(fy, quarter)} target="_blank" rel="noreferrer">
-                <Button variant="secondary">
+        <CompliancePanel>
+          <CompliancePeriodToolbar
+            actions={
+              <>
+              <Button disabled={Boolean(downloading)} onClick={() => void downloadExport('26q-csv', `form-26q-fy${fy}-q${quarter}.csv`, () => downloadForm26qCsv(fy, quarter))} variant="secondary">
                   <Download size={15} />
-                  Download 26Q CSV
-                </Button>
-              </a>
-              <a href={getForm26qFvuUrl(fy, quarter)} target="_blank" rel="noreferrer">
-                <Button variant="primary">
+                  {downloading === '26q-csv' ? 'Downloading...' : 'Download 26Q CSV'}
+              </Button>
+              <Button disabled={Boolean(downloading)} onClick={() => void downloadExport('26q-fvu', `form-26q-fy${fy}-q${quarter}.fvu`, () => downloadForm26qFvu(fy, quarter))} variant="primary">
                   <FileText size={15} />
-                  Export FVU Block
-                </Button>
-              </a>
-            </div>
-          </div>
+                  {downloading === '26q-fvu' ? 'Downloading...' : 'Export FVU Block'}
+              </Button>
+              </>
+            }
+            controls={
+              <>
+                <Calendar aria-hidden="true" size={16} />
+                <FormField label="Financial year">
+                  <SelectInput onChange={(e) => setFy(Number(e.target.value))} value={fy}>
+                    <option value={currentFy}>FY {currentFy}-{currentFy + 1 - 2000}</option>
+                    <option value={currentFy - 1}>FY {currentFy - 1}-{currentFy - 2000}</option>
+                    <option value={currentFy - 2}>FY {currentFy - 2}-{currentFy - 1 - 2000}</option>
+                  </SelectInput>
+                </FormField>
+                <FormField className="field-group--quarter" label="Quarter">
+                  <SelectInput onChange={(e) => setQuarter(Number(e.target.value))} value={quarter}>
+                    <option value={1}>Q1: Apr-Jun</option><option value={2}>Q2: Jul-Sep</option><option value={3}>Q3: Oct-Dec</option><option value={4}>Q4: Jan-Mar</option>
+                  </SelectInput>
+                </FormField>
+              </>
+            }
+          />
 
           {/* Form 26Q Summary Cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-            <div style={{ background: 'var(--bg-card)', padding: '14px 16px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Total Deductees</span>
-              <div style={{ fontSize: '20px', fontWeight: 600, marginTop: '4px' }}>
-                {form26qData?.totalDeductees ?? 0}
-              </div>
-            </div>
-            <div style={{ background: 'var(--bg-card)', padding: '14px 16px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Total Amount Paid</span>
-              <div style={{ fontSize: '20px', fontWeight: 600, marginTop: '4px' }}>
-                <Money amount={form26qData?.totalAmountPaid ?? 0} />
-              </div>
-            </div>
-            <div style={{ background: 'var(--bg-card)', padding: '14px 16px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>TDS Deducted</span>
-              <div style={{ fontSize: '20px', fontWeight: 600, color: 'var(--color-primary)', marginTop: '4px' }}>
-                <Money amount={form26qData?.totalTdsDeducted ?? 0} />
-              </div>
-            </div>
-            <div style={{ background: 'var(--bg-card)', padding: '14px 16px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>TDS Deposited via ITNS-281</span>
-              <div style={{ fontSize: '20px', fontWeight: 600, color: 'var(--color-success)', marginTop: '4px' }}>
-                <Money amount={form26qData?.totalTdsDeposited ?? 0} />
-              </div>
-            </div>
-          </div>
+          <ComplianceMetricGrid>
+            <ComplianceMetric label="Total deductees" value={form26qData?.totalDeductees ?? 0} />
+            <ComplianceMetric label="Total amount paid" value={<Money amount={form26qData?.totalAmountPaid ?? 0} />} />
+            <ComplianceMetric label="TDS deducted" tone="brand" value={<Money amount={form26qData?.totalTdsDeducted ?? 0} />} />
+            <ComplianceMetric label="Deposited via ITNS-281" tone="positive" value={<Money amount={form26qData?.totalTdsDeposited ?? 0} />} />
+          </ComplianceMetricGrid>
 
           {/* Deductees Table */}
           {form26qData?.deductees && form26qData.deductees.length > 0 ? (
@@ -362,67 +307,38 @@ export function TdsCompliancePage() {
               <strong>No Form 26Q deductee records for Q{quarter} FY {fy}-{fy + 1 - 2000}.</strong>
             </div>
           )}
-        </div>
+        </CompliancePanel>
       )}
 
       {activeTab === 'form24q' && (
-        <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {/* Controls */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-subtle)', padding: '12px 16px', borderRadius: '6px' }}>
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-              <Calendar size={16} />
-              <span style={{ fontSize: '13px', fontWeight: 600 }}>Financial Year:</span>
-              <select
-                className="search-input"
-                onChange={(e) => setFy(Number(e.target.value))}
-                style={{ width: '130px' }}
-                value={fy}
-              >
-                <option value={currentFy}>FY {currentFy}-{currentFy + 1 - 2000}</option>
-                <option value={currentFy - 1}>FY {currentFy - 1}-{currentFy - 2000}</option>
-              </select>
-              <span style={{ fontSize: '13px', fontWeight: 600, marginLeft: '8px' }}>Quarter:</span>
-              <select
-                className="search-input"
-                onChange={(e) => setQuarter(Number(e.target.value))}
-                style={{ width: '100px' }}
-                value={quarter}
-              >
-                <option value={1}>Q1 (Apr-Jun)</option>
-                <option value={2}>Q2 (Jul-Sep)</option>
-                <option value={3}>Q3 (Oct-Dec)</option>
-                <option value={4}>Q4 (Jan-Mar)</option>
-              </select>
-            </div>
-            <a href={getForm24qCsvUrl(fy, quarter)} target="_blank" rel="noreferrer">
-              <Button variant="secondary">
+        <CompliancePanel>
+          <CompliancePeriodToolbar
+            actions={<Button disabled={Boolean(downloading)} onClick={() => void downloadExport('24q-csv', `form-24q-fy${fy}-q${quarter}.csv`, () => downloadForm24qCsv(fy, quarter))} variant="secondary">
                 <Download size={15} />
-                Download 24Q CSV
-              </Button>
-            </a>
-          </div>
+                {downloading === '24q-csv' ? 'Downloading...' : 'Download 24Q CSV'}
+              </Button>}
+            controls={<>
+              <Calendar aria-hidden="true" size={16} />
+              <FormField label="Financial year">
+                <SelectInput onChange={(e) => setFy(Number(e.target.value))} value={fy}>
+                  <option value={currentFy}>FY {currentFy}-{currentFy + 1 - 2000}</option>
+                  <option value={currentFy - 1}>FY {currentFy - 1}-{currentFy - 2000}</option>
+                </SelectInput>
+              </FormField>
+              <FormField className="field-group--quarter" label="Quarter">
+                <SelectInput onChange={(e) => setQuarter(Number(e.target.value))} value={quarter}>
+                  <option value={1}>Q1: Apr-Jun</option><option value={2}>Q2: Jul-Sep</option><option value={3}>Q3: Oct-Dec</option><option value={4}>Q4: Jan-Mar</option>
+                </SelectInput>
+              </FormField>
+            </>}
+          />
 
           {/* Form 24Q Summary Cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-            <div style={{ background: 'var(--bg-card)', padding: '14px 16px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Employees Deducted</span>
-              <div style={{ fontSize: '20px', fontWeight: 600, marginTop: '4px' }}>
-                {form24qData?.totalEmployees ?? 0}
-              </div>
-            </div>
-            <div style={{ background: 'var(--bg-card)', padding: '14px 16px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Gross Salary Paid</span>
-              <div style={{ fontSize: '20px', fontWeight: 600, marginTop: '4px' }}>
-                <Money amount={form24qData?.totalGrossSalary ?? 0} />
-              </div>
-            </div>
-            <div style={{ background: 'var(--bg-card)', padding: '14px 16px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>TDS (Sec 192) Withheld</span>
-              <div style={{ fontSize: '20px', fontWeight: 600, color: 'var(--color-primary)', marginTop: '4px' }}>
-                <Money amount={form24qData?.totalTdsDeducted ?? 0} />
-              </div>
-            </div>
-          </div>
+          <ComplianceMetricGrid>
+            <ComplianceMetric label="Employees deducted" value={form24qData?.totalEmployees ?? 0} />
+            <ComplianceMetric label="Gross salary paid" value={<Money amount={form24qData?.totalGrossSalary ?? 0} />} />
+            <ComplianceMetric label="TDS withheld under section 192" tone="brand" value={<Money amount={form24qData?.totalTdsDeducted ?? 0} />} />
+          </ComplianceMetricGrid>
 
           {/* Employees Table */}
           {form24qData?.employees && form24qData.employees.length > 0 ? (
@@ -458,7 +374,7 @@ export function TdsCompliancePage() {
               <strong>No salary TDS deductions recorded for Q{quarter} FY {fy}-{fy + 1 - 2000}.</strong>
             </div>
           )}
-        </div>
+        </CompliancePanel>
       )}
     </section>
   )

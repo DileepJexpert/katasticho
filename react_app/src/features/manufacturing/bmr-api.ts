@@ -1,4 +1,5 @@
-import { apiFetch } from '@/api/client/api-client'
+import { apiFetch, apiFetchBlob } from '@/api/client/api-client'
+import { downloadBlob } from '@/shared/files/download-blob'
 
 export type BmrStepRecord = {
   id: string
@@ -189,17 +190,7 @@ export async function getBmrSnapshot(workOrderId: string) {
   return apiFetch<BmrSnapshot>(`/api/v1/manufacturing/bmr/work-orders/${workOrderId}/snapshot`)
 }
 
-export function getBmrPdfDownloadUrl(workOrderId: string) {
-  return `/api/v1/manufacturing/bmr/work-orders/${workOrderId}/pdf`
-}
-
 export async function downloadBmrPdf(workOrderId: string) {
-  const url = getBmrPdfDownloadUrl(workOrderId)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = `BMR-${workOrderId}.pdf`
-  link.target = '_blank'
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
+  const pdf = await apiFetchBlob(`/api/v1/manufacturing/bmr/work-orders/${workOrderId}/pdf`, 'application/pdf')
+  downloadBlob(pdf, `BMR-${workOrderId}.pdf`)
 }

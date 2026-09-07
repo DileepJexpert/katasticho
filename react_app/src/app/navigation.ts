@@ -1373,6 +1373,7 @@ export const navGroups: readonly NavGroup[] = [
         description: 'Invite members & manage permissions',
         icon: Users,
         to: appRoutes.users,
+        roles: ['OWNER', 'ADMIN'],
       },
       {
         id: 'settings.payment_terms',

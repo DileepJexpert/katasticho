@@ -55,6 +55,7 @@ export function AppShell() {
   const location = useLocation()
   const user = useSessionStore((state) => state.user)
   const logout = useSessionStore((state) => state.logout)
+  const canManageUsers = user?.role === 'OWNER' || user?.role === 'ADMIN'
 
   const themeMode = useThemeStore((state) => state.themeMode)
   const cycleThemeMode = useThemeStore((state) => state.cycleThemeMode)
@@ -504,17 +505,19 @@ export function AppShell() {
                       <span>Switch Organisation</span>
                     </button>
 
-                    <button
-                      className="profile-menu-item"
-                      onClick={() => {
-                        setProfileDropdownOpen(false)
-                        navigate(appRoutes.users)
-                      }}
-                      type="button"
-                    >
-                      <User size={15} aria-hidden="true" />
-                      <span>Team & User Roles</span>
-                    </button>
+                    {canManageUsers && (
+                      <button
+                        className="profile-menu-item"
+                        onClick={() => {
+                          setProfileDropdownOpen(false)
+                          navigate(appRoutes.users)
+                        }}
+                        type="button"
+                      >
+                        <User size={15} aria-hidden="true" />
+                        <span>Team & User Roles</span>
+                      </button>
+                    )}
 
                     <button
                       className="profile-menu-item profile-menu-item--danger"

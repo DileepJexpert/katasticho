@@ -28,6 +28,9 @@ import {
   type UnitPriceEntry,
   type UpdateItemRequest,
 } from '@/features/items/items-api'
+import { searchHsn, type HsnGstMaster } from '@/features/pharmacy/pharmacy-api'
+import { listOrganisationFeatures } from '@/features/settings/settings-api'
+import { searchOfficialHsnDirectory } from './official-hsn-directory'
 import { listWarehouses } from '@/features/warehouses/warehouses-api'
 
 type Feedback = { type: 'error' | 'success'; message: string }
@@ -191,12 +194,46 @@ function describeVendor(contact: Contact) {
     .join(' / ')
 }
 
+async function searchHsnDirectory(query: string): Promise<HsnGstMaster[]> {
+  const [configuredResult, officialResult] = await Promise.allSettled([
+    searchHsn(query, 25),
+    searchOfficialHsnDirectory(query, 25),
+  ])
+  const configured = configuredResult.status === 'fulfilled' ? configuredResult.value : []
+  const official = officialResult.status === 'fulfilled' ? officialResult.value : []
+
+  if (configuredResult.status === 'rejected' && officialResult.status === 'rejected') {
+    throw configuredResult.reason
+  }
+
+  const configuredCodes = new Set(configured.map((entry) => entry.hsnCode))
+  const directoryOnly: HsnGstMaster[] = official
+    .filter((entry) => !configuredCodes.has(entry.hsnCode))
+    .map((entry) => ({
+      id: `gstn-${entry.hsnCode}`,
+      hsnCode: entry.hsnCode,
+      description: entry.description,
+      category: 'GSTN_DIRECTORY',
+      gstRate: null,
+    }))
+
+  return [...configured, ...directoryOnly].slice(0, 25)
+}
+
+function describeHsn(entry: HsnGstMaster): string {
+  return [
+    entry.description,
+    entry.gstRate === null ? 'GST rate not configured' : `${entry.gstRate}% GST`,
+  ].filter(Boolean).join(' / ')
+}
+
 export function ItemFormPage() {
   const { itemId } = useParams()
   const isEditing = Boolean(itemId)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [form, setForm] = useState<ItemFormState>(createBlankForm)
+  const [selectedHsn, setSelectedHsn] = useState<HsnGstMaster | null>(null)
   const [feedback, setFeedback] = useState<Feedback | null>(null)
 
   const itemQuery = useQuery({
@@ -213,9 +250,20 @@ export function ItemFormPage() {
     queryFn: listWarehouses,
     enabled: !isEditing && form.trackInventory,
   })
+  const featuresQuery = useQuery({
+    queryKey: ['settings', 'features'],
+    queryFn: listOrganisationFeatures,
+  })
+
+  const batchExpiryEnabled = featuresQuery.data?.some(
+    (feature) => feature.feature === 'BATCH_EXPIRY' && feature.enabled,
+  ) ?? false
 
   useEffect(() => {
-    if (itemQuery.data) setForm(itemToForm(itemQuery.data))
+    if (itemQuery.data) {
+      setForm(itemToForm(itemQuery.data))
+      setSelectedHsn(null)
+    }
   }, [itemQuery.data])
 
   useEffect(() => {
@@ -234,6 +282,19 @@ export function ItemFormPage() {
       }
     })
   }, [form.itemType])
+
+  useEffect(() => {
+    if (isEditing || featuresQuery.isPending || featuresQuery.isError || batchExpiryEnabled) return
+    setForm((current) => current.trackBatches
+      ? {
+          ...current,
+          trackBatches: false,
+          openingBatchNumber: '',
+          openingMfgDate: '',
+          openingExpiryDate: '',
+        }
+      : current)
+  }, [batchExpiryEnabled, featuresQuery.isError, featuresQuery.isPending, isEditing])
 
   const saveMutation = useMutation({
     mutationFn: async (request: CreateItemRequest | UpdateItemRequest) => {
@@ -276,7 +337,8 @@ export function ItemFormPage() {
   ]
   const activeWarehouses = (warehousesQuery.data ?? []).filter((warehouse) => warehouse.active)
   const tracksStock = form.itemType === 'GOODS' && form.trackInventory
-  const supportsBatchTracking = tracksStock
+  const supportsBatchTracking = tracksStock && batchExpiryEnabled
+  const batchTrackingSelected = supportsBatchTracking && form.trackBatches
 
   function updateForm<K extends keyof ItemFormState>(key: K, value: ItemFormState[K]) {
     setForm((current) => ({ ...current, [key]: value }))
@@ -344,7 +406,7 @@ export function ItemFormPage() {
       setFeedback({ type: 'error', message: 'Opening stock cannot be negative.' })
       return
     }
-    if (!isEditing && openingStock && form.trackBatches && !form.openingBatchNumber.trim()) {
+    if (!isEditing && openingStock && batchTrackingSelected && !form.openingBatchNumber.trim()) {
       setFeedback({ type: 'error', message: 'Batch number is required for opening stock on a batch-tracked item.' })
       return
     }
@@ -362,7 +424,7 @@ export function ItemFormPage() {
       mrp: optionalNumber(form.mrp),
       gstRate: optionalNumber(form.gstRate),
       trackInventory: tracksStock,
-      trackBatches: supportsBatchTracking && form.trackBatches,
+      ...(batchExpiryEnabled ? { trackBatches: batchTrackingSelected } : {}),
       reorderLevel: optionalNumber(form.reorderLevel),
       reorderQuantity: optionalNumber(form.reorderQuantity),
       barcode: optionalText(form.barcode),
@@ -388,9 +450,9 @@ export function ItemFormPage() {
       sku: optionalText(form.sku),
       openingStock,
       openingWarehouseId: tracksStock ? optionalText(form.openingWarehouseId) : undefined,
-      openingBatchNumber: tracksStock && form.trackBatches ? optionalText(form.openingBatchNumber) : undefined,
-      openingMfgDate: tracksStock && form.trackBatches ? optionalText(form.openingMfgDate) : undefined,
-      openingExpiryDate: tracksStock && form.trackBatches ? optionalText(form.openingExpiryDate) : undefined,
+      openingBatchNumber: batchTrackingSelected ? optionalText(form.openingBatchNumber) : undefined,
+      openingMfgDate: batchTrackingSelected ? optionalText(form.openingMfgDate) : undefined,
+      openingExpiryDate: batchTrackingSelected ? optionalText(form.openingExpiryDate) : undefined,
     })
   }
 
@@ -463,15 +525,44 @@ export function ItemFormPage() {
                 value={form.unitOfMeasure}
               />
             </FormField>
+            <FormField label="HSN directory" hint="Select to fill the HSN code and GST rate.">
+              <EntityPicker<HsnGstMaster>
+                ariaLabel="Search HSN directory"
+                getOptionDescription={describeHsn}
+                getOptionId={(entry) => entry.id}
+                getOptionLabel={(entry) => `HSN ${entry.hsnCode}`}
+                onChange={(_id, entry) => {
+                  setSelectedHsn(entry ?? null)
+                  if (!entry) return
+                  setForm((current) => ({
+                    ...current,
+                    hsnCode: entry.hsnCode,
+                    gstRate: entry.gstRate === null ? current.gstRate : String(entry.gstRate),
+                  }))
+                }}
+                onSearch={searchHsnDirectory}
+                placeholder="Search HSN or product description"
+                selectedEntity={selectedHsn}
+                value={selectedHsn?.id ?? null}
+              />
+            </FormField>
             <FormField label="HSN code" hint="Up to 10 characters">
               <TextInput
                 maxLength={10}
-                onChange={(event) => updateForm('hsnCode', event.target.value)}
+                onChange={(event) => {
+                  setSelectedHsn(null)
+                  updateForm('hsnCode', event.target.value)
+                }}
                 placeholder="e.g. 0910"
                 value={form.hsnCode}
               />
             </FormField>
-            <FormField label="GST rate">
+            <FormField
+              label="GST rate"
+              hint={selectedHsn?.gstRate === null
+                ? 'GSTN confirms the HSN code, but this item\'s GST rate must be verified and selected.'
+                : undefined}
+            >
               <NumberInput
                 min={0}
                 onChange={(event) => updateForm('gstRate', event.target.value)}
@@ -717,8 +808,14 @@ export function ItemFormPage() {
               title="Track inventory"
             />
             <CheckboxInput
-              checked={supportsBatchTracking && form.trackBatches}
-              description="Require batches on incoming and outgoing stock movements. Expiry is stored per batch."
+              checked={form.trackBatches}
+              description={featuresQuery.isPending
+                ? 'Checking whether batch and expiry tracking is available for this organisation.'
+                : featuresQuery.isError
+                  ? 'Batch tracking is unavailable because organisation features could not be verified.'
+                  : !batchExpiryEnabled
+                    ? 'Batch and expiry tracking is not enabled for this organisation.'
+                    : 'Require batches on incoming and outgoing stock movements. Expiry is stored per batch.'}
               disabled={!supportsBatchTracking}
               onChange={(event) => updateForm('trackBatches', event.target.checked)}
               title="Track batches and expiry"
@@ -752,7 +849,7 @@ export function ItemFormPage() {
                   value={form.openingWarehouseId}
                 />
               </FormField>
-              {form.trackBatches && (
+              {batchTrackingSelected && (
                 <>
                   <FormField label="Opening batch number" required={Boolean(optionalNumber(form.openingStock))}>
                     <TextInput

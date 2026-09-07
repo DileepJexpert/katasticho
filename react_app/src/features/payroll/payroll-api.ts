@@ -1,4 +1,4 @@
-import { apiFetch } from '@/api/client/api-client'
+import { apiFetch, apiFetchBlob } from '@/api/client/api-client'
 
 export type Employee = {
   id: string
@@ -372,8 +372,8 @@ export async function getTaxDeclaration(employeeId: string, fy: string) {
   return apiFetch<EmployeeTaxDeclaration>(`/api/v1/payroll/tax-declarations/employees/${employeeId}?fy=${encodeURIComponent(fy)}`)
 }
 
-export function getForm12BbPdfUrl(id: string): string {
-  return `/api/v1/payroll/tax-declarations/${id}/pdf`
+export function downloadForm12BbPdf(id: string): Promise<Blob> {
+  return apiFetchBlob(`/api/v1/payroll/tax-declarations/${id}/pdf`, 'application/pdf')
 }
 
 // ── Kenya PAYE & Statutory Salary Calculator APIs ──

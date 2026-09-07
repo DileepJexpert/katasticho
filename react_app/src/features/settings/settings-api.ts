@@ -1,4 +1,9 @@
-import { apiFetch } from '@/api/client/api-client'
+import { apiFetch, apiFetchRawJson } from '@/api/client/api-client'
+
+export type OrganisationFeature = {
+  feature: string
+  enabled: boolean
+}
 
 export type OrgUser = {
   id: string
@@ -34,6 +39,11 @@ export type PdfTemplateSetting = {
   signatureLabel: string | null
   watermarkText: string | null
   active: boolean
+}
+
+export async function listOrganisationFeatures() {
+  const response = await apiFetchRawJson<{ data?: OrganisationFeature[] }>('/api/v1/settings/features')
+  return response.data ?? []
 }
 
 // ── User Management Calls ──

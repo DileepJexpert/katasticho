@@ -110,4 +110,19 @@ describe('AppShell - Theme and Accessibility Integration', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(screen.getByText('Keyboard shortcuts')).toBeInTheDocument()
   })
+
+  it('does not expose organisation user management to non-admin roles', () => {
+    useSessionStore.setState({ user: { ...useSessionStore.getState().user!, role: 'VIEWER' } })
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <AppShell />
+        </MemoryRouter>
+      </QueryClientProvider>
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /test operator/i }))
+    expect(screen.queryByText('Team & User Roles')).not.toBeInTheDocument()
+  })
 })

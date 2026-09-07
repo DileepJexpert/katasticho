@@ -149,9 +149,9 @@ export function RecurringJournalsPage() {
         title="Recurring Journals"
         description="Automate monthly depreciation accruals, prepaid expense amortisation, standing payroll provisions, and routine GL journals."
         actions={
-          <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+          <div className="table-actions">
             <Button onClick={() => setIsCreateModalOpen(true)} variant="primary">
-              <Plus size={14} style={{ marginRight: 6 }} />
+              <Plus size={14} />
               New Recurring Journal
             </Button>
           </div>
@@ -188,7 +188,7 @@ export function RecurringJournalsPage() {
         </div>
         <div className="summary-card summary-card--accent">
           <span className="summary-card__label">Auto-Post Engine</span>
-          <strong className="summary-card__value" style={{ fontSize: '1rem', color: 'var(--color-success)' }}>
+          <strong className="summary-card__value summary-card__value--compact summary-card__value--positive">
             Balanced DR/CR
           </strong>
           <span className="summary-card__hint">Automated double-entry posting</span>
@@ -246,10 +246,10 @@ export function RecurringJournalsPage() {
                   <span className="cell-muted">{p.frequency}</span>
                 </td>
                 <td>
-                  <span className="cell-muted">{p.nextRunDate || 'â€”'}</span>
+                  <span className="cell-muted">{p.nextRunDate || '--'}</span>
                 </td>
                 <td>
-                  <strong>{p.narration || 'â€”'}</strong>
+                  <strong>{p.narration || '--'}</strong>
                 </td>
                 <td>
                   <StatusChip status={p.status} />
@@ -258,25 +258,27 @@ export function RecurringJournalsPage() {
                   <Quantity value={p.totalGenerated} /> posted
                 </td>
                 <td className="numeric-cell">
-                  <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                  <div className="table-actions">
                     {p.status === 'ACTIVE' ? (
-                      <button
-                        title="Pause Schedule"
+                      <Button
+                        aria-label="Pause schedule"
+                        disabled={stopMutation.isPending}
                         onClick={() => stopMutation.mutate(p.id)}
                         type="button"
-                        style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: 4 }}
+                        variant="ghost"
                       >
                         <Pause size={15} />
-                      </button>
+                      </Button>
                     ) : (
-                      <button
-                        title="Resume Schedule"
+                      <Button
+                        aria-label="Resume schedule"
+                        disabled={resumeMutation.isPending}
                         onClick={() => resumeMutation.mutate(p.id)}
                         type="button"
-                        style={{ background: 'none', border: 'none', color: 'var(--color-success)', cursor: 'pointer', padding: 4 }}
+                        variant="ghost"
                       >
                         <Play size={15} />
-                      </button>
+                      </Button>
                     )}
                     <Link className="table-row-action" to={`/recurring-journals/${p.id}`}>
                       View

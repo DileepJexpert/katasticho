@@ -6,7 +6,10 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { ItemFormPage } from './item-form-page'
 import * as itemsApi from '@/features/items/items-api'
 import { getUoms } from '@/features/inventory/uoms-api'
+import { searchHsn } from '@/features/pharmacy/pharmacy-api'
+import { searchOfficialHsnDirectory } from './official-hsn-directory'
 import { listWarehouses } from '@/features/warehouses/warehouses-api'
+import { listOrganisationFeatures } from '@/features/settings/settings-api'
 
 vi.mock('@/features/items/items-api', async () => {
   const actual = await vi.importActual<typeof itemsApi>('@/features/items/items-api')
@@ -25,6 +28,22 @@ vi.mock('@/features/inventory/uoms-api', () => ({
 vi.mock('@/features/warehouses/warehouses-api', () => ({
   listWarehouses: vi.fn(),
 }))
+
+vi.mock('@/features/pharmacy/pharmacy-api', () => ({
+  searchHsn: vi.fn(),
+}))
+
+vi.mock('@/features/settings/settings-api', () => ({
+  listOrganisationFeatures: vi.fn(),
+}))
+
+vi.mock('./official-hsn-directory', async () => {
+  const actual = await vi.importActual<typeof import('./official-hsn-directory')>('./official-hsn-directory')
+  return {
+    ...actual,
+    searchOfficialHsnDirectory: vi.fn(),
+  }
+})
 
 const item: itemsApi.Item = {
   id: 'item-1', sku: 'MASALA-100G', barcode: null, name: 'Turmeric Masala 100g', description: null,
@@ -55,9 +74,16 @@ describe('ItemFormPage', () => {
         active: true, createdAt: null,
       },
     ])
+    vi.mocked(listOrganisationFeatures).mockResolvedValue([
+      { feature: 'BATCH_EXPIRY', enabled: true },
+    ])
     vi.mocked(itemsApi.createItem).mockResolvedValue(item)
     vi.mocked(itemsApi.getItem).mockResolvedValue(item)
     vi.mocked(itemsApi.updateItem).mockResolvedValue(item)
+    vi.mocked(searchHsn).mockResolvedValue([
+      { id: 'hsn-0910', hsnCode: '0910', description: 'Spices', category: 'FMCG', gstRate: 5 },
+    ])
+    vi.mocked(searchOfficialHsnDirectory).mockResolvedValue([])
   })
 
   function renderPage(path: string) {
@@ -80,7 +106,9 @@ describe('ItemFormPage', () => {
 
     fireEvent.change(screen.getByLabelText(/Item name/i), { target: { value: 'Turmeric Masala Test 100g' } })
     fireEvent.change(screen.getByLabelText(/SKU/i), { target: { value: 'MASALA-TURMERIC-TEST-100G' } })
-    await user.click(screen.getByRole('checkbox', { name: /Track batches and expiry/i }))
+    const batchTracking = screen.getByRole('checkbox', { name: /Track batches and expiry/i })
+    await waitFor(() => expect(batchTracking).toBeEnabled())
+    await user.click(batchTracking)
     fireEvent.change(screen.getByLabelText(/Opening quantity/), { target: { value: '100' } })
     fireEvent.change(screen.getByLabelText(/Opening batch number/), { target: { value: 'TUM-SEP-26-A' } })
     await user.click(screen.getByRole('button', { name: 'Create item' }))
@@ -115,5 +143,56 @@ describe('ItemFormPage', () => {
       }))
     })
     expect(vi.mocked(itemsApi.updateItem).mock.calls[0]?.[1]).not.toHaveProperty('openingStock')
+  })
+
+  it('selects a preloaded HSN entry and applies its GST rate', async () => {
+    const user = userEvent.setup()
+    renderPage('/items/new')
+
+    await user.click(screen.getByRole('combobox', { name: 'Search HSN directory' }))
+    await user.type(screen.getByRole('combobox', { name: 'Search HSN directory' }), 'spice')
+    await user.click(await screen.findByRole('option', { name: /HSN 0910/i }))
+
+    expect(screen.getByLabelText('HSN code')).toHaveValue('0910')
+    expect(screen.getByLabelText('GST rate')).toHaveValue(5)
+  })
+
+  it('keeps GST editable when GSTN has the HSN but no configured rate', async () => {
+    const user = userEvent.setup()
+    vi.mocked(searchHsn).mockResolvedValue([])
+    vi.mocked(searchOfficialHsnDirectory).mockResolvedValue([
+      { hsnCode: '09103030', description: 'Turmeric powder' },
+    ])
+    renderPage('/items/new')
+
+    await user.type(screen.getByRole('combobox', { name: 'Search HSN directory' }), 'turmeric')
+    await user.click(await screen.findByRole('option', { name: /HSN 09103030/i }))
+
+    expect(screen.getByLabelText('HSN code')).toHaveValue('09103030')
+    expect(screen.getByLabelText('GST rate')).toHaveValue(18)
+    expect(screen.getByText(/GST rate must be verified and selected/i)).toBeInTheDocument()
+  })
+
+  it('does not submit batch tracking when the organisation lacks the capability', async () => {
+    const user = userEvent.setup()
+    vi.mocked(listOrganisationFeatures).mockResolvedValue([
+      { feature: 'BATCH_EXPIRY', enabled: false },
+    ])
+    renderPage('/items/new')
+
+    const batchTracking = screen.getByRole('checkbox', { name: /Track batches and expiry/i })
+    expect(await screen.findByText(/not enabled for this organisation/i)).toBeInTheDocument()
+    expect(batchTracking).toBeDisabled()
+
+    fireEvent.change(screen.getByLabelText(/Item name/i), { target: { value: 'Capability-safe item' } })
+    await user.click(screen.getByRole('button', { name: 'Create item' }))
+
+    await waitFor(() => expect(itemsApi.createItem).toHaveBeenCalled())
+    const request = vi.mocked(itemsApi.createItem).mock.calls[0]?.[0]
+    expect(request).toMatchObject({
+      name: 'Capability-safe item',
+      trackInventory: true,
+    })
+    expect(request).not.toHaveProperty('trackBatches')
   })
 })

@@ -1,4 +1,4 @@
-import { apiFetch } from '@/api/client/api-client'
+import { apiFetch, apiFetchBlob } from '@/api/client/api-client'
 
 export type TdsRegisterEntry = {
   id?: string
@@ -133,20 +133,20 @@ export async function getForm26q(fy: number, quarter: number) {
   return apiFetch<Form26qSummary>(`/api/v1/tds/26q?fy=${fy}&quarter=${quarter}`)
 }
 
-export function getForm26qCsvUrl(fy: number, quarter: number) {
-  return `/api/v1/tds/26q/csv?fy=${fy}&quarter=${quarter}`
+export function downloadForm26qCsv(fy: number, quarter: number) {
+  return apiFetchBlob(`/api/v1/tds/26q/csv?fy=${fy}&quarter=${quarter}`, 'text/csv')
 }
 
-export function getForm26qFvuUrl(fy: number, quarter: number) {
-  return `/api/v1/tds/26q/fvu?fy=${fy}&quarter=${quarter}`
+export function downloadForm26qFvu(fy: number, quarter: number) {
+  return apiFetchBlob(`/api/v1/tds/26q/fvu?fy=${fy}&quarter=${quarter}`)
 }
 
 export async function getForm24q(fy: number, quarter: number) {
   return apiFetch<Form24qSummary>(`/api/v1/tds/24q?fy=${fy}&quarter=${quarter}`)
 }
 
-export function getForm24qCsvUrl(fy: number, quarter: number) {
-  return `/api/v1/tds/24q/csv?fy=${fy}&quarter=${quarter}`
+export function downloadForm24qCsv(fy: number, quarter: number) {
+  return apiFetchBlob(`/api/v1/tds/24q/csv?fy=${fy}&quarter=${quarter}`, 'text/csv')
 }
 
 export function getForm16Url(employeeId: string, fy: number) {
@@ -163,8 +163,8 @@ export async function getForm27eq(fy: number, quarter: number) {
   return apiFetch<Form27eqSummary>(`/api/v1/tcs/27eq?fy=${fy}&quarter=${quarter}`)
 }
 
-export function getForm27eqCsvUrl(fy: number, quarter: number) {
-  return `/api/v1/tcs/27eq/csv?fy=${fy}&quarter=${quarter}`
+export function downloadForm27eqCsv(fy: number, quarter: number) {
+  return apiFetchBlob(`/api/v1/tcs/27eq/csv?fy=${fy}&quarter=${quarter}`, 'text/csv')
 }
 
 export async function getTcsSettings() {

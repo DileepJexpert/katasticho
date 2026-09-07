@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   FileText,
   Download,
-  Search,
   Calendar,
   Layers,
   Settings,
@@ -11,20 +10,18 @@ import {
   CheckCircle2,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import { Button, CheckboxInput, DataTable, FormCard, FormField, Money, PageHeader, SearchInput, SelectInput, StatusChip, TextInput } from '@/design-system'
 import { formatDate } from '@/shared/format/format'
 import {
   getTcsRegister,
   getForm27eq,
-  getForm27eqCsvUrl,
+  downloadForm27eqCsv,
   getTcsSettings,
   updateTcsSettings,
   type TcsRegisterEntry,
 } from '@/features/tax/tds-tcs-api'
+import { downloadBlob } from '@/shared/files/download-blob'
+import { ComplianceMetric, ComplianceMetricGrid, CompliancePanel, CompliancePeriodToolbar } from '@/features/tax/tax-compliance-primitives'
 
 type TabKey = 'register' | 'form27eq' | 'settings'
 
@@ -32,6 +29,8 @@ export function TcsCompliancePage() {
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<TabKey>('register')
   const [feedback, setFeedback] = useState<string | null>(null)
+  const [downloadError, setDownloadError] = useState<string | null>(null)
+  const [downloading, setDownloading] = useState(false)
 
   // Date range for register
   const today = new Date()
@@ -90,6 +89,18 @@ export function TcsCompliancePage() {
   const form27eqData = form27eqQuery.data
   const settingsData = settingsQuery.data
 
+  async function downloadExport() {
+    setDownloadError(null)
+    setDownloading(true)
+    try {
+      downloadBlob(await downloadForm27eqCsv(fy, quarter), `form-27eq-fy${fy}-q${quarter}.csv`)
+    } catch (error) {
+      setDownloadError(error instanceof Error ? error.message : 'The export could not be downloaded.')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   return (
     <section className="workspace-page">
       <PageHeader
@@ -115,6 +126,7 @@ export function TcsCompliancePage() {
           <button className="feedback-alert__close" onClick={() => setFeedback(null)} type="button">×</button>
         </div>
       )}
+      {downloadError && <div className="feedback-alert feedback-alert--error" role="alert">{downloadError}</div>}
 
       <div className="list-tabs" role="tablist">
         <button
@@ -151,57 +163,24 @@ export function TcsCompliancePage() {
 
       {activeTab === 'register' && (
         <>
-          {/* Summary KPIs */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginTop: '16px', marginBottom: '16px' }}>
-            <div style={{ background: 'var(--bg-subtle)', padding: '12px 16px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Total TCS Collected</span>
-              <div style={{ fontSize: '20px', fontWeight: 600, color: 'var(--color-primary)', marginTop: '4px' }}>
-                <Money amount={totalTcsCollected} />
-              </div>
-            </div>
-            <div style={{ background: 'var(--bg-subtle)', padding: '12px 16px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Total Sales Value</span>
-              <div style={{ fontSize: '20px', fontWeight: 600, marginTop: '4px' }}>
-                <Money amount={totalSalesValue} />
-              </div>
-            </div>
-            <div style={{ background: 'var(--bg-subtle)', padding: '12px 16px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Eligible Invoices</span>
-              <div style={{ fontSize: '20px', fontWeight: 600, marginTop: '4px' }}>
-                {filteredRegister.length} invoices
-              </div>
-            </div>
-          </div>
+          <ComplianceMetricGrid>
+            <ComplianceMetric label="Total TCS collected" tone="brand" value={<Money amount={totalTcsCollected} />} />
+            <ComplianceMetric label="Total sales value" value={<Money amount={totalSalesValue} />} />
+            <ComplianceMetric label="Eligible invoices" value={`${filteredRegister.length} invoices`} />
+          </ComplianceMetricGrid>
 
           {/* Filters */}
           <div className="list-toolbar">
-            <label className="directory-search">
-              <Search aria-hidden="true" size={18} />
-              <span className="sr-only">Search TCS register</span>
-              <input
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by customer, invoice #, PAN..."
-                type="search"
-                value={search}
-              />
-            </label>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>From:</span>
-              <input
-                className="search-input"
-                onChange={(e) => setFromDate(e.target.value)}
-                style={{ width: '130px' }}
-                type="date"
-                value={fromDate}
-              />
-              <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>To:</span>
-              <input
-                className="search-input"
-                onChange={(e) => setToDate(e.target.value)}
-                style={{ width: '130px' }}
-                type="date"
-                value={toDate}
-              />
+            <SearchInput
+              ariaLabel="Search TCS register"
+              onChange={setSearch}
+              onClear={() => setSearch('')}
+              placeholder="Search customer, invoice number, or PAN"
+              value={search}
+            />
+            <div className="compliance-register-filters">
+              <FormField label="From"><TextInput onChange={(e) => setFromDate(e.target.value)} type="date" value={fromDate} /></FormField>
+              <FormField label="To"><TextInput onChange={(e) => setToDate(e.target.value)} type="date" value={toDate} /></FormField>
             </div>
           </div>
 
@@ -250,69 +229,35 @@ export function TcsCompliancePage() {
       )}
 
       {activeTab === 'form27eq' && (
-        <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {/* Controls */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-subtle)', padding: '12px 16px', borderRadius: '6px' }}>
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-              <Calendar size={16} />
-              <span style={{ fontSize: '13px', fontWeight: 600 }}>Financial Year:</span>
-              <select
-                className="search-input"
-                onChange={(e) => setFy(Number(e.target.value))}
-                style={{ width: '130px' }}
-                value={fy}
-              >
-                <option value={currentFy}>FY {currentFy}-{currentFy + 1 - 2000}</option>
-                <option value={currentFy - 1}>FY {currentFy - 1}-{currentFy - 2000}</option>
-              </select>
-              <span style={{ fontSize: '13px', fontWeight: 600, marginLeft: '8px' }}>Quarter:</span>
-              <select
-                className="search-input"
-                onChange={(e) => setQuarter(Number(e.target.value))}
-                style={{ width: '100px' }}
-                value={quarter}
-              >
-                <option value={1}>Q1 (Apr-Jun)</option>
-                <option value={2}>Q2 (Jul-Sep)</option>
-                <option value={3}>Q3 (Oct-Dec)</option>
-                <option value={4}>Q4 (Jan-Mar)</option>
-              </select>
-            </div>
-            <a href={getForm27eqCsvUrl(fy, quarter)} target="_blank" rel="noreferrer">
-              <Button variant="secondary">
+        <CompliancePanel>
+          <CompliancePeriodToolbar
+            actions={<Button disabled={downloading} onClick={() => void downloadExport()} variant="secondary">
                 <Download size={15} />
-                Download Form 27EQ CSV
-              </Button>
-            </a>
-          </div>
+                {downloading ? 'Downloading...' : 'Download Form 27EQ CSV'}
+              </Button>}
+            controls={<>
+              <Calendar aria-hidden="true" size={16} />
+              <FormField label="Financial year">
+                <SelectInput onChange={(e) => setFy(Number(e.target.value))} value={fy}>
+                  <option value={currentFy}>FY {currentFy}-{currentFy + 1 - 2000}</option>
+                  <option value={currentFy - 1}>FY {currentFy - 1}-{currentFy - 2000}</option>
+                </SelectInput>
+              </FormField>
+              <FormField className="field-group--quarter" label="Quarter">
+                <SelectInput onChange={(e) => setQuarter(Number(e.target.value))} value={quarter}>
+                  <option value={1}>Q1: Apr-Jun</option><option value={2}>Q2: Jul-Sep</option><option value={3}>Q3: Oct-Dec</option><option value={4}>Q4: Jan-Mar</option>
+                </SelectInput>
+              </FormField>
+            </>}
+          />
 
           {/* Form 27EQ Summary Cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-            <div style={{ background: 'var(--bg-card)', padding: '14px 16px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Total Collectees</span>
-              <div style={{ fontSize: '20px', fontWeight: 600, marginTop: '4px' }}>
-                {form27eqData?.totalCollectees ?? 0}
-              </div>
-            </div>
-            <div style={{ background: 'var(--bg-card)', padding: '14px 16px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Total Sales Value</span>
-              <div style={{ fontSize: '20px', fontWeight: 600, marginTop: '4px' }}>
-                <Money amount={form27eqData?.totalSalesValue ?? 0} />
-              </div>
-            </div>
-            <div style={{ background: 'var(--bg-card)', padding: '14px 16px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>TCS Collected</span>
-              <div style={{ fontSize: '20px', fontWeight: 600, color: 'var(--color-primary)', marginTop: '4px' }}>
-                <Money amount={form27eqData?.totalTcsCollected ?? 0} />
-              </div>
-            </div>
-            <div style={{ background: 'var(--bg-card)', padding: '14px 16px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>TCS Deposited</span>
-              <div style={{ fontSize: '20px', fontWeight: 600, color: 'var(--color-success)', marginTop: '4px' }}>
-                <Money amount={form27eqData?.totalTcsDeposited ?? 0} />
-              </div>
-            </div>
-          </div>
+          <ComplianceMetricGrid>
+            <ComplianceMetric label="Total collectees" value={form27eqData?.totalCollectees ?? 0} />
+            <ComplianceMetric label="Total sales value" value={<Money amount={form27eqData?.totalSalesValue ?? 0} />} />
+            <ComplianceMetric label="TCS collected" tone="brand" value={<Money amount={form27eqData?.totalTcsCollected ?? 0} />} />
+            <ComplianceMetric label="TCS deposited" tone="positive" value={<Money amount={form27eqData?.totalTcsDeposited ?? 0} />} />
+          </ComplianceMetricGrid>
 
           {/* Collectees Table */}
           {form27eqData?.collectees && form27eqData.collectees.length > 0 ? (
@@ -348,15 +293,15 @@ export function TcsCompliancePage() {
               <strong>No Form 27EQ collectee records for Q{quarter} FY {fy}-{fy + 1 - 2000}.</strong>
             </div>
           )}
-        </div>
+        </CompliancePanel>
       )}
 
       {activeTab === 'settings' && (
-        <section className="document-card" style={{ maxWidth: '600px', marginTop: '16px' }}>
-          <h2>TCS Section 206C(1H) Settings</h2>
-          <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
-            When enabled, sales invoices exceeding ₹50,000,000 cumulative turnover in the financial year will automatically apply 0.1% TCS on the excess consideration.
-          </p>
+        <FormCard
+          className="tax-compliance-settings"
+          description="When enabled, sales invoices exceeding ₹50,000,000 cumulative turnover in the financial year automatically apply 0.1% TCS on the excess consideration."
+          title="TCS Section 206C(1H) settings"
+        >
           <form
             onSubmit={(e) => {
               e.preventDefault()
@@ -367,37 +312,26 @@ export function TcsCompliancePage() {
               })
             }}
           >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                <input
-                  defaultChecked={settingsData?.enabled ?? true}
-                  name="enabled"
-                  type="checkbox"
-                />
-                <span style={{ fontSize: '14px', fontWeight: 600 }}>Enable TCS Collection under Section 206C(1H)</span>
-              </label>
+            <div className="tax-compliance-settings__body">
+              <CheckboxInput
+                defaultChecked={settingsData?.enabled ?? true}
+                description="Collect TCS automatically when the configured statutory threshold is crossed."
+                label="Enable TCS collection under Section 206C(1H)"
+                name="enabled"
+              />
 
-              <label>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Standard TCS Rate (with PAN):</span>
-                <input
-                  className="search-input"
-                  defaultValue={settingsData?.rate ?? 0.001}
-                  name="rate"
-                  step="0.0001"
-                  style={{ width: '100%', marginTop: '4px' }}
-                  type="number"
-                />
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Default is 0.001 (0.1%).</span>
-              </label>
+              <FormField hint="Default is 0.001 (0.1%)." label="Standard TCS rate with PAN">
+                <TextInput defaultValue={settingsData?.rate ?? 0.001} name="rate" step="0.0001" type="number" />
+              </FormField>
 
-              <div style={{ marginTop: '8px' }}>
+              <div className="table-actions">
                 <Button disabled={updateSettingsMutation.isPending} type="submit" variant="primary">
-                  Save Settings
+                  {updateSettingsMutation.isPending ? 'Saving...' : 'Save settings'}
                 </Button>
               </div>
             </div>
           </form>
-        </section>
+        </FormCard>
       )}
     </section>
   )

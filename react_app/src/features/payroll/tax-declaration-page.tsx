@@ -26,9 +26,10 @@ import {
   submitTaxDeclaration,
   listTaxDeclarations,
   verifyTaxDeclaration,
-  getForm12BbPdfUrl,
+  downloadForm12BbPdf,
   type EmployeeTaxDeclaration,
 } from '@/features/payroll/payroll-api'
+import { downloadBlob } from '@/shared/files/download-blob'
 
 function currentFiscalYear(): string {
   const now = new Date()
@@ -49,6 +50,8 @@ export function TaxDeclarationPage() {
   const [fy, setFy] = useState(currentFiscalYear())
   const [activeTab, setActiveTab] = useState<'my' | 'admin'>('my')
   const [saveBanner, setSaveBanner] = useState(false)
+  const [downloadError, setDownloadError] = useState<string | null>(null)
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
 
   const queryClient = useQueryClient()
 
@@ -91,6 +94,18 @@ export function TaxDeclarationPage() {
 
   const isSubmittedOrVerified = decl?.status === 'SUBMITTED' || decl?.status === 'VERIFIED'
 
+  async function downloadDeclaration(id: string) {
+    setDownloadError(null)
+    setDownloadingId(id)
+    try {
+      downloadBlob(await downloadForm12BbPdf(id), `form-12bb-${fy}.pdf`)
+    } catch (error) {
+      setDownloadError(error instanceof Error ? error.message : 'The Form 12BB PDF could not be downloaded.')
+    } finally {
+      setDownloadingId(null)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -112,6 +127,8 @@ export function TaxDeclarationPage() {
           </div>
         </div>
       </div>
+
+      {downloadError && <div className="feedback-alert feedback-alert--error" role="alert">{downloadError}</div>}
 
       <FilterTabs<'my' | 'admin'>
         items={[
@@ -144,9 +161,10 @@ export function TaxDeclarationPage() {
                     {decl.id && (
                       <Button
                         variant="secondary"
-                        onClick={() => window.open(getForm12BbPdfUrl(decl.id), '_blank')}
+                        disabled={Boolean(downloadingId)}
+                        onClick={() => void downloadDeclaration(decl.id)}
                       >
-                        <Download className="mr-2 h-4 w-4" /> Form 12BB PDF
+                        <Download className="mr-2 h-4 w-4" /> {downloadingId === decl.id ? 'Downloading...' : 'Form 12BB PDF'}
                       </Button>
                     )}
                     {!isSubmittedOrVerified && decl.id && (
@@ -435,7 +453,8 @@ export function TaxDeclarationPage() {
                       <div className="flex items-center justify-end space-x-2">
                         <Button
                           variant="ghost"
-                          onClick={() => window.open(getForm12BbPdfUrl(item.id), '_blank')}
+                          disabled={Boolean(downloadingId)}
+                          onClick={() => void downloadDeclaration(item.id)}
                           title="Download signed Form 12BB PDF"
                         >
                           <Download className="h-4 w-4" />

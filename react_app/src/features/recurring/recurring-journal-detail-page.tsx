@@ -9,11 +9,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Button } from '@/design-system/button'
-import { DataTable } from '@/design-system/data-table'
-import { Money } from '@/design-system/money'
-import { PageHeader } from '@/design-system/page-header'
-import { StatusChip } from '@/design-system/status-chip'
+import { Button, DataTable, Money, PageHeader, StatusChip } from '@/design-system'
 import {
   generateRecurringJournalNow,
   getRecurringJournal,
@@ -104,9 +100,9 @@ export function RecurringJournalDetailPage() {
 
   return (
     <section className="workspace-page">
-      <div style={{ marginBottom: 'var(--space-sm)' }}>
+      <div className="form-back-link">
         <Link className="table-row-action" to="/recurring-journals">
-          <ArrowLeft size={14} style={{ display: 'inline', marginRight: 4 }} />
+          <ArrowLeft size={14} />
           Back to all recurring journals
         </Link>
       </div>
@@ -129,13 +125,13 @@ export function RecurringJournalDetailPage() {
         title={profile.profileName}
         description={`Frequency: ${profile.frequency} • Next run: ${profile.nextRunDate || 'None'}`}
         actions={
-          <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+          <div className="table-actions">
             <Button
               disabled={generateNowMutation.isPending}
               onClick={() => generateNowMutation.mutate()}
               variant="secondary"
             >
-              <Zap size={14} style={{ marginRight: 6 }} />
+              <Zap size={14} />
               Post Entry Now
             </Button>
             {profile.status === 'ACTIVE' ? (
@@ -144,7 +140,7 @@ export function RecurringJournalDetailPage() {
                 onClick={() => stopMutation.mutate()}
                 variant="destructive"
               >
-                <Pause size={14} style={{ marginRight: 6 }} />
+                <Pause size={14} />
                 Pause Schedule
               </Button>
             ) : (
@@ -153,7 +149,7 @@ export function RecurringJournalDetailPage() {
                 onClick={() => resumeMutation.mutate()}
                 variant="primary"
               >
-                <Play size={14} style={{ marginRight: 6 }} />
+                <Play size={14} />
                 Resume Schedule
               </Button>
             )}
@@ -165,7 +161,7 @@ export function RecurringJournalDetailPage() {
       <div className="summary-strip">
         <div className="summary-card">
           <span className="summary-card__label">Next Run Date</span>
-          <strong className="summary-card__value" style={{ fontSize: '1.1rem' }}>
+          <strong className="summary-card__value summary-card__value--compact">
             {profile.nextRunDate || 'None'}
           </strong>
           <span className="summary-card__hint">Start: {profile.startDate}</span>
@@ -173,7 +169,7 @@ export function RecurringJournalDetailPage() {
 
         <div className="summary-card">
           <span className="summary-card__label">Cycle Frequency</span>
-          <strong className="summary-card__value" style={{ fontSize: '1.1rem' }}>
+          <strong className="summary-card__value summary-card__value--compact">
             {profile.frequency}
           </strong>
           <span className="summary-card__hint">Periodic GL posting</span>
@@ -181,7 +177,7 @@ export function RecurringJournalDetailPage() {
 
         <div className="summary-card">
           <span className="summary-card__label">Status</span>
-          <div style={{ marginTop: 4 }}>
+          <div>
             <StatusChip status={profile.status} />
           </div>
           <span className="summary-card__hint">{profile.totalGenerated} journals minted</span>
@@ -189,7 +185,7 @@ export function RecurringJournalDetailPage() {
 
         <div className="summary-card summary-card--accent">
           <span className="summary-card__label">Posting Mode</span>
-          <strong className="summary-card__value" style={{ fontSize: '1.1rem' }}>
+          <strong className="summary-card__value summary-card__value--compact">
             {profile.autoPost ? 'Auto-Post GL' : 'Draft Entry'}
           </strong>
           <span className="summary-card__hint">Narration: {profile.narration}</span>
@@ -197,8 +193,8 @@ export function RecurringJournalDetailPage() {
       </div>
 
       {/* Line Items */}
-      <div className="panel-card" style={{ padding: 'var(--space-md)', marginBottom: 'var(--space-md)' }}>
-        <h3 style={{ fontSize: '1.05rem', margin: '0 0 var(--space-sm) 0' }}>Journal Debits & Credits Template</h3>
+      <div className="panel-card panel-card--spaced">
+        <h3 className="panel-card__title">Journal debits and credits template</h3>
         <DataTable caption="Journal template lines">
           <thead>
             <tr>
@@ -216,10 +212,10 @@ export function RecurringJournalDetailPage() {
                 </td>
                 <td>{l.narration || profile.narration}</td>
                 <td className="numeric-cell">
-                  {l.debitAmount ? <Money amount={l.debitAmount} /> : <span className="cell-muted">â€”</span>}
+                  {l.debitAmount ? <Money amount={l.debitAmount} /> : <span className="cell-muted">--</span>}
                 </td>
                 <td className="numeric-cell">
-                  {l.creditAmount ? <Money amount={l.creditAmount} /> : <span className="cell-muted">â€”</span>}
+                  {l.creditAmount ? <Money amount={l.creditAmount} /> : <span className="cell-muted">--</span>}
                 </td>
               </tr>
             ))}
@@ -228,8 +224,8 @@ export function RecurringJournalDetailPage() {
       </div>
 
       {/* History */}
-      <div className="panel-card" style={{ padding: 'var(--space-md)' }}>
-        <h3 style={{ fontSize: '1.05rem', margin: '0 0 var(--space-sm) 0' }}>Posted Journal Entries Log</h3>
+      <div className="panel-card">
+        <h3 className="panel-card__title">Posted journal entries log</h3>
         {history.length === 0 ? (
           <div className="directory-state" style={{ padding: 'var(--space-md)' }}>
             <Clock size={20} />

@@ -17,6 +17,7 @@ import { DataTable } from '@/design-system/data-table'
 import { PageHeader } from '@/design-system/page-header'
 import { StatusChip } from '@/design-system/status-chip'
 import { formatDate } from '@/shared/format/format'
+import { WorkspaceBoundary } from '@/shared/workflows/workspace-boundary'
 import {
   listOrgUsers,
   listPendingInvites,
@@ -29,6 +30,10 @@ import {
 type TabKey = 'users' | 'invites'
 
 export function UsersPage() {
+  return <WorkspaceBoundary roles={['OWNER', 'ADMIN']}><UsersWorkspace /></WorkspaceBoundary>
+}
+
+function UsersWorkspace() {
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<TabKey>('users')
   const [feedback, setFeedback] = useState<string | null>(null)

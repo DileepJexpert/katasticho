@@ -43,6 +43,7 @@ import {
   type PosSearchResult,
   type SalesReceipt,
 } from '@/features/pos/pos-api'
+import { formatPosProductMetadata } from '@/features/pos/pos-product-metadata'
 
 type CartItem = {
   id: string
@@ -368,7 +369,7 @@ export function PosCheckoutPage() {
                 <button className="pos-product-result" key={product.id} onClick={() => addToCart(product)} type="button">
                   <span className="pos-product-result__copy">
                     <strong>{product.name}</strong>
-                    <span>{[product.sku, product.rackLocationCode && `Rack ${product.rackLocationCode}`, product.batchNumber && `Batch ${product.batchNumber}`].filter(Boolean).join(' / ')}</span>
+                    <span>{formatPosProductMetadata(product)}</span>
                   </span>
                   <span className="pos-product-result__pricing">
                     <strong><Money amount={product.rate} /></strong>
@@ -414,7 +415,7 @@ export function PosCheckoutPage() {
                   <article className="pos-cart-row" key={item.id} role="listitem">
                     <div className="pos-cart-row__copy">
                       <strong>{item.name}</strong>
-                      <span>{[item.sku, item.rackLocationCode && `Rack ${item.rackLocationCode}`, item.batchNumber && `Batch ${item.batchNumber}`].filter(Boolean).join(' / ')}</span>
+                      <span>{formatPosProductMetadata(item)}</span>
                       {item.trackBatches && <BatchAllocationPicker itemId={item.itemId} value={item.batchId} quantity={item.quantity} automatic disabled={saleCheckoutMutation.isPending} onChange={(batchId, batch) => setCart((current) => current.map((line) => line.id === item.id ? { ...line, batchId: batchId ?? null, batchNumber: batch?.batchNumber ?? null } : line))} />}
                     </div>
                     <div className="pos-cart-row__unit-price"><span>Rate</span><Money amount={item.rate} /></div>

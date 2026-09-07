@@ -11,7 +11,7 @@ vi.mock('@/features/payroll/payroll-api', () => ({
   submitTaxDeclaration: vi.fn(),
   listTaxDeclarations: vi.fn(),
   verifyTaxDeclaration: vi.fn(),
-  getForm12BbPdfUrl: vi.fn((id: string) => `/api/v1/payroll/tax-declarations/${id}/pdf`),
+  downloadForm12BbPdf: vi.fn(),
 }))
 
 describe('TaxDeclarationPage', () => {
