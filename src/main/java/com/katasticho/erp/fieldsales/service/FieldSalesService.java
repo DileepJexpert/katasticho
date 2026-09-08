@@ -2004,6 +2004,7 @@ public class FieldSalesService {
 
         dayClose.setCashVariance(variance);
         dayClose.setStatus("SUBMITTED");
+        dayClose.setRejectionReason(null);
 
         dayClose = dayCloseRepository.save(dayClose);
 

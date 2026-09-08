@@ -932,4 +932,69 @@ class FieldSalesServiceTest {
         verify(assignmentRepo).save(existing);
         verify(assignmentRepo, never()).delete(any());
     }
+
+    @Test
+    void submitDayClose_fromPending_succeeds() {
+        UUID dayCloseId = UUID.randomUUID();
+        DayClose dc = DayClose.builder()
+                .salespersonId(userId)
+                .status("PENDING")
+                .openingCash(new BigDecimal("100.00"))
+                .cashCollections(new BigDecimal("500.00"))
+                .cashExpenses(new BigDecimal("50.00"))
+                .build();
+        dc.setId(dayCloseId);
+        dc.setOrgId(orgId);
+
+        when(dayCloseRepo.findByIdAndOrgIdAndIsDeletedFalse(dayCloseId, orgId)).thenReturn(Optional.of(dc));
+        when(dayCloseRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        DayClose result = service.submitDayClose(dayCloseId, new BigDecimal("200.00"), new BigDecimal("350.00"), "Reconciled");
+        assertNotNull(result);
+        assertEquals("SUBMITTED", result.getStatus());
+        assertNull(result.getRejectionReason());
+        assertEquals(new BigDecimal("0.00"), result.getCashVariance());
+        verify(dayCloseRepo).save(dc);
+    }
+
+    @Test
+    void submitDayClose_fromRejected_clearsRejectionReason() {
+        UUID dayCloseId = UUID.randomUUID();
+        DayClose dc = DayClose.builder()
+                .salespersonId(userId)
+                .status("REJECTED")
+                .rejectionReason("Variance too high, please recount")
+                .openingCash(new BigDecimal("100.00"))
+                .cashCollections(new BigDecimal("500.00"))
+                .cashExpenses(BigDecimal.ZERO)
+                .build();
+        dc.setId(dayCloseId);
+        dc.setOrgId(orgId);
+
+        when(dayCloseRepo.findByIdAndOrgIdAndIsDeletedFalse(dayCloseId, orgId)).thenReturn(Optional.of(dc));
+        when(dayCloseRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        DayClose result = service.submitDayClose(dayCloseId, new BigDecimal("100.00"), new BigDecimal("500.00"), "Recounted cash");
+        assertNotNull(result);
+        assertEquals("SUBMITTED", result.getStatus());
+        assertNull(result.getRejectionReason(), "Rejection reason must be cleared upon resubmission");
+        verify(dayCloseRepo).save(dc);
+    }
+
+    @Test
+    void submitDayClose_notPendingOrRejected_throwsException() {
+        UUID dayCloseId = UUID.randomUUID();
+        DayClose dc = DayClose.builder()
+                .salespersonId(userId)
+                .status("APPROVED")
+                .build();
+        dc.setId(dayCloseId);
+        dc.setOrgId(orgId);
+
+        when(dayCloseRepo.findByIdAndOrgIdAndIsDeletedFalse(dayCloseId, orgId)).thenReturn(Optional.of(dc));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> service.submitDayClose(dayCloseId, BigDecimal.ZERO, BigDecimal.ZERO, null));
+        assertEquals("FS_DAY_CLOSE_NOT_PENDING", ex.getErrorCode());
+    }
 }

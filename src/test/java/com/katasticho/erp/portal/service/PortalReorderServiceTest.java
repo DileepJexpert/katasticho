@@ -14,6 +14,9 @@ import com.katasticho.erp.portal.repository.PortalUserRepository;
 import com.katasticho.erp.pricing.dto.SchemeResponse;
 import com.katasticho.erp.pricing.service.PriceListService;
 import com.katasticho.erp.pricing.service.SchemeService;
+import com.katasticho.erp.common.exception.BusinessException;
+import com.katasticho.erp.procurement.entity.PurchaseOrder;
+import com.katasticho.erp.procurement.entity.Supplier;
 import com.katasticho.erp.procurement.repository.PurchaseOrderRepository;
 import com.katasticho.erp.sales.dto.CreateSalesOrderRequest;
 import com.katasticho.erp.sales.dto.SalesOrderResponse;
@@ -40,7 +43,7 @@ import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -212,5 +215,104 @@ class PortalReorderServiceTest {
         assertEquals("SO-2026-0050", list.get(0).get("number"));
         assertEquals(new BigDecimal("525.00"), list.get(0).get("total"));
         assertEquals("CONFIRMED", list.get(0).get("status"));
+    }
+
+    @Test
+    void purchaseOrders_resolvesSupplierFromContactAndReturnsPOs() {
+        UUID vendorUserId = UUID.randomUUID();
+        UUID vendorContactId = UUID.randomUUID();
+        UUID supplierId = UUID.randomUUID();
+        TenantContext.setCurrentUserId(vendorUserId);
+
+        PortalUser vendorUser = PortalUser.builder()
+                .orgId(orgId)
+                .contactId(vendorContactId)
+                .kind("VENDOR")
+                .status("ACTIVE")
+                .email("vendor@supply.test")
+                .fullName("Pharma Supply Co")
+                .build();
+        vendorUser.setId(vendorUserId);
+
+        when(portalUserRepository.findByIdAndIsDeletedFalse(vendorUserId)).thenReturn(Optional.of(vendorUser));
+
+        Supplier mockSupplier = Supplier.builder()
+                .contactId(vendorContactId)
+                .name("Pharma Supply Co")
+                .build();
+        mockSupplier.setId(supplierId);
+        mockSupplier.setOrgId(orgId);
+
+        when(supplierRepository.findFirstByOrgIdAndContactIdAndIsDeletedFalse(orgId, vendorContactId))
+                .thenReturn(Optional.of(mockSupplier));
+
+        PurchaseOrder po = PurchaseOrder.builder()
+                .poNumber("PO-2026-0010")
+                .supplierId(supplierId)
+                .orderDate(LocalDate.now())
+                .status("CONFIRMED")
+                .totalAmount(new BigDecimal("15000.00"))
+                .build();
+        po.setId(UUID.randomUUID());
+
+        when(purchaseOrderRepository.findByOrgIdAndSupplierIdInAndIsDeletedFalseOrderByCreatedAtDesc(
+                eq(orgId), argThat(ids -> ids != null && ids.contains(vendorContactId) && ids.contains(supplierId))))
+                .thenReturn(List.of(po));
+
+        List<Map<String, Object>> result = service.purchaseOrders();
+
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        assertEquals("PO-2026-0010", result.get(0).get("number"));
+        assertEquals(new BigDecimal("15000.00"), result.get(0).get("total"));
+        assertEquals("CONFIRMED", result.get(0).get("status"));
+        verify(supplierRepository).findFirstByOrgIdAndContactIdAndIsDeletedFalse(orgId, vendorContactId);
+    }
+
+    @Test
+    void purchaseOrders_fallsBackToContactIdWhenNoSupplierRecord() {
+        UUID vendorUserId = UUID.randomUUID();
+        UUID vendorContactId = UUID.randomUUID();
+        TenantContext.setCurrentUserId(vendorUserId);
+
+        PortalUser vendorUser = PortalUser.builder()
+                .orgId(orgId)
+                .contactId(vendorContactId)
+                .kind("VENDOR")
+                .status("ACTIVE")
+                .email("vendor2@supply.test")
+                .fullName("Direct Vendor")
+                .build();
+        vendorUser.setId(vendorUserId);
+
+        when(portalUserRepository.findByIdAndIsDeletedFalse(vendorUserId)).thenReturn(Optional.of(vendorUser));
+        when(supplierRepository.findFirstByOrgIdAndContactIdAndIsDeletedFalse(orgId, vendorContactId))
+                .thenReturn(Optional.empty());
+
+        PurchaseOrder po = PurchaseOrder.builder()
+                .poNumber("PO-2026-0011")
+                .supplierId(vendorContactId)
+                .orderDate(LocalDate.now())
+                .status("PENDING")
+                .totalAmount(new BigDecimal("8000.00"))
+                .build();
+        po.setId(UUID.randomUUID());
+
+        when(purchaseOrderRepository.findByOrgIdAndSupplierIdInAndIsDeletedFalseOrderByCreatedAtDesc(
+                eq(orgId), argThat(ids -> ids != null && ids.contains(vendorContactId))))
+                .thenReturn(List.of(po));
+
+        List<Map<String, Object>> result = service.purchaseOrders();
+
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        assertEquals("PO-2026-0011", result.get(0).get("number"));
+        assertEquals(new BigDecimal("8000.00"), result.get(0).get("total"));
+    }
+
+    @Test
+    void purchaseOrders_forbiddenForCustomerPortalUser() {
+        BusinessException ex = assertThrows(BusinessException.class, () -> service.purchaseOrders());
+        assertEquals("PORTAL_WRONG_KIND", ex.getErrorCode());
     }
 }
