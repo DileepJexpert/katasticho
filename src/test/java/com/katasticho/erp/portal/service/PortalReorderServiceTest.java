@@ -315,4 +315,57 @@ class PortalReorderServiceTest {
         BusinessException ex = assertThrows(BusinessException.class, () -> service.purchaseOrders());
         assertEquals("PORTAL_WRONG_KIND", ex.getErrorCode());
     }
+
+    @Test
+    void dashboard_vendor_returnsPurchaseOrdersAndPayable() {
+        UUID vendorUserId = UUID.randomUUID();
+        UUID vendorContactId = UUID.randomUUID();
+        UUID supplierId = UUID.randomUUID();
+        TenantContext.setCurrentUserId(vendorUserId);
+
+        PortalUser vendorUser = PortalUser.builder()
+                .orgId(orgId)
+                .contactId(vendorContactId)
+                .kind("VENDOR")
+                .status("ACTIVE")
+                .email("vendor3@supply.test")
+                .fullName("Pharma Distributor Co")
+                .build();
+        vendorUser.setId(vendorUserId);
+
+        when(portalUserRepository.findByIdAndIsDeletedFalse(vendorUserId)).thenReturn(Optional.of(vendorUser));
+
+        Supplier mockSupplier = Supplier.builder()
+                .contactId(vendorContactId)
+                .name("Pharma Distributor Co")
+                .build();
+        mockSupplier.setId(supplierId);
+        mockSupplier.setOrgId(orgId);
+
+        when(supplierRepository.findFirstByOrgIdAndContactIdAndIsDeletedFalse(orgId, vendorContactId))
+                .thenReturn(Optional.of(mockSupplier));
+
+        PurchaseOrder po = PurchaseOrder.builder()
+                .poNumber("PO-2026-0099")
+                .supplierId(supplierId)
+                .orderDate(LocalDate.now())
+                .status("CONFIRMED")
+                .totalAmount(new BigDecimal("25000.00"))
+                .build();
+        po.setId(UUID.randomUUID());
+
+        when(purchaseOrderRepository.findByOrgIdAndSupplierIdInAndIsDeletedFalseOrderByCreatedAtDesc(
+                eq(orgId), argThat(ids -> ids != null && ids.contains(vendorContactId) && ids.contains(supplierId))))
+                .thenReturn(List.of(po));
+
+        when(purchaseBillRepository.findByOrgIdAndContactIdAndIsDeletedFalseOrderByBillDateDesc(
+                eq(orgId), eq(vendorContactId), any(PageRequest.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        Map<String, Object> dash = service.dashboard();
+        assertNotNull(dash);
+        assertEquals("VENDOR", dash.get("kind"));
+        assertEquals(1L, dash.get("openPurchaseOrderCount"));
+        assertNotNull(dash.get("recentPurchaseOrders"));
+    }
 }
