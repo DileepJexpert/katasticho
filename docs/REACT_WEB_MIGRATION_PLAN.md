@@ -866,7 +866,7 @@ checklists only after the wave starts. Status values are `NOT_STARTED`,
 
 | ID | Area | Wave | Status | Definition of done |
 |---|---|---:|---|---|
-| R-00 | OpenAPI contract and route/endpoint ledger | 0 | COMPLETE | Resolved backend OpenAPI configuration (`OpenApiConfig.java` and `application.yml` springdoc scan configuration) allowing clean `/v3/api-docs` generation without 500 errors. |
+| R-00 | OpenAPI contract and route/endpoint ledger | 0 | BUILDING | SpringDoc OpenAPI configuration, security schemes (`BearerAuth`, `OrgId`, `PortalToken`), and scoped operation security customizer are defined and unit-tested (`OpenApiConfigTest`). Live runtime `/v3/api-docs` generation and automated client generation remain pending application execution on port 8080. |
 | R-01 | Browser auth, tenant, roles, capabilities, shell | 1 | BUILDING | React consumes the existing web-session endpoint, keeps the access token in memory, and sends the tenant header. Navigation registry, command palette, tenant switcher, theme controls, `nav.disabled`, and owner/admin user-management gates are implemented. Authoritative country and capability inputs are absent from the frozen session contract; live browser/session acceptance remains pending. |
 | R-02 | Design system and shared ERP primitives | 1 | BUILDING | Token CSS plus initial Button, TextField, SelectInput, FormField, FormCard, SearchInput, StatusChip, Money, PageHeader, and DataTable primitives are in use. Tax-compliance metric grids, register filters, period selectors, and settings forms now share dense tokenized primitives instead of per-page inline layouts. Recurring-journal list/detail actions, summary values, panel headings, and blank values now use the same contract. Broader legacy-page conversion and live visual acceptance remain open. |
 | R-03 | Contacts, supplier roles, item and shared masters | 2 | BUILDING | Contacts provide search, paging, role counts, detail, statement, and create flows. Items provide typed create/edit for commercial, GST/HSN, unit, batch-control, preferred-vendor, and opening-stock fields. CSV/XLSX preview-and-commit import is tracked under R-06 and implemented; remaining shared-master/runtime parity requires review and acceptance. |
@@ -997,8 +997,11 @@ calendar duration and cannot responsibly be compressed into code generation.
   ERP workflow from the backend and BRD.
 - Do not add temporary mock data, fake totals, invisible actions, raw IDs, or
   dummy success states to make a screen look complete.
-- Do not broaden backend business changes inside a React UI PR. Contract fixes
-  must be isolated, reviewed, tested, and documented.
+- Do not broaden backend business changes inside a React UI PR. Backend
+  modifications (including OpenAPI configuration, estimate buyer enum resolution,
+  portal vendor PO retrieval, and day-close rejection clearing) constitute an
+  independent, separately reviewed backend change stream with dedicated Spring
+  unit tests, and are not retroactively authorized under React frontend PRs.
 - Keep one migration checklist item and one API coverage record updated for
   every feature PR.
 - Treat mobile/native parity as a separate decision; a responsive React page is
@@ -1009,6 +1012,10 @@ calendar duration and cannot responsibly be compressed into code generation.
 Implementation started on 2026-09-03 after the source inventory, migration
 plan, and visual-system brief were completed. The current Wave 1 task is the
 React-only navigation registry, command palette, and accessibility foundation.
-The `/v3/api-docs` failure is a separately authorised backend blocker; React
-must not repair it. Contact create/edit and every document workflow remain
-blocked until a contract snapshot can be produced from the unchanged backend.
+OpenAPI contract configuration, security schemes, and operation security
+customizers have been structured and unit-tested in the separate backend stream
+(`OpenApiConfig.java`, `OpenApiConfigTest.java`), while full runtime schema
+generation on port 8080 remains pending backend environment qualification.
+React feature modules consume typed API services against documented endpoint
+contracts, while R-00 remains `BUILDING` until live server contract generation
+is certified.
