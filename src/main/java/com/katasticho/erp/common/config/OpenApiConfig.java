@@ -35,11 +35,11 @@ public class OpenApiConfig {
                                 .scheme("bearer")
                                 .bearerFormat("JWT")
                                 .description("Enter JWT Bearer token"))
-                        .addSecuritySchemes("OrgId", new SecurityScheme()
-                                .name("X-Org-Id")
+                        .addSecuritySchemes("ApiKeyAuth", new SecurityScheme()
+                                .name("X-API-Key")
                                 .type(SecurityScheme.Type.APIKEY)
                                 .in(SecurityScheme.In.HEADER)
-                                .description("Organization UUID tenant header"))
+                                .description("Organization API key header (X-API-Key)"))
                         .addSecuritySchemes("PortalToken", new SecurityScheme()
                                 .name("Authorization")
                                 .type(SecurityScheme.Type.HTTP)
@@ -68,9 +68,8 @@ public class OpenApiConfig {
             } else if (isPlatformAdminEndpoint(path)) {
                 operation.addSecurityItem(new SecurityRequirement().addList("BearerAuth"));
             } else {
-                operation.addSecurityItem(new SecurityRequirement()
-                        .addList("BearerAuth")
-                        .addList("OrgId"));
+                operation.addSecurityItem(new SecurityRequirement().addList("BearerAuth"));
+                operation.addSecurityItem(new SecurityRequirement().addList("ApiKeyAuth"));
             }
             return operation;
         };
@@ -81,8 +80,12 @@ public class OpenApiConfig {
             return "";
         }
         Class<?> beanType = handlerMethod.getBeanType();
-        if (beanType.equals(Class.class) && handlerMethod.getBean() instanceof Class<?> clazz) {
-            beanType = clazz;
+        if (beanType == null || beanType.equals(Class.class) || beanType.equals(Object.class)) {
+            if (handlerMethod.getBean() instanceof Class<?> clazz) {
+                beanType = clazz;
+            } else if (handlerMethod.getMethod() != null) {
+                beanType = handlerMethod.getMethod().getDeclaringClass();
+            }
         }
 
         String classPath = "";
@@ -125,7 +128,7 @@ public class OpenApiConfig {
     }
 
     private boolean isPublicEndpoint(String path, HandlerMethod handlerMethod) {
-        if (path.startsWith("/api/v1/auth")) {
+        if (path.equals("/api/v1/auth") || path.startsWith("/api/v1/auth/")) {
             if (path.equals("/api/v1/auth/me")
                     || path.equals("/api/v1/auth/change-password")
                     || (path.startsWith("/api/v1/auth/invite") && !path.equals("/api/v1/auth/invite/accept"))) {
@@ -136,28 +139,28 @@ public class OpenApiConfig {
             }
             return true;
         }
-        if (path.startsWith("/api/v1/portal/auth")) {
+        if (path.equals("/api/v1/portal/auth") || path.startsWith("/api/v1/portal/auth/")) {
             return true;
         }
-        if (path.startsWith("/api/v1/courier/webhooks")
-                || path.startsWith("/api/v1/webhooks/razorpay")
-                || path.startsWith("/api/v1/whatsapp/webhook")
-                || path.startsWith("/api/v1/biometric/adms")
+        if (path.equals("/api/v1/courier/webhooks") || path.startsWith("/api/v1/courier/webhooks/")
+                || path.equals("/api/v1/webhooks/razorpay") || path.startsWith("/api/v1/webhooks/razorpay/")
+                || path.equals("/api/v1/whatsapp/webhook") || path.startsWith("/api/v1/whatsapp/webhook/")
+                || path.equals("/api/v1/biometric/adms") || path.startsWith("/api/v1/biometric/adms/")
                 || path.equals("/api/v1/health")
-                || path.startsWith("/actuator")
+                || path.equals("/actuator") || path.startsWith("/actuator/")
                 || path.equals("/api/platform-admin/v1/auth/login")
-                || path.startsWith("/v3/api-docs")
-                || path.startsWith("/swagger-ui")) {
+                || path.equals("/v3/api-docs") || path.startsWith("/v3/api-docs/")
+                || path.equals("/swagger-ui") || path.startsWith("/swagger-ui/")) {
             return true;
         }
         return false;
     }
 
     private boolean isPortalEndpoint(String path) {
-        return path.startsWith("/api/v1/portal");
+        return path.equals("/api/v1/portal") || path.startsWith("/api/v1/portal/");
     }
 
     private boolean isPlatformAdminEndpoint(String path) {
-        return path.startsWith("/api/platform-admin");
+        return path.equals("/api/platform-admin") || path.startsWith("/api/platform-admin/");
     }
 }
