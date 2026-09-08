@@ -21,6 +21,11 @@ export function PortalDocuments({ api, vendor }: { api: PortalApi; vendor: boole
   return <><p>The server returns up to 100 recent documents. Search applies to that returned list.</p><QueryFeedback query={query}><LocalDirectory<PortalDocument> rows={query.data ?? []} caption={title} searchText={(row) => `${row.number} ${row.status} ${row.vendorBillNumber ?? ''}`} header={<tr><th>Document</th><th>Date</th><th>Due date</th><th>Status</th><th className="numeric-cell">Total</th><th className="numeric-cell">Balance due</th></tr>} renderRow={(row) => <tr key={row.id}><td className="table-code">{row.number}</td><td>{row.date}</td><td>{row.dueDate ?? '--'}</td><td><StatusChip status={row.status} /></td><td className="numeric-cell"><Money amount={row.total} /></td><td className="numeric-cell"><Money amount={row.balanceDue ?? 0} /></td></tr>} /></QueryFeedback></>
 }
 
+export function PortalPurchaseOrders({ api }: { api: PortalApi }) {
+  const query = useQuery({ queryKey: ['portal-purchase-orders'], queryFn: api.purchaseOrders })
+  return <><p>The server returns up to 100 recent purchase orders issued to your business.</p><QueryFeedback query={query}><LocalDirectory<PortalDocument> rows={query.data ?? []} caption="Your purchase orders" searchText={(row) => `${row.number} ${row.status}`} header={<tr><th>PO Number</th><th>Date</th><th>Status</th><th className="numeric-cell">Total</th></tr>} renderRow={(row) => <tr key={row.id}><td className="table-code">{row.number}</td><td>{row.date}</td><td><StatusChip status={row.status} /></td><td className="numeric-cell"><Money amount={row.total} /></td></tr>} /></QueryFeedback></>
+}
+
 export function PortalOrders({ api }: { api: PortalApi }) {
   const query = useQuery({ queryKey: ['orders'], queryFn: api.orders })
   const [selected, setSelected] = useState<string | null>(null)

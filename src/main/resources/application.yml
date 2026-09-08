@@ -72,6 +72,17 @@ management:
     health:
       show-details: when-authorized
 
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+  show-actuator: false
+  packages-to-scan: com.katasticho.erp
+  paths-to-match: /api/**
+
 # Application configuration
 # Attachment file bodies. 'local' writes under storage-path (single-instance
 # only); switch to 's3' (AWS or MinIO) BEFORE running a second app replica —

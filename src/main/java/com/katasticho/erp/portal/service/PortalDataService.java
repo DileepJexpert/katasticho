@@ -14,6 +14,7 @@ import com.katasticho.erp.portal.entity.PortalUser;
 import com.katasticho.erp.portal.repository.PortalUserRepository;
 import com.katasticho.erp.procurement.entity.PurchaseOrder;
 import com.katasticho.erp.procurement.repository.PurchaseOrderRepository;
+import com.katasticho.erp.procurement.repository.SupplierRepository;
 import com.katasticho.erp.inventory.entity.Item;
 import com.katasticho.erp.inventory.entity.StockBalance;
 import com.katasticho.erp.inventory.repository.ItemRepository;
@@ -62,6 +63,7 @@ public class PortalDataService {
     private final SchemeService schemeService;
     private final SalesOrderRepository salesOrderRepository;
     private final SalesOrderService salesOrderService;
+    private final SupplierRepository supplierRepository;
 
     @Transactional(readOnly = true)
     public Map<String, Object> me() {
@@ -126,8 +128,13 @@ public class PortalDataService {
     @Transactional(readOnly = true)
     public List<Map<String, Object>> purchaseOrders() {
         PortalUser pu = vendorOnly();
+        Set<UUID> supplierIds = new LinkedHashSet<>();
+        supplierIds.add(pu.getContactId());
+        supplierRepository.findFirstByOrgIdAndContactIdAndIsDeletedFalse(pu.getOrgId(), pu.getContactId())
+                .ifPresent(s -> supplierIds.add(s.getId()));
+
         return purchaseOrderRepository
-                .findByOrgIdAndSupplierIdAndIsDeletedFalseOrderByCreatedAtDesc(pu.getOrgId(), pu.getContactId())
+                .findByOrgIdAndSupplierIdInAndIsDeletedFalseOrderByCreatedAtDesc(pu.getOrgId(), supplierIds)
                 .stream().map(this::poRow).toList();
     }
 
@@ -140,8 +147,13 @@ public class PortalDataService {
     }
 
     private Map<String, Object> vendorDashboard(PortalUser pu) {
+        Set<UUID> supplierIds = new LinkedHashSet<>();
+        supplierIds.add(pu.getContactId());
+        supplierRepository.findFirstByOrgIdAndContactIdAndIsDeletedFalse(pu.getOrgId(), pu.getContactId())
+                .ifPresent(s -> supplierIds.add(s.getId()));
+
         List<PurchaseOrder> pos = purchaseOrderRepository
-                .findByOrgIdAndSupplierIdAndIsDeletedFalseOrderByCreatedAtDesc(pu.getOrgId(), pu.getContactId());
+                .findByOrgIdAndSupplierIdInAndIsDeletedFalseOrderByCreatedAtDesc(pu.getOrgId(), supplierIds);
         List<PurchaseBill> billList = purchaseBillRepository
                 .findByOrgIdAndContactIdAndIsDeletedFalseOrderByBillDateDesc(
                         pu.getOrgId(), pu.getContactId(), PageRequest.of(0, 500))

@@ -309,14 +309,7 @@ public class EstimateService {
                     "EST_EMPTY", HttpStatus.BAD_REQUEST);
         }
 
-        Contact contact = contactRepository.findByIdAndOrgIdAndIsDeletedFalse(estimate.getContactId(), orgId)
-                .orElseThrow(() -> BusinessException.notFound("Contact", estimate.getContactId()));
-
-        if (!List.of("CUSTOMER", "BOTH").contains(contact.getContactType())) {
-            throw new BusinessException(
-                    "Estimate contact is not a customer",
-                    "EST_CONTACT_NOT_CUSTOMER", HttpStatus.BAD_REQUEST);
-        }
+        Contact contact = requireBuyerContact(orgId, estimate.getContactId());
 
         String revenueCode = defaultAccountService.getCode(orgId, DefaultAccountPurpose.SALES_REVENUE);
         List<InvoiceLineRequest> invoiceLines = estimate.getLines().stream()

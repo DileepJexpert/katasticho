@@ -813,7 +813,7 @@ public class InventoryService {
     private boolean isBatchOptionalMovement(MovementType type) {
         return switch (type) {
             case SALE, PRODUCTION_ISSUE, PRODUCTION_RECEIVE, PRODUCTION_SCRAP,
-                 JOB_WORK_OUT, JOB_WORK_IN, ADJUSTMENT -> true;
+                 JOB_WORK_OUT, JOB_WORK_IN, ADJUSTMENT, STOCK_COUNT -> true;
             default -> false;
         };
     }

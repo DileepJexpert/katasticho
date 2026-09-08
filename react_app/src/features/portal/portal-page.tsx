@@ -5,7 +5,7 @@ import { Button, FilterTabs, FormCard, FormGrid, PageHeader } from '@/design-sys
 import { TextField } from '@/design-system/text-field'
 import { createPortalApi, type PortalApi, type PortalSession } from './portal-api'
 import { usePortalSession } from './portal-session'
-import { PortalDocuments, PortalLedger, PortalOrders, PortalOverview } from './portal-documents'
+import { PortalDocuments, PortalLedger, PortalOrders, PortalOverview, PortalPurchaseOrders } from './portal-documents'
 import { PortalCatalogPage } from './portal-catalog'
 
 export function PortalPage() {
@@ -26,7 +26,7 @@ function PortalHome({ api, session }: { api: PortalApi; session: PortalSession }
   return <main className="workspace-page"><PageHeader eyebrow={`${vendor ? 'Vendor' : 'Customer'} portal`} title={session.portalUser.fullName || session.portalUser.email} description="Your documents and account activity, shared securely by your business partner." actions={<Button variant="secondary" onClick={() => usePortalSession.getState().signOut('You have signed out of the portal.')}>Sign out</Button>} /><FilterTabs items={tabs} activeValue={tab} onChange={setTab} ariaLabel="Portal sections" />
     {tab === 'overview' && <PortalOverview api={api} vendor={vendor} />}
     {(tab === 'invoices' || tab === 'bills') && <PortalDocuments api={api} vendor={vendor} />}
-    {tab === 'purchase-orders' && <FormCard title="Purchase orders temporarily unavailable"><p>The existing portal service cannot reliably match vendor purchase orders to this account. Contact your business partner for purchase-order copies. No ERP administrator access is used as a workaround.</p></FormCard>}
+    {tab === 'purchase-orders' && <PortalPurchaseOrders api={api} />}
     {!vendor && tab === 'catalog' && <PortalCatalogPage api={api} />}
     {!vendor && tab === 'orders' && <PortalOrders api={api} />}
     {!vendor && tab === 'statement' && <PortalLedger api={api} />}

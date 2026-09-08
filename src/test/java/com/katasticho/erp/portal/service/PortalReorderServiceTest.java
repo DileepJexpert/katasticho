@@ -17,6 +17,7 @@ import com.katasticho.erp.pricing.service.SchemeService;
 import com.katasticho.erp.procurement.repository.PurchaseOrderRepository;
 import com.katasticho.erp.sales.dto.CreateSalesOrderRequest;
 import com.katasticho.erp.sales.dto.SalesOrderResponse;
+import com.katasticho.erp.procurement.repository.SupplierRepository;
 import com.katasticho.erp.sales.entity.SalesOrder;
 import com.katasticho.erp.sales.entity.SalesOrderLine;
 import com.katasticho.erp.sales.repository.SalesOrderRepository;
@@ -57,6 +58,7 @@ class PortalReorderServiceTest {
     @Mock private SchemeService schemeService;
     @Mock private SalesOrderRepository salesOrderRepository;
     @Mock private SalesOrderService salesOrderService;
+    @Mock private SupplierRepository supplierRepository;
 
     private PortalDataService service;
 
@@ -78,7 +80,8 @@ class PortalReorderServiceTest {
                 priceListService,
                 schemeService,
                 salesOrderRepository,
-                salesOrderService
+                salesOrderService,
+                supplierRepository
         );
 
         TenantContext.setCurrentOrgId(orgId);

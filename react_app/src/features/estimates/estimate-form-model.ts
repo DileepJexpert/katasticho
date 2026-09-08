@@ -1,7 +1,7 @@
 import type { Item } from '@/features/items/items-api'
 import type { CreateEstimateRequest, Estimate, EstimateLineRequest } from './estimates-api'
 
-export const estimateConversionBlocker = 'Invoice conversion is unavailable in the current backend: valid customer contacts are rejected (EST_CONTACT_NOT_CUSTOMER). No invoice will be created here until that contract defect is resolved.'
+export const estimateConversionBlocker = null
 
 export function estimatePermissions(role?: string) {
   return {

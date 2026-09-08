@@ -45,6 +45,7 @@ export function createPortalApi(token: string, isCurrent: () => boolean, expire:
     dashboard: () => request<PortalDashboard>('/dashboard'),
     invoices: () => request<PortalDocument[]>('/invoices'),
     bills: () => request<PortalDocument[]>('/bills'),
+    purchaseOrders: () => request<PortalDocument[]>('/purchase-orders'),
     orders: () => request<PortalOrder[]>('/orders'),
     order: (id: string) => request<PortalOrder>(`/orders/${encodeURIComponent(id)}`),
     statement: (from: string, to: string) => request<PortalStatement>(`/statement?${new URLSearchParams({ from, to })}`),

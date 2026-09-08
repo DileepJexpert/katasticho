@@ -19,6 +19,9 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, UU
     List<PurchaseOrder> findByOrgIdAndSupplierIdAndIsDeletedFalseOrderByCreatedAtDesc(
             UUID orgId, UUID supplierId);
 
+    List<PurchaseOrder> findByOrgIdAndSupplierIdInAndIsDeletedFalseOrderByCreatedAtDesc(
+            UUID orgId, Collection<UUID> supplierIds);
+
     Optional<PurchaseOrder> findByIdAndOrgIdAndIsDeletedFalse(UUID id, UUID orgId);
 
     long countByOrgIdAndIsDeletedFalse(UUID orgId);

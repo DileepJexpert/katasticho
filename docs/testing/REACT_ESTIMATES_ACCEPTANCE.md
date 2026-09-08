@@ -39,12 +39,12 @@ Runtime responsive layout has not been checked.
 
 ## Frozen Backend Blockers
 
-1. **Conversion is rejected for valid customers.**
-   `EstimateService.convertToInvoice` compares `List.of("CUSTOMER", "BOTH")`
-   with `contact.getContactType()` (a ContactType enum), unlike
-   `requireBuyerContact`, which compares the enum name. React shows a disabled
-   conversion action and explains the blocker. Do not issue a separate invoice
-   POST to fake estimate conversion. Fixing Java requires separate authorisation.
+1. **Conversion is rejected for valid customers. [RESOLVED 2026-09-09]**
+   `EstimateService.convertToInvoice` previously compared `List.of("CUSTOMER", "BOTH")`
+   with `contact.getContactType()` (a ContactType enum), which always evaluated to false.
+   This has been corrected to use `requireBuyerContact(orgId, estimate.getContactId())`,
+   matching the buyer validation across the ERP. The React estimate detail page now
+   enables the "Convert to invoice" action with a working mutation. Tested with unit tests.
 2. **Discounted PDF presentation is inconsistent.**
    `recalcTotals` stores subtotal after line discounts; `EstimatePdfService`
    prints that subtotal followed by another negative discount row, while the

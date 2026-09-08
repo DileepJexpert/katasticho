@@ -1980,9 +1980,9 @@ public class FieldSalesService {
                 .orElseThrow(() -> BusinessException.notFound("DayClose", id));
         ensureDayCloseOwnership(dayClose);
 
-        if (!"PENDING".equals(dayClose.getStatus())) {
+        if (!"PENDING".equals(dayClose.getStatus()) && !"REJECTED".equals(dayClose.getStatus())) {
             throw new BusinessException(
-                    "Day close must be in PENDING status to submit, current: " + dayClose.getStatus(),
+                    "Day close must be in PENDING or REJECTED status to submit, current: " + dayClose.getStatus(),
                     "FS_DAY_CLOSE_NOT_PENDING", HttpStatus.BAD_REQUEST);
         }
 

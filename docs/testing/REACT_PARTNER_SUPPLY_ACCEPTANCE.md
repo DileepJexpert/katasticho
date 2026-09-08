@@ -65,11 +65,12 @@ Module enforcement remains server-side. No entitlement bypass was introduced.
 10. **Portal authentication remains separate:** external users use a dedicated
     memory-only portal token and no ERP cookie, access token or organisation
     header. Invite acceptance, login, customer documents/statements/catalog/order
-    history and vendor bills are implemented. Vendor purchase orders are withheld:
-    the service passes a contact id to a repository lookup that expects a Supplier
-    projection id. The API also omits organisation currency, so portal amounts do
-    not invent an INR symbol. Suspended accounts without accepted invites cannot
-    reactivate; the server error stays visible.
+    history and vendor bills are implemented. Vendor purchase orders are now
+    supported [RESOLVED 2026-09-09]: `PortalDataService` maps the portal contactId
+    to supplier records via `SupplierRepository`, and retrieves vendor POs by supplier IDs.
+    The React external portal renders `PortalPurchaseOrders` on the purchase orders tab.
+    The API omits organisation currency, so portal amounts do not invent an INR symbol.
+    Suspended accounts without accepted invites cannot reactivate; the server error stays visible.
 
 Backend fixes require a separate authorised task. Existing backend validation
 gaps are not repaired by React-only input checks. Catalog/item-supplier/shipment

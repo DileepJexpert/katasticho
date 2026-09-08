@@ -5,8 +5,8 @@ import { Button, DataTable, DocumentCard, Fact, FactList, Modal, Money, PageHead
 import { useSessionStore } from '@/shared/session/session-store'
 import { formatDate, formatDateTime } from '@/shared/format/format'
 import { downloadBlob } from '@/shared/files/download-blob'
-import { acceptEstimate, declineEstimate, deleteEstimate, getEstimate, getEstimatePdf, getEstimateWhatsAppLink, sendEstimate } from './estimates-api'
-import { canEditEstimate, estimateConversionBlocker, estimatePermissions } from './estimate-form-model'
+import { acceptEstimate, convertEstimateToInvoice, declineEstimate, deleteEstimate, getEstimate, getEstimatePdf, getEstimateWhatsAppLink, sendEstimate } from './estimates-api'
+import { canEditEstimate, estimatePermissions } from './estimate-form-model'
 import { EstimateForm } from './estimate-form'
 import { EstimateActivity } from './estimate-activity'
 
@@ -82,7 +82,20 @@ function EstimateDetail({ estimateId }: { estimateId: string }) {
     },
     onSuccess: setShareMessage,
   })
-  const busy = mutation.isPending || pdf.isPending || share.isPending
+  const convert = useMutation({
+    retry: false,
+    mutationFn: async () => {
+      if (!estimate || !permissions.write) throw new Error('Your role cannot convert this estimate.')
+      return convertEstimateToInvoice(estimateId)
+    },
+    onSuccess: (invoice) => {
+      void queryClient.invalidateQueries({ queryKey: ['estimates-list', user?.orgId] })
+      void queryClient.invalidateQueries({ queryKey })
+      setFeedback(`Estimate converted to invoice ${invoice.invoiceNumber}.`)
+      navigate(`/invoices/${invoice.id}`)
+    },
+  })
+  const busy = mutation.isPending || pdf.isPending || share.isPending || convert.isPending
   if (query.isPending) return <section className="workspace-page"><div className="directory-state" role="status">Loading estimate...</div></section>
   if (query.isError || !estimate) return <section className="workspace-page"><Link to="/estimates">Back to estimates</Link><div className="banner banner--error" role="alert">{query.error?.message ?? 'Estimate unavailable.'}<Button variant="secondary" onClick={() => void query.refetch()}>Retry estimate</Button></div></section>
   if (editing && permissions.write && canEditEstimate(estimate.status)) return <section className="workspace-page"><PageHeader eyebrow="Sales / Quotations" title={`Edit ${estimate.estimateNumber}`} description="Update the proposal without creating stock or accounting transactions." /><EstimateForm estimate={estimate} onCancel={() => setEditing(false)} onSaved={(saved) => { queryClient.setQueryData(queryKey, saved); setEditing(false); setFeedback('Estimate updated.') }} /></section>
@@ -102,7 +115,7 @@ function EstimateDetail({ estimateId }: { estimateId: string }) {
       {permissions.delete && estimate.status === 'DRAFT' && <Button variant="destructive" disabled={busy} onClick={() => choose('delete')}>Delete draft</Button>}
     </div>} />
     {feedback && <div className="banner banner--success" role="status">{feedback}</div>}
-    {(pdf.error || share.error) && <div className="banner banner--error" role="alert">{pdf.error?.message ?? share.error?.message}</div>}
+    {(pdf.error || share.error || convert.error) && <div className="banner banner--error" role="alert">{pdf.error?.message ?? share.error?.message ?? convert.error?.message}</div>}
     {!documentCurrencySupported && <div className="banner banner--error" role="status">External documents are unavailable for this currency: the existing backend hard-codes INR in PDFs and share messages. The saved quote values below retain their original currency.</div>}
     {Number(estimate.discountAmount) > 0 && <p className="cell-muted">PDF review required: the backend prints a separate negative discount row although its subtotal already includes that discount. The saved total below is authoritative; do not subtract the discount again.</p>}
     <div className="document-layout">
@@ -120,7 +133,14 @@ function EstimateDetail({ estimateId }: { estimateId: string }) {
         <SummaryRow isTotal label="Total" value={<Money amount={estimate.total} currency={estimate.currency} />} />
       </DocumentCard>
     </div>
-    {permissions.delete && !estimate.convertedToInvoiceId && !['INVOICED', 'DECLINED'].includes(estimate.status) && <DocumentCard title="Invoice conversion"><p>{estimateConversionBlocker}</p><Button disabled>Convert to invoice unavailable</Button></DocumentCard>}
+    {permissions.write && !estimate.convertedToInvoiceId && !['INVOICED', 'DECLINED'].includes(estimate.status) && (
+      <DocumentCard title="Invoice conversion">
+        <p>Convert this proposal into a draft sales invoice with all line items, rates, and taxes pre-filled.</p>
+        <Button disabled={busy || convert.isPending} loading={convert.isPending} onClick={() => convert.mutate()}>
+          Convert to invoice
+        </Button>
+      </DocumentCard>
+    )}
     <DocumentCard title="Proposal lines" variant="lines"><DataTable caption="Saved estimate lines">
       <thead><tr><th>Description</th><th>HSN</th><th className="numeric-cell">Quantity</th><th className="numeric-cell">Rate</th><th className="numeric-cell">Discount</th><th className="numeric-cell">Tax rate</th><th className="numeric-cell">Amount incl. tax</th></tr></thead>
       <tbody>{estimate.lines.map((line) => <tr key={line.id}><td>{line.description}</td><td className="table-code">{line.hsnCode || '--'}</td><td className="numeric-cell"><Quantity value={line.quantity} unit={line.unit} /></td><td className="numeric-cell"><Money amount={line.rate} currency={estimate.currency} /></td><td className="numeric-cell"><Quantity value={line.discountPct} unit="%" /></td><td className="numeric-cell"><Quantity value={line.taxRate} unit="%" /></td><td className="numeric-cell"><Money amount={line.amount} currency={estimate.currency} /></td></tr>)}</tbody>

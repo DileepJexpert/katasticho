@@ -13,7 +13,7 @@ import { EstimateForm } from './estimate-form'
 import { createEstimate, getEstimate, getEstimatePdf, getEstimateWhatsAppLink, listEstimates, sendEstimate, updateEstimate } from './estimates-api'
 import { estimateFixture, estimateTestCustomer, estimateTestUser } from './estimate-test-fixtures'
 
-vi.mock('./estimates-api', () => ({ listEstimates: vi.fn(), getEstimate: vi.fn(), createEstimate: vi.fn(), updateEstimate: vi.fn(), deleteEstimate: vi.fn(), sendEstimate: vi.fn(), acceptEstimate: vi.fn(), declineEstimate: vi.fn(), getEstimatePdf: vi.fn(), getEstimateWhatsAppLink: vi.fn() }))
+vi.mock('./estimates-api', () => ({ listEstimates: vi.fn(), getEstimate: vi.fn(), createEstimate: vi.fn(), updateEstimate: vi.fn(), deleteEstimate: vi.fn(), sendEstimate: vi.fn(), acceptEstimate: vi.fn(), declineEstimate: vi.fn(), convertEstimateToInvoice: vi.fn(), getEstimatePdf: vi.fn(), getEstimateWhatsAppLink: vi.fn() }))
 vi.mock('@/api/client/api-client', async (original) => ({ ...await original<typeof import('@/api/client/api-client')>(), apiFetch: vi.fn() }))
 vi.mock('@/features/contacts/contacts-api', () => ({ listContacts: vi.fn() }))
 vi.mock('@/features/items/items-api', () => ({ listItems: vi.fn() }))
@@ -36,14 +36,14 @@ function renderPage(path = '/estimates/estimate-1') {
   return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })}><MemoryRouter initialEntries={[path]}><Routes><Route path="/estimates" element={<EstimatesPage />} /><Route path="/estimates/:estimateId" element={<EstimateDetailPage />} /></Routes></MemoryRouter></QueryClientProvider>)
 }
 
-it('renders server fields, correct discount/tax amounts, and a conversion blocker without exposing UUIDs', async () => {
+it('renders server fields, correct discount/tax amounts, and functional invoice conversion without exposing UUIDs', async () => {
   renderPage()
   expect(await screen.findByText('Turmeric Masala Test 100g')).toBeInTheDocument()
   const totals = screen.getByRole('heading', { name: 'Server totals' }).closest('section')!
   expect(within(totals).getByText('₹405.00')).toBeInTheDocument()
   expect(within(totals).getByText('₹72.90')).toBeInTheDocument()
   expect(within(totals).getByText('₹477.90')).toBeInTheDocument()
-  expect(screen.getByRole('button', { name: 'Convert to invoice unavailable' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Convert to invoice' })).toBeEnabled()
   expect(screen.queryByText('item-1')).not.toBeInTheDocument()
 })
 

@@ -23,14 +23,20 @@ it('clears portal data and cart on sign out', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Sign out' }))
   expect(usePortalSession.getState().session).toBeNull(); expect(screen.queryByText(/277.90/)).not.toBeInTheDocument()
 })
-it('does not offer customer reorder or call broken vendor PO lookup for vendors', async () => {
+it('does not offer customer reorder and renders vendor purchase orders list', async () => {
   usePortalSession.getState().signIn({ token: 'vendor-token', portalUser: { ...user, kind: 'VENDOR' } })
-  const fetch = vi.fn().mockImplementation(async () => json({ kind: 'VENDOR', payableToYou: 100 })); vi.stubGlobal('fetch', fetch)
-  show(); await screen.findByText(/100.00/)
+  const fetch = vi.fn().mockImplementation(async (path: string) => {
+    if (String(path).endsWith('/dashboard')) return json({ kind: 'VENDOR', payableToYou: 100 })
+    if (String(path).endsWith('/purchase-orders')) return json([{ id: 'po-1', number: 'PO-2026-001', date: '2026-09-01', status: 'CONFIRMED', total: 5000 }])
+    return json([])
+  })
+  vi.stubGlobal('fetch', fetch)
+  show()
+  await screen.findByText(/100.00/)
   expect(screen.queryByRole('tab', { name: 'Quick reorder' })).not.toBeInTheDocument()
   fireEvent.click(screen.getByRole('tab', { name: 'Purchase orders' }))
-  expect(screen.getByText('Purchase orders temporarily unavailable')).toBeInTheDocument()
-  expect(fetch.mock.calls.some(([path]) => String(path).endsWith('/purchase-orders'))).toBe(false)
+  expect(await screen.findByText('PO-2026-001')).toBeInTheDocument()
+  expect(fetch.mock.calls.some(([path]) => String(path).endsWith('/purchase-orders'))).toBe(true)
 })
 it('submits only reviewed quantities and shows server order totals', async () => {
   const fetch = vi.fn().mockImplementation(async (path: string) => path.endsWith('/dashboard') ? json({ kind: 'CUSTOMER', outstanding: 0 }) : path.includes('/catalog?') ? json({ items: [{ id: 'item-1', name: 'Turmeric', unitOfMeasure: 'PCS', salePrice: 45, inStock: true }], page: 0, totalPages: 1, totalElements: 1 }) : json({ id: 'order-1', salesorderNumber: 'SO-TEST', total: 477.9, status: 'DRAFT' }))
