@@ -12,7 +12,7 @@ to active-only GET and OWNER/ADMIN/ACCOUNTANT/VIEWER access; no maintenance
 endpoint exists. Tests are added as source but all automated/runtime acceptance
 remains deferred. Contract blockers are in the inventory review addendum.
 
-**Status:** Wave 1 implementation opened; OpenAPI contract export blocked
+**Status:** Contract tooling and browser-smoke automation added; live OpenAPI export blocked
 **Purpose:** A source-backed migration index for the React web ERP. This is not
 a claim that a Flutter page should be copied or that an API is ready for React.
 It records what exists, which workflow owns it, and what evidence is required
@@ -44,12 +44,13 @@ The following was measured from the working tree on 2026-09-03:
 | UAT suite | 12 module packs under `docs/testing/` | Each migrated workflow needs its existing case IDs attached to its React acceptance tests. |
 | OpenAPI support | `springdoc-openapi-starter-webmvc-ui` is installed; `/v3/api-docs/**` is permitted in `SecurityConfig` | Export a real snapshot only from a running backend; do not hand-write an API contract. |
 
-The local server now starts, but `/v3/api-docs` returns a generic `500`. This
-document therefore still does **not** contain a generated OpenAPI snapshot.
-That defect is a separately scoped backend task: the React migration must not
-change Java, database, API, or Flutter code to repair it. Generated TypeScript
-types and write-capable React workflows remain blocked until the unchanged
-backend can export its contract.
+The application server and Docker infrastructure were unavailable during the
+2026-09-10 verification pass. This document therefore still does **not** contain
+a generated OpenAPI snapshot. The React migration must not replace it with a
+hand-written contract. `react_app/scripts/openapi-contract.mjs` now performs
+deterministic export validation, SHA-256 metadata generation, endpoint-ledger
+generation, TypeScript generation, and drift checking as soon as the unchanged
+backend is available.
 
 ## 3. Product-Surface Coverage
 
@@ -171,9 +172,11 @@ not part of this migration stream.
 - [x] Establish the React shell, design tokens, initial primitives, and browser-safe auth contract.
 - [x] Build a read-only Contacts pilot against the source-backed role filters.
 - [x] Freeze Java backend, database, API, and Flutter code during React migration.
+- [x] Add deterministic OpenAPI snapshot, ledger, type-generation, and drift-check tooling.
+- [x] Add Playwright browser smoke coverage for auth, permission denial, and tenant switching.
 - [ ] Start the backend, export, validate, and commit the OpenAPI snapshot.
 - [ ] Produce the generated detailed endpoint ledger from that snapshot.
 - [ ] Review the ledger with product owner and mark intentionally retired,
   native-retained, and first-wave capabilities.
-- [ ] Add generated endpoint types and Playwright acceptance checks after a
-  separately authorised backend task repairs the OpenAPI endpoint.
+- [ ] Add generated endpoint types after the live OpenAPI snapshot is available.
+- [ ] Expand Playwright from shell smoke coverage to real-data workflow acceptance.

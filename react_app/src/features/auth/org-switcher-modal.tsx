@@ -34,8 +34,9 @@ export function OrgSwitcherModal({ isOpen, onClose }: OrgSwitcherModalProps) {
     try {
       setSwitchingOrgId(targetOrg.orgId)
       setErrorMsg(null)
+      await queryClient.cancelQueries()
       await switchOrg(targetOrg.orgId)
-      await queryClient.invalidateQueries()
+      queryClient.clear()
       onClose()
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Failed to switch organisation')

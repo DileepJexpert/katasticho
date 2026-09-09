@@ -49,3 +49,5 @@ backups/
 build/
 out/
 flutter_app/*.zip
+react_app/playwright-report/
+react_app/test-results/

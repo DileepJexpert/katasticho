@@ -63,7 +63,7 @@ describe('OrgSwitcherModal', () => {
     expect(screen.getByRole('button', { name: /switch/i })).toBeInTheDocument()
   })
 
-  it('calls switchOrg and invalidates queries on selecting another organisation', async () => {
+  it('cancels requests and clears the previous organisation cache when switching', async () => {
     vi.mocked(authApi.listMyOrganisations).mockResolvedValue([
       { orgId: 'org-1', orgName: 'Primary Org', userId: 'user-1', role: 'OWNER' },
       { orgId: 'org-2', orgName: 'Branch Two', userId: 'user-1', role: 'ADMIN' },
@@ -87,7 +87,9 @@ describe('OrgSwitcherModal', () => {
     })
 
     const onClose = vi.fn()
-    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
+    queryClient.setQueryData(['tenant-record'], { orgId: 'org-1', privateValue: 'old tenant data' })
+    const cancelSpy = vi.spyOn(queryClient, 'cancelQueries')
+    const clearSpy = vi.spyOn(queryClient, 'clear')
 
     render(
       <QueryClientProvider client={queryClient}>
@@ -100,7 +102,9 @@ describe('OrgSwitcherModal', () => {
 
     await waitFor(() => {
       expect(authApi.switchOrganisation).toHaveBeenCalledWith('org-2')
-      expect(invalidateSpy).toHaveBeenCalled()
+      expect(cancelSpy).toHaveBeenCalled()
+      expect(clearSpy).toHaveBeenCalled()
+      expect(queryClient.getQueryData(['tenant-record'])).toBeUndefined()
       expect(onClose).toHaveBeenCalled()
     })
   })

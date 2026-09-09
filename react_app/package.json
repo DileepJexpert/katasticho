@@ -6,13 +6,19 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
+    "contract:sync": "node scripts/openapi-contract.mjs sync",
+    "contract:generate": "node scripts/openapi-contract.mjs generate",
+    "contract:check": "node scripts/openapi-contract.mjs check",
+    "contract:test": "node scripts/openapi-contract.mjs self-test",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "test:watch": "vitest",
-    "lint": "eslint src --max-warnings=0"
+    "lint": "eslint src e2e playwright.config.ts scripts --max-warnings=0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/vite": "^4.3.3",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
