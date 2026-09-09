@@ -117,11 +117,11 @@ describe('NcrsPage', () => {
 
     // Reason
     const reasonInput = within(modal).getByPlaceholderText(/e\.g\. Seal failure during blister packing/i)
-    await user.type(reasonInput, 'Melting point below pharmacopoeial specification')
+    fireEvent.change(reasonInput, { target: { value: 'Melting point below pharmacopoeial specification' } })
 
     // Description
     const descInput = within(modal).getByPlaceholderText(/Detailed inspection findings\.\.\./i)
-    await user.type(descInput, 'Sample melted at 38C instead of 42-44C.')
+    fireEvent.change(descInput, { target: { value: 'Sample melted at 38C instead of 42-44C.' } })
 
     const submitBtn = within(modal).getByRole('button', { name: 'Raise NCR' })
     expect(submitBtn).toBeEnabled()

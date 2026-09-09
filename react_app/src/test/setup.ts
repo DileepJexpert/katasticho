@@ -1,7 +1,9 @@
 import '@testing-library/jest-dom/vitest'
-import { cleanup } from '@testing-library/react'
+import { cleanup, configure } from '@testing-library/react'
 import { afterEach, beforeEach } from 'vitest'
 import { useSessionStore } from '@/shared/session/session-store'
+
+configure({ asyncUtilTimeout: 5000 })
 
 beforeEach(() => {
   useSessionStore.setState({

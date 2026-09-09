@@ -200,7 +200,7 @@ describe('Stock Counts & Audits Workspace', () => {
     fireEvent.click(screen.getByRole('button', { name: /new stock count/i }))
     fireEvent.focus(screen.getByRole('combobox', { name: 'Search items to add to stock count' }))
     fireEvent.click(await screen.findByRole('option', { name: /Tracked spice/ }))
-    expect(screen.getByRole('alert')).toHaveTextContent('not supported by the existing stock-count API')
+    expect(await screen.findByRole('alert')).toHaveTextContent('not supported by the existing stock-count API')
     expect(screen.queryByRole('spinbutton', { name: 'Physical quantity for Tracked spice' })).not.toBeInTheDocument()
     expect(stockCountsApi.createStockCount).not.toHaveBeenCalled()
   })
