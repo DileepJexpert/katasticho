@@ -1,206 +1,209 @@
-import { AiCommandCenterPage } from '@/features/ai/ai-command-center-page'
-import { AiSettingsPage } from '@/features/ai/ai-settings-page'
-import { CaDashboardPage } from '@/features/ca/ca-dashboard-page'
-import { CaCompliancePage } from '@/features/ca/ca-compliance-page'
-import { CaAlertsPage } from '@/features/ca/ca-alerts-page'
-import { CaDispatchPage } from '@/features/ca/ca-dispatch-page'
+import { Suspense } from 'react'
 import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
+import { lazyNamed } from '@/app/lazy-named'
 import { AppShell } from '@/app/shell/app-shell'
-import { AccountDetailPage } from '@/features/accounts/account-detail-page'
-import { AccountsPage } from '@/features/accounts/accounts-page'
-import { BudgetsPage } from '@/features/budgets/budgets-page'
-import { FiscalPeriodsPage } from '@/features/fiscal-periods/fiscal-periods-page'
-import { AmortizationDetailPage } from '@/features/amortization/amortization-detail-page'
-import { AmortizationPage } from '@/features/amortization/amortization-page'
-import { ApAgingReportPage } from '@/features/ap/ap-aging-report-page'
-import { BeatDetailPage } from '@/features/field-sales/beat-detail-page'
-import { BeatsPage } from '@/features/field-sales/beats-page'
-import { RoutesPage } from '@/features/field-sales/routes-page'
-import { RouteDetailPage } from '@/features/field-sales/route-detail-page'
-import { RouteExecutionsPage } from '@/features/field-sales/route-executions-page'
-import { RouteExecutionDetailPage } from '@/features/field-sales/route-execution-detail-page'
-import { DayClosePage } from '@/features/field-sales/day-close-page'
-import { SalesmanTargetsPage } from '@/features/field-sales/salesman-targets-page'
-import { StoreMerchandisingPage } from '@/features/field-sales/store-merchandising-page'
-import { SalesmanDashboardPage } from '@/features/field-sales/salesman-dashboard-page'
-import { LiveTrackingPage } from '@/features/field-sales/live-tracking-page'
-import { FieldCoveragePage } from '@/features/field-sales/field-coverage-page'
-import { FieldAttendancePage } from '@/features/field-sales/field-attendance-page'
-import { FieldOrgChartPage } from '@/features/field-sales/field-org-chart-page'
-import { TeamAssignmentsPage } from '@/features/field-sales/team-assignments-page'
-import { DcrPage } from '@/features/mr/dcr-page'
-import { DcrDetailPage } from '@/features/mr/dcr-detail-page'
-import { TourPlansPage } from '@/features/mr/tour-plans-page'
-import { TourPlanDetailPage } from '@/features/mr/tour-plan-detail-page'
-import { DetailAidsPage } from '@/features/mr/detail-aids-page'
-import { FieldSamplesPage } from '@/features/mr/field-samples-page'
-import { RcpaPage } from '@/features/mr/rcpa-page'
-import { SecondarySalesPage } from '@/features/mr/secondary-sales-page'
-import { MrApprovalsPage } from '@/features/mr/mr-approvals-page'
-import { BankingPage } from '@/features/banking/banking-page'
-import { BillsPage } from '@/features/bills/bills-page'
-import { BillCreatePage } from '@/features/bills/bill-create-page'
-import { BillDetailPage } from '@/features/bills/bill-detail-page'
-import { ThreeWayMatchPage } from '@/features/bills/three-way-match-page'
-import { ThreeWayMatchWorkbenchPage } from '@/features/bills/three-way-match-workbench-page'
-import { BomManagerPage } from '@/features/bom/bom-manager-page'
-import { CapaDetailPage } from '@/features/capa/capa-detail-page'
-import { CapaPage } from '@/features/capa/capa-page'
-import { ContactsPage } from '@/features/contacts/contacts-page'
-import { ContactCreatePage } from '@/features/contacts/contact-create-page'
-import { ContactDetailPage } from '@/features/contacts/contact-detail-page'
-import { ContactStatementPage } from '@/features/contacts/contact-statement-page'
-import { CreditNoteDetailPage } from '@/features/credit-notes/credit-note-detail-page'
-import { CreditNoteCreatePage } from '@/features/credit-notes/credit-note-create-page'
-import { CreditNotesPage } from '@/features/credit-notes/credit-notes-page'
-import { AccountingDashboardPage } from '@/features/dashboard/accounting-dashboard-page'
-import { DashboardPage } from '@/features/dashboard/dashboard-page'
-import { DebitNoteDetailPage } from '@/features/debit-notes/debit-note-detail-page'
-import { DebitNoteCreatePage } from '@/features/debit-notes/debit-note-create-page'
-import { DebitNotesPage } from '@/features/debit-notes/debit-notes-page'
-import { DeliveryChallanDetailPage } from '@/features/delivery-challans/delivery-challan-detail-page'
-import { DeliveryChallanCreatePage } from '@/features/delivery-challans/delivery-challan-create-page'
-import { DeliveryChallansPage } from '@/features/delivery-challans/delivery-challans-page'
-import { AttendancePage } from '@/features/hr/attendance-page'
-import { BiometricDevicesPage } from '@/features/hr/biometric-devices-page'
-import { HrTicketDetailPage } from '@/features/hr/hr-ticket-detail-page'
-import { HrTicketsPage } from '@/features/hr/hr-tickets-page'
-import { LeavesPage } from '@/features/hr/leaves-page'
-import { OffboardingDetailPage } from '@/features/hr/offboarding-detail-page'
-import { OffboardingPage } from '@/features/hr/offboarding-page'
-import { ShiftsPage } from '@/features/hr/shifts-page'
-import { TimesheetsPage } from '@/features/hr/timesheets-page'
-import { EmployeeDocumentsPage } from '@/features/hr/employee-documents-page'
-import { HrAnalyticsPage } from '@/features/hr/hr-analytics-page'
-import { MyProfilePage } from '@/features/hr/my-profile-page'
-import { EmployeeDetailPage } from '@/features/payroll/employee-detail-page'
-import { EmployeesPage } from '@/features/payroll/employees-page'
-import { PayrollSettingsPage } from '@/features/payroll/payroll-settings-page'
-import { TaxDeclarationPage } from '@/features/payroll/tax-declaration-page'
-import { LaborPayPreviewPage } from '@/features/payroll/labor-pay-preview-page'
-import { KenyaPayeCalculatorPage } from '@/features/payroll/kenya-paye-calculator-page'
-import { FixedAssetDetailPage } from '@/features/fixed-assets/fixed-asset-detail-page'
-import { FixedAssetsPage } from '@/features/fixed-assets/fixed-assets-page'
-import { GstCompliancePage } from '@/features/gst/gst-compliance-page'
-import { TdsCompliancePage } from '@/features/tax/tds-compliance-page'
-import { TcsCompliancePage } from '@/features/tax/tcs-compliance-page'
-import { TaxAccountMappingsPage } from '@/features/tax/tax-account-mappings-page'
-import { TaxGroupsPage } from '@/features/tax/tax-groups-page'
-import { UomsPage } from '@/features/inventory/uoms-page'
-import { RackLocationsPage } from '@/features/inventory/rack-locations-page'
-import { PutawayTasksPage } from '@/features/inventory/putaway-tasks-page'
-import { PutawayCreatePage } from '@/features/inventory/putaway-create-page'
-import { PutawayDetailPage } from '@/features/inventory/putaway-detail-page'
-import { SerialNumbersPage } from '@/features/inventory/serial-numbers-page'
-import { FranchisePage } from '@/features/franchise/franchise-page'
-import { FranchiseNodeDetailPage } from '@/features/franchise/franchise-node-detail-page'
-import { KenyaCompliancePage } from '@/features/kenya/kenya-compliance-page'
-import { CashRunwayPage } from '@/features/analytics/cash-runway-page'
-import { FluxCommentaryPage } from '@/features/analytics/flux-commentary-page'
-import { UsersPage } from '@/features/settings/users-page'
-import { PaymentTermsPage } from '@/features/settings/payment-terms-page'
-import { PdfTemplateCustomizerPage } from '@/features/settings/pdf-template-customizer-page'
-import { ItemDetailPage } from '@/features/items/item-detail-page'
-import { ItemImportPage } from '@/features/items/item-import-page'
-import { ItemFormPage } from '@/features/items/item-form-page'
-import { ItemsPage } from '@/features/items/items-page'
-import { StockSummaryPage } from '@/features/inventory/stock-summary-page'
-import { SchemesPage } from '@/features/pricing/schemes-page'
-import { BatchTracePage } from '@/features/inventory/batch-trace-page'
-import { ShortbookPage } from '@/features/inventory/shortbook-page'
-import { ConsignmentsPage } from '@/features/inventory/consignments-page'
-import { BarcodeLabelsPage } from '@/features/inventory/barcode-labels-page'
-import { JobWorkDetailPage } from '@/features/job-work/job-work-detail-page'
-import { JobWorkPage } from '@/features/job-work/job-work-page'
-import { JournalDetailPage } from '@/features/journals/journal-detail-page'
-import { JournalCreatePage } from '@/features/journals/journal-create-page'
-import { JournalsPage } from '@/features/journals/journals-page'
-import { LoginPage } from '@/features/auth/login-page'
-import { MaintenanceSchedulesPage } from '@/features/maintenance/maintenance-schedules-page'
-import { MaintenanceWorkOrderDetailPage } from '@/features/maintenance/maintenance-work-order-detail-page'
-import { MaintenanceWorkOrdersPage } from '@/features/maintenance/maintenance-work-orders-page'
-import { ManufacturingReportsPage } from '@/features/manufacturing/manufacturing-reports-page'
-import { MrpPage } from '@/features/mrp/mrp-page'
-import { NcrDetailPage } from '@/features/ncrs/ncr-detail-page'
-import { NcrsPage } from '@/features/ncrs/ncrs-page'
-import { PaymentDetailPage } from '@/features/payments/payment-detail-page'
-import { PaymentCreatePage } from '@/features/payments/payment-create-page'
-import { PaymentsPage } from '@/features/payments/payments-page'
-import { PayrollRunDetailPage } from '@/features/payroll/payroll-run-detail-page'
-import { PayrollRunsPage } from '@/features/payroll/payroll-runs-page'
-import { PharmacyMastersPage } from '@/features/pharmacy/pharmacy-masters-page'
-import { NearExpiryPage } from '@/features/pharmacy/near-expiry-page'
-import { CashRegisterPage } from '@/features/pos/cash-register-page'
-import { PosCheckoutPage } from '@/features/pos/pos-checkout-page'
-import { PosOfflineSyncPage } from '@/features/pos/pos-offline-sync-page'
-import { PosReceiptSettingsPage } from '@/features/pos/pos-receipt-settings-page'
-import { SalesReceiptDetailPage } from '@/features/pos/sales-receipt-detail-page'
-import { SalesReceiptsPage } from '@/features/pos/sales-receipts-page'
-import { LoyaltyPage } from '@/features/loyalty/loyalty-page'
-import { PicklistDetailPage } from '@/features/picklists/picklist-detail-page'
-import { PicklistsPage } from '@/features/picklists/picklists-page'
-import { PriceListDetailPage } from '@/features/price-lists/price-list-detail-page'
-import { PriceListsPage } from '@/features/price-lists/price-lists-page'
-import { PurchaseOrderDetailPage } from '@/features/purchase-orders/purchase-order-detail-page'
-import { PurchaseOrderCreatePage } from '@/features/purchase-orders/purchase-order-create-page'
-import { PurchaseOrdersPage } from '@/features/purchase-orders/purchase-orders-page'
-import { QcInspectionDetailPage } from '@/features/qc-inspections/qc-inspection-detail-page'
-import { QcInspectionsPage } from '@/features/qc-inspections/qc-inspections-page'
-import { QcTemplatesPage } from '@/features/qc-inspections/qc-templates-page'
-import { RoutingsPage } from '@/features/routings/routings-page'
-import { InvoiceDetailPage } from '@/features/invoices/invoice-detail-page'
-import { InvoiceCreatePage } from '@/features/invoices/invoice-create-page'
-import { InvoicesPage } from '@/features/invoices/invoices-page'
-import { EstimatesPage } from '@/features/estimates/estimates-page'
-import { EstimateCreatePage } from '@/features/estimates/estimate-create-page'
-import { EstimateDetailPage } from '@/features/estimates/estimate-detail-page'
-import { RecurringInvoicesPage } from '@/features/recurring/recurring-invoices-page'
-import { RecurringInvoiceDetailPage } from '@/features/recurring/recurring-invoice-detail-page'
-import { RecurringBillsPage } from '@/features/recurring/recurring-bills-page'
-import { RecurringBillDetailPage } from '@/features/recurring/recurring-bill-detail-page'
-import { RecurringJournalsPage } from '@/features/recurring/recurring-journals-page'
-import { RecurringJournalDetailPage } from '@/features/recurring/recurring-journal-detail-page'
-import { ReportsHubPage } from '@/features/reports/reports-hub-page'
-import { ReportViewerPage } from '@/features/reports/report-viewer-page'
-import { SavedReportDetailPage } from '@/features/reports/saved-report-detail-page'
-import { SavedReportsPage } from '@/features/reports/saved-reports-page'
-import { SalesOrderDetailPage } from '@/features/sales-orders/sales-order-detail-page'
-import { SalesOrderCreatePage } from '@/features/sales-orders/sales-order-create-page'
-import { SalesOrdersPage } from '@/features/sales-orders/sales-orders-page'
-import { StockCountDetailPage } from '@/features/stock-counts/stock-count-detail-page'
-import { StockCountsPage } from '@/features/stock-counts/stock-counts-page'
-import { StockReceiptDetailPage } from '@/features/stock-receipts/stock-receipt-detail-page'
-import { StockReceiptCreatePage } from '@/features/stock-receipts/stock-receipt-create-page'
-import { StockReceiptsPage } from '@/features/stock-receipts/stock-receipts-page'
-import { TransferOrderDetailPage } from '@/features/inventory/transfer-order-detail-page'
-import { TransferOrdersPage } from '@/features/inventory/transfer-orders-page'
-import { TransferOrderCreatePage } from '@/features/inventory/transfer-order-create-page'
-import { BatchesPage } from '@/features/inventory/batches-page'
-import { VanDetailPage } from '@/features/field-sales/van-detail-page'
-import { VansPage } from '@/features/field-sales/vans-page'
-import { VendorCreditDetailPage } from '@/features/vendor-credits/vendor-credit-detail-page'
-import { VendorCreditsPage } from '@/features/vendor-credits/vendor-credits-page'
-import { VendorPaymentDetailPage } from '@/features/vendor-payments/vendor-payment-detail-page'
-import { VendorPaymentCreatePage } from '@/features/vendor-payments/vendor-payment-create-page'
-import { VendorPaymentsPage } from '@/features/vendor-payments/vendor-payments-page'
-import { WarehouseDetailPage } from '@/features/warehouses/warehouse-detail-page'
-import { WarehousesPage } from '@/features/warehouses/warehouses-page'
-import { WorkCenterDetailPage } from '@/features/maintenance/work-center-detail-page'
-import { WorkCentersPage } from '@/features/maintenance/work-centers-page'
-import { WorkOrderDetailPage } from '@/features/work-orders/work-order-detail-page'
-import { WorkOrdersPage } from '@/features/work-orders/work-orders-page'
-import { CourierShipmentsPage } from '@/features/transport/courier-shipments-page'
-import { CourierShipmentDetailPage } from '@/features/transport/courier-shipment-detail-page'
-import { CodRemittancesPage } from '@/features/transport/cod-remittances-page'
-import { CodRemittanceDetailPage } from '@/features/transport/cod-remittance-detail-page'
-import { CourierSettingsPage } from '@/features/transport/courier-settings-page'
-import { LorryReceiptsPage } from '@/features/transport/lorry-receipts-page'
-import { LorryReceiptDetailPage } from '@/features/transport/lorry-receipt-detail-page'
-import { FreightRateCardsPage } from '@/features/transport/freight-rate-cards-page'
-import { VehicleLogsPage } from '@/features/transport/vehicle-logs-page'
 import { useSessionStore } from '@/shared/session/session-store'
 import { useAdminSessionBootstrap } from '@/shared/session/use-admin-session-bootstrap'
+
+const AiCommandCenterPage = lazyNamed(() => import('@/features/ai/ai-command-center-page'), 'AiCommandCenterPage')
+const AiSettingsPage = lazyNamed(() => import('@/features/ai/ai-settings-page'), 'AiSettingsPage')
+const CaDashboardPage = lazyNamed(() => import('@/features/ca/ca-dashboard-page'), 'CaDashboardPage')
+const CaCompliancePage = lazyNamed(() => import('@/features/ca/ca-compliance-page'), 'CaCompliancePage')
+const CaAlertsPage = lazyNamed(() => import('@/features/ca/ca-alerts-page'), 'CaAlertsPage')
+const CaDispatchPage = lazyNamed(() => import('@/features/ca/ca-dispatch-page'), 'CaDispatchPage')
+const AccountDetailPage = lazyNamed(() => import('@/features/accounts/account-detail-page'), 'AccountDetailPage')
+const AccountsPage = lazyNamed(() => import('@/features/accounts/accounts-page'), 'AccountsPage')
+const BudgetsPage = lazyNamed(() => import('@/features/budgets/budgets-page'), 'BudgetsPage')
+const FiscalPeriodsPage = lazyNamed(() => import('@/features/fiscal-periods/fiscal-periods-page'), 'FiscalPeriodsPage')
+const AmortizationDetailPage = lazyNamed(() => import('@/features/amortization/amortization-detail-page'), 'AmortizationDetailPage')
+const AmortizationPage = lazyNamed(() => import('@/features/amortization/amortization-page'), 'AmortizationPage')
+const ApAgingReportPage = lazyNamed(() => import('@/features/ap/ap-aging-report-page'), 'ApAgingReportPage')
+const BeatDetailPage = lazyNamed(() => import('@/features/field-sales/beat-detail-page'), 'BeatDetailPage')
+const BeatsPage = lazyNamed(() => import('@/features/field-sales/beats-page'), 'BeatsPage')
+const RoutesPage = lazyNamed(() => import('@/features/field-sales/routes-page'), 'RoutesPage')
+const RouteDetailPage = lazyNamed(() => import('@/features/field-sales/route-detail-page'), 'RouteDetailPage')
+const RouteExecutionsPage = lazyNamed(() => import('@/features/field-sales/route-executions-page'), 'RouteExecutionsPage')
+const RouteExecutionDetailPage = lazyNamed(() => import('@/features/field-sales/route-execution-detail-page'), 'RouteExecutionDetailPage')
+const DayClosePage = lazyNamed(() => import('@/features/field-sales/day-close-page'), 'DayClosePage')
+const SalesmanTargetsPage = lazyNamed(() => import('@/features/field-sales/salesman-targets-page'), 'SalesmanTargetsPage')
+const StoreMerchandisingPage = lazyNamed(() => import('@/features/field-sales/store-merchandising-page'), 'StoreMerchandisingPage')
+const SalesmanDashboardPage = lazyNamed(() => import('@/features/field-sales/salesman-dashboard-page'), 'SalesmanDashboardPage')
+const LiveTrackingPage = lazyNamed(() => import('@/features/field-sales/live-tracking-page'), 'LiveTrackingPage')
+const FieldCoveragePage = lazyNamed(() => import('@/features/field-sales/field-coverage-page'), 'FieldCoveragePage')
+const FieldAttendancePage = lazyNamed(() => import('@/features/field-sales/field-attendance-page'), 'FieldAttendancePage')
+const FieldOrgChartPage = lazyNamed(() => import('@/features/field-sales/field-org-chart-page'), 'FieldOrgChartPage')
+const TeamAssignmentsPage = lazyNamed(() => import('@/features/field-sales/team-assignments-page'), 'TeamAssignmentsPage')
+const DcrPage = lazyNamed(() => import('@/features/mr/dcr-page'), 'DcrPage')
+const DcrDetailPage = lazyNamed(() => import('@/features/mr/dcr-detail-page'), 'DcrDetailPage')
+const TourPlansPage = lazyNamed(() => import('@/features/mr/tour-plans-page'), 'TourPlansPage')
+const TourPlanDetailPage = lazyNamed(() => import('@/features/mr/tour-plan-detail-page'), 'TourPlanDetailPage')
+const DetailAidsPage = lazyNamed(() => import('@/features/mr/detail-aids-page'), 'DetailAidsPage')
+const FieldSamplesPage = lazyNamed(() => import('@/features/mr/field-samples-page'), 'FieldSamplesPage')
+const RcpaPage = lazyNamed(() => import('@/features/mr/rcpa-page'), 'RcpaPage')
+const SecondarySalesPage = lazyNamed(() => import('@/features/mr/secondary-sales-page'), 'SecondarySalesPage')
+const MrApprovalsPage = lazyNamed(() => import('@/features/mr/mr-approvals-page'), 'MrApprovalsPage')
+const BankingPage = lazyNamed(() => import('@/features/banking/banking-page'), 'BankingPage')
+const BillsPage = lazyNamed(() => import('@/features/bills/bills-page'), 'BillsPage')
+const BillCreatePage = lazyNamed(() => import('@/features/bills/bill-create-page'), 'BillCreatePage')
+const BillDetailPage = lazyNamed(() => import('@/features/bills/bill-detail-page'), 'BillDetailPage')
+const ThreeWayMatchPage = lazyNamed(() => import('@/features/bills/three-way-match-page'), 'ThreeWayMatchPage')
+const ThreeWayMatchWorkbenchPage = lazyNamed(() => import('@/features/bills/three-way-match-workbench-page'), 'ThreeWayMatchWorkbenchPage')
+const BomManagerPage = lazyNamed(() => import('@/features/bom/bom-manager-page'), 'BomManagerPage')
+const CapaDetailPage = lazyNamed(() => import('@/features/capa/capa-detail-page'), 'CapaDetailPage')
+const CapaPage = lazyNamed(() => import('@/features/capa/capa-page'), 'CapaPage')
+const ContactsPage = lazyNamed(() => import('@/features/contacts/contacts-page'), 'ContactsPage')
+const ContactCreatePage = lazyNamed(() => import('@/features/contacts/contact-create-page'), 'ContactCreatePage')
+const ContactDetailPage = lazyNamed(() => import('@/features/contacts/contact-detail-page'), 'ContactDetailPage')
+const ContactStatementPage = lazyNamed(() => import('@/features/contacts/contact-statement-page'), 'ContactStatementPage')
+const CreditNoteDetailPage = lazyNamed(() => import('@/features/credit-notes/credit-note-detail-page'), 'CreditNoteDetailPage')
+const CreditNoteCreatePage = lazyNamed(() => import('@/features/credit-notes/credit-note-create-page'), 'CreditNoteCreatePage')
+const CreditNotesPage = lazyNamed(() => import('@/features/credit-notes/credit-notes-page'), 'CreditNotesPage')
+const AccountingDashboardPage = lazyNamed(() => import('@/features/dashboard/accounting-dashboard-page'), 'AccountingDashboardPage')
+const DashboardPage = lazyNamed(() => import('@/features/dashboard/dashboard-page'), 'DashboardPage')
+const DebitNoteDetailPage = lazyNamed(() => import('@/features/debit-notes/debit-note-detail-page'), 'DebitNoteDetailPage')
+const DebitNoteCreatePage = lazyNamed(() => import('@/features/debit-notes/debit-note-create-page'), 'DebitNoteCreatePage')
+const DebitNotesPage = lazyNamed(() => import('@/features/debit-notes/debit-notes-page'), 'DebitNotesPage')
+const DeliveryChallanDetailPage = lazyNamed(() => import('@/features/delivery-challans/delivery-challan-detail-page'), 'DeliveryChallanDetailPage')
+const DeliveryChallanCreatePage = lazyNamed(() => import('@/features/delivery-challans/delivery-challan-create-page'), 'DeliveryChallanCreatePage')
+const DeliveryChallansPage = lazyNamed(() => import('@/features/delivery-challans/delivery-challans-page'), 'DeliveryChallansPage')
+const AttendancePage = lazyNamed(() => import('@/features/hr/attendance-page'), 'AttendancePage')
+const BiometricDevicesPage = lazyNamed(() => import('@/features/hr/biometric-devices-page'), 'BiometricDevicesPage')
+const HrTicketDetailPage = lazyNamed(() => import('@/features/hr/hr-ticket-detail-page'), 'HrTicketDetailPage')
+const HrTicketsPage = lazyNamed(() => import('@/features/hr/hr-tickets-page'), 'HrTicketsPage')
+const LeavesPage = lazyNamed(() => import('@/features/hr/leaves-page'), 'LeavesPage')
+const OffboardingDetailPage = lazyNamed(() => import('@/features/hr/offboarding-detail-page'), 'OffboardingDetailPage')
+const OffboardingPage = lazyNamed(() => import('@/features/hr/offboarding-page'), 'OffboardingPage')
+const ShiftsPage = lazyNamed(() => import('@/features/hr/shifts-page'), 'ShiftsPage')
+const TimesheetsPage = lazyNamed(() => import('@/features/hr/timesheets-page'), 'TimesheetsPage')
+const EmployeeDocumentsPage = lazyNamed(() => import('@/features/hr/employee-documents-page'), 'EmployeeDocumentsPage')
+const HrAnalyticsPage = lazyNamed(() => import('@/features/hr/hr-analytics-page'), 'HrAnalyticsPage')
+const MyProfilePage = lazyNamed(() => import('@/features/hr/my-profile-page'), 'MyProfilePage')
+const EmployeeDetailPage = lazyNamed(() => import('@/features/payroll/employee-detail-page'), 'EmployeeDetailPage')
+const EmployeesPage = lazyNamed(() => import('@/features/payroll/employees-page'), 'EmployeesPage')
+const PayrollSettingsPage = lazyNamed(() => import('@/features/payroll/payroll-settings-page'), 'PayrollSettingsPage')
+const TaxDeclarationPage = lazyNamed(() => import('@/features/payroll/tax-declaration-page'), 'TaxDeclarationPage')
+const LaborPayPreviewPage = lazyNamed(() => import('@/features/payroll/labor-pay-preview-page'), 'LaborPayPreviewPage')
+const KenyaPayeCalculatorPage = lazyNamed(() => import('@/features/payroll/kenya-paye-calculator-page'), 'KenyaPayeCalculatorPage')
+const FixedAssetDetailPage = lazyNamed(() => import('@/features/fixed-assets/fixed-asset-detail-page'), 'FixedAssetDetailPage')
+const FixedAssetsPage = lazyNamed(() => import('@/features/fixed-assets/fixed-assets-page'), 'FixedAssetsPage')
+const GstCompliancePage = lazyNamed(() => import('@/features/gst/gst-compliance-page'), 'GstCompliancePage')
+const TdsCompliancePage = lazyNamed(() => import('@/features/tax/tds-compliance-page'), 'TdsCompliancePage')
+const TcsCompliancePage = lazyNamed(() => import('@/features/tax/tcs-compliance-page'), 'TcsCompliancePage')
+const TaxAccountMappingsPage = lazyNamed(() => import('@/features/tax/tax-account-mappings-page'), 'TaxAccountMappingsPage')
+const TaxGroupsPage = lazyNamed(() => import('@/features/tax/tax-groups-page'), 'TaxGroupsPage')
+const UomsPage = lazyNamed(() => import('@/features/inventory/uoms-page'), 'UomsPage')
+const RackLocationsPage = lazyNamed(() => import('@/features/inventory/rack-locations-page'), 'RackLocationsPage')
+const PutawayTasksPage = lazyNamed(() => import('@/features/inventory/putaway-tasks-page'), 'PutawayTasksPage')
+const PutawayCreatePage = lazyNamed(() => import('@/features/inventory/putaway-create-page'), 'PutawayCreatePage')
+const PutawayDetailPage = lazyNamed(() => import('@/features/inventory/putaway-detail-page'), 'PutawayDetailPage')
+const SerialNumbersPage = lazyNamed(() => import('@/features/inventory/serial-numbers-page'), 'SerialNumbersPage')
+const FranchisePage = lazyNamed(() => import('@/features/franchise/franchise-page'), 'FranchisePage')
+const FranchiseNodeDetailPage = lazyNamed(() => import('@/features/franchise/franchise-node-detail-page'), 'FranchiseNodeDetailPage')
+const KenyaCompliancePage = lazyNamed(() => import('@/features/kenya/kenya-compliance-page'), 'KenyaCompliancePage')
+const CashRunwayPage = lazyNamed(() => import('@/features/analytics/cash-runway-page'), 'CashRunwayPage')
+const FluxCommentaryPage = lazyNamed(() => import('@/features/analytics/flux-commentary-page'), 'FluxCommentaryPage')
+const UsersPage = lazyNamed(() => import('@/features/settings/users-page'), 'UsersPage')
+const PaymentTermsPage = lazyNamed(() => import('@/features/settings/payment-terms-page'), 'PaymentTermsPage')
+const PdfTemplateCustomizerPage = lazyNamed(() => import('@/features/settings/pdf-template-customizer-page'), 'PdfTemplateCustomizerPage')
+const ItemDetailPage = lazyNamed(() => import('@/features/items/item-detail-page'), 'ItemDetailPage')
+const ItemImportPage = lazyNamed(() => import('@/features/items/item-import-page'), 'ItemImportPage')
+const ItemFormPage = lazyNamed(() => import('@/features/items/item-form-page'), 'ItemFormPage')
+const ItemsPage = lazyNamed(() => import('@/features/items/items-page'), 'ItemsPage')
+const StockSummaryPage = lazyNamed(() => import('@/features/inventory/stock-summary-page'), 'StockSummaryPage')
+const SchemesPage = lazyNamed(() => import('@/features/pricing/schemes-page'), 'SchemesPage')
+const BatchTracePage = lazyNamed(() => import('@/features/inventory/batch-trace-page'), 'BatchTracePage')
+const ShortbookPage = lazyNamed(() => import('@/features/inventory/shortbook-page'), 'ShortbookPage')
+const ConsignmentsPage = lazyNamed(() => import('@/features/inventory/consignments-page'), 'ConsignmentsPage')
+const BarcodeLabelsPage = lazyNamed(() => import('@/features/inventory/barcode-labels-page'), 'BarcodeLabelsPage')
+const JobWorkDetailPage = lazyNamed(() => import('@/features/job-work/job-work-detail-page'), 'JobWorkDetailPage')
+const JobWorkPage = lazyNamed(() => import('@/features/job-work/job-work-page'), 'JobWorkPage')
+const JournalDetailPage = lazyNamed(() => import('@/features/journals/journal-detail-page'), 'JournalDetailPage')
+const JournalCreatePage = lazyNamed(() => import('@/features/journals/journal-create-page'), 'JournalCreatePage')
+const JournalsPage = lazyNamed(() => import('@/features/journals/journals-page'), 'JournalsPage')
+const LoginPage = lazyNamed(() => import('@/features/auth/login-page'), 'LoginPage')
+const MaintenanceSchedulesPage = lazyNamed(() => import('@/features/maintenance/maintenance-schedules-page'), 'MaintenanceSchedulesPage')
+const MaintenanceWorkOrderDetailPage = lazyNamed(() => import('@/features/maintenance/maintenance-work-order-detail-page'), 'MaintenanceWorkOrderDetailPage')
+const MaintenanceWorkOrdersPage = lazyNamed(() => import('@/features/maintenance/maintenance-work-orders-page'), 'MaintenanceWorkOrdersPage')
+const ManufacturingReportsPage = lazyNamed(() => import('@/features/manufacturing/manufacturing-reports-page'), 'ManufacturingReportsPage')
+const MrpPage = lazyNamed(() => import('@/features/mrp/mrp-page'), 'MrpPage')
+const NcrDetailPage = lazyNamed(() => import('@/features/ncrs/ncr-detail-page'), 'NcrDetailPage')
+const NcrsPage = lazyNamed(() => import('@/features/ncrs/ncrs-page'), 'NcrsPage')
+const PaymentDetailPage = lazyNamed(() => import('@/features/payments/payment-detail-page'), 'PaymentDetailPage')
+const PaymentCreatePage = lazyNamed(() => import('@/features/payments/payment-create-page'), 'PaymentCreatePage')
+const PaymentsPage = lazyNamed(() => import('@/features/payments/payments-page'), 'PaymentsPage')
+const PayrollRunDetailPage = lazyNamed(() => import('@/features/payroll/payroll-run-detail-page'), 'PayrollRunDetailPage')
+const PayrollRunsPage = lazyNamed(() => import('@/features/payroll/payroll-runs-page'), 'PayrollRunsPage')
+const PharmacyMastersPage = lazyNamed(() => import('@/features/pharmacy/pharmacy-masters-page'), 'PharmacyMastersPage')
+const NearExpiryPage = lazyNamed(() => import('@/features/pharmacy/near-expiry-page'), 'NearExpiryPage')
+const CashRegisterPage = lazyNamed(() => import('@/features/pos/cash-register-page'), 'CashRegisterPage')
+const PosCheckoutPage = lazyNamed(() => import('@/features/pos/pos-checkout-page'), 'PosCheckoutPage')
+const PosOfflineSyncPage = lazyNamed(() => import('@/features/pos/pos-offline-sync-page'), 'PosOfflineSyncPage')
+const PosReceiptSettingsPage = lazyNamed(() => import('@/features/pos/pos-receipt-settings-page'), 'PosReceiptSettingsPage')
+const SalesReceiptDetailPage = lazyNamed(() => import('@/features/pos/sales-receipt-detail-page'), 'SalesReceiptDetailPage')
+const SalesReceiptsPage = lazyNamed(() => import('@/features/pos/sales-receipts-page'), 'SalesReceiptsPage')
+const LoyaltyPage = lazyNamed(() => import('@/features/loyalty/loyalty-page'), 'LoyaltyPage')
+const PicklistDetailPage = lazyNamed(() => import('@/features/picklists/picklist-detail-page'), 'PicklistDetailPage')
+const PicklistsPage = lazyNamed(() => import('@/features/picklists/picklists-page'), 'PicklistsPage')
+const PriceListDetailPage = lazyNamed(() => import('@/features/price-lists/price-list-detail-page'), 'PriceListDetailPage')
+const PriceListsPage = lazyNamed(() => import('@/features/price-lists/price-lists-page'), 'PriceListsPage')
+const PurchaseOrderDetailPage = lazyNamed(() => import('@/features/purchase-orders/purchase-order-detail-page'), 'PurchaseOrderDetailPage')
+const PurchaseOrderCreatePage = lazyNamed(() => import('@/features/purchase-orders/purchase-order-create-page'), 'PurchaseOrderCreatePage')
+const PurchaseOrdersPage = lazyNamed(() => import('@/features/purchase-orders/purchase-orders-page'), 'PurchaseOrdersPage')
+const QcInspectionDetailPage = lazyNamed(() => import('@/features/qc-inspections/qc-inspection-detail-page'), 'QcInspectionDetailPage')
+const QcInspectionsPage = lazyNamed(() => import('@/features/qc-inspections/qc-inspections-page'), 'QcInspectionsPage')
+const QcTemplatesPage = lazyNamed(() => import('@/features/qc-inspections/qc-templates-page'), 'QcTemplatesPage')
+const RoutingsPage = lazyNamed(() => import('@/features/routings/routings-page'), 'RoutingsPage')
+const InvoiceDetailPage = lazyNamed(() => import('@/features/invoices/invoice-detail-page'), 'InvoiceDetailPage')
+const InvoiceCreatePage = lazyNamed(() => import('@/features/invoices/invoice-create-page'), 'InvoiceCreatePage')
+const InvoicesPage = lazyNamed(() => import('@/features/invoices/invoices-page'), 'InvoicesPage')
+const EstimatesPage = lazyNamed(() => import('@/features/estimates/estimates-page'), 'EstimatesPage')
+const EstimateCreatePage = lazyNamed(() => import('@/features/estimates/estimate-create-page'), 'EstimateCreatePage')
+const EstimateDetailPage = lazyNamed(() => import('@/features/estimates/estimate-detail-page'), 'EstimateDetailPage')
+const RecurringInvoicesPage = lazyNamed(() => import('@/features/recurring/recurring-invoices-page'), 'RecurringInvoicesPage')
+const RecurringInvoiceDetailPage = lazyNamed(() => import('@/features/recurring/recurring-invoice-detail-page'), 'RecurringInvoiceDetailPage')
+const RecurringBillsPage = lazyNamed(() => import('@/features/recurring/recurring-bills-page'), 'RecurringBillsPage')
+const RecurringBillDetailPage = lazyNamed(() => import('@/features/recurring/recurring-bill-detail-page'), 'RecurringBillDetailPage')
+const RecurringJournalsPage = lazyNamed(() => import('@/features/recurring/recurring-journals-page'), 'RecurringJournalsPage')
+const RecurringJournalDetailPage = lazyNamed(() => import('@/features/recurring/recurring-journal-detail-page'), 'RecurringJournalDetailPage')
+const ReportsHubPage = lazyNamed(() => import('@/features/reports/reports-hub-page'), 'ReportsHubPage')
+const ReportViewerPage = lazyNamed(() => import('@/features/reports/report-viewer-page'), 'ReportViewerPage')
+const SavedReportDetailPage = lazyNamed(() => import('@/features/reports/saved-report-detail-page'), 'SavedReportDetailPage')
+const SavedReportsPage = lazyNamed(() => import('@/features/reports/saved-reports-page'), 'SavedReportsPage')
+const SalesOrderDetailPage = lazyNamed(() => import('@/features/sales-orders/sales-order-detail-page'), 'SalesOrderDetailPage')
+const SalesOrderCreatePage = lazyNamed(() => import('@/features/sales-orders/sales-order-create-page'), 'SalesOrderCreatePage')
+const SalesOrdersPage = lazyNamed(() => import('@/features/sales-orders/sales-orders-page'), 'SalesOrdersPage')
+const StockCountDetailPage = lazyNamed(() => import('@/features/stock-counts/stock-count-detail-page'), 'StockCountDetailPage')
+const StockCountsPage = lazyNamed(() => import('@/features/stock-counts/stock-counts-page'), 'StockCountsPage')
+const StockReceiptDetailPage = lazyNamed(() => import('@/features/stock-receipts/stock-receipt-detail-page'), 'StockReceiptDetailPage')
+const StockReceiptCreatePage = lazyNamed(() => import('@/features/stock-receipts/stock-receipt-create-page'), 'StockReceiptCreatePage')
+const StockReceiptsPage = lazyNamed(() => import('@/features/stock-receipts/stock-receipts-page'), 'StockReceiptsPage')
+const TransferOrderDetailPage = lazyNamed(() => import('@/features/inventory/transfer-order-detail-page'), 'TransferOrderDetailPage')
+const TransferOrdersPage = lazyNamed(() => import('@/features/inventory/transfer-orders-page'), 'TransferOrdersPage')
+const TransferOrderCreatePage = lazyNamed(() => import('@/features/inventory/transfer-order-create-page'), 'TransferOrderCreatePage')
+const BatchesPage = lazyNamed(() => import('@/features/inventory/batches-page'), 'BatchesPage')
+const VanDetailPage = lazyNamed(() => import('@/features/field-sales/van-detail-page'), 'VanDetailPage')
+const VansPage = lazyNamed(() => import('@/features/field-sales/vans-page'), 'VansPage')
+const VendorCreditDetailPage = lazyNamed(() => import('@/features/vendor-credits/vendor-credit-detail-page'), 'VendorCreditDetailPage')
+const VendorCreditsPage = lazyNamed(() => import('@/features/vendor-credits/vendor-credits-page'), 'VendorCreditsPage')
+const VendorPaymentDetailPage = lazyNamed(() => import('@/features/vendor-payments/vendor-payment-detail-page'), 'VendorPaymentDetailPage')
+const VendorPaymentCreatePage = lazyNamed(() => import('@/features/vendor-payments/vendor-payment-create-page'), 'VendorPaymentCreatePage')
+const VendorPaymentsPage = lazyNamed(() => import('@/features/vendor-payments/vendor-payments-page'), 'VendorPaymentsPage')
+const WarehouseDetailPage = lazyNamed(() => import('@/features/warehouses/warehouse-detail-page'), 'WarehouseDetailPage')
+const WarehousesPage = lazyNamed(() => import('@/features/warehouses/warehouses-page'), 'WarehousesPage')
+const WorkCenterDetailPage = lazyNamed(() => import('@/features/maintenance/work-center-detail-page'), 'WorkCenterDetailPage')
+const WorkCentersPage = lazyNamed(() => import('@/features/maintenance/work-centers-page'), 'WorkCentersPage')
+const WorkOrderDetailPage = lazyNamed(() => import('@/features/work-orders/work-order-detail-page'), 'WorkOrderDetailPage')
+const WorkOrdersPage = lazyNamed(() => import('@/features/work-orders/work-orders-page'), 'WorkOrdersPage')
+const CourierShipmentsPage = lazyNamed(() => import('@/features/transport/courier-shipments-page'), 'CourierShipmentsPage')
+const CourierShipmentDetailPage = lazyNamed(() => import('@/features/transport/courier-shipment-detail-page'), 'CourierShipmentDetailPage')
+const CodRemittancesPage = lazyNamed(() => import('@/features/transport/cod-remittances-page'), 'CodRemittancesPage')
+const CodRemittanceDetailPage = lazyNamed(() => import('@/features/transport/cod-remittance-detail-page'), 'CodRemittanceDetailPage')
+const CourierSettingsPage = lazyNamed(() => import('@/features/transport/courier-settings-page'), 'CourierSettingsPage')
+const LorryReceiptsPage = lazyNamed(() => import('@/features/transport/lorry-receipts-page'), 'LorryReceiptsPage')
+const LorryReceiptDetailPage = lazyNamed(() => import('@/features/transport/lorry-receipt-detail-page'), 'LorryReceiptDetailPage')
+const FreightRateCardsPage = lazyNamed(() => import('@/features/transport/freight-rate-cards-page'), 'FreightRateCardsPage')
+const VehicleLogsPage = lazyNamed(() => import('@/features/transport/vehicle-logs-page'), 'VehicleLogsPage')
 
 function SessionLoading() {
   return (
@@ -217,7 +220,7 @@ function ProtectedRoute() {
 
   if (status === 'booting') return <SessionLoading />
   if (status !== 'authenticated') return <Navigate to="/login" replace />
-  return <Outlet />
+  return <Suspense fallback={<SessionLoading />}><Outlet /></Suspense>
 }
 
 function PublicRoute() {
@@ -226,7 +229,7 @@ function PublicRoute() {
 
   if (status === 'booting') return <SessionLoading />
   if (status === 'authenticated') return <Navigate to={appRoutes.overview} replace />
-  return <Outlet />
+  return <Suspense fallback={<SessionLoading />}><Outlet /></Suspense>
 }
 
 export const router = createBrowserRouter([

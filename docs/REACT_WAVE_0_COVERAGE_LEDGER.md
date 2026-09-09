@@ -110,6 +110,17 @@ have one row for every public operation, with these mandatory columns:
 | QA evidence | Existing `TC-*` IDs plus new Playwright test ID. |
 | migration state | `DISCOVERY`, `CONTRACT_READY`, `BUILDING`, `QA`, `PILOT`, `COMPLETE`, or `NATIVE_RETAINED`. |
 
+### React performance checkpoint (2026-09-10)
+
+- The central router lazy-loads all 198 feature pages through the shared
+  `lazyNamed` helper and one session loading boundary.
+- The production entry JavaScript decreased from approximately 2.09 MB to
+  444.40 kB (133.85 kB gzip); feature pages are emitted as independent chunks.
+- React verification is 110 test files / 483 tests, five Playwright browser
+  checks, clean ESLint, and a successful production build.
+- Responsive screenshot approval and live-backend performance measurements
+  remain acceptance work; these build figures do not replace runtime evidence.
+
 ### Snapshot procedure
 
 When the backend is running, capture the source contract without editing it:
