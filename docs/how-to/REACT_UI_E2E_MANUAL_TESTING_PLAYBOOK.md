@@ -45,7 +45,7 @@ Follow the phases in exact numerical order: in an accounting and ERP system, sub
 - **Expected Result:**
   - Redirects to Dashboard Overview (`/`).
   - Organization name and user avatar appear in the top navbar.
-  - JWT token is stored in memory and sent via `Authorization: Bearer` and `X-Org-Id`.
+  - JWT token is stored in memory and sent via `Authorization: Bearer` (tenant organization is derived directly by backend from JWT claims).
 
 ### 0.3 Navigation Shell Verification
 - [ ] Press **`Ctrl + K`** (or `Cmd + K`) to open the Command Palette. Type "Items" and hit Enter — confirms fast navigation.
