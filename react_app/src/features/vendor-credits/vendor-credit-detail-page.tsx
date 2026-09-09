@@ -4,12 +4,14 @@ import { ArrowLeft, CheckCircle, Send } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Button } from '@/design-system/button'
 import { DataTable } from '@/design-system/data-table'
+import { EntityPicker } from '@/design-system/entity-picker'
 import { Money } from '@/design-system/money'
 import { PageHeader } from '@/design-system/page-header'
 import { Quantity } from '@/design-system/quantity'
 import { StatusChip } from '@/design-system/status-chip'
 import { TextField } from '@/design-system/text-field'
 import { formatDate, formatStatusLabel } from '@/shared/format/format'
+import { getBill, listBills, type PurchaseBill } from '@/features/bills/bills-api'
 import { applyVendorCredit, getVendorCredit, postVendorCredit, voidVendorCredit } from './vendor-credits-api'
 
 export function VendorCreditDetailPage() {
@@ -17,7 +19,7 @@ export function VendorCreditDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [applyModalOpen, setApplyModalOpen] = useState(false)
-  const [billId, setBillId] = useState('')
+  const [selectedBill, setSelectedBill] = useState<PurchaseBill | null>(null)
   const [applyAmount, setApplyAmount] = useState(0)
   const [feedback, setFeedback] = useState<string | null>(null)
 
@@ -25,6 +27,12 @@ export function VendorCreditDetailPage() {
     queryKey: ['vendor-credits', creditId],
     queryFn: () => getVendorCredit(creditId!),
     enabled: Boolean(creditId),
+  })
+
+  const referenceBillQuery = useQuery({
+    queryKey: ['bills', creditQuery.data?.referenceBillId],
+    queryFn: () => getBill(creditQuery.data!.referenceBillId!),
+    enabled: Boolean(creditQuery.data?.referenceBillId),
   })
 
   const postMutation = useMutation({
@@ -46,12 +54,14 @@ export function VendorCreditDetailPage() {
   })
 
   const applyMutation = useMutation({
-    mutationFn: () =>
-      applyVendorCredit(creditId!, {
-        billId,
+    mutationFn: () => {
+      if (!selectedBill) throw new Error('Select an unpaid purchase bill.')
+      return applyVendorCredit(creditId!, {
+        billId: selectedBill.id,
         amount: Number(applyAmount),
         applyDate: new Date().toISOString().slice(0, 10),
-      }),
+      })
+    },
     onSuccess: () => {
       setFeedback('Credit applied to bill successfully.')
       setApplyModalOpen(false)
@@ -95,7 +105,7 @@ export function VendorCreditDetailPage() {
           <dl className="document-facts">
             <div>
               <dt>Vendor</dt>
-              <dd>{credit.vendorName ?? credit.contactId}</dd>
+              <dd>{credit.vendorName ?? 'Vendor unavailable'}</dd>
             </div>
             <div>
               <dt>Credit Date</dt>
@@ -103,7 +113,9 @@ export function VendorCreditDetailPage() {
             </div>
             <div>
               <dt>Reference Bill</dt>
-              <dd>{credit.referenceBillId ?? 'General Supplier Credit'}</dd>
+              <dd>{referenceBillQuery.data?.billNumber ?? (credit.referenceBillId
+                ? referenceBillQuery.isError ? 'Reference bill unavailable' : 'Loading reference bill...'
+                : 'General Supplier Credit')}</dd>
             </div>
             <div>
               <dt>Status</dt>
@@ -145,6 +157,7 @@ export function VendorCreditDetailPage() {
               <Button
                 onClick={() => {
                   setApplyAmount(Number(credit.unappliedAmount));
+                  setSelectedBill(null)
                   setApplyModalOpen(true);
                 }}
                 variant="primary"
@@ -206,12 +219,25 @@ export function VendorCreditDetailPage() {
           <div className="modal-dialog" style={{ background: '#fff', borderRadius: '8px', padding: '24px', maxWidth: '480px', width: '100%' }}>
             <h3>Apply Vendor Credit to Bill</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
-              <TextField
-                label="Target Purchase Bill ID"
-                onChange={(e) => setBillId(e.target.value)}
-                placeholder="UUID of unpaid purchase bill"
-                value={billId}
-              />
+              <div className="form-field">
+                <label className="form-label" htmlFor="vendor-credit-bill">Unpaid purchase bill</label>
+                <EntityPicker<PurchaseBill>
+                  ariaLabel="Select unpaid purchase bill"
+                  disabled={applyMutation.isPending}
+                  getOptionDescription={(bill) => [bill.vendorBillNumber, formatDate(bill.billDate), `Balance ₹${bill.balanceDue ?? 0}`].filter(Boolean).join(' / ')}
+                  getOptionId={(bill) => bill.id}
+                  getOptionLabel={(bill) => bill.billNumber}
+                  id="vendor-credit-bill"
+                  onChange={(_billId, bill) => setSelectedBill(bill ?? null)}
+                  onSearch={async (search) => {
+                    const page = await listBills({ vendorId: credit.contactId, search, page: 0, size: 25 })
+                    return page.content.filter((bill) => Number(bill.balanceDue) > 0 && !['DRAFT', 'VOIDED', 'PAID'].includes(bill.status))
+                  }}
+                  placeholder="Search bill number or vendor invoice"
+                  selectedEntity={selectedBill}
+                  value={selectedBill?.id ?? null}
+                />
+              </div>
               <TextField
                 label="Amount to Offset (₹)"
                 onChange={(e) => setApplyAmount(Number(e.target.value))}
@@ -221,7 +247,7 @@ export function VendorCreditDetailPage() {
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
                 <Button onClick={() => setApplyModalOpen(false)} variant="secondary">Cancel</Button>
                 <Button
-                  disabled={!billId || applyAmount <= 0 || applyMutation.isPending}
+                  disabled={!selectedBill || applyAmount <= 0 || applyMutation.isPending}
                   onClick={() => applyMutation.mutate()}
                   variant="primary"
                 >

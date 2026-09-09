@@ -16,6 +16,9 @@ import { PageHeader } from '@/design-system/page-header'
 import { Quantity } from '@/design-system/quantity'
 import { StatusChip } from '@/design-system/status-chip'
 import { formatDate } from '@/shared/format/format'
+import { InventoryItemPicker, InventoryWarehousePicker } from '@/features/inventory/inventory-pickers'
+import type { Item } from '@/features/items/items-api'
+import type { Warehouse } from '@/features/warehouses/warehouses-api'
 import {
   confirmVanLoad,
   confirmVanReturn,
@@ -177,7 +180,7 @@ export function VanDetailPage() {
                   const val = Number(b.quantityOnHand || 0) * Number(b.averageCost || 0)
                   return (
                     <tr key={b.id}>
-                      <td><strong>{b.itemName || b.itemCode || b.itemId}</strong></td>
+                      <td><strong>{b.itemName || b.itemCode || 'Unknown item'}</strong></td>
                       <td><code>{b.batchNumber || 'â€”'}</code></td>
                       <td style={{ textAlign: 'right' }}>
                         <strong><Quantity unit="units" value={b.quantityOnHand} /></strong>
@@ -279,8 +282,8 @@ function TransferModal({
   isPending: boolean
   title: string
 }) {
-  const [warehouseId, setWarehouseId] = useState('')
-  const [itemId, setItemId] = useState('')
+  const [warehouse, setWarehouse] = useState<Warehouse | null>(null)
+  const [item, setItem] = useState<Item | null>(null)
   const [quantity, setQuantity] = useState(10)
 
   return (
@@ -296,36 +299,23 @@ function TransferModal({
         <form
           onSubmit={(e) => {
             e.preventDefault()
+            if (!warehouse || !item) return
             onSubmit({
-              warehouseId,
-              lines: [{ itemId, quantity }],
+              warehouseId: warehouse.id,
+              lines: [{ itemId: item.id, quantity }],
             })
           }}
         >
           <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div className="form-field">
-              <label className="form-label" htmlFor="wh-id">Depot Warehouse UUID *</label>
-              <input
-                className="form-input"
-                id="wh-id"
-                onChange={(e) => setWarehouseId(e.target.value)}
-                placeholder="Warehouse UUID"
-                required
-                value={warehouseId}
-              />
+              <label className="form-label" htmlFor="wh-id">Depot warehouse *</label>
+              <InventoryWarehousePicker disabled={isPending} id="wh-id" onChange={setWarehouse} value={warehouse} />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
               <div className="form-field">
-                <label className="form-label" htmlFor="item-id">Item SKU / UUID *</label>
-                <input
-                  className="form-input"
-                  id="item-id"
-                  onChange={(e) => setItemId(e.target.value)}
-                  placeholder="Item UUID"
-                  required
-                  value={itemId}
-                />
+                <label className="form-label" htmlFor="item-id">Item *</label>
+                <InventoryItemPicker disabled={isPending} id="item-id" onChange={setItem} value={item} />
               </div>
 
               <div className="form-field">
@@ -344,7 +334,7 @@ function TransferModal({
 
           <div className="modal-footer">
             <Button onClick={onClose} type="button" variant="secondary">Cancel</Button>
-            <Button disabled={isPending || !warehouseId || !itemId} type="submit" variant="primary">
+            <Button disabled={isPending || !warehouse || !item} type="submit" variant="primary">
               {isPending ? 'Processing...' : 'Submit Transfer'}
             </Button>
           </div>

@@ -11,6 +11,8 @@ import {
   PageHeader,
 } from '@/design-system'
 import { formatDate } from '@/shared/format/format'
+import type { Contact } from '@/features/contacts/contacts-api'
+import { FieldContactPicker } from '@/features/field-sales/field-sales-pickers'
 import {
   listMyRcpaAudits,
   recordRcpaAudit,
@@ -80,7 +82,7 @@ export function RcpaPage() {
               {audits.map((a: RcpaAudit) => (
                 <tr key={a.id}>
                   <td><strong>{formatDate(a.auditDate)}</strong></td>
-                  <td><strong>{a.chemistName || a.chemistContactId}</strong></td>
+                  <td><strong>{a.chemistName || 'Unknown chemist'}</strong></td>
                   <td>{a.salespersonName || 'Representative'}</td>
                   <td style={{ textAlign: 'right' }}>{a.lines?.length || 0}</td>
                   <td>{a.remarks || 'â€”'}</td>
@@ -121,7 +123,7 @@ function CreateRcpaModal({
   }) => void
   isPending: boolean
 }) {
-  const [chemistContactId, setChemistContactId] = useState('')
+  const [chemist, setChemist] = useState<Contact | null>(null)
   const [auditDate, setAuditDate] = useState(new Date().toISOString().slice(0, 10))
   const [ownBrandName, setOwnBrandName] = useState('')
   const [ownBrandQty, setOwnBrandQty] = useState(10)
@@ -142,8 +144,9 @@ function CreateRcpaModal({
         <form
           onSubmit={(e) => {
             e.preventDefault()
+            if (!chemist) return
             onSubmit({
-              chemistContactId,
+              chemistContactId: chemist.id,
               auditDate,
               remarks: remarks || undefined,
               lines: [
@@ -156,14 +159,14 @@ function CreateRcpaModal({
           <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div className="form-field">
-                <label className="form-label" htmlFor="rcpa-chem">Chemist Contact UUID *</label>
-                <input
-                  className="form-input"
+                <label className="form-label" htmlFor="rcpa-chem">Chemist / pharmacy *</label>
+                <FieldContactPicker
+                  ariaLabel="Select chemist or pharmacy"
+                  disabled={isPending}
                   id="rcpa-chem"
-                  onChange={(e) => setChemistContactId(e.target.value)}
-                  placeholder="Chemist UUID"
-                  required
-                  value={chemistContactId}
+                  onChange={setChemist}
+                  preferredCategory="CHEMIST"
+                  value={chemist}
                 />
               </div>
 
@@ -246,7 +249,7 @@ function CreateRcpaModal({
 
           <div className="modal-footer">
             <Button onClick={onClose} type="button" variant="secondary">Cancel</Button>
-            <Button disabled={isPending || !chemistContactId || !ownBrandName} type="submit" variant="primary">
+            <Button disabled={isPending || !chemist || !ownBrandName} type="submit" variant="primary">
               {isPending ? 'Saving...' : 'Save RCPA Audit'}
             </Button>
           </div>

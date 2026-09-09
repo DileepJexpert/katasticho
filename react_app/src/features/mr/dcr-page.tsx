@@ -17,7 +17,9 @@ import { formatDate } from '@/shared/format/format'
 import {
   createDcr,
   listMyDcrs,
+  type Beat,
 } from '@/features/field-sales/field-sales-api'
+import { FieldBeatPicker } from '@/features/field-sales/field-sales-pickers'
 
 export function DcrPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false)
@@ -136,7 +138,7 @@ function CreateDcrModal({
 }) {
   const [reportDate, setReportDate] = useState(new Date().toISOString().slice(0, 10))
   const [workType, setWorkType] = useState('FIELD_WORK')
-  const [beatId, setBeatId] = useState('')
+  const [beat, setBeat] = useState<Beat | null>(null)
   const [notes, setNotes] = useState('')
 
   return (
@@ -152,7 +154,12 @@ function CreateDcrModal({
         <form
           onSubmit={(e) => {
             e.preventDefault()
-            onSubmit({ reportDate, workType, beatId: beatId || undefined, notes: notes || undefined })
+            onSubmit({
+              reportDate,
+              workType,
+              beatId: workType === 'FIELD_WORK' ? beat?.id : undefined,
+              notes: notes || undefined,
+            })
           }}
         >
           <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -186,13 +193,12 @@ function CreateDcrModal({
             </div>
 
             <div className="form-field">
-              <label className="form-label" htmlFor="dcr-beat">Beat UUID (Optional)</label>
-              <input
-                className="form-input"
+              <label className="form-label" htmlFor="dcr-beat">Beat (optional)</label>
+              <FieldBeatPicker
+                disabled={isPending || workType !== 'FIELD_WORK'}
                 id="dcr-beat"
-                onChange={(e) => setBeatId(e.target.value)}
-                placeholder="Optional Beat UUID"
-                value={beatId}
+                onChange={setBeat}
+                value={beat}
               />
             </div>
 

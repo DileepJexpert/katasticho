@@ -16,6 +16,8 @@ import {
   saveStockistStatement,
   type StockistSalesStatement,
 } from '@/features/field-sales/field-sales-api'
+import type { Contact } from '@/features/contacts/contacts-api'
+import { FieldContactPicker } from '@/features/field-sales/field-sales-pickers'
 
 export function SecondarySalesPage() {
   const [isRecordOpen, setIsRecordOpen] = useState(false)
@@ -80,7 +82,7 @@ export function SecondarySalesPage() {
               {statements.map((s: StockistSalesStatement) => (
                 <tr key={s.id}>
                   <td><strong>{s.periodMonth}</strong></td>
-                  <td><strong>{s.stockistName || s.stockistContactId}</strong></td>
+                  <td><strong>{s.stockistName || 'Unknown stockist'}</strong></td>
                   <td><StatusChip status={s.status} /></td>
                   <td style={{ textAlign: 'right' }}>{s.lines?.length || 0}</td>
                   <td>{s.notes || 'â€”'}</td>
@@ -123,7 +125,7 @@ function CreateStatementModal({
   }) => void
   isPending: boolean
 }) {
-  const [stockistContactId, setStockistContactId] = useState('')
+  const [stockist, setStockist] = useState<Contact | null>(null)
   const [periodMonth, setPeriodMonth] = useState(new Date().toISOString().slice(0, 7) + '-01')
   const [productName, setProductName] = useState('Paracetamol 650mg')
   const [salesQty, setSalesQty] = useState(500)
@@ -143,8 +145,9 @@ function CreateStatementModal({
         <form
           onSubmit={(e) => {
             e.preventDefault()
+            if (!stockist) return
             onSubmit({
-              stockistContactId,
+              stockistContactId: stockist.id,
               periodMonth,
               notes: notes || undefined,
               lines: [
@@ -156,14 +159,15 @@ function CreateStatementModal({
           <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div className="form-field">
-                <label className="form-label" htmlFor="stk-id">Stockist Contact UUID *</label>
-                <input
-                  className="form-input"
+                <label className="form-label" htmlFor="stk-id">Stockist *</label>
+                <FieldContactPicker
+                  ariaLabel="Select stockist"
+                  disabled={isPending}
+                  filter="ALL"
                   id="stk-id"
-                  onChange={(e) => setStockistContactId(e.target.value)}
-                  placeholder="Stockist UUID"
-                  required
-                  value={stockistContactId}
+                  onChange={setStockist}
+                  preferredCategory="STOCKIST"
+                  value={stockist}
                 />
               </div>
 
@@ -235,7 +239,7 @@ function CreateStatementModal({
 
           <div className="modal-footer">
             <Button onClick={onClose} type="button" variant="secondary">Cancel</Button>
-            <Button disabled={isPending || !stockistContactId} type="submit" variant="primary">
+            <Button disabled={isPending || !stockist} type="submit" variant="primary">
               {isPending ? 'Saving...' : 'Save Statement'}
             </Button>
           </div>

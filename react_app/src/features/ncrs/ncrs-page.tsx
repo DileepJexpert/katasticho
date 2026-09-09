@@ -37,7 +37,6 @@ export function NcrsPage() {
   const [page, setPage] = useState(0)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [selectedItem, setSelectedItem] = useState<Item | null>(null)
-  const [itemId, setItemId] = useState('')
   const [severity, setSeverity] = useState('MAJOR')
   const [reason, setReason] = useState('')
   const [desc, setDesc] = useState('')
@@ -49,7 +48,7 @@ export function NcrsPage() {
 
   const createMutation = useMutation({
     mutationFn: () => createNcr({
-      itemId,
+      itemId: selectedItem!.id,
       severity,
       reason,
       description: desc,
@@ -57,7 +56,6 @@ export function NcrsPage() {
     onSuccess: () => {
       setIsCreateOpen(false)
       setSelectedItem(null)
-      setItemId('')
       setReason('')
       setDesc('')
       queryClient.invalidateQueries({ queryKey: ['ncrs'] })
@@ -150,7 +148,7 @@ export function NcrsPage() {
                     {ncr.ncrNumber}
                   </Link>
                 </td>
-                <td><strong>{ncr.itemName || ncr.itemId}</strong></td>
+                <td><strong>{ncr.itemName || 'Unknown item'}</strong></td>
                 <td>
                   <span className={ncr.severity === 'CRITICAL' ? 'status-badge status-badge--danger' : 'status-badge status-badge--warning'}>
                     {ncr.severity}
@@ -170,7 +168,7 @@ export function NcrsPage() {
           <>
             <Button onClick={() => setIsCreateOpen(false)} variant="secondary">Cancel</Button>
             <Button
-              disabled={createMutation.isPending || !itemId.trim()}
+              disabled={createMutation.isPending || !selectedItem}
               onClick={() => createMutation.mutate()}
               variant="primary"
             >
@@ -191,10 +189,7 @@ export function NcrsPage() {
                 getOptionDescription={(item) => `${item.sku || 'No SKU'} · ${item.unitOfMeasure || 'unit'}`}
                 getOptionId={(item) => item.id}
                 getOptionLabel={(item) => item.name}
-                onChange={(_id, item) => {
-                  setSelectedItem(item ?? null)
-                  setItemId(item?.id ?? '')
-                }}
+                onChange={(_id, item) => setSelectedItem(item ?? null)}
                 onSearch={async (query) => {
                   const res = await listItems({ search: query, activeOnly: true, size: 25 })
                   return res.content

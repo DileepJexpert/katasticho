@@ -15,6 +15,8 @@ import {
   issueSamples,
   listMySampleBalances,
 } from '@/features/field-sales/field-sales-api'
+import { FieldSalespersonPicker } from '@/features/field-sales/field-sales-pickers'
+import type { OrgUser } from '@/features/settings/settings-api'
 
 export function FieldSamplesPage() {
   const [isIssueOpen, setIsIssueOpen] = useState(false)
@@ -106,7 +108,7 @@ function IssueSampleModal({
   onSubmit: (payload: { salespersonId: string; productName: string; quantity: number; notes?: string }) => void
   isPending: boolean
 }) {
-  const [salespersonId, setSalespersonId] = useState('')
+  const [salesperson, setSalesperson] = useState<OrgUser | null>(null)
   const [productName, setProductName] = useState('')
   const [quantity, setQuantity] = useState(50)
   const [notes, setNotes] = useState('')
@@ -124,8 +126,9 @@ function IssueSampleModal({
         <form
           onSubmit={(e) => {
             e.preventDefault()
+            if (!salesperson) return
             onSubmit({
-              salespersonId,
+              salespersonId: salesperson.id,
               productName,
               quantity,
               notes: notes || undefined,
@@ -134,14 +137,12 @@ function IssueSampleModal({
         >
           <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div className="form-field">
-              <label className="form-label" htmlFor="smp-sp">Medical Rep UUID *</label>
-              <input
-                className="form-input"
+              <label className="form-label" htmlFor="smp-sp">Medical representative *</label>
+              <FieldSalespersonPicker
+                disabled={isPending}
                 id="smp-sp"
-                onChange={(e) => setSalespersonId(e.target.value)}
-                placeholder="Salesperson User UUID"
-                required
-                value={salespersonId}
+                onChange={setSalesperson}
+                value={salesperson}
               />
             </div>
 
@@ -185,7 +186,7 @@ function IssueSampleModal({
 
           <div className="modal-footer">
             <Button onClick={onClose} type="button" variant="secondary">Cancel</Button>
-            <Button disabled={isPending || !salespersonId || !productName} type="submit" variant="primary">
+            <Button disabled={isPending || !salesperson || !productName} type="submit" variant="primary">
               {isPending ? 'Issuing...' : 'Issue Samples'}
             </Button>
           </div>

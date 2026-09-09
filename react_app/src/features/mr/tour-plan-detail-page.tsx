@@ -14,11 +14,13 @@ import { DataTable } from '@/design-system/data-table'
 import { PageHeader } from '@/design-system/page-header'
 import { StatusChip } from '@/design-system/status-chip'
 import { formatDate } from '@/shared/format/format'
+import { FieldBeatPicker } from '@/features/field-sales/field-sales-pickers'
 import {
   addTourPlanEntry,
   approveTourPlan,
   getTourPlan,
   submitTourPlan,
+  type Beat,
 } from '@/features/field-sales/field-sales-api'
 
 export function TourPlanDetailPage() {
@@ -177,6 +179,7 @@ function AddEntryModal({
 }) {
   const [planDate, setPlanDate] = useState(new Date().toISOString().slice(0, 10))
   const [activityType, setActivityType] = useState('FIELD_VISIT')
+  const [beat, setBeat] = useState<Beat | null>(null)
   const [area, setArea] = useState('')
   const [notes, setNotes] = useState('')
 
@@ -190,7 +193,17 @@ function AddEntryModal({
           </button>
         </div>
 
-        <form onSubmit={(e) => { e.preventDefault(); onSubmit({ planDate, activityType, area: area || undefined, notes: notes || undefined }) }}>
+        <form onSubmit={(e) => {
+          e.preventDefault()
+          const isFieldActivity = ['FIELD_VISIT', 'JOINT_FIELD_WORK'].includes(activityType)
+          onSubmit({
+            planDate,
+            activityType,
+            beatId: isFieldActivity ? beat?.id : undefined,
+            area: area || undefined,
+            notes: notes || undefined,
+          })
+        }}>
           <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div className="form-field">
@@ -220,6 +233,16 @@ function AddEntryModal({
                   <option value="LEAVE">Leave</option>
                 </select>
               </div>
+            </div>
+
+            <div className="form-field">
+              <label className="form-label" htmlFor="ent-beat">Beat (optional)</label>
+              <FieldBeatPicker
+                disabled={isPending || !['FIELD_VISIT', 'JOINT_FIELD_WORK'].includes(activityType)}
+                id="ent-beat"
+                onChange={setBeat}
+                value={beat}
+              />
             </div>
 
             <div className="form-field">

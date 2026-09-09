@@ -20,6 +20,8 @@ import {
   listRoutes,
   type RouteSummary,
 } from '@/features/field-sales/field-sales-api'
+import { InventoryWarehousePicker } from '@/features/inventory/inventory-pickers'
+import type { Warehouse } from '@/features/warehouses/warehouses-api'
 
 export function RoutesPage() {
   const [searchTerm, setSearchTerm] = useState('')
@@ -170,7 +172,7 @@ function CreateRouteModal({
   const [name, setName] = useState('')
   const [dayOfWeek, setDayOfWeek] = useState('MONDAY')
   const [frequency, setFrequency] = useState('WEEKLY')
-  const [warehouseId, setWarehouseId] = useState('')
+  const [warehouse, setWarehouse] = useState<Warehouse | null>(null)
 
   return (
     <div className="modal-backdrop">
@@ -190,7 +192,7 @@ function CreateRouteModal({
               name,
               dayOfWeek: dayOfWeek || undefined,
               frequency: frequency || undefined,
-              warehouseId: warehouseId || undefined,
+              warehouseId: warehouse?.id,
             })
           }}
         >
@@ -255,14 +257,12 @@ function CreateRouteModal({
             </div>
 
             <div>
-              <label className="form-label" htmlFor="route-warehouse">Source Warehouse ID (Optional)</label>
-              <input
-                className="form-input"
+              <label className="form-label" htmlFor="route-warehouse">Source warehouse (optional)</label>
+              <InventoryWarehousePicker
+                disabled={isPending}
                 id="route-warehouse"
-                onChange={(e) => setWarehouseId(e.target.value)}
-                placeholder="Warehouse UUID"
-                type="text"
-                value={warehouseId}
+                onChange={setWarehouse}
+                value={warehouse}
               />
             </div>
           </div>

@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   Button,
   DataTable,
+  EntityPicker,
   FormField,
   FormGrid,
   Modal,
@@ -14,13 +15,20 @@ import {
   StatusChip,
   TextInput,
 } from '@/design-system'
+import { listContacts, type Contact } from '@/features/contacts/contacts-api'
 import { formatDate, formatStatusLabel } from '@/shared/format/format'
 import { createVendorCredit, listVendorCredits } from './vendor-credits-api'
+
+async function searchVendors(search: string) {
+  return (await listContacts({ filter: 'VENDOR', page: 0, search, size: 25 })).content
+    .filter((contact) => contact.active)
+}
 
 export function VendorCreditsPage() {
   const [page] = useState(0)
   const [status, setStatus] = useState<string>('ALL')
   const [createModalOpen, setCreateModalOpen] = useState(false)
+  const [selectedVendor, setSelectedVendor] = useState<Contact | null>(null)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
@@ -155,12 +163,21 @@ export function VendorCreditsPage() {
         title="Create Vendor Credit"
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <FormField label="Vendor Contact ID" required>
-            <TextInput
-              onChange={(e) => setForm((f) => ({ ...f, contactId: e.target.value }))}
-              placeholder="UUID of vendor contact"
-              required
-              value={form.contactId}
+          <FormField label="Vendor" required>
+            <EntityPicker<Contact>
+              ariaLabel="Select vendor for credit note"
+              disabled={createMutation.isPending}
+              getOptionDescription={(contact) => [contact.companyName, contact.gstin, contact.phone ?? contact.mobile].filter(Boolean).join(' / ')}
+              getOptionId={(contact) => contact.id}
+              getOptionLabel={(contact) => contact.displayName}
+              onChange={(contactId, contact) => {
+                setSelectedVendor(contact ?? null)
+                setForm((current) => ({ ...current, contactId: contactId ?? '' }))
+              }}
+              onSearch={searchVendors}
+              placeholder="Search vendor name, company, phone, or GSTIN"
+              selectedEntity={selectedVendor}
+              value={form.contactId || null}
             />
           </FormField>
           <FormField label="Credit Date" required>

@@ -12,6 +12,8 @@ import {
   PageHeader,
 } from '@/design-system'
 import { formatDate } from '@/shared/format/format'
+import type { OrgUser } from '@/features/settings/settings-api'
+import { FieldSalespersonPicker } from '@/features/field-sales/field-sales-pickers'
 import {
   createSalesmanTarget,
   listSalesmanTargets,
@@ -161,7 +163,7 @@ function CreateTargetModal({
   onSubmit: (payload: { salespersonId: string; periodType: string; periodStart: string; periodEnd: string; targetType: string; targetValue: number }) => void
   isPending: boolean
 }) {
-  const [salespersonId, setSalespersonId] = useState('')
+  const [salesperson, setSalesperson] = useState<OrgUser | null>(null)
   const periodType = 'MONTHLY'
   const [periodStart, setPeriodStart] = useState(new Date().toISOString().slice(0, 7) + '-01')
   const [periodEnd, setPeriodEnd] = useState(new Date().toISOString().slice(0, 10))
@@ -181,8 +183,9 @@ function CreateTargetModal({
         <form
           onSubmit={(e) => {
             e.preventDefault()
+            if (!salesperson) return
             onSubmit({
-              salespersonId,
+              salespersonId: salesperson.id,
               periodType,
               periodStart,
               periodEnd,
@@ -193,14 +196,12 @@ function CreateTargetModal({
         >
           <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div className="form-field">
-              <label className="form-label" htmlFor="tgt-sp">Salesperson UUID *</label>
-              <input
-                className="form-input"
+              <label className="form-label" htmlFor="tgt-sp">Salesperson *</label>
+              <FieldSalespersonPicker
+                disabled={isPending}
                 id="tgt-sp"
-                onChange={(e) => setSalespersonId(e.target.value)}
-                placeholder="User UUID"
-                required
-                value={salespersonId}
+                onChange={setSalesperson}
+                value={salesperson}
               />
             </div>
 
@@ -262,7 +263,7 @@ function CreateTargetModal({
 
           <div className="modal-footer">
             <Button onClick={onClose} type="button" variant="secondary">Cancel</Button>
-            <Button disabled={isPending || !salespersonId || targetValue <= 0} type="submit" variant="primary">
+            <Button disabled={isPending || !salesperson || targetValue <= 0} type="submit" variant="primary">
               {isPending ? 'Creating...' : 'Set Target'}
             </Button>
           </div>

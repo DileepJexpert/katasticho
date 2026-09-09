@@ -10,6 +10,8 @@ import { DataTable } from '@/design-system/data-table'
 import { PageHeader } from '@/design-system/page-header'
 import { StatusChip } from '@/design-system/status-chip'
 import { formatDate } from '@/shared/format/format'
+import type { Contact } from '@/features/contacts/contacts-api'
+import { FieldContactPicker } from '@/features/field-sales/field-sales-pickers'
 import {
   listRecentMerchandisingAudits,
   recordMerchandisingAudit,
@@ -116,7 +118,7 @@ function CreateAuditModal({
   onSubmit: (payload: { contactId: string; auditDate: string; auditType: string; planogramCompliancePercent?: number; shareOfShelfPercent?: number; remarks?: string }) => void
   isPending: boolean
 }) {
-  const [contactId, setContactId] = useState('')
+  const [contact, setContact] = useState<Contact | null>(null)
   const [auditDate, setAuditDate] = useState(new Date().toISOString().slice(0, 10))
   const [auditType, setAuditType] = useState('PLANOGRAM')
   const [planogramCompliancePercent, setPlanogramCompliancePercent] = useState(90)
@@ -136,8 +138,9 @@ function CreateAuditModal({
         <form
           onSubmit={(e) => {
             e.preventDefault()
+            if (!contact) return
             onSubmit({
-              contactId,
+              contactId: contact.id,
               auditDate,
               auditType,
               planogramCompliancePercent,
@@ -148,14 +151,13 @@ function CreateAuditModal({
         >
           <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div className="form-field">
-              <label className="form-label" htmlFor="audit-cid">Retailer Contact UUID *</label>
-              <input
-                className="form-input"
+              <label className="form-label" htmlFor="audit-cid">Retailer *</label>
+              <FieldContactPicker
+                ariaLabel="Select retailer for shelf audit"
+                disabled={isPending}
                 id="audit-cid"
-                onChange={(e) => setContactId(e.target.value)}
-                placeholder="Customer UUID"
-                required
-                value={contactId}
+                onChange={setContact}
+                value={contact}
               />
             </div>
 
@@ -230,7 +232,7 @@ function CreateAuditModal({
 
           <div className="modal-footer">
             <Button onClick={onClose} type="button" variant="secondary">Cancel</Button>
-            <Button disabled={isPending || !contactId} type="submit" variant="primary">
+            <Button disabled={isPending || !contact} type="submit" variant="primary">
               {isPending ? 'Saving...' : 'Save Audit'}
             </Button>
           </div>
