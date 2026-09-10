@@ -1,13 +1,23 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BankingPage } from './banking-page'
 import * as bankingApi from './banking-api'
 
-vi.mock('./banking-api', () => ({
-  listBankAccounts: vi.fn(),
-  getBankAccount: vi.fn(),
-}))
+vi.mock('./banking-api', async () => {
+  const actual = await vi.importActual<typeof bankingApi>('./banking-api')
+  return {
+    ...actual,
+    listBankAccounts: vi.fn(),
+    getBankAccount: vi.fn(),
+    setDefaultBankAccount: vi.fn(),
+    createBankAccount: vi.fn(),
+    updateBankAccount: vi.fn(),
+    deleteBankAccount: vi.fn(),
+    listBankTransactions: vi.fn().mockResolvedValue({ content: [], totalElements: 0, totalPages: 1, number: 0, size: 20 }),
+    getBankReconciliationSummary: vi.fn().mockResolvedValue({ totalTransactions: 0, unreconciledCount: 0, reconciledCount: 0, ignoredCount: 0 }),
+  }
+})
 
 const mockBankAccounts: bankingApi.BankAccount[] = [
   {
@@ -70,7 +80,7 @@ describe('BankingPage', () => {
     vi.mocked(bankingApi.listBankAccounts).mockResolvedValue(mockBankAccounts)
   })
 
-  it('renders bank accounts with masked numbers, IFSC codes, and GL bindings without write controls', async () => {
+  it('renders bank accounts with masked numbers, IFSC codes, GL bindings, and Add Bank Account button', async () => {
     render(
       <QueryClientProvider client={queryClient}>
         <BankingPage />
@@ -98,14 +108,40 @@ describe('BankingPage', () => {
     expect(screen.getByText('Active accounts')).toBeInTheDocument()
     expect(screen.getByText('Default account')).toBeInTheDocument()
 
-    // Status chips
-    expect(screen.getAllByText('Active').length).toBeGreaterThanOrEqual(2)
-    expect(screen.getByText('Default')).toBeInTheDocument()
+    // Action button
+    expect(screen.getByRole('button', { name: /add bank account/i })).toBeInTheDocument()
+  })
 
-    // Verify NO write buttons are rendered
-    expect(screen.queryByRole('button', { name: /add account/i })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /new account/i })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /create/i })).not.toBeInTheDocument()
+  it('switches between Accounts view and Reconciliation view', async () => {
+    render(
+      <QueryClientProvider client={queryClient}>
+        <BankingPage />
+      </QueryClientProvider>
+    )
+
+    expect(await screen.findByText('Primary Corporate Account')).toBeInTheDocument()
+
+    const reconTab = screen.getByRole('tab', { name: /reconciliation/i })
+    fireEvent.click(reconTab)
+
+    expect(await screen.findByText('Upload Statement (.csv/.xlsx)')).toBeInTheDocument()
+    expect(screen.queryByText('Primary Corporate Account')).not.toBeInTheDocument()
+  })
+
+  it('opens add bank account modal', async () => {
+    render(
+      <QueryClientProvider client={queryClient}>
+        <BankingPage />
+      </QueryClientProvider>
+    )
+
+    const addBtn = await screen.findByRole('button', { name: /add bank account/i })
+    fireEvent.click(addBtn)
+
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toBeInTheDocument()
+    expect(within(dialog).getByRole('heading', { name: 'Add Bank Account' })).toBeInTheDocument()
+    expect(screen.getByLabelText(/account display name/i)).toBeInTheDocument()
   })
 
   it('filters bank accounts by search query', async () => {

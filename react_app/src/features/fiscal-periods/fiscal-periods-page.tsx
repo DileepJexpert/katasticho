@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Calendar } from 'lucide-react'
 import {
   Button,
@@ -14,7 +14,15 @@ import {
   SearchInput,
   StatusChip,
 } from '@/design-system'
-import { listPeriods, type FiscalPeriod } from '@/features/fiscal-periods/fiscal-periods-api'
+import {
+  closePeriod,
+  closeYear,
+  listPeriods,
+  lockPeriod,
+  reopenPeriod,
+  reopenYear,
+  type FiscalPeriod,
+} from '@/features/fiscal-periods/fiscal-periods-api'
 
 const MONTH_NAMES = [
   'January',
@@ -61,12 +69,25 @@ function formatDate(isoString?: string | null): string {
   }
 }
 
+type PeriodActionType = 'close' | 'reopen' | 'lock' | 'year-close' | 'year-reopen'
+
+interface ConfirmActionState {
+  type: PeriodActionType
+  period?: FiscalPeriod
+  year?: number
+}
+
 export function FiscalPeriodsPage() {
+  const queryClient = useQueryClient()
   const currentYear = new Date().getFullYear()
   const [selectedYear, setSelectedYear] = useState<number>(currentYear)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'OPEN' | 'CLOSED' | 'LOCKED'>('ALL')
   const [selectedPeriod, setSelectedPeriod] = useState<FiscalPeriod | null>(null)
+  const [confirmAction, setConfirmAction] = useState<ConfirmActionState | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null)
 
   const periodsQuery = useQuery({
     queryKey: ['fiscal-periods'],
@@ -142,13 +163,107 @@ export function FiscalPeriodsPage() {
     })
   }, [yearPeriods, statusFilter, search])
 
+  async function handleExecuteAction() {
+    if (!confirmAction) return
+    setIsSubmitting(true)
+    setActionError(null)
+    setActionSuccess(null)
+    try {
+      if (confirmAction.type === 'close' && confirmAction.period) {
+        await closePeriod(confirmAction.period.periodYear, confirmAction.period.periodMonth)
+        setActionSuccess(
+          `Period ${confirmAction.period.periodMonth} (${getMonthName(
+            confirmAction.period.periodMonth
+          )} ${confirmAction.period.periodYear}) has been closed.`
+        )
+      } else if (confirmAction.type === 'reopen' && confirmAction.period) {
+        await reopenPeriod(confirmAction.period.periodYear, confirmAction.period.periodMonth)
+        setActionSuccess(
+          `Period ${confirmAction.period.periodMonth} (${getMonthName(
+            confirmAction.period.periodMonth
+          )} ${confirmAction.period.periodYear}) has been reopened.`
+        )
+      } else if (confirmAction.type === 'lock' && confirmAction.period) {
+        await lockPeriod(confirmAction.period.periodYear, confirmAction.period.periodMonth)
+        setActionSuccess(
+          `Period ${confirmAction.period.periodMonth} (${getMonthName(
+            confirmAction.period.periodMonth
+          )} ${confirmAction.period.periodYear}) has been locked.`
+        )
+      } else if (confirmAction.type === 'year-close') {
+        await closeYear(activeYear)
+        setActionSuccess(`Financial Year ${activeYear} has been closed and closing entries posted.`)
+      } else if (confirmAction.type === 'year-reopen') {
+        const res = await reopenYear(activeYear)
+        setActionSuccess(
+          `Financial Year ${activeYear} has been reopened${
+            res?.reversalEntryNumber ? ` (Reversal Entry: ${res.reversalEntryNumber})` : ''
+          }.`
+        )
+      }
+      await queryClient.invalidateQueries({ queryKey: ['fiscal-periods'] })
+      setConfirmAction(null)
+    } catch (err: unknown) {
+      const errorMsg =
+        err instanceof Error
+          ? err.message
+          : typeof err === 'object' && err !== null && 'message' in err
+          ? String((err as { message: unknown }).message)
+          : 'The action could not be completed. Please try again.'
+      setActionError(errorMsg)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   return (
     <section className="workspace-page">
       <PageHeader
         eyebrow="Accounting Governance / Governance"
         title="Fiscal periods & financial years"
-        description="Review accounting periods, period closure governance (OPEN, LOCKED, CLOSED), and financial year boundaries. Mutations remain in Flutter during migration."
+        description="Review accounting periods, period closure governance (OPEN, LOCKED, CLOSED), and financial year boundaries."
+        actions={
+          <div className="button-group" style={{ display: 'flex', gap: '8px' }}>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setActionError(null)
+                setActionSuccess(null)
+                setConfirmAction({ type: 'year-close', year: activeYear })
+              }}
+            >
+              Year-End Close (FY {activeYear})
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setActionError(null)
+                setActionSuccess(null)
+                setConfirmAction({ type: 'year-reopen', year: activeYear })
+              }}
+            >
+              Reopen FY {activeYear}
+            </Button>
+          </div>
+        }
       />
+
+      {actionError && (
+        <div className="directory-state directory-state--error" role="alert">
+          <strong>Action failed.</strong>
+          <p>{actionError}</p>
+        </div>
+      )}
+
+      {actionSuccess && (
+        <div
+          className="directory-state"
+          role="status"
+          style={{ color: 'var(--color-primary)', fontWeight: 500 }}
+        >
+          {actionSuccess}
+        </div>
+      )}
 
       <section aria-label="Fiscal year selector" className="list-panel">
         <DirectoryToolbar ariaLabel="Select financial year">
@@ -239,50 +354,103 @@ export function FiscalPeriodsPage() {
                 <th scope="col">Period number</th>
                 <th scope="col">Status</th>
                 <th scope="col">Closed at</th>
-                <th scope="col">Action</th>
+                <th scope="col">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filteredPeriods.map((period) => (
-                <tr key={period.id || `${period.periodYear}-${period.periodMonth}`}>
-                  <td>
-                    <div className="cell-stack">
-                      <strong>
-                        {getMonthName(period.periodMonth)} {period.periodYear}
-                      </strong>
-                      <small className="table-secondary-text">
-                        Month {String(period.periodMonth).padStart(2, '0')}
-                      </small>
-                    </div>
-                  </td>
-                  <td>
-                    <span className="text-secondary font-medium">
-                      {getQuarter(period.periodMonth)}
-                    </span>
-                  </td>
-                  <td>
-                    <span className="font-mono">
-                      Period {period.periodMonth}
-                    </span>
-                  </td>
-                  <td>
-                    <StatusChip status={period.status} />
-                  </td>
-                  <td>
-                    <span className="table-secondary-text">
-                      {formatDate(period.closedAt)}
-                    </span>
-                  </td>
-                  <td>
-                    <Button
-                      onClick={() => setSelectedPeriod(period)}
-                      variant="ghost"
-                    >
-                      View details
-                    </Button>
-                  </td>
-                </tr>
-              ))}
+              {filteredPeriods.map((period) => {
+                const s = (period.status ?? '').toUpperCase()
+                return (
+                  <tr key={period.id || `${period.periodYear}-${period.periodMonth}`}>
+                    <td>
+                      <div className="cell-stack">
+                        <strong>
+                          {getMonthName(period.periodMonth)} {period.periodYear}
+                        </strong>
+                        <small className="table-secondary-text">
+                          Month {String(period.periodMonth).padStart(2, '0')}
+                        </small>
+                      </div>
+                    </td>
+                    <td>
+                      <span className="text-secondary font-medium">
+                        {getQuarter(period.periodMonth)}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="font-mono">
+                        Period {period.periodMonth}
+                      </span>
+                    </td>
+                    <td>
+                      <StatusChip status={period.status} />
+                    </td>
+                    <td>
+                      <span className="table-secondary-text">
+                        {formatDate(period.closedAt)}
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                        <Button
+                          onClick={() => setSelectedPeriod(period)}
+                          variant="ghost"
+                        >
+                          Details
+                        </Button>
+                        {s === 'OPEN' && (
+                          <Button
+                            onClick={() => {
+                              setActionError(null)
+                              setActionSuccess(null)
+                              setConfirmAction({ type: 'close', period })
+                            }}
+                            variant="secondary"
+                          >
+                            Close Period
+                          </Button>
+                        )}
+                        {(s === 'CLOSED' || s === 'SOFT_CLOSED') && (
+                          <>
+                            <Button
+                              onClick={() => {
+                                setActionError(null)
+                                setActionSuccess(null)
+                                setConfirmAction({ type: 'reopen', period })
+                              }}
+                              variant="secondary"
+                            >
+                              Reopen
+                            </Button>
+                            <Button
+                              onClick={() => {
+                                setActionError(null)
+                                setActionSuccess(null)
+                                setConfirmAction({ type: 'lock', period })
+                              }}
+                              variant="secondary"
+                            >
+                              Lock
+                            </Button>
+                          </>
+                        )}
+                        {s === 'LOCKED' && (
+                          <Button
+                            onClick={() => {
+                              setActionError(null)
+                              setActionSuccess(null)
+                              setConfirmAction({ type: 'reopen', period })
+                            }}
+                            variant="secondary"
+                          >
+                            Reopen
+                          </Button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </DataTable>
         ) : (
@@ -297,14 +465,72 @@ export function FiscalPeriodsPage() {
       {/* Period Details Modal */}
       {selectedPeriod && (
         <Modal
-          description="Read-only governance properties and closure history. Period close and year-end close remain in Flutter."
+          description="Governance properties and closure audit history for this period."
           footer={
-            <Button
-              onClick={() => setSelectedPeriod(null)}
-              variant="secondary"
-            >
-              Close
-            </Button>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', width: '100%' }}>
+              {selectedPeriod.status === 'OPEN' && (
+                <Button
+                  onClick={() => {
+                    const p = selectedPeriod
+                    setSelectedPeriod(null)
+                    setActionError(null)
+                    setActionSuccess(null)
+                    setConfirmAction({ type: 'close', period: p })
+                  }}
+                  variant="secondary"
+                >
+                  Close Period
+                </Button>
+              )}
+              {(selectedPeriod.status === 'CLOSED' || selectedPeriod.status === 'SOFT_CLOSED') && (
+                <>
+                  <Button
+                    onClick={() => {
+                      const p = selectedPeriod
+                      setSelectedPeriod(null)
+                      setActionError(null)
+                      setActionSuccess(null)
+                      setConfirmAction({ type: 'reopen', period: p })
+                    }}
+                    variant="secondary"
+                  >
+                    Reopen Period
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      const p = selectedPeriod
+                      setSelectedPeriod(null)
+                      setActionError(null)
+                      setActionSuccess(null)
+                      setConfirmAction({ type: 'lock', period: p })
+                    }}
+                    variant="secondary"
+                  >
+                    Lock Period
+                  </Button>
+                </>
+              )}
+              {selectedPeriod.status === 'LOCKED' && (
+                <Button
+                  onClick={() => {
+                    const p = selectedPeriod
+                    setSelectedPeriod(null)
+                    setActionError(null)
+                    setActionSuccess(null)
+                    setConfirmAction({ type: 'reopen', period: p })
+                  }}
+                  variant="secondary"
+                >
+                  Reopen / Unlock Period
+                </Button>
+              )}
+              <Button
+                onClick={() => setSelectedPeriod(null)}
+                variant="ghost"
+              >
+                Close
+              </Button>
+            </div>
           }
           isOpen={Boolean(selectedPeriod)}
           onClose={() => setSelectedPeriod(null)}
@@ -346,6 +572,89 @@ export function FiscalPeriodsPage() {
               value={formatDate(selectedPeriod.updatedAt)}
             />
           </FactList>
+        </Modal>
+      )}
+
+      {/* Action Confirmation Modal */}
+      {confirmAction && (
+        <Modal
+          description="Confirm accounting governance action"
+          footer={
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', width: '100%' }}>
+              <Button
+                disabled={isSubmitting}
+                onClick={() => setConfirmAction(null)}
+                variant="ghost"
+              >
+                Cancel
+              </Button>
+              <Button
+                loading={isSubmitting}
+                onClick={handleExecuteAction}
+                variant={confirmAction.type === 'lock' ? 'destructive' : 'primary'}
+              >
+                {confirmAction.type === 'close' && 'Confirm Close'}
+                {confirmAction.type === 'reopen' && 'Confirm Reopen'}
+                {confirmAction.type === 'lock' && 'Confirm Lock'}
+                {confirmAction.type === 'year-close' && 'Post Year-End Close'}
+                {confirmAction.type === 'year-reopen' && 'Confirm Reopen FY'}
+              </Button>
+            </div>
+          }
+          isOpen={Boolean(confirmAction)}
+          onClose={() => !isSubmitting && setConfirmAction(null)}
+          size="sm"
+          title={
+            confirmAction.type === 'close'
+              ? `Close Period ${confirmAction.period?.periodMonth}`
+              : confirmAction.type === 'reopen'
+              ? `Reopen Period ${confirmAction.period?.periodMonth}`
+              : confirmAction.type === 'lock'
+              ? `Lock Period ${confirmAction.period?.periodMonth}`
+              : confirmAction.type === 'year-close'
+              ? `Year-End Close for FY ${activeYear}`
+              : `Reopen Financial Year FY ${activeYear}`
+          }
+        >
+          <div style={{ padding: '8px 0', fontSize: '14px', lineHeight: 1.5 }}>
+            {confirmAction.type === 'close' && (
+              <p>
+                Are you sure you want to close Period {confirmAction.period?.periodMonth} (
+                {getMonthName(confirmAction.period?.periodMonth ?? 1)}{' '}
+                {confirmAction.period?.periodYear})? Closing prevents posting new transactions
+                within this period.
+              </p>
+            )}
+            {confirmAction.type === 'reopen' && (
+              <p>
+                Are you sure you want to reopen Period {confirmAction.period?.periodMonth} (
+                {getMonthName(confirmAction.period?.periodMonth ?? 1)}{' '}
+                {confirmAction.period?.periodYear})? Transactions may once again be posted to this
+                period.
+              </p>
+            )}
+            {confirmAction.type === 'lock' && (
+              <p>
+                Are you sure you want to lock Period {confirmAction.period?.periodMonth} (
+                {getMonthName(confirmAction.period?.periodMonth ?? 1)}{' '}
+                {confirmAction.period?.periodYear})? Locked periods are permanently secured for
+                audit and require OWNER or ADMIN privileges to reopen.
+              </p>
+            )}
+            {confirmAction.type === 'year-close' && (
+              <p>
+                Are you sure you want to execute Year-End Close for FY {activeYear}? This will
+                post a closing journal entry zeroing all revenue and expense accounts into
+                Retained Earnings.
+              </p>
+            )}
+            {confirmAction.type === 'year-reopen' && (
+              <p>
+                Are you sure you want to reopen FY {activeYear}? This will post an in-period
+                reversal of the closing entry, allowing adjustments before re-closing.
+              </p>
+            )}
+          </div>
         </Modal>
       )}
     </section>

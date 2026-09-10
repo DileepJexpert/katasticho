@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { FiscalPeriodsPage } from './fiscal-periods-page'
@@ -6,6 +6,11 @@ import * as fiscalPeriodsApi from './fiscal-periods-api'
 
 vi.mock('./fiscal-periods-api', () => ({
   listPeriods: vi.fn(),
+  closePeriod: vi.fn(),
+  reopenPeriod: vi.fn(),
+  lockPeriod: vi.fn(),
+  closeYear: vi.fn(),
+  reopenYear: vi.fn(),
 }))
 
 const mockPeriods: fiscalPeriodsApi.FiscalPeriod[] = [
@@ -62,9 +67,32 @@ describe('FiscalPeriodsPage', () => {
     })
     vi.clearAllMocks()
     vi.mocked(fiscalPeriodsApi.listPeriods).mockResolvedValue(mockPeriods)
+    vi.mocked(fiscalPeriodsApi.closePeriod).mockResolvedValue({
+      id: 'period-2026-06',
+      periodYear: 2026,
+      periodMonth: 6,
+      status: 'CLOSED',
+    })
+    vi.mocked(fiscalPeriodsApi.reopenPeriod).mockResolvedValue({
+      id: 'period-2026-04',
+      periodYear: 2026,
+      periodMonth: 4,
+      status: 'OPEN',
+    })
+    vi.mocked(fiscalPeriodsApi.lockPeriod).mockResolvedValue({
+      id: 'period-2026-04',
+      periodYear: 2026,
+      periodMonth: 4,
+      status: 'LOCKED',
+    })
+    vi.mocked(fiscalPeriodsApi.closeYear).mockResolvedValue({})
+    vi.mocked(fiscalPeriodsApi.reopenYear).mockResolvedValue({
+      reversalEntryId: 'entry-rev-1',
+      reversalEntryNumber: 'JV-REV-2026',
+    })
   })
 
-  it('renders fiscal periods timeline and status chips without write controls', async () => {
+  it('renders fiscal periods timeline and governance controls', async () => {
     render(
       <QueryClientProvider client={queryClient}>
         <FiscalPeriodsPage />
@@ -91,11 +119,10 @@ describe('FiscalPeriodsPage', () => {
     expect(screen.getByText('CLOSED')).toBeInTheDocument()
     expect(screen.getByText('LOCKED')).toBeInTheDocument()
 
-    // Verify NO write controls are exposed
-    expect(screen.queryByRole('button', { name: /close period/i })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /reopen period/i })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /lock period/i })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /year-end close/i })).not.toBeInTheDocument()
+    // Verify write controls ARE exposed
+    expect(screen.getByRole('button', { name: /year-end close/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /reopen fy/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /close period/i })).toBeInTheDocument()
   })
 
   it('switches financial year using year picker tabs', async () => {
@@ -142,8 +169,8 @@ describe('FiscalPeriodsPage', () => {
 
     expect(await screen.findByText('April 2026')).toBeInTheDocument()
 
-    const viewButtons = screen.getAllByRole('button', { name: /view details/i })
-    fireEvent.click(viewButtons[0]!)
+    const detailsButtons = screen.getAllByRole('button', { name: /^details$/i })
+    fireEvent.click(detailsButtons[0]!)
 
     const dialog = screen.getByRole('dialog')
     expect(dialog).toBeInTheDocument()
@@ -156,6 +183,119 @@ describe('FiscalPeriodsPage', () => {
     const closeBtn = screen.getByRole('button', { name: 'Close' })
     fireEvent.click(closeBtn)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('executes Close Period confirmation flow', async () => {
+    render(
+      <QueryClientProvider client={queryClient}>
+        <FiscalPeriodsPage />
+      </QueryClientProvider>
+    )
+
+    expect(await screen.findByText('June 2026')).toBeInTheDocument()
+
+    // Click "Close Period" for June 2026 (period 6)
+    const closePeriodBtn = screen.getByRole('button', { name: /close period/i })
+    fireEvent.click(closePeriodBtn)
+
+    // Check confirmation modal opens
+    expect(screen.getByText('Close Period 6')).toBeInTheDocument()
+    const confirmBtn = screen.getByRole('button', { name: /confirm close/i })
+    fireEvent.click(confirmBtn)
+
+    await waitFor(() => {
+      expect(fiscalPeriodsApi.closePeriod).toHaveBeenCalledWith(2026, 6)
+    })
+    expect(await screen.findByText(/has been closed/i)).toBeInTheDocument()
+  })
+
+  it('executes Reopen Period confirmation flow', async () => {
+    render(
+      <QueryClientProvider client={queryClient}>
+        <FiscalPeriodsPage />
+      </QueryClientProvider>
+    )
+
+    expect(await screen.findByText('April 2026')).toBeInTheDocument()
+
+    // April 2026 is CLOSED, so it has Reopen and Lock buttons
+    const reopenBtns = screen.getAllByRole('button', { name: /^reopen$/i })
+    fireEvent.click(reopenBtns[0]!)
+
+    expect(screen.getByText('Reopen Period 4')).toBeInTheDocument()
+    const confirmBtn = screen.getByRole('button', { name: /confirm reopen/i })
+    fireEvent.click(confirmBtn)
+
+    await waitFor(() => {
+      expect(fiscalPeriodsApi.reopenPeriod).toHaveBeenCalledWith(2026, 4)
+    })
+    expect(await screen.findByText(/has been reopened/i)).toBeInTheDocument()
+  })
+
+  it('executes Lock Period confirmation flow', async () => {
+    render(
+      <QueryClientProvider client={queryClient}>
+        <FiscalPeriodsPage />
+      </QueryClientProvider>
+    )
+
+    expect(await screen.findByText('April 2026')).toBeInTheDocument()
+
+    const lockBtn = screen.getByRole('button', { name: /^lock$/i })
+    fireEvent.click(lockBtn)
+
+    expect(screen.getByText('Lock Period 4')).toBeInTheDocument()
+    const confirmBtn = screen.getByRole('button', { name: /confirm lock/i })
+    fireEvent.click(confirmBtn)
+
+    await waitFor(() => {
+      expect(fiscalPeriodsApi.lockPeriod).toHaveBeenCalledWith(2026, 4)
+    })
+    expect(await screen.findByText(/has been locked/i)).toBeInTheDocument()
+  })
+
+  it('executes Year-End Close confirmation flow', async () => {
+    render(
+      <QueryClientProvider client={queryClient}>
+        <FiscalPeriodsPage />
+      </QueryClientProvider>
+    )
+
+    expect(await screen.findByText('April 2026')).toBeInTheDocument()
+
+    const yearCloseBtn = screen.getByRole('button', { name: /year-end close \(fy 2026\)/i })
+    fireEvent.click(yearCloseBtn)
+
+    expect(screen.getByText('Year-End Close for FY 2026')).toBeInTheDocument()
+    const postCloseBtn = screen.getByRole('button', { name: /post year-end close/i })
+    fireEvent.click(postCloseBtn)
+
+    await waitFor(() => {
+      expect(fiscalPeriodsApi.closeYear).toHaveBeenCalledWith(2026)
+    })
+    expect(await screen.findByText(/financial year 2026 has been closed/i)).toBeInTheDocument()
+  })
+
+  it('executes Reopen FY confirmation flow', async () => {
+    render(
+      <QueryClientProvider client={queryClient}>
+        <FiscalPeriodsPage />
+      </QueryClientProvider>
+    )
+
+    expect(await screen.findByText('April 2026')).toBeInTheDocument()
+
+    const reopenYearBtn = screen.getByRole('button', { name: /reopen fy 2026/i })
+    fireEvent.click(reopenYearBtn)
+
+    expect(screen.getByText('Reopen Financial Year FY 2026')).toBeInTheDocument()
+    const confirmBtn = screen.getByRole('button', { name: /confirm reopen fy/i })
+    fireEvent.click(confirmBtn)
+
+    await waitFor(() => {
+      expect(fiscalPeriodsApi.reopenYear).toHaveBeenCalledWith(2026)
+    })
+    expect(await screen.findByText(/financial year 2026 has been reopened/i)).toBeInTheDocument()
   })
 
   it('renders empty state when search matches no periods', async () => {

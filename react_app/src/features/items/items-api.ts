@@ -287,3 +287,26 @@ export function listPackagingBarcodes(itemId: string) {
 export function getShortbook() {
   return apiFetchRawJson<ShortbookItem[]>('/api/v1/stock/shortbook')
 }
+
+export interface StockAdjustmentRequest {
+  itemId: string
+  warehouseId?: string
+  quantity: number
+  unitCost?: number
+  adjustmentDate?: string
+  reason?: string
+}
+
+export function adjustStock(request: StockAdjustmentRequest) {
+  return apiFetch<StockMovement>('/api/v1/stock/adjust', {
+    method: 'POST',
+    body: request,
+  })
+}
+
+export function reverseStockMovement(id: string, reason?: string) {
+  return apiFetch<StockMovement>(`/api/v1/stock/movements/${encodeURIComponent(id)}/reverse`, {
+    method: 'POST',
+    body: reason ? { reason } : {},
+  })
+}

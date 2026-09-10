@@ -1,14 +1,24 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, ArrowLeft, BookOpen } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, BookOpen, Edit2, Power, Trash2 } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
 import { Button, DataTable, DocumentCard, Fact, FactList, Money, PageHeader, StatusChip } from '@/design-system'
 import { getAccount, getAccountTransactions, type Account, type AccountTransaction } from '@/features/accounts/accounts-api'
+import { AccountDeleteModal, AccountFormModal, AccountStatusModal } from '@/features/accounts/account-form-modal'
 import { formatDate, formatStatusLabel } from '@/shared/format/format'
+import { useSessionStore } from '@/shared/session/session-store'
 
 export function AccountDetailPage() {
   const { accountId } = useParams()
   const navigate = useNavigate()
+  const role = useSessionStore((state) => state.user?.role) ?? ''
+  const canManage = ['OWNER', 'ADMIN', 'ACCOUNTANT'].includes(role)
+
+  const [isEditOpen, setIsEditOpen] = useState(false)
+  const [isStatusOpen, setIsStatusOpen] = useState(false)
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false)
+
   const accountQuery = useQuery({
     queryKey: ['accounts', accountId],
     queryFn: () => getAccount(accountId!),
@@ -42,7 +52,29 @@ export function AccountDetailPage() {
         eyebrow="Accounting / Account review"
         title={account.name}
         description={`${account.code} · ${formatStatusLabel(account.type)}${account.subType ? ` / ${formatStatusLabel(account.subType)}` : ''}`}
-        actions={<StatusChip status={account.isActive ? 'Active' : 'Inactive'} />}
+        actions={
+          <div className="document-actions">
+            <StatusChip status={account.isActive ? 'Active' : 'Inactive'} />
+            {canManage && (
+              <>
+                <Button variant="secondary" onClick={() => setIsEditOpen(true)}>
+                  <Edit2 size={16} aria-hidden="true" />
+                  Edit Account
+                </Button>
+                <Button variant="secondary" onClick={() => setIsStatusOpen(true)}>
+                  <Power size={16} aria-hidden="true" />
+                  {account.isActive ? 'Deactivate' : 'Activate'}
+                </Button>
+                {!account.isSystem && !account.isInvolvedInTransaction && (
+                  <Button variant="destructive" onClick={() => setIsDeleteOpen(true)}>
+                    <Trash2 size={16} aria-hidden="true" />
+                    Delete
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
+        }
       />
 
       <div className="document-actions">
@@ -50,8 +82,40 @@ export function AccountDetailPage() {
           <ArrowLeft aria-hidden="true" size={16} />
           Back to accounts
         </Button>
-        <span className="cell-muted">Read-only review. Account maintenance and financial postings remain in Flutter during migration.</span>
       </div>
+
+      {isEditOpen && (
+        <AccountFormModal
+          account={account}
+          onClose={() => setIsEditOpen(false)}
+          onSaved={() => {
+            setIsEditOpen(false)
+            void accountQuery.refetch()
+          }}
+        />
+      )}
+
+      {isStatusOpen && (
+        <AccountStatusModal
+          account={account}
+          onClose={() => setIsStatusOpen(false)}
+          onUpdated={() => {
+            setIsStatusOpen(false)
+            void accountQuery.refetch()
+          }}
+        />
+      )}
+
+      {isDeleteOpen && (
+        <AccountDeleteModal
+          account={account}
+          onClose={() => setIsDeleteOpen(false)}
+          onDeleted={() => {
+            setIsDeleteOpen(false)
+            navigate(appRoutes.accounts)
+          }}
+        />
+      )}
 
       <AccountOverview account={account} />
       <TransactionsPanel isError={transactionsQuery.isError} isLoading={transactionsQuery.isLoading} transactions={transactionsQuery.data ?? []} />

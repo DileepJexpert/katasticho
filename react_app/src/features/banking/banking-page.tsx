@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Landmark } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { CheckCircle2, Edit2, Landmark, Plus, Trash2 } from 'lucide-react'
 import {
   Button,
   DataTable,
@@ -15,9 +15,20 @@ import {
   SearchInput,
   StatusChip,
 } from '@/design-system'
-import { listBankAccounts, type BankAccount } from '@/features/banking/banking-api'
+import {
+  listBankAccounts,
+  setDefaultBankAccount,
+  type BankAccount,
+} from '@/features/banking/banking-api'
+import {
+  BankAccountDeleteModal,
+  BankAccountFormModal,
+} from '@/features/banking/bank-account-form-modal'
+import { BankReconciliationPanel } from '@/features/banking/bank-reconciliation-panel'
+import { useSessionStore } from '@/shared/session/session-store'
 
 type AccountFilter = 'ALL' | 'CURRENT' | 'SAVINGS' | 'OVERDRAFT'
+type BankingView = 'ACCOUNTS' | 'RECONCILIATION'
 
 function maskAccountNumber(accNo: string): string {
   if (!accNo) return '--'
@@ -27,13 +38,29 @@ function maskAccountNumber(accNo: string): string {
 }
 
 export function BankingPage() {
+  const role = useSessionStore((state) => state.user?.role) ?? ''
+  const canManage = ['OWNER', 'ADMIN', 'ACCOUNTANT'].includes(role)
+  const queryClient = useQueryClient()
+
+  const [view, setView] = useState<BankingView>('ACCOUNTS')
   const [filter, setFilter] = useState<AccountFilter>('ALL')
   const [search, setSearch] = useState('')
   const [selectedAccount, setSelectedAccount] = useState<BankAccount | null>(null)
+  const [isCreateOpen, setIsCreateOpen] = useState(false)
+  const [editingAccount, setEditingAccount] = useState<BankAccount | null>(null)
+  const [deletingAccount, setDeletingAccount] = useState<BankAccount | null>(null)
 
   const accountsQuery = useQuery({
     queryKey: ['bank-accounts'],
     queryFn: () => listBankAccounts(),
+  })
+
+  const setDefaultMutation = useMutation({
+    mutationFn: (id: string) => setDefaultBankAccount(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['bank-accounts'] })
+      setSelectedAccount(null)
+    },
   })
 
   const accounts = accountsQuery.data ?? []
@@ -88,33 +115,90 @@ export function BankingPage() {
     <section className="workspace-page">
       <PageHeader
         eyebrow="Accounting & Treasury / Accounts"
-        title="Bank accounts"
-        description="Review active treasury accounts, GL account bindings, IFSC routing codes, and ledger balances. Modifications remain in Flutter during migration."
+        title="Bank accounts & Treasury"
+        description="Manage active bank accounts, statement import, and smart auto-match reconciliation."
+        actions={
+          <div className="document-actions">
+            <div className="filter-tabs" role="tablist">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === 'ACCOUNTS'}
+                className={`filter-tab ${view === 'ACCOUNTS' ? 'filter-tab--active' : ''}`}
+                onClick={() => setView('ACCOUNTS')}
+              >
+                Accounts ({accounts.length})
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === 'RECONCILIATION'}
+                className={`filter-tab ${view === 'RECONCILIATION' ? 'filter-tab--active' : ''}`}
+                onClick={() => setView('RECONCILIATION')}
+              >
+                Reconciliation
+              </button>
+            </div>
+            {canManage && (
+              <Button onClick={() => setIsCreateOpen(true)}>
+                <Plus size={16} aria-hidden="true" />
+                Add Bank Account
+              </Button>
+            )}
+          </div>
+        }
       />
 
-      {/* Summary KPI Cards */}
-      <section aria-label="Treasury overview summary" className="document-facts form-grid--4col">
-        <div className="summary-stat-card">
-          <dt>Total accounts</dt>
-          <dd><strong>{accounts.length}</strong></dd>
-        </div>
-        <div className="summary-stat-card">
-          <dt>Active accounts</dt>
-          <dd><strong>{activeAccountsCount}</strong></dd>
-        </div>
-        <div className="summary-stat-card">
-          <dt>Default account</dt>
-          <dd className="fact-value--mono">
-            {defaultAccount ? defaultAccount.bankName : 'None configured'}
-          </dd>
-        </div>
-        <div className="summary-stat-card">
-          <dt>Total opening balance</dt>
-          <dd>
-            <Money amount={totalOpeningBalance} />
-          </dd>
-        </div>
-      </section>
+      {isCreateOpen && (
+        <BankAccountFormModal
+          onClose={() => setIsCreateOpen(false)}
+          onSaved={() => setIsCreateOpen(false)}
+        />
+      )}
+
+      {editingAccount && (
+        <BankAccountFormModal
+          account={editingAccount}
+          onClose={() => setEditingAccount(null)}
+          onSaved={() => setEditingAccount(null)}
+        />
+      )}
+
+      {deletingAccount && (
+        <BankAccountDeleteModal
+          account={deletingAccount}
+          onClose={() => setDeletingAccount(null)}
+          onDeleted={() => setDeletingAccount(null)}
+        />
+      )}
+
+      {view === 'RECONCILIATION' ? (
+        <BankReconciliationPanel bankAccounts={accounts} />
+      ) : (
+        <>
+          {/* Summary KPI Cards */}
+          <section aria-label="Treasury overview summary" className="document-facts form-grid--4col">
+            <div className="summary-stat-card">
+              <dt>Total accounts</dt>
+              <dd><strong>{accounts.length}</strong></dd>
+            </div>
+            <div className="summary-stat-card">
+              <dt>Active accounts</dt>
+              <dd><strong>{activeAccountsCount}</strong></dd>
+            </div>
+            <div className="summary-stat-card">
+              <dt>Default account</dt>
+              <dd className="fact-value--mono">
+                {defaultAccount ? defaultAccount.bankName : 'None configured'}
+              </dd>
+            </div>
+            <div className="summary-stat-card">
+              <dt>Total opening balance</dt>
+              <dd>
+                <Money amount={totalOpeningBalance} />
+              </dd>
+            </div>
+          </section>
 
       {/* Directory Table Panel */}
       <section aria-label="Bank accounts directory" className="list-panel">
@@ -245,18 +329,61 @@ export function BankingPage() {
           />
         )}
       </section>
+        </>
+      )}
 
       {/* Account Details Modal */}
       {selectedAccount && (
         <Modal
-          description="Read-only account properties and general ledger linkage. Modifications remain in Flutter."
+          description="Account properties, GL linkage, and default treasury routing."
           footer={
-            <Button
-              onClick={() => setSelectedAccount(null)}
-              variant="secondary"
-            >
-              Close
-            </Button>
+            <div className="document-actions" style={{ width: '100%', justifyContent: 'space-between' }}>
+              <div>
+                {canManage && !selectedAccount.isDefault && (
+                  <Button
+                    variant="destructive"
+                    onClick={() => {
+                      setDeletingAccount(selectedAccount)
+                      setSelectedAccount(null)
+                    }}
+                  >
+                    <Trash2 size={16} aria-hidden="true" />
+                    Delete
+                  </Button>
+                )}
+              </div>
+              <div className="document-actions">
+                <Button
+                  onClick={() => setSelectedAccount(null)}
+                  variant="secondary"
+                >
+                  Close
+                </Button>
+                {canManage && (
+                  <>
+                    {!selectedAccount.isDefault && (
+                      <Button
+                        variant="secondary"
+                        loading={setDefaultMutation.isPending}
+                        onClick={() => setDefaultMutation.mutate(selectedAccount.id)}
+                      >
+                        <CheckCircle2 size={16} aria-hidden="true" />
+                        Set Default
+                      </Button>
+                    )}
+                    <Button
+                      onClick={() => {
+                        setEditingAccount(selectedAccount)
+                        setSelectedAccount(null)
+                      }}
+                    >
+                      <Edit2 size={16} aria-hidden="true" />
+                      Edit
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
           }
           isOpen={Boolean(selectedAccount)}
           onClose={() => setSelectedAccount(null)}

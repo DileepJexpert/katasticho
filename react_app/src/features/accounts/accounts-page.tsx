@@ -1,11 +1,13 @@
 import { useDeferredValue, useEffect, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { BookOpen } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { BookOpen, Plus, Sparkles } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { appRoutes } from '@/app/navigation'
-import { DataTable, DirectoryToolbar, EmptyState, FilterTabs, Money, PageHeader, SearchInput, StatusChip, TablePagination } from '@/design-system'
-import { listAccounts, type Account } from '@/features/accounts/accounts-api'
+import { Button, DataTable, DirectoryToolbar, EmptyState, FilterTabs, Money, PageHeader, SearchInput, StatusChip, TablePagination } from '@/design-system'
+import { listAccounts, seedAccountTemplate, type Account } from '@/features/accounts/accounts-api'
+import { AccountFormModal } from '@/features/accounts/account-form-modal'
 import { formatStatusLabel } from '@/shared/format/format'
+import { useSessionStore } from '@/shared/session/session-store'
 
 const typeTabs = [
   { label: 'All', value: 'ALL' },
@@ -20,12 +22,25 @@ type TypeFilter = (typeof typeTabs)[number]['value']
 const pageSize = 25
 
 export function AccountsPage() {
+  const role = useSessionStore((state) => state.user?.role) ?? ''
+  const canManage = ['OWNER', 'ADMIN', 'ACCOUNTANT'].includes(role)
+  const canSeed = ['OWNER', 'ADMIN'].includes(role)
+  const queryClient = useQueryClient()
+
   const [selectedType, setSelectedType] = useState<TypeFilter>('ALL')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
+  const [isCreateOpen, setIsCreateOpen] = useState(false)
   const deferredSearch = useDeferredValue(search.trim().toLowerCase())
   const accountsQuery = useQuery({ queryKey: ['accounts'], queryFn: listAccounts })
   const accounts = accountsQuery.data ?? []
+
+  const seedMutation = useMutation({
+    mutationFn: () => seedAccountTemplate('TRADING'),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['accounts'] })
+    },
+  })
 
   useEffect(() => {
     setPage(0)
@@ -46,8 +61,36 @@ export function AccountsPage() {
       <PageHeader
         eyebrow="Accounting / General ledger"
         title="Chart of accounts"
-        description="Read-only account and ledger review. Account maintenance and chart templates remain in Flutter during migration."
+        description="Review and maintain accounts, classifications, parent hierarchies, and ledger balances."
+        actions={
+          <div className="document-actions">
+            {canSeed && accounts.length === 0 && (
+              <Button
+                variant="secondary"
+                loading={seedMutation.isPending}
+                onClick={() => seedMutation.mutate()}
+              >
+                <Sparkles size={16} aria-hidden="true" />
+                Seed Standard CoA
+              </Button>
+            )}
+            {canManage && (
+              <Button onClick={() => setIsCreateOpen(true)}>
+                <Plus size={16} aria-hidden="true" />
+                New Account
+              </Button>
+            )}
+          </div>
+        }
       />
+
+      {isCreateOpen && (
+        <AccountFormModal
+          parentAccounts={accounts}
+          onClose={() => setIsCreateOpen(false)}
+          onSaved={() => setIsCreateOpen(false)}
+        />
+      )}
 
       <section className="list-panel" aria-label="Chart of accounts directory">
         <DirectoryToolbar ariaLabel="Filter chart of accounts by type and search" stacked>

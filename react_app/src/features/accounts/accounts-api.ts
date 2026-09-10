@@ -67,3 +67,59 @@ export function getAccount(id: string) {
 export function getAccountTransactions(id: string) {
   return apiFetch<AccountTransaction[]>(`/api/v1/accounts/${id}/transactions`)
 }
+
+export type CreateAccountRequest = {
+  code: string
+  name: string
+  type: 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE'
+  subType?: string | null
+  parentCode?: string | null
+  description?: string | null
+  openingBalance?: number | null
+}
+
+export type UpdateAccountRequest = {
+  name: string
+  subType?: string | null
+  description?: string | null
+  openingBalance?: number | null
+}
+
+export function createAccount(request: CreateAccountRequest) {
+  return apiFetch<Account>('/api/v1/accounts', {
+    method: 'POST',
+    body: request,
+  })
+}
+
+export function updateAccount(id: string, request: UpdateAccountRequest) {
+  return apiFetch<Account>(`/api/v1/accounts/${id}`, {
+    method: 'PUT',
+    body: request,
+  })
+}
+
+export function deleteAccount(id: string) {
+  return apiFetch<void>(`/api/v1/accounts/${id}`, {
+    method: 'DELETE',
+  })
+}
+
+export function activateAccount(id: string) {
+  return apiFetch<void>(`/api/v1/accounts/${id}/activate`, {
+    method: 'PATCH',
+  })
+}
+
+export function deactivateAccount(id: string) {
+  return apiFetch<void>(`/api/v1/accounts/${id}/deactivate`, {
+    method: 'PATCH',
+  })
+}
+
+export function seedAccountTemplate(industry = 'TRADING') {
+  return apiFetch<{ result: unknown; industry: string }>('/api/v1/accounts/template', {
+    method: 'POST',
+    body: { industry },
+  })
+}

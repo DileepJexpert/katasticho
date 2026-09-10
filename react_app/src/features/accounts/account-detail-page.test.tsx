@@ -42,13 +42,23 @@ describe('AccountDetailPage', () => {
     )
   }
 
-  it('shows immutable account facts and the server ledger without write controls', async () => {
+  it('shows account facts, ledger transactions, and maintenance controls for authorized roles', async () => {
     renderPage()
 
     expect(await screen.findByRole('heading', { name: 'Cash in hand' })).toBeInTheDocument()
-    expect(screen.getByText('Read-only review. Account maintenance and financial postings remain in Flutter during migration.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /edit account/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /deactivate/i })).toBeInTheDocument()
     expect(await screen.findByText('JV-2026-0001')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /edit account|create account|seed accounts|save changes/i })).not.toBeInTheDocument()
+  })
+
+  it('opens the edit modal when clicking Edit Account', async () => {
+    renderPage()
+
+    const editBtn = await screen.findByRole('button', { name: /edit account/i })
+    editBtn.click()
+
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByText('Edit Account: Cash in hand')).toBeInTheDocument()
   })
 
   it('shows an explicit ledger failure state', async () => {
