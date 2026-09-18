@@ -9,7 +9,7 @@ import * as api from './field-sales-api'
 
 vi.mock('./field-sales-api', () => ({
   approveDayClose: vi.fn(), getDayClose: vi.fn(), getExecution: vi.fn(), initiateDayClose: vi.fn(),
-  rejectDayClose: vi.fn(), submitDayClose: vi.fn(),
+  rejectDayClose: vi.fn(), submitDayClose: vi.fn(), listDayCloses: vi.fn(), getDayCloseByExecution: vi.fn(),
 }))
 
 function renderPage() {
@@ -23,6 +23,7 @@ describe('DayClosePage', () => {
     useSessionStore.setState({ status: 'authenticated', user: enterpriseUser })
     vi.mocked(api.getDayClose).mockResolvedValue({ id: 'close-1', routeExecutionId: 'exec-1', salespersonId: 'user-1', status: 'PENDING', openingCash: 100, cashCollections: 250, totalCollections: 300, cashExpenses: 20, closingCash: 0, cashDeposited: 0, cashVariance: 0, closeDate: '2026-09-05' })
     vi.mocked(api.submitDayClose).mockResolvedValue({ id: 'close-1', status: 'SUBMITTED' } as Awaited<ReturnType<typeof api.submitDayClose>>)
+    vi.mocked(api.listDayCloses).mockResolvedValue({ content: [{ id: 'close-1', routeExecutionId: 'exec-1', salespersonId: 'user-1', status: 'PENDING', openingCash: 100, cashCollections: 250, totalCollections: 300, cashExpenses: 20, closingCash: 0, cashDeposited: 0, cashVariance: 0, closeDate: '2026-09-05' }], totalPages: 1, totalElements: 1, page: 0, size: 25, last: true })
   })
 
   it('shows actual cash fields and submits counted values for server variance calculation', async () => {
@@ -36,5 +37,13 @@ describe('DayClosePage', () => {
     fireEvent.change(screen.getByLabelText('Reconciliation notes'), { target: { value: 'Count checked' } })
     fireEvent.click(screen.getByRole('button', { name: 'Confirm submission' }))
     await waitFor(() => expect(api.submitDayClose).toHaveBeenCalledWith('close-1', { closingCash: 330, cashDeposited: 300, notes: 'Count checked' }))
+  })
+
+  it('renders directory when no dayCloseId or executionId is provided', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+    render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/field-sales/day-close']}><DayClosePage /></MemoryRouter></QueryClientProvider>)
+
+    expect(await screen.findByText('2026-09-05')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'View details' })).toBeInTheDocument()
   })
 })

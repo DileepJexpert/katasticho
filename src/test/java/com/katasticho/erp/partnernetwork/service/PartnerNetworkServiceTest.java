@@ -263,4 +263,19 @@ class PartnerNetworkServiceTest {
         assertNotNull(result.getDispatchedAt());
         assertEquals("DISPATCHED", result.getLines().get(0).getStatus());
     }
+
+    @Test
+    void searchDirectory_returnsOtherActiveOrganisations() {
+        Organisation org1 = Organisation.builder().name("Target Pharma").industry("PHARMACEUTICAL").countryCode("IN").build();
+        org1.setId(orgB);
+        Organisation self = Organisation.builder().name("My Self Org").industry("PHARMACEUTICAL").countryCode("IN").build();
+        self.setId(orgA);
+
+        when(orgRepo.findByIsDeletedFalseAndActiveTrue()).thenReturn(List.of(self, org1));
+
+        List<PartnerDirectoryOrg> result = service.searchDirectory("target");
+        assertEquals(1, result.size());
+        assertEquals(orgB, result.get(0).id());
+        assertEquals("Target Pharma", result.get(0).name());
+    }
 }

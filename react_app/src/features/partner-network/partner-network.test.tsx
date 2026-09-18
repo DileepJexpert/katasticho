@@ -10,7 +10,16 @@ import { CatalogPage } from './catalog-page'
 import { allowedOrderActions, type CatalogItem, type NetworkOrder, type TradingPartner } from './partner-network-api'
 import * as api from './partner-network-api'
 
-vi.mock('./partner-network-api', async (importOriginal) => ({ ...await importOriginal<typeof api>(), listPartners: vi.fn(), listCatalog: vi.fn(), publishCatalogItem: vi.fn(), searchSupplierCatalog: vi.fn(), partnerAction: vi.fn() }))
+vi.mock('./partner-network-api', async (importOriginal) => ({
+  ...await importOriginal<typeof api>(),
+  listPartners: vi.fn(),
+  listCatalog: vi.fn(),
+  publishCatalogItem: vi.fn(),
+  searchSupplierCatalog: vi.fn(),
+  partnerAction: vi.fn(),
+  searchPartnerDirectory: vi.fn(),
+  requestPartnership: vi.fn(),
+}))
 const partner: TradingPartner = { id: 'partner-1', buyerOrgId: 'org-1', sellerOrgId: 'seller-1', buyerOrgName: 'Our company', sellerOrgName: 'Supplier company', status: 'PENDING', requestedByOrgId: 'org-1', creditLimit: null, paymentTerms: '30 days', deliveryTerms: null, notes: null, createdAt: '2026-09-01', approvedAt: null }
 const catalog: CatalogItem = { id: 'catalog-1', sellerOrgId: 'org-1', itemId: 'item-1', drugMasterId: 'drug-1', displayName: 'Catalog tea', publishedSku: 'TEA-1', hsnCode: '0902', manufacturer: 'Grower', packSize: '100g', category: 'Tea', description: 'Keep me', publishedMrp: 50, publishedPtr: 40, minOrderQty: 1, availabilityStatus: 'BACK_ORDER', isActive: true }
 beforeEach(() => {
@@ -20,6 +29,10 @@ beforeEach(() => {
   vi.mocked(api.listCatalog).mockResolvedValue([catalog])
   vi.mocked(api.searchSupplierCatalog).mockResolvedValue([])
   vi.mocked(api.publishCatalogItem).mockResolvedValue({})
+  vi.mocked(api.searchPartnerDirectory).mockResolvedValue([
+    { id: 'target-org-1', name: 'Apex Pharma Distributors', industry: 'Pharmaceuticals', stateCode: '27', countryCode: 'IN', gstin: '27AABCA1234F1Z5' }
+  ])
+  vi.mocked(api.requestPartnership).mockResolvedValue(partner)
 })
 function show(page: React.ReactNode) { return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })}><MemoryRouter>{page}</MemoryRouter></QueryClientProvider>) }
 
@@ -32,12 +45,34 @@ it.each([
   expect(allowedOrderActions({ status, buyerOrgId: 'org-1', sellerOrgId: 'seller-1' } as NetworkOrder, orgId as string)).toEqual(expected)
 })
 
-it('prevents approving your own partnership request and explains the discovery gap', async () => {
+it('prevents approving your own partnership request and prevents raw ID entry', async () => {
   show(<PartnersPage />)
   expect(await screen.findByRole('button', { name: 'Supplier company' })).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: /Approve/ })).not.toBeInTheDocument()
-  expect(screen.getByText(/no partner discovery endpoint/)).toBeInTheDocument()
+  expect(screen.getByText(/Search the organisation directory/)).toBeInTheDocument()
   expect(screen.queryByRole('textbox', { name: /UUID|Organisation ID/i })).not.toBeInTheDocument()
+})
+
+it('opens request modal, searches directory, and sends partnership request', async () => {
+  show(<PartnersPage />)
+  await userEvent.click(await screen.findByRole('button', { name: 'Request partnership' }))
+  expect(screen.getByText('Search active organisations from the verified directory to initiate a trading relationship.')).toBeInTheDocument()
+
+  const searchInput = screen.getByRole('combobox', { name: 'Search partner directory' })
+  await userEvent.type(searchInput, 'Apex')
+  expect(await screen.findByText('Apex Pharma Distributors')).toBeInTheDocument()
+  await userEvent.click(screen.getByText('Apex Pharma Distributors'))
+
+  await userEvent.type(screen.getByLabelText('Payment terms (optional)'), 'Net 30 days')
+  await userEvent.click(screen.getByRole('button', { name: 'Send request' }))
+
+  await waitFor(() => {
+    expect(api.requestPartnership).toHaveBeenCalledWith(expect.objectContaining({
+      targetOrgId: 'target-org-1',
+      role: 'BUYER',
+      paymentTerms: 'Net 30 days',
+    }))
+  })
 })
 
 it('confirms an incoming partnership and refreshes the server list', async () => {

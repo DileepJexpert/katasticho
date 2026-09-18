@@ -1,4 +1,4 @@
-export type PortalUser = { id: string; contactId: string; kind: 'CUSTOMER' | 'VENDOR'; email: string; fullName: string; status: string }
+export type PortalUser = { id: string; contactId: string; kind: 'CUSTOMER' | 'VENDOR'; email: string; fullName: string; status: string; currency?: string }
 export type PortalSession = { token: string; portalUser: PortalUser }
 type Amount = number | string
 export type PortalDocument = { id: string; number: string; date: string; dueDate?: string; total: Amount; balanceDue?: Amount; status: string; vendorBillNumber?: string }
@@ -6,7 +6,7 @@ export type PortalOrder = PortalDocument & { referenceNumber: string | null; exp
 export type PortalItem = { id: string; name: string; sku: string | null; brand: string | null; unitOfMeasure: string; salePrice: Amount; gstRate: Amount; inStock: boolean; stockQuantity: Amount; schemeDescription: string | null }
 export type PortalCatalog = { items: PortalItem[]; page: number; totalPages: number; totalElements: number }
 export type PortalStatement = { contactName: string; openingBalance: Amount; closingBalance: Amount; totalInvoiced: Amount; totalPaid: Amount; entries: { date: string; type: string; number: string; referenceId: string; description: string; debit: Amount; credit: Amount; runningBalance: Amount }[] }
-export type PortalDashboard = { kind: 'CUSTOMER' | 'VENDOR'; outstanding?: Amount; payableToYou?: Amount; openInvoiceCount?: number; totalInvoiceCount?: number; unpaidBillCount?: number }
+export type PortalDashboard = { kind: 'CUSTOMER' | 'VENDOR'; outstanding?: Amount; payableToYou?: Amount; openInvoiceCount?: number; totalInvoiceCount?: number; unpaidBillCount?: number; currency?: string }
 export type PortalOrderRequest = { lines: { itemId: string; quantity: number }[]; notes: string; referenceNumber: string; expectedShipmentDate?: string }
 export type PortalOrderResult = { id: string; salesorderNumber: string; orderDate: string; total: Amount; status: string }
 

@@ -38,7 +38,11 @@ export const addItemSupplier = (body: ItemSupplierRequest) => apiFetch<ItemSuppl
 export const setPreferredSupplier = (itemId: string, supplierId: string) => apiFetch<ItemSupplier>(`${root}/item-suppliers/${encodeURIComponent(itemId)}/preferred/${encodeURIComponent(supplierId)}`, { method: 'POST' })
 export const removeItemSupplier = (id: string) => apiFetch<void>(`${root}/item-suppliers/${encodeURIComponent(id)}`, { method: 'DELETE' })
 export const listSupplierRankings = () => apiFetch<SupplierPerformance[]>(`${root}/supplier-rankings`)
+export const calculateSupplierPerformance = (supplierId: string, from: string, to: string) =>
+  apiFetch<SupplierPerformance>(`${root}/supplier-performance/${encodeURIComponent(supplierId)}/calculate?${new URLSearchParams({ from, to })}`, { method: 'POST' })
 export const listSupplyReturns = (page = 0, status = '') => apiFetch<Page<SupplyReturn>>(`${root}/returns?${pageParams(page, status)}`)
+export const returnAction = (id: string, action: 'approve' | 'process' | 'cancel') =>
+  apiFetch<SupplyReturn>(`${root}/returns/${encodeURIComponent(id)}/${action}`, { method: 'POST' })
 export const listShipments = () => apiFetch<Shipment[]>(`${root}/shipments`)
 export const getShipment = (id: string) => apiFetch<Shipment>(`${root}/shipments/${encodeURIComponent(id)}`)
 export const createShipment = (body: ShipmentRequest) => apiFetch<Shipment>(`${root}/shipments`, { method: 'POST', body })

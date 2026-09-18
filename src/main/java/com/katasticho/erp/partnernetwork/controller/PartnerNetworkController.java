@@ -61,6 +61,12 @@ public class PartnerNetworkController {
         return ResponseEntity.ok(ApiResponse.ok(service.suspendPartnership(id), "Partnership suspended"));
     }
 
+    @GetMapping("/directory")
+    public ResponseEntity<ApiResponse<List<PartnerDirectoryOrg>>> searchDirectory(
+            @RequestParam(required = false) String query) {
+        return ResponseEntity.ok(ApiResponse.ok(service.searchDirectory(query)));
+    }
+
     // ── Published Catalog ─────────────────────────────────────────
 
     @GetMapping("/catalog")

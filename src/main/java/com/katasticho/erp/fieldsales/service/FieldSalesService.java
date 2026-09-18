@@ -810,6 +810,8 @@ public class FieldSalesService {
             vanRepository.findByIdAndOrgIdAndIsDeletedFalse(input.getVanId(), orgId)
                     .orElseThrow(() -> BusinessException.notFound("Van", input.getVanId()));
             existing.setVanId(input.getVanId());
+        } else {
+            existing.setVanId(null);
         }
 
         existing.setSalespersonId(salespersonId);
@@ -1965,6 +1967,27 @@ public class FieldSalesService {
         UUID orgId = TenantContext.getCurrentOrgId();
         return dayCloseRepository.findByIdAndOrgIdAndIsDeletedFalse(id, orgId)
                 .orElseThrow(() -> BusinessException.notFound("DayClose", id));
+    }
+
+    /**
+     * Gets a day close by route execution id, if present.
+     */
+    @Transactional(readOnly = true)
+    public Optional<DayClose> getDayCloseByRouteExecution(UUID routeExecutionId) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        return dayCloseRepository.findByOrgIdAndRouteExecutionIdAndIsDeletedFalse(orgId, routeExecutionId);
+    }
+
+    /**
+     * Lists day closes with optional status filtering and pagination.
+     */
+    @Transactional(readOnly = true)
+    public Page<DayClose> listDayCloses(String status, Pageable pageable) {
+        UUID orgId = TenantContext.getCurrentOrgId();
+        if (status != null && !status.isBlank()) {
+            return dayCloseRepository.findByOrgIdAndStatusAndIsDeletedFalse(orgId, status, pageable);
+        }
+        return dayCloseRepository.findByOrgIdAndIsDeletedFalse(orgId, pageable);
     }
 
     /**

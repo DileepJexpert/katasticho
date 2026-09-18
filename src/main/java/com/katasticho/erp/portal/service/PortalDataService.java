@@ -27,6 +27,7 @@ import com.katasticho.erp.sales.dto.SalesOrderLineRequest;
 import com.katasticho.erp.sales.dto.SalesOrderResponse;
 import com.katasticho.erp.sales.entity.SalesOrder;
 import com.katasticho.erp.sales.entity.SalesOrderLine;
+import com.katasticho.erp.organisation.OrganisationRepository;
 import com.katasticho.erp.sales.repository.SalesOrderRepository;
 import com.katasticho.erp.sales.service.SalesOrderService;
 import lombok.RequiredArgsConstructor;
@@ -64,6 +65,7 @@ public class PortalDataService {
     private final SalesOrderRepository salesOrderRepository;
     private final SalesOrderService salesOrderService;
     private final SupplierRepository supplierRepository;
+    private final OrganisationRepository organisationRepository;
 
     @Transactional(readOnly = true)
     public Map<String, Object> me() {
@@ -74,6 +76,7 @@ public class PortalDataService {
         out.put("email", pu.getEmail());
         out.put("fullName", pu.getFullName());
         out.put("contact", contactSummary(contact));
+        organisationRepository.findById(pu.getOrgId()).ifPresent(org -> out.put("currency", org.getBaseCurrency()));
         return out;
     }
 
@@ -120,6 +123,7 @@ public class PortalDataService {
         out.put("openInvoiceCount", openCount);
         out.put("totalInvoiceCount", invoices.size());
         out.put("recentInvoices", invoices.stream().limit(5).map(this::invoiceRow).toList());
+        organisationRepository.findById(pu.getOrgId()).ifPresent(org -> out.put("currency", org.getBaseCurrency()));
         return out;
     }
 
@@ -176,6 +180,7 @@ public class PortalDataService {
         out.put("unpaidBillCount", unpaid);
         out.put("openPurchaseOrderCount", openPos);
         out.put("recentPurchaseOrders", pos.stream().limit(5).map(this::poRow).toList());
+        organisationRepository.findById(pu.getOrgId()).ifPresent(org -> out.put("currency", org.getBaseCurrency()));
         return out;
     }
 

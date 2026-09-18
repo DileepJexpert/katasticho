@@ -28,8 +28,31 @@ export type NetworkOrder = {
 }
 export type NetworkEvent = { id: string; eventType: string; actorOrgId: string; createdAt: string; payload: Record<string, unknown> | null }
 export type OrderAction = 'cancel' | 'reject' | 'dispatch' | 'deliver'
+
+export type PartnerDirectoryOrg = {
+  id: string
+  name: string
+  industry: string | null
+  stateCode: string | null
+  countryCode: string | null
+  gstin: string | null
+}
+
+export type TradingPartnerRequest = {
+  targetOrgId: string
+  role: 'BUYER' | 'SELLER'
+  creditLimit?: Amount | null
+  paymentTerms?: string | null
+  deliveryTerms?: string | null
+  notes?: string | null
+}
+
 const root = '/api/v1/partner-network'
 export const listPartners = () => apiFetch<TradingPartner[]>(`${root}/partners`)
+export const searchPartnerDirectory = (query?: string) =>
+  apiFetch<PartnerDirectoryOrg[]>(`${root}/directory${query ? `?${new URLSearchParams({ query })}` : ''}`)
+export const requestPartnership = (body: TradingPartnerRequest) =>
+  apiFetch<TradingPartner>(`${root}/partners/request`, { method: 'POST', body })
 export const listCatalog = () => apiFetch<CatalogItem[]>(`${root}/catalog`)
 export const searchSupplierCatalog = (search: string) => apiFetch<CatalogItem[]>(`${root}/supplier-search?${new URLSearchParams({ search })}`)
 export const publishCatalogItem = (body: CatalogRequest) => apiFetch<unknown>(`${root}/catalog`, { method: 'POST', body })
@@ -47,7 +70,7 @@ export function allowedOrderActions(order: NetworkOrder, orgId: string): OrderAc
 }
 
 export const networkWriteBlockers = {
-  request: 'New partnership requests need an authorised organisation directory. The existing API requires an organisation ID but exposes no partner discovery endpoint; raw ID entry is not offered.',
+  request: 'Search the organisation directory to discover verified partners and send partnership requests.',
   order: 'New order placement and quantity confirmation await backend validation of seller catalog ownership, item ownership and confirmed quantities. Existing orders and tracking remain available.',
   linking: 'PO/SO linking is unavailable until the backend validates the document tenant and the buyer/seller side. Existing links are shown only for your own organisation.',
 }

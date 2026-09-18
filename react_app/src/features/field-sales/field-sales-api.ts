@@ -700,6 +700,16 @@ export async function getDayClose(id: string) {
   return apiFetch<DayClose>(`/api/v1/field-sales/day-close/${id}`)
 }
 
+export async function getDayCloseByExecution(routeExecutionId: string) {
+  return apiFetch<DayClose>(`/api/v1/field-sales/day-close/by-execution/${routeExecutionId}`)
+}
+
+export async function listDayCloses(status?: string, page = 0, size = 25) {
+  const params = new URLSearchParams({ page: String(page), size: String(size) })
+  if (status) params.set('status', status)
+  return apiFetch<PageResponse<DayClose>>(`/api/v1/field-sales/day-close?${params}`)
+}
+
 export async function submitDayClose(id: string, data: {
   closingCash?: number
   cashDeposited?: number

@@ -153,6 +153,28 @@ public class PartnerNetworkService {
         return toPartnerResponse(partner);
     }
 
+    @Transactional(readOnly = true)
+    public List<PartnerDirectoryOrg> searchDirectory(String query) {
+        UUID myOrgId = TenantContext.getCurrentOrgId();
+        String q = query != null ? query.trim().toLowerCase() : "";
+        return organisationRepository.findByIsDeletedFalseAndActiveTrue().stream()
+                .filter(o -> !o.getId().equals(myOrgId))
+                .filter(o -> q.isEmpty()
+                        || (o.getName() != null && o.getName().toLowerCase().contains(q))
+                        || (o.getGstin() != null && o.getGstin().toLowerCase().contains(q))
+                        || (o.getIndustry() != null && o.getIndustry().toLowerCase().contains(q)))
+                .limit(50)
+                .map(o -> new PartnerDirectoryOrg(
+                        o.getId(),
+                        o.getName(),
+                        o.getIndustry(),
+                        o.getStateCode(),
+                        o.getCountryCode(),
+                        o.getGstin()
+                ))
+                .toList();
+    }
+
     // ══════════════════════════════════════════════════════════════
     // Published Catalog
     // ══════════════════════════════════════════════════════════════

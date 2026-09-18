@@ -8,17 +8,39 @@ import { useSessionStore } from '@/shared/session/session-store'
 import * as items from '@/features/items/items-api'
 import * as suppliers from '@/features/suppliers/suppliers-api'
 import * as warehouses from '@/features/warehouses/warehouses-api'
+import * as contacts from '@/features/contacts/contacts-api'
 import * as api from './supply-chain-api'
 import { RequisitionsPage, RequisitionDetailPage } from './requisitions-page'
 import { SupplyShipmentsPage, SupplyShipmentDetailPage } from './shipments-page'
 import { ForecastsPage } from './forecasts-page'
 import { SupplyReturnsPage } from './supply-returns-page'
+import { SupplierPerformancePage } from './supplier-performance-page'
 import { ItemSuppliersPage } from './item-suppliers-page'
 
-vi.mock('./supply-chain-api', async (importOriginal) => ({ ...await importOriginal<typeof api>(), listRequisitions: vi.fn(), getRequisition: vi.fn(), createRequisition: vi.fn(), autoRequisition: vi.fn(), requisitionAction: vi.fn(), listShipments: vi.fn(), getShipment: vi.fn(), createShipment: vi.fn(), shipmentAction: vi.fn(), listForecasts: vi.fn(), generateForecast: vi.fn(), listSupplyReturns: vi.fn(), listItemSuppliers: vi.fn(), addItemSupplier: vi.fn() }))
+vi.mock('./supply-chain-api', async (importOriginal) => ({
+  ...await importOriginal<typeof api>(),
+  listRequisitions: vi.fn(),
+  getRequisition: vi.fn(),
+  createRequisition: vi.fn(),
+  autoRequisition: vi.fn(),
+  requisitionAction: vi.fn(),
+  listShipments: vi.fn(),
+  getShipment: vi.fn(),
+  createShipment: vi.fn(),
+  shipmentAction: vi.fn(),
+  listForecasts: vi.fn(),
+  generateForecast: vi.fn(),
+  listSupplyReturns: vi.fn(),
+  returnAction: vi.fn(),
+  listItemSuppliers: vi.fn(),
+  addItemSupplier: vi.fn(),
+  listSupplierRankings: vi.fn(),
+  calculateSupplierPerformance: vi.fn(),
+}))
 vi.mock('@/features/items/items-api', () => ({ listItems: vi.fn(), getItem: vi.fn() }))
 vi.mock('@/features/suppliers/suppliers-api', () => ({ listSelectableSuppliers: vi.fn(), getSupplier: vi.fn() }))
 vi.mock('@/features/warehouses/warehouses-api', () => ({ listWarehouses: vi.fn() }))
+vi.mock('@/features/contacts/contacts-api', () => ({ listContacts: vi.fn() }))
 const item = { id: 'item-1', name: 'Turmeric test', sku: 'TURMERIC', purchasePrice: 30 } as items.Item
 const supplier = { id: 'supplier-1', name: 'Annapurna Supplier', active: true } as suppliers.Supplier
 const requisition: api.Requisition = { id: 'req-1', requisitionNumber: 'PR-001', status: 'DRAFT', supplierId: null, warehouseId: null, requiredByDate: null, totalAmount: 300, source: 'MANUAL', purchaseOrderId: null, notes: null, lines: [{ id: 'line-1', itemId: 'item-1', requiredQty: 10, estimatedUnitPrice: 30, estimatedLineTotal: 300 }] }
@@ -36,6 +58,31 @@ beforeEach(() => {
   vi.mocked(api.listForecasts).mockResolvedValue([])
   vi.mocked(api.generateForecast).mockResolvedValue([])
   vi.mocked(api.listSupplyReturns).mockResolvedValue({ content: [], totalPages: 0, totalElements: 0 })
+  vi.mocked(api.returnAction).mockResolvedValue({} as api.SupplyReturn)
+  vi.mocked(api.listSupplierRankings).mockResolvedValue([
+    {
+      id: 'perf-1',
+      supplierId: 'supplier-1',
+      supplierName: 'Annapurna Supplier',
+      periodStart: '2026-06-01',
+      periodEnd: '2026-08-31',
+      totalOrders: 5,
+      totalQtyOrdered: 100,
+      totalQtyReceived: 98,
+      totalQtyRejected: 2,
+      totalAmount: 50000,
+      qualityRate: 98,
+      overallScore: 98,
+    },
+  ])
+  vi.mocked(api.calculateSupplierPerformance).mockResolvedValue({} as api.SupplierPerformance)
+  vi.mocked(contacts.listContacts).mockResolvedValue({
+    content: [{ id: 'supplier-1', displayName: 'Annapurna Supplier', active: true, contactType: 'VENDOR' } as contacts.Contact],
+    number: 0,
+    size: 25,
+    totalElements: 1,
+    totalPages: 1,
+  })
   vi.mocked(api.listItemSuppliers).mockResolvedValue([])
   vi.mocked(api.addItemSupplier).mockResolvedValue({} as api.ItemSupplier)
   vi.mocked(items.listItems).mockResolvedValue({ content: [item], totalPages: 1, totalElements: 1, size: 25, page: 0, last: true })
@@ -169,4 +216,35 @@ it('uses selectable supplier projections and validates mapping lead time', async
   fireEvent.change(screen.getByLabelText('Lead time days'), { target: { value: '7' } })
   await userEvent.click(screen.getByRole('button', { name: 'Save mapping' }))
   await waitFor(() => expect(api.addItemSupplier).toHaveBeenCalledWith(expect.objectContaining({ itemId: 'item-1', supplierId: 'supplier-1', leadTimeDays: 7, unitPrice: 30 })))
+})
+
+it('confirms and triggers return actions for draft returns', async () => {
+  const returnOrder: api.SupplyReturn = {
+    id: 'ret-1',
+    returnNumber: 'RET-001',
+    returnType: 'PURCHASE_RETURN',
+    status: 'DRAFT',
+    totalAmount: 1500,
+    netRefund: 1500,
+    reasonCode: 'DAMAGED',
+    reasonNotes: 'Broken seals',
+    lines: [],
+  }
+  vi.mocked(api.listSupplyReturns).mockResolvedValue({ content: [returnOrder], totalPages: 1, totalElements: 1 })
+  show(<SupplyReturnsPage />)
+  expect(await screen.findByText('RET-001')).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: 'Approve' }))
+  expect(api.returnAction).not.toHaveBeenCalled()
+  await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+  await waitFor(() => expect(api.returnAction).toHaveBeenCalledWith('ret-1', 'approve'))
+})
+
+it('opens recalculate modal and calls calculateSupplierPerformance', async () => {
+  show(<SupplierPerformancePage />)
+  expect(await screen.findByText('Annapurna Supplier')).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: 'Recalculate' }))
+  expect(screen.getByText('Recalculate supplier performance')).toBeInTheDocument()
+
+  await userEvent.click(screen.getByRole('button', { name: 'Calculate performance' }))
+  await waitFor(() => expect(api.calculateSupplierPerformance).toHaveBeenCalledWith('supplier-1', expect.any(String), expect.any(String)))
 })

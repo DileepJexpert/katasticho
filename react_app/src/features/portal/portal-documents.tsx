@@ -6,13 +6,14 @@ import { LocalDirectory } from '@/shared/workflows/local-directory'
 import { QueryFeedback } from '@/shared/workflows/query-feedback'
 import type { PortalApi, PortalDocument } from './portal-api'
 
-function Money({ amount }: { amount: number | string | null | undefined }) {
-  return <DesignMoney amount={amount} showCurrency={false} />
+function Money({ amount, currency }: { amount: number | string | null | undefined; currency?: string }) {
+  return <DesignMoney amount={amount} currency={currency ?? 'INR'} showCurrency={true} />
 }
 
 export function PortalOverview({ api, vendor }: { api: PortalApi; vendor: boolean }) {
   const query = useQuery({ queryKey: ['overview'], queryFn: api.dashboard })
-  return <QueryFeedback query={query}>{query.data && <FormCard title="Account snapshot"><FactList><Fact label={vendor ? 'Bill balances payable to you' : 'Invoice balances due'} value={<Money amount={(vendor ? query.data.payableToYou : query.data.outstanding) ?? 0} />} /><Fact label={vendor ? 'Unpaid bills' : 'Open invoices'} value={vendor ? query.data.unpaidBillCount : query.data.openInvoiceCount} /></FactList><p>This snapshot covers up to 500 documents returned by the server. It is not a full account statement and does not include opening balances. Amounts omit a currency symbol because the portal API does not return the organisation currency.</p></FormCard>}</QueryFeedback>
+  const currency = query.data?.currency ?? 'INR'
+  return <QueryFeedback query={query}>{query.data && <FormCard title="Account snapshot"><FactList><Fact label={vendor ? 'Bill balances payable to you' : 'Invoice balances due'} value={<Money amount={(vendor ? query.data.payableToYou : query.data.outstanding) ?? 0} currency={currency} />} /><Fact label={vendor ? 'Unpaid bills' : 'Open invoices'} value={vendor ? query.data.unpaidBillCount : query.data.openInvoiceCount} /></FactList><p>This snapshot covers up to 500 documents returned by the server. It is not a full account statement and does not include opening balances.</p></FormCard>}</QueryFeedback>
 }
 
 export function PortalDocuments({ api, vendor }: { api: PortalApi; vendor: boolean }) {

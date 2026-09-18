@@ -18,6 +18,10 @@ public interface DayCloseRepository extends JpaRepository<DayClose, UUID> {
 
     Optional<DayClose> findByOrgIdAndRouteExecutionIdAndIsDeletedFalse(UUID orgId, UUID routeExecutionId);
 
+    Page<DayClose> findByOrgIdAndIsDeletedFalse(UUID orgId, Pageable pageable);
+
+    Page<DayClose> findByOrgIdAndStatusAndIsDeletedFalse(UUID orgId, String status, Pageable pageable);
+
     Page<DayClose> findByOrgIdAndSalespersonIdAndIsDeletedFalse(UUID orgId, UUID salespersonId, Pageable pageable);
 
     List<DayClose> findByOrgIdAndCloseDateAndIsDeletedFalse(UUID orgId, LocalDate closeDate);

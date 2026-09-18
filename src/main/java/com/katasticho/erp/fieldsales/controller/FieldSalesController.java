@@ -706,6 +706,23 @@ public class FieldSalesController {
                 service.initiateDayClose(routeExecutionId, openingCash), "Day close initiated"));
     }
 
+    @GetMapping("/day-close")
+    public ResponseEntity<ApiResponse<Page<DayClose>>> listDayCloses(
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        Pageable pageable = org.springframework.data.domain.PageRequest.of(
+                page, size, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt"));
+        return ResponseEntity.ok(ApiResponse.ok(service.listDayCloses(status, pageable)));
+    }
+
+    @GetMapping("/day-close/by-execution/{routeExecutionId}")
+    public ResponseEntity<ApiResponse<DayClose>> getDayCloseByExecution(@PathVariable UUID routeExecutionId) {
+        return service.getDayCloseByRouteExecution(routeExecutionId)
+                .map(dc -> ResponseEntity.ok(ApiResponse.ok(dc)))
+                .orElseThrow(() -> BusinessException.notFound("DayClose", routeExecutionId));
+    }
+
     @GetMapping("/day-close/{id}")
     public ResponseEntity<ApiResponse<DayClose>> getDayClose(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(service.getDayClose(id)));

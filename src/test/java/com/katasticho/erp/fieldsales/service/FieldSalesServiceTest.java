@@ -997,4 +997,55 @@ class FieldSalesServiceTest {
                 () -> service.submitDayClose(dayCloseId, BigDecimal.ZERO, BigDecimal.ZERO, null));
         assertEquals("FS_DAY_CLOSE_NOT_PENDING", ex.getErrorCode());
     }
+
+    @Test
+    void getDayCloseByRouteExecution_returnsMatchingClose() {
+        UUID execId = UUID.randomUUID();
+        DayClose dc = DayClose.builder().routeExecutionId(execId).status("PENDING").build();
+        when(dayCloseRepo.findByOrgIdAndRouteExecutionIdAndIsDeletedFalse(orgId, execId)).thenReturn(Optional.of(dc));
+
+        Optional<DayClose> result = service.getDayCloseByRouteExecution(execId);
+        assertTrue(result.isPresent());
+        assertEquals(execId, result.get().getRouteExecutionId());
+    }
+
+    @Test
+    void listDayCloses_filtersByStatusWhenProvided() {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 10);
+        DayClose dc = DayClose.builder().status("SUBMITTED").build();
+        when(dayCloseRepo.findByOrgIdAndStatusAndIsDeletedFalse(orgId, "SUBMITTED", pageable))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(dc)));
+
+        var page = service.listDayCloses("SUBMITTED", pageable);
+        assertEquals(1, page.getTotalElements());
+    }
+
+    @Test
+    void updateAssignment_nullVanId_clearsVan() {
+        UUID assignmentId = UUID.randomUUID();
+        com.katasticho.erp.fieldsales.entity.FieldSalesAssignment existing =
+                com.katasticho.erp.fieldsales.entity.FieldSalesAssignment.builder()
+                        .salespersonId(userId)
+                        .vanId(UUID.randomUUID())
+                        .effectiveFrom(java.time.LocalDate.now().minusDays(10))
+                        .isActive(true)
+                        .build();
+        existing.setId(assignmentId);
+        existing.setOrgId(orgId);
+
+        when(assignmentRepo.findByIdAndOrgId(assignmentId, orgId)).thenReturn(Optional.of(existing));
+        when(appUserRepository.findByIdAndOrgIdAndIsDeletedFalse(userId, orgId))
+                .thenReturn(Optional.of(com.katasticho.erp.auth.entity.AppUser.builder().active(true).build()));
+        when(assignmentRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        com.katasticho.erp.fieldsales.entity.FieldSalesAssignment updateInput =
+                com.katasticho.erp.fieldsales.entity.FieldSalesAssignment.builder()
+                        .salespersonId(userId)
+                        .vanId(null) // unassign van
+                        .build();
+
+        var updated = service.updateAssignment(assignmentId, updateInput);
+        assertNotNull(updated);
+        assertNull(updated.getVanId(), "Van must be unassigned when input vanId is null");
+    }
 }

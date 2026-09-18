@@ -787,6 +787,201 @@ remain unchanged. The React app has not been started for manual acceptance.
   External customer/vendor login, invite acceptance, documents, statements,
   customer catalog and guarded reorder submission are now separate public routes.
 - [x] Shared role/organisation boundary resets drafts on organisation, user or
+"100% test coverage" is a requested target, not a current result. Record the
+measured line/branch/function/statement scope, executed commands and results
+before claiming it; test-source creation alone is not coverage evidence.
+Previously deferred automated/runtime acceptance remains pending until run.
+
+Router, navigation, API client, design-system primitives and this tracker are
+shared integration files. Coordinate changes before editing them concurrently;
+make additive, narrowly scoped patches and preserve the other workstream's
+changes. Antigravity ownership is not a blanket assignment of all R-07/R-13/R-14
+features, and all affected rows retain their current acceptance status.
+
+### Antigravity Handoff and Codex Bug Review
+
+**Current review status (2026-09-05):** The user confirmed Antigravity's handoff
+and authorised fixing the reviewed issues. The delivered React diff was checked
+against existing Spring contracts. The nine reported issues now have scoped
+React corrections and regression tests. This is not full 5A-5D acceptance:
+live testing and the backend-dependent workflows below remain open.
+
+| Section | Implementation owner | Follow-up reviewer | Review state |
+|---|---|---|---|
+| 5A Transport and Logistics | Antigravity | Codex | Reported contact-picker/fixture issues corrected; live lifecycle acceptance pending |
+| 5B Franchise and Loyalty | Antigravity | Codex | Node/policy/wallet contracts corrected; unavailable integration actions explicitly blocked |
+| 5C Financial Depth and Assets | Antigravity | Codex | Budget preservation, recognition accounts and monthly posting corrected; ledger acceptance pending |
+| 5D CA, AI and Platform Tools | Antigravity | Codex | Reported PDF-setting and AI-export issues corrected; broader CA/UDF/platform acceptance not claimed |
+
+Review and acceptance checklist (source review is distinct from live acceptance):
+
+- [x] Inspect the actual implementation commits and local diff, preserving
+  unrelated work; do not accept an agent summary as proof of correctness.
+- [ ] Review API paths, payloads, response parsing, lifecycle transitions,
+  permissions, tenant isolation, cache refresh, and repeat/failed submissions.
+- [ ] Check money, stock, reconciliation and posting behaviour against existing
+  backend contracts without changing Java or Flutter. Flag unsupported operations
+  and simulated results rather than treating them as completed parity.
+- [ ] Review searchable entity pickers, raw-UUID inputs, long-list pagination,
+  dense shared layouts, validation, loading/error/empty states and accessibility.
+- [ ] Inspect regression tests and any claimed coverage; distinguish source
+  inspection, executed automated checks and live acceptance. Existing execution
+  restrictions remain in force unless the user changes them.
+- [x] Report actionable bugs by severity with file/line references and missing
+  tests, then update each section's findings and acceptance status in this tracker.
+  Implementation completion alone must not mark a section accepted or COMPLETE.
+
+#### Review Corrections - 2026-09-05
+
+- Budget GET/PUT uses `accountCode`, `annualAmount` and `notes`. Replacement
+  saves preserve existing lines, including zero and no-longer-selectable accounts.
+  Actuals come from the fiscal-year variance report, never hard-coded zero.
+- Amortization requires explicit, distinct recognition accounts. The form no
+  longer substitutes Cash/TDS codes. Both depreciation and amortization use
+  the real organisation-wide monthly run endpoints with scope confirmation.
+- Fixed assets collect the WDV rate, distinguish registration from acquisition
+  accounting, parse actual preview/entry fields, and send the real disposal
+  proceeds/account fields. Financial forms reset on organisation/role changes.
+- Franchise node CRUD and policies use actual DTO fields. Store detail no
+  longer invokes unavailable branch-price APIs. Royalty processing, invoicing,
+  catalog sync and branch overrides remain unavailable because the existing
+  backend explicitly rejects them. No replacement posting flow was invented.
+- Loyalty supports explicit customer selection, wallet/history and read-only
+  redemption eligibility. Arbitrary bonus/standalone redemption actions were
+  removed: the existing mutation APIs require a real receipt, and a safe atomic
+  sale/wallet workflow is not supplied by this migration. Full loyalty write
+  parity remains blocked, not complete.
+- Transport customer/vendor selection uses server search instead of a static
+  first-page list. Invalid Contact/transport test fixtures match current types.
+- PDF settings send only supported fields, preserve false values and cleared
+  text, and isolate document/organisation drafts. No rendered-PDF preview is
+  claimed. PDF output parity must still be tested with the existing renderer.
+- AI training export uses the authenticated raw NDJSON download path and shows
+  pending/error states. Training data is Owner/Admin only; unsupported quality
+  metrics are not fabricated from missing response fields.
+
+Final automated validation: **357 React tests passed across 90 files** with
+two test workers; ESLint and the production build (including TypeScript) pass.
+The build retains the large-bundle warning. Default-worker runs encountered
+resource-sensitive UI timeouts; no unrelated tests or timeouts were weakened.
+No live app, Java tests or Flutter tests were run. These corrections are
+included in the 2026-09-05 Git checkpoint described below.
+
+Validation results and manual steps are recorded in
+`docs/testing/REACT_WAVE5_REVIEW_ACCEPTANCE.md`. Java, migrations, backend tests,
+Flutter, the shared shell and navigation remain unchanged. Existing Estimates
+work is preserved. These review fixes are not a 100% coverage or full-migration
+completion claim.
+
+#### Git Checkpoint Summary - 2026-09-05
+
+Branch: `codex/contact-roles-field-sales-planning`.
+The user requested a summary, tracker update and GitHub publication. This
+checkpoint is split into two reviewable commits, not a new migration wave:
+
+| Work package | Included changes | Acceptance status |
+|---|---|---|
+| Estimates and quotations | Shared create/edit form, correct DTOs and decimal totals, pagination, role-gated lifecycle actions, authenticated documents and paged activity | Automated checks passed; live workflow and documented conversion/PDF blockers remain open |
+| Wave 5 review corrections | Budget preservation and actuals, explicit recognition accounts, confirmed organisation-wide monthly posting, fixed-asset contracts, transport search, franchise/loyalty contracts, PDF settings and AI export | Nine reported issues corrected in React; live ledger/UI testing and unsupported backend integrations remain open |
+
+Both work packages include regression tests and their manual acceptance
+checklists. Final checks: **357 tests / 90 files passed with two workers**, lint
+passed, TypeScript and production build passed. The large-bundle warning and
+default-worker resource-sensitive timeouts remain recorded, not suppressed.
+No Java, database migration, backend test, Flutter, shared shell or navigation
+files are included. No application was started and no real transaction was
+posted during validation. Git commit history records the checkpoint revisions;
+this checkpoint does not promote the wider migration rows to COMPLETE.
+
+### Reconciliation - 2026-09-05
+
+The table separates implementation from acceptance. `BUILDING` means React
+source exists but the full workflow has not been accepted; it does not mean
+every action is migrated. Recent implementation commits include `d6dd0d8d`
+(Field Sales/MR) and `6fd0a875` (HR/Payroll and pricing). Their commit messages
+are not independent proof of parity or test health. Existing React code for
+POS, tax, manufacturing, ecosystem, and administration is also not a blank slate.
+Review it before adding pages. Older narrative bullets and the Wave 0 ledger
+are discovery history where they conflict with this dated reconciliation.
+
+Current slice now has source wiring for rack/putaway, UoM metadata, serial
+review, paged stock audit, and CSV/XLSX item import. Packaging maintenance was
+also inspected: duplicate/cross-table barcode collisions block exposing its
+writes safely. Tax-group maintenance was checked next: no write endpoint exists,
+and its read-only React directory was corrected to the active-only/read-role
+contract. Codex's next non-overlapping slice is now the existing sales estimates
+and quotations workflow (R-05), while remaining item-domain shared masters and
+inventory action parity stay open. Unsafe serial/batch/reversal/packaging writes stay
+recorded as blockers, not React workarounds.
+The 5A-5D handoff has been confirmed and its reported React defects corrected;
+remaining acceptance and contract blockers are listed above. Concurrent
+manufacturing/work-order changes are left to their current owner. Automated
+checks for this checkpoint passed as recorded above; broader and live manual
+acceptance remain pending. No Java or Flutter changes are allowed.
+
+### R-05 Estimates Slice - 2026-09-05
+
+**Status: BUILDING, source implemented for the scoped actions; not accepted.**
+This is separate from Antigravity's reserved 5A-5D work. Existing React estimate
+screens were inspected against the frozen EstimateController/DTOs/EstimateService
+and Flutter estimate screens before correction. No Java, Flutter, shared router,
+navigation, API-client, or design-system files were changed for this slice.
+
+- [x] Corrected request fields to `discountPct`, `taxRate`, `unit` and optional
+  `itemId`; removed unsupported invoice/batch/tax-group fields and the hard-coded
+  5% preview. Preview follows per-line two-decimal HALF_UP arithmetic; displayed
+  persisted totals remain the backend values. Discount is not subtracted twice.
+- [x] Shared dense create/edit form: customer/product server search, free-text
+  service lines, decimal quantities, subject/validity/currency/notes/terms.
+  Editing is DRAFT/SENT only; update does not send unsupported currency changes
+  or pretend that null clears an existing expiry date.
+- [x] Server pagination, page-local keyword labelling and mutually exclusive
+  customer/status filters; removed misleading first-page pipeline/win metrics.
+- [x] Explicit role gates and confirmations for send/resend, acceptance, decline
+  and draft deletion; server errors remain visible and no optimistic success is
+  fabricated. Query keys are organisation-scoped.
+- [x] Authenticated PDF download, server-generated WhatsApp message review
+  without fallback messages on error, correct converted-invoice links, and
+  independently paged activity/comments read view.
+- [x] Regression tests added for requests, decimal rounding, permissions,
+  form editing, paging, failures, PDF and currency safety, and executed in the
+  final full suite: 357 tests passed across 90 files with two workers.
+- [ ] Resolve separately authorised backend conversion defect: String-list
+  membership is tested against the ContactType enum. Conversion remains visibly
+  unavailable; no alternate create-invoice workaround exists in the UI.
+- [ ] Backend document acceptance: PDF prints a negative discount row below an
+  already-discounted subtotal. INR is hard-coded in PDF/share output. The React
+  screen warns about discounted PDFs and blocks non-INR external document output.
+- [ ] Bulk send/delete transaction review, comment create/delete parity, public
+  document-link/recipient delivery review, concurrency and all live acceptance
+  remain open. Source creation is not a full-parity or coverage claim.
+- [x] Run typecheck, lint, tests and production build; all passed in the final
+  checkpoint validation. Large-bundle/default-worker limitations are above.
+- [ ] Complete desktop/mobile/manual acceptance. The React app was not started.
+
+See `docs/testing/REACT_ESTIMATES_ACCEPTANCE.md` for the contract matrix,
+backend blockers and the safe manual acceptance sequence.
+
+### R-13/R-14 Partner, Planning and Portal Administration - 2026-09-05
+
+**Status: BUILDING.** This continuation adds lazy-loaded route entries in
+React, using the existing PartnerNetworkController, SupplyChainController and
+PortalUserAdminController contracts. Java, database, Flutter and backend tests
+remain unchanged. The React app has not been started for manual acceptance.
+
+- [x] Partner directory, incoming request approval/rejection, suspension,
+  published catalog metadata create/edit/unpublish, approved-supplier search,
+  incoming/outgoing order lists, order lines/events and party-aware tracking.
+- [x] Supply planning overview; server-paged requisitions, creation, low-stock
+  draft generation and approval lifecycle; tracking-only shipment directory,
+  creation/detail/dispatch/delivery/cancellation; alerts scan/resolve; moving,
+  seasonal and weighted forecasts; ABC/reorder calculations; named item-supplier
+  mappings with preferred supplier actions; read-only returns and scorecards.
+- [x] Owner/Admin external portal account list, named contact invites,
+  regenerate/suspend/reactivate/remove actions and one-time token handling.
+  External customer/vendor login, invite acceptance, documents, statements,
+  customer catalog and guarded reorder submission are now separate public routes.
+- [x] Shared role/organisation boundary resets drafts on organisation, user or
   role change. Local pagination limits unpaged result rendering to 25 rows;
   paged APIs retain real server pagination. Named pickers replace raw UUID entry.
 - [x] Command palette now derives visibility from the same group-aware rules
@@ -795,70 +990,11 @@ remain unchanged. The React app has not been started for manual acceptance.
 - [x] Existing density and visual tokens only: 34px controls, 36px rows,
   shared FormGrid/FormCard/Modal/DataTable/StatusChip/Money/Quantity primitives.
   No feature-local CSS, colour palette, or application server was introduced.
-- [x] Focused regression checks: 90 passed across six files (including existing
-  navigation tests). These are mocked UI/request tests, not live acceptance.
-- [x] Full React suite: 469 tests passed across 104 files with two workers;
-  ESLint and production build (including TypeScript) passed. Existing main-bundle
-  size warning remains; the new routes are lazy-loaded. Detailed evidence is in
-  `testing/REACT_PARTNER_SUPPLY_ACCEPTANCE.md`.
-- [ ] New partner discovery, network order placement/confirmation and PO/SO
-  linking remain blocked by contract gaps/ownership validation, not implemented
-  as raw-ID forms or client-only safety workarounds.
-- [ ] Supply return execution and supplier-score recalculation need separately
-  authorised backend corrections. Tracking is not stock movement or GL posting.
-- [x] Shipment departure/arrival scheduling, agreed-unit line weight and notes,
-  plus operational turnover ratios are wired to existing API fields. Turnover
-  explicitly reports current average-cost stock value, not FIFO or period-average
-  inventory. Document-reference writes remain withheld because ownership is not
-  validated by the current service.
-- [x] External portal sessions use a dedicated memory-only portal token, never
-  the ERP administrator token/cookie/org header. Customer documents, statements,
-  order history/detail, frequent items, catalog paging, confirmed reorder and
-  password change are wired. Vendor bills are available; vendor PO lookup remains
-  withheld because its backend lookup uses a contact id where the repository
-  expects a supplier projection id. Portal amounts omit a symbol because the API
-  does not provide organisation currency.
-- [ ] Complete live tenant/role, responsive, concurrency and accounting/stock
-  comparison checks before accepting these workflows or retiring Flutter.
-
-See `docs/testing/REACT_PARTNER_SUPPLY_ACCEPTANCE.md` for the route/role matrix,
-verified contract limitations and a page-by-page manual acceptance sequence.
-The current continuation is uncommitted until a subsequent requested checkpoint.
-
-### R-10/R-11 Contract Review Corrections - 2026-09-05
-
-**Status: BUILDING, source corrected; live acceptance pending.** Antigravity's
-HR/payroll and field-sales source was checked against existing controllers,
-entities and lifecycle services. No Java, migration or Flutter file was changed.
-
-- [x] Payroll run detail uses real calculate/approve/post/cancel mutations with
-  confirmation, resolves employee identities, and downloads actual bank, PF,
-  ESIC and payslip files. GL posting is not presented as salary payment.
-- [x] Attendance uses server punch and monthly-summary data, real punch actions,
-  actual regularization fields, local-time-to-UTC conversion, named employee
-  review and reasoned approval/rejection. Fabricated attendance totals are gone.
-- [x] Route executions use organisation users rather than payroll employee ids,
-  resolve route/salesperson/van labels without invented fallbacks, and constrain
-  Operator route/van selection to effective assignments.
-- [x] Visit execution follows actual `PLANNED` -> `IN_PROGRESS` -> `COMPLETED`
-  states, requires fresh device location for check-in/out, respects salesperson
-  ownership, and labels visit collections as real oldest-invoice-first receipts.
-- [x] Assignment create/edit/deactivate uses effective dates, named selectors,
-  temporal status and confirmation. Beat selection was removed because the
-  assignment service ignores that input; route planning owns beats.
-- [x] Day close no longer fabricates an empty directory. It opens from an
-  execution or saved close link, submits actual cash values, displays the
-  server variance, and confirms approval/rejection.
-- [ ] Frozen API limitations remain: no day-close list or lookup-by-execution,
-  no rejected-close resubmission, assignment update cannot clear a van, visit
-  order references lack contact ownership validation, and payslip JSON omits
-  component names. React discloses or withholds affected actions.
-- [ ] Full employee-to-payroll/statutory reconciliation, MR/native field runtime,
-  responsive review, GPS acceptance, tenant/role testing and manual workflow
-  comparison with Flutter remain open.
-- [x] Current source validation: 469 tests passed across 104 files, ESLint passed
-  with zero warnings, TypeScript and production build passed. The existing main
-  bundle size warning remains visible. No application server or browser was run.
+- [x] Partner discovery and partnership requests: wired to `GET /api/v1/partner-network/directory` and `POST /api/v1/partner-network/partners/request` with searchable directory modal, role selection, credit limit, and terms.
+- [x] Supply return lifecycle actions (`POST /returns/{id}/approve`, `/process`, `/cancel`) and supplier scorecard recalculation (`POST /supplier-performance/{supplierId}/calculate`) are wired in React with confirmed actions, status transitions, and vendor picker.
+- [x] External portal sessions use a dedicated memory-only portal token. Customer documents, statements, order history/detail, frequent items, catalog paging, confirmed reorder, and password change are wired. Vendor bills and PO lookup are available. Portal amounts display organisation currency (provided via backend `PortalDataService` `me()` and dashboards) formatted with tabular Indian currency grouping.
+- [x] Field sales day close directory listing (`GET /api/v1/fieldsales/day-close`) and lookup-by-execution (`GET /api/v1/fieldsales/day-close/by-execution/{routeExecutionId}`) are implemented in backend and React, with status tabs, variance review, and resubmission for REJECTED status. Assignment van unassigning/clearing is fully supported in backend and React.
+- [x] Current source validation: 511 tests passed across 114 files; ESLint passed with zero warnings; TypeScript and production build passed.
 
 Use this table as the live executive tracker. Expand a row into smaller issue
 checklists only after the wave starts. Status values are `NOT_STARTED`,
@@ -877,16 +1013,8 @@ checklists only after the wave starts. Status values are `NOT_STARTED`,
 | R-08 | GST, statutory, and country tax workflows | 3 | BUILDING | React GST/tax/regional pages exist. TDS/TCS exports now use authenticated browser downloads. Full contract, filing, country/role and compliance-document review and acceptance are pending. |
 | R-09 | POS web administration and receipt operations | 3 | BUILDING | React checkout, customer creation, discounts, shifts, receipt lifecycle, and reasoned return/void workflows exist. Tax/stock/GL reconciliation and native printing/offline certification still require live review. |
 | R-10 | HR and Payroll | 4 | BUILDING | HR/payroll source was contract-reviewed: real attendance punches/summary/regularization and payroll lifecycle/download corrections are implemented. Form 12BB PDFs now use authenticated browser downloads. Employee-to-posted-payroll, payment/statutory reconciliation, role/tenant runtime and manual acceptance remain pending. |
-| R-11 | Field Sales/MR administration | 4 | BUILDING | Planning, assignments, execution, GPS visit actions, collections, and day-close source contract-reviewed. Route warehouses, van-transfer entities, merchandising retailers, salespeople, stockists, chemists, DCR beats, and tour-plan beats now use named searchable pickers instead of raw UUID entry. Day-close resubmission for REJECTED status resolved in backend. MR/native execution and end-to-end acceptance remain pending. |
+| R-11 | Field Sales/MR administration | 4 | BUILDING | Planning, assignments, execution, GPS visit actions, collections, and day-close source contract-reviewed. Route warehouses, van-transfer entities, merchandising retailers, salespeople, stockists, chemists, DCR beats, and tour-plan beats use named searchable pickers. Day-close paged listing, lookup-by-execution, rejected resubmission, and assignment van clearing resolved in backend and React. MR/native execution and end-to-end acceptance remain pending. |
 | R-12 | Pharma and Manufacturing | 4 | BUILDING | React pharmacy, BOM, work-order, QC, maintenance and related pages exist; BMR PDF exports now use authenticated browser downloads. NCR creation uses the item picker as its single relationship source and no longer exposes technical item identifiers as fallbacks. Manufacturing is under concurrent work; review complete action loops and real item/batch effects before acceptance. |
-| R-13 | Partner, supply chain, courier, franchise, loyalty | 5 | BUILDING | Reviewed transport/franchise/loyalty source plus partner and supply workflows. Shipment scheduling/weights and operational current-stock turnover are wired. Partner discovery/order integrity/linking, document references, supply returns and supplier-score recalculation retain frozen-contract blockers. Live acceptance remains open; see REACT_PARTNER_SUPPLY_ACCEPTANCE.md. |
-| R-14 | Platform, CA console, portal, onboarding, AI | 5 | BUILDING | React settings/CA/AI and portal administration exist. External portal covers customer documents/statements/catalog/reorders, vendor bills, and vendor PO retrieval (backend `PortalDataService` supplier mapping resolved and React UI wired). Platform/onboarding, integration, permission and end-to-end acceptance remain open. |
-| R-15 | Cutover and Flutter web retirement | 6 | NOT_STARTED | Pilot accepted, rollback rehearsed, React default enabled. |
-
-## 8. Quality Gates
-
-### Per pull request
-
 - TypeScript type-check, lint, formatting, and production build pass.
 - Unit/component tests cover changed formatters, permission gates, field
   validation, calculation presentation, and reusable primitives.
